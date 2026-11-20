@@ -1,10 +1,12 @@
 import {
-  buildFull, createMatch, loadGameData, normalizeNickname, sameNickname,
-  type JoinErrorName, type LobbyMsg, type MatchState, type NoticeMsg,
+  buildFull, buildTick, createMatch, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
+  type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchState, type NoticeMsg,
+  type ResultMsg,
 } from '@dorandi/logic';
 import { jumpToTick } from '@dorandi/logic/testing';
 
 const MAX_SEATS = 6;
+const TICK_MS = 50;
 
 export interface ClientLink { id: string; send(type: string, msg: unknown): void; close(code?: number): void }
 export interface RoomDeps {
@@ -24,7 +26,7 @@ export class JoinError extends Error {
 
 interface LobbySeat { seat: number; name: string; ready: boolean; linkId: string }
 
-/** Transport-free room rules: lobby, start, and (Task 12/13) the running match. */
+/** Transport-free room rules: lobby, start, the fixed-step match loop and (Task 13) rejoin and rematch. */
 export class RoomCore {
   phase: 'lobby' | 'playing' | 'result' | 'closed' = 'lobby';
   match: MatchState | null = null;
@@ -35,6 +37,19 @@ export class RoomCore {
   hostSeat: number | null = null;
   names: Record<number, string> = {};
   keys: Record<number, string> = {};
+  /** Seat -> the lane that seat's player is shown (a living seat always watches its own lane). */
+  watching: Record<number, number> = {};
+  /** Input log: one entry per tick that had inputs, in server arrival order. */
+  readonly log: InputLogEntry[] = [];
+  /** Update number carried by the last `tick`/`lane` pair. */
+  n = 0;
+
+  private queue: MatchInput[] = [];
+  private streamer: MatchStreamer | null = null;
+  /** Lane seat -> event batches since the last `lane` message. */
+  private pending = new Map<number, LaneBatch[]>();
+  private lastTickAt = 0;
+  private resultAt = 0;
 
   constructor(readonly roomId: string, readonly deps: RoomDeps, readonly options: RoomOptions = {}) {}
 
@@ -81,10 +96,105 @@ export class RoomCore {
       if (type === 'ready') return this.onReady(entry.seat, payload);
       return this.onStart(entry.link, entry.seat);
     }
+    if (type === 'cmd') return this.onCommand(entry.seat, payload);
+    if (type === 'watch') return this.onWatch(entry.link, entry.seat, payload);
+    if (type === 'resync') {
+      if (this.match) this.sendFull(entry.link, entry.seat);
+    }
   }
 
-  /** Server clock driver; the match loop arrives in Task 12. */
-  advance(): void {}
+  /** Server clock driver: runs every 50 ms tick that has come due (none are skipped), then closes the room after the result hold. */
+  advance(): void {
+    const now = this.deps.now();
+    if (this.phase === 'playing') {
+      while (this.phase === 'playing' && now - this.lastTickAt >= TICK_MS) {
+        this.lastTickAt += TICK_MS;
+        this.runTick();
+      }
+    }
+    if (this.phase === 'result' && now - this.resultAt >= this.match!.data.coop!.resultSeconds * 1000) {
+      this.phase = 'closed';
+      this.deps.dispose();
+    }
+  }
+
+  private onCommand(seat: number, payload: unknown): void {
+    const match = this.match;
+    if (this.phase !== 'playing' || !match) return;
+    const parsed = parseClientCommand(payload, match.lanes[seat]?.slots.length);
+    if (!parsed) return;
+    let count = 0;
+    for (const q of this.queue) if (q.seat === seat) count++;
+    if (count >= match.data.coop!.maxCommandsPerTick) return;
+    this.queue.push({ seat, seq: parsed.seq, cmd: parsed.cmd });
+  }
+
+  private onWatch(link: ClientLink, seat: number, payload: unknown): void {
+    const match = this.match;
+    if (this.phase !== 'playing' || !match || match.seats[seat]?.alive !== false) return;
+    const target = (payload as { seat?: unknown } | null)?.seat;
+    if (typeof target !== 'number' || !match.ring.includes(target) || !match.seats[target]!.alive) return;
+    this.watching[seat] = target;
+    this.sendFull(link, seat);
+  }
+
+  private runTick(): void {
+    const match = this.match!;
+    // 1. close this tick's queue and step
+    const inputs = this.queue.splice(0);
+    const step = stepMatch(match, inputs);
+    if (inputs.length > 0) this.log.push({ tick: step.tick, inputs });
+
+    // 2. per-seat updates go out right away
+    const out = this.streamer!.afterStep(step);
+    for (const { link, seat } of this.links.values()) {
+      const mine = out.mine[seat];
+      if (mine) link.send('mine', mine);
+    }
+
+    // 3. lane events wait for the next update
+    for (const seat of match.ring) this.pending.get(seat)!.push({ tick: step.tick, events: out.lanes[seat] ?? [] });
+
+    // 4. spirits watching a fallen lane (or their own) move to the lowest living seat
+    const needFull = new Set<number>();
+    const alive = match.ring.filter(s => match.seats[s]!.alive);
+    for (const seat of match.ring) {
+      if (match.seats[seat]!.alive) continue;
+      const w = this.watching[seat]!;
+      if ((w === seat || !match.seats[w]?.alive) && alive.length > 0) {
+        this.watching[seat] = alive[0]!;
+        needFull.add(seat);
+      }
+    }
+
+    // 5. every second tick: one numbered update to everyone
+    if (step.tick % 2 === 1) {
+      this.n += 1;
+      const tick = buildTick(match, this.names, this.n);
+      for (const { link, seat } of this.links.values()) {
+        const w = this.watching[seat]!;
+        link.send('tick', tick);
+        link.send('lane', { n: this.n, seat: w, batches: this.pending.get(w) ?? [] });
+      }
+      for (const seat of match.ring) this.pending.set(seat, []);
+    }
+
+    // 6. snapshots for those whose lane changed
+    for (const { link, seat } of this.links.values()) if (needFull.has(seat)) this.sendFull(link, seat);
+
+    // 7. the result, once
+    if (match.result && this.phase === 'playing') {
+      this.phase = 'result';
+      this.resultAt = this.deps.now();
+      const msg: ResultMsg = { result: structuredClone(match.result) };
+      for (const { link } of this.links.values()) link.send('result', msg);
+    }
+  }
+
+  private sendFull(link: ClientLink, seat: number): void {
+    const match = this.match!;
+    link.send('full', buildFull(match, seat, { watching: this.watching[seat] ?? seat, names: this.names, key: this.keys[seat]!, n: this.n }));
+  }
 
   private onReady(seat: number, payload: unknown): void {
     const ready = (payload as { ready?: unknown } | null)?.ready;
@@ -106,16 +216,20 @@ export class RoomCore {
     this.phase = 'playing';
     const seed = deps.dev && options.seed !== undefined ? options.seed : deps.randomSeed();
     const ring = [...this.seats.keys()].sort((a, b) => a - b);
-    this.match = createMatch(loadGameData('stage2'), seed, ring, { noElimination: deps.dev && options.devNoElimination === true });
+    // Only set the option when it is on, so a normal room hashes (and replays) like createMatch with default options.
+    const matchOptions = deps.dev && options.devNoElimination === true ? { noElimination: true } : {};
+    this.match = createMatch(loadGameData('stage2'), seed, ring, matchOptions);
     if (deps.dev && options.devJumpTick !== undefined) jumpToTick(this.match, options.devJumpTick);
     deps.setAutoDispose(false);
     for (const seat of ring) {
       this.names[seat] = this.seats.get(seat)!.name;
       this.keys[seat] = deps.random128();
+      this.watching[seat] = seat;
+      this.pending.set(seat, []);
     }
-    for (const { link, seat } of this.links.values()) {
-      link.send('full', buildFull(this.match, seat, { watching: seat, names: this.names, key: this.keys[seat]!, n: 0 }));
-    }
+    this.streamer = new MatchStreamer(this.match);
+    this.lastTickAt = deps.now();
+    for (const { link, seat } of this.links.values()) this.sendFull(link, seat);
   }
 
   private notice(link: ClientLink, msg: NoticeMsg): void {
