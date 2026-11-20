@@ -40,8 +40,11 @@ describe('final review fixes: placement and press handling', () => {
     const got: string[] = [];
     onAction(node as never, a => got.push(a));
     listeners.pointerdown?.({ target: button, button: 0 });
+    listeners.click?.({ target: button, detail: 1 });
     listeners.pointerdown?.({ target: button, button: 2 });
     expect(got).toEqual(['summon']);
+    listeners.click?.({ target: button, detail: 0 });
+    expect(got).toEqual(['summon', 'summon']);
   });
 });
 

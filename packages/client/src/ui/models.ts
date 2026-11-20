@@ -107,7 +107,9 @@ export function combineOptions(state: GameState, slot: number): {
   result: string; name: string; grade: number; missing: string[]; key: 'Z' | 'X' | 'C' | null;
 }[] {
   let ready = 0;
-  return recipesUsing(state, slot).map(({ result, missing }) => {
+  const recipes = recipesUsing(state, slot);
+  const readyFirst = [...recipes.filter(r => !r.missing.length), ...recipes.filter(r => r.missing.length)];
+  return readyFirst.map(({ result, missing }) => {
     const { name, grade } = unitDefFast(state.data, result);
     return {
       result, name, grade,

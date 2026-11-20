@@ -6,7 +6,7 @@ import { dexHtml } from './dex';
 import { el, onAction, setHtml } from './dom';
 import { renderHelper } from './helper';
 import { renderHud } from './hud';
-import { activeNotice, combineOptions, nextUnitId, rejectText, selectedSlot, type Notice } from './models';
+import { activeNotice, nextUnitId, rejectText, selectedSlot, type Notice } from './models';
 import { renderBottom, renderRight, upgradesHtml } from './panels';
 import { resultHtml } from './result';
 
@@ -20,7 +20,7 @@ export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: 
 
 export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {}): { resetUi: () => void } {
   scene.selectedId = null;
-  let lastSlot: number | null = null;
+  let displayedCard: ReturnType<typeof renderBottom> | null = null;
   let banner: Notice | null = null;
   let helperOpen = false;
   let modal: 'dex' | 'upgrades' | null = null;
@@ -28,6 +28,8 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
   let notice: Notice | null = null;
 
   const act = (action: string, arg: string) => {
+    if (driver.failed && action !== 'restart') return;
+    const previousModal = modal;
     switch (action) {
       case 'summon': driver.queue({ type: 'summon' }); break;
       case 'convert': driver.queue({ type: 'convertToken' }); break;
@@ -35,13 +37,13 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
         const [result = '', target] = arg.split('@');
         if (target === undefined) driver.queue({ type: 'combine', result });
         else {
-          const slot = selectedSlot(driver.state, scene.selectedId);
+          const slot = selectedSlot(driver.state, Number(target));
           if (slot !== null) driver.queue({ type: 'combine', result, slot });
         }
         break;
       }
       case 'sell': {
-        const slot = selectedSlot(driver.state, scene.selectedId);
+        const slot = selectedSlot(driver.state, Number(arg));
         if (slot !== null) driver.queue({ type: 'sell', slot });
         break;
       }
@@ -56,13 +58,19 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
       case 'restart': hooks.onRestart?.(); break;
     }
     render();
+    if (modal && modal !== previousModal) el('modal').querySelector<HTMLButtonElement>('button')?.focus();
   };
 
-  for (const id of ['left', 'right', 'bottom', 'modal']) onAction(el(id), act);
-  scene.onSelect(slot => { scene.selectedId = slot === null ? null : driver.state.slots[slot]?.id ?? null; render(); });
+  for (const id of ['left', 'right', 'bottom', 'modal', 'error']) onAction(el(id), act);
+  scene.onSelect(slot => {
+    if (modal || driver.failed || driver.state.phase === 'ended') return;
+    scene.selectedId = slot === null ? null : driver.state.slots[slot]?.id ?? null;
+    render();
+  });
   driver.onEvents((events, rejected) => {
+    const priorSelection = scene.selectedId;
     for (const event of events) {
-      if (event.type === 'combine' && event.slot === lastSlot && selectedSlot(driver.state, scene.selectedId) === null) {
+      if (event.type === 'combine' && event.replacedUnitId === scene.selectedId) {
         scene.selectedId = event.unitId;
       }
       if (event.type === 'roundStart') {
@@ -78,6 +86,7 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
       const text = rejectText(fullBoard ? 'noSlot' : r.reason);
       if (text) notice = { text, until: performance.now() + NOTICE_MS };
     }
+    if (scene.selectedId !== priorSelection) render();
   });
   scene.onEvents(events => {
     for (const e of events) {
@@ -94,42 +103,46 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
   });
 
   window.addEventListener('keydown', ev => {
-    if (ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+    if (driver.failed || ev.defaultPrevented || ev.isComposing || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+    const target = ev.target as HTMLElement | null;
+    if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
     if (ev.code === 'Escape') {
       if (modal) act('closeModal', '');
       else { scene.selectedId = null; render(); }
       return;
     }
-    if (driver.state.phase === 'ended') return;
-    const selected = selectedSlot(driver.state, scene.selectedId);
+    if (modal || driver.state.phase === 'ended') return;
+    if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button')) return;
+    const card = displayedCard;
     const upgrade = UPGRADE_KEYS[ev.code];
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (upgrade) act('upgrade', upgrade);
     else if (ev.code === 'KeyQ') act('toggleHelper', '');
     else if (ev.code === 'KeyP') { driver.paused = !driver.paused; render(); }
-    else if (!modal && (ev.code === 'Tab' || ev.code === 'KeyW')) {
+    else if (ev.code === 'Tab' || ev.code === 'KeyW') {
       ev.preventDefault();
       scene.selectedId = nextUnitId(driver.state, scene.selectedId);
       render();
     }
-    else if (!modal && (ev.code === 'KeyS' || ev.code === 'Delete') && selected !== null) act('sell', String(selected));
-    else if (selected !== null && (ev.code === 'KeyZ' || ev.code === 'KeyX' || ev.code === 'KeyC')) {
-      const option = combineOptions(driver.state, selected).find(o => `Key${o.key}` === ev.code);
-      if (option) act('combine', `${option.result}@${selected}`);
+    else if ((ev.code === 'KeyS' || ev.code === 'Delete') && card?.unitId != null) act('sell', String(card.unitId));
+    else if (card?.unitId != null && (ev.code === 'KeyZ' || ev.code === 'KeyX' || ev.code === 'KeyC')) {
+      const option = card.recipes.find(o => `Key${o.key}` === ev.code);
+      if (option) act('combine', `${option.result}@${card.unitId}`);
     }
   });
 
   function render(): void {
     const s = driver.state;
     const selected = selectedSlot(s, scene.selectedId);
-    lastSlot = selected;
     if (selected === null) scene.selectedId = null;
     const now = performance.now();
     renderHud(s, driver.paused, activeNotice(notice, now));
     el('round-banner').textContent = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? '';
     renderHelper(s, helperOpen);
     renderRight(s);
-    renderBottom(s, selected);
+    displayedCard = renderBottom(s, selected);
+    const dialogOpen = modal !== null || s.phase === 'ended';
+    for (const id of ['left', 'right', 'bottom', 'lane']) el(id).inert = dialogOpen;
     setHtml(el('modal'), s.phase === 'ended' ? resultHtml(s, best?.id ?? null) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
     hooks.onRender?.();
   }

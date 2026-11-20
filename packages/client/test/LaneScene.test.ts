@@ -1,3 +1,5 @@
+import { EventEmitter } from 'node:events';
+import { laneToCanvas } from '../src/layout';
 import { createGame, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { expect, test, vi } from 'vitest';
@@ -6,25 +8,47 @@ import { LaneScene } from '../src/LaneScene';
 
 vi.mock('phaser', () => ({ default: { Scene: class {} } }));
 
-test('combine markers appear for every eligible copy and clear when a material is consumed', () => {
+function setupScene() {
   const state = createGame(loadGameData(), 1);
   const driver = new GameDriver(state);
   const scene = new LaneScene(driver);
   const circle = vi.fn((_x: number, _y: number, _radius: number, _color: number) => ({ setVisible: vi.fn() }));
-  const container = () => {
-    const view = {
-      x: 0, y: 0, add: vi.fn(), on: vi.fn(), destroy: vi.fn(),
+  const container = vi.fn(() => {
+    const view = Object.assign(new EventEmitter(), {
+      x: 0, y: 0, add: vi.fn(), destroy: vi.fn(),
       setSize: () => view, setInteractive: () => view, setDepth: () => view,
       setPosition: (x: number, y: number) => { view.x = x; view.y = y; },
-    };
+    });
     return view;
-  };
+  });
   const tweens = { add: vi.fn() };
   Object.assign(scene, {
     textures: { exists: () => true },
     add: { circle, container, image: vi.fn() },
     tweens,
   });
+  return { state, driver, scene, circle, tweens, container };
+}
+
+test('drop moves the dragged unit after a pending swap', () => {
+  const { scene, driver, state, container } = setupScene();
+  const a = placeUnitForTest(state, 'sotlid', 0);
+  const b = placeUnitForTest(state, 'bujigaengi', 1);
+  scene['placeUnits']();
+  const view = container.mock.results[1]!.value!;
+  driver.queue({ type: 'move', from: 0, to: 1 });
+  view.emit('dragstart', { rightButtonDown: () => false });
+  driver.update(50);
+  const target = laneToCanvas({ x: 2.5, y: 0.5 });
+  view.setPosition(target.x, target.y);
+  view.emit('dragend');
+  driver.update(50);
+  expect(state.slots[2]?.id).toBe(b.id);
+  expect(state.slots[1]?.id).toBe(a.id);
+});
+
+test('combine markers appear for every eligible copy and clear when a material is consumed', () => {
+  const { state, driver, scene, circle, tweens } = setupScene();
   const markers = () => circle.mock.calls.flatMap(([, , radius], i) =>
     radius === 3 ? [circle.mock.results[i]!.value.setVisible] : [],
   );
@@ -63,13 +87,33 @@ test('a frame failure shows the exception once and stops further simulation', ()
   const error = new Error('화면 갱신 실패');
   const update = vi.spyOn(driver, 'update').mockImplementation(() => { throw error; });
   const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-  const banner = { textContent: '', hidden: true };
-  vi.stubGlobal('document', { getElementById: () => banner });
+  const banner = { hidden: true };
+  const message = { textContent: '' };
+  const restart = { focus: vi.fn() };
+  vi.stubGlobal('document', {
+    getElementById: (id: string) => ({ 'error': banner, 'error-restart': restart, 'error-message': message })[id],
+  });
   try {
     scene.update(0, 16);
     scene.update(16, 16);
-    expect(banner).toEqual({ textContent: '게임 오류 · 화면 갱신 실패', hidden: false });
+    expect(banner.hidden).toBe(false);
+    expect(message.textContent).toBe('게임 오류 · 화면 갱신 실패');
+    expect(restart.focus).toHaveBeenCalledOnce();
     expect(update).toHaveBeenCalledTimes(1);
+    driver.queue({ type: 'summon' });
+    expect(driver['pending']).toHaveLength(0);
+    const clearable = { clear: vi.fn() };
+    Object.assign(scene, {
+      tweens: { killAll: vi.fn() }, effects: clearable, overlay: clearable, coverage: clearable,
+      fires: clearable, cameras: { main: { resetFX: vi.fn() } },
+    });
+    update.mockRestore();
+    driver.reset(createGame(driver.state.data, 2));
+    scene.reset();
+    vi.spyOn(scene as unknown as { renderBoard(): void }, 'renderBoard').mockImplementation(() => {});
+    scene.update(32, 50);
+    expect(banner.hidden).toBe(true);
+    expect(driver.state.tick).toBe(1);
     expect(log).toHaveBeenCalledExactlyOnceWith(error);
   } finally {
     vi.unstubAllGlobals();

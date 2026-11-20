@@ -18,13 +18,12 @@ export class LaneScene extends Phaser.Scene {
   private overlay!: Phaser.GameObjects.Graphics;
   private fires!: Phaser.GameObjects.Graphics;
   private jangseung!: Phaser.GameObjects.Rectangle;
-  private dragging: { view: UnitView; from: number } | null = null;
+  private dragging: UnitView | null = null;
   private selectListeners: ((slot: number | null) => void)[] = [];
   private eventListeners: ((events: GameEvent[]) => void)[] = [];
   selectedId: number | null = null;
   private hoveredId: number | null = null;
   private effects!: Phaser.GameObjects.Group;
-  private failed = false;
   private openKey = '';
 
   constructor(driver: GameDriver) {
@@ -80,7 +79,6 @@ export class LaneScene extends Phaser.Scene {
     this.coverage.clear();
     this.fires.clear();
     this.cameras.main.resetFX();
-    this.failed = false;
     document.getElementById('error')!.hidden = true;
     this.units.clear();
     this.enemies.clear();
@@ -138,7 +136,7 @@ export class LaneScene extends Phaser.Scene {
       const unit = this.state.slots[slot]!;
       const view = this.units.get(unit.id);
       if (!view) return;
-      const cell = view === this.dragging?.view ? canvasToCell(view.x, view.y) : slot;
+      const cell = view === this.dragging ? canvasToCell(view.x, view.y) : slot;
       if (cell !== null && this.state.open[cell]) {
         this.drawCoverage(cell, unitDefFast(this.state.data, unit.defId).range, alpha);
       }
@@ -172,17 +170,18 @@ export class LaneScene extends Phaser.Scene {
       if (from < 0) return;
       this.emitSelect(from);
       view.motion?.stop();
-      this.dragging = { view, from };
+      this.dragging = view;
       view.setDepth(10);
     });
     view.on('drag', (_p: Phaser.Input.Pointer, x: number, y: number) => {
-      if (this.dragging?.view === view) view.setPosition(x, y);
+      if (this.dragging === view) view.setPosition(x, y);
     });
     view.on('dragend', () => {
-      if (this.dragging?.view !== view) return;
+      if (this.dragging !== view) return;
       const cell = canvasToCell(view.x, view.y);
-      if (cell !== null && this.state.open[cell] && cell !== this.dragging.from && !this.driver.paused) {
-        this.driver.queue({ type: 'move', from: this.dragging.from, to: cell });
+      const from = selectedSlot(this.state, unitId);
+      if (from !== null && cell !== null && this.state.open[cell] && cell !== from && !this.driver.paused) {
+        this.driver.queue({ type: 'move', from, to: cell });
       } else {
         view.targetSlot = undefined;
       }
@@ -210,7 +209,7 @@ export class LaneScene extends Phaser.Scene {
         this.units.set(u.id, view);
         unitsChanged = true;
       }
-      if (this.dragging?.view === view) return;
+      if (this.dragging === view) return;
       if (view.targetSlot === slot) return;
       view.motion?.stop();
       const fresh = view.targetSlot === undefined;
@@ -222,7 +221,7 @@ export class LaneScene extends Phaser.Scene {
     });
     for (const [id, view] of this.units) {
       if (seen.has(id)) continue;
-      if (this.dragging?.view === view) this.dragging = null;
+      if (this.dragging === view) this.dragging = null;
       view.motion?.stop();
       view.destroy();
       this.units.delete(id);
@@ -365,17 +364,18 @@ export class LaneScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (this.failed) return;
+    if (this.driver.failed) return;
     try {
       this.driver.update(delta);
       this.renderBoard();
       this.onFrame?.();
     } catch (error) {
-      this.failed = true;
+      this.driver.failed = true;
       console.error(error);
       const banner = document.getElementById('error')!;
-      banner.textContent = `게임 오류 · ${error instanceof Error ? error.message : String(error)}`;
+      document.getElementById('error-message')!.textContent = `게임 오류 · ${error instanceof Error ? error.message : String(error)}`;
       banner.hidden = false;
+      document.getElementById('error-restart')!.focus();
     }
   }
 

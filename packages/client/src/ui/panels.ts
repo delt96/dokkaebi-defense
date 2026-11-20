@@ -16,12 +16,14 @@ export function renderRight(state: GameState): void {
     <button data-action="openUpgrades">강화</button>`);
 }
 
-export function renderBottom(state: GameState, selected: number | null): void {
+export function renderBottom(state: GameState, selected: number | null) {
   const card = selected === null ? null : unitCard(state, selected);
-  const options = selected === null ? '' : combineOptions(state, selected).map(option =>
+  const unitId = selected === null ? null : state.slots[selected]?.id ?? null;
+  const recipes = selected === null ? [] : combineOptions(state, selected);
+  const options = recipes.map(option =>
     option.missing.length
       ? `<span class="combine-missing">${esc(option.name)} (모자람: ${option.missing.map(esc).join(', ')})</span>`
-      : `<button data-action="combine" data-arg="${esc(option.result)}@${selected}">${option.key ? `[${option.key}] ` : ''}${esc(option.name)}</button>`
+      : `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}">${option.key ? `[${option.key}] ` : ''}${esc(option.name)}</button>`
   ).join('');
   setHtml(el('bottom'), card
     ? `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
@@ -29,8 +31,9 @@ export function renderBottom(state: GameState, selected: number | null): void {
         <span>공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${card.range}칸</span></span>
         <span class="skill" title="${esc(card.skillText)}">${esc(card.skillText)}</span>
         ${options ? `<div class="combine-options">${options}</div>` : ''}
-        <button data-action="sell" data-arg="${selected}">판매(S) +${card.sellPrice}냥</button></div>`
+        <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`
     : '<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · Esc 선택 해제</div>');
+  return { unitId, recipes };
 }
 
 export function upgradesHtml(state: GameState): string {

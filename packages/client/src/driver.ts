@@ -17,6 +17,7 @@ type Listener = (events: GameEvent[], rejected: StepResult['rejected']) => void;
 export class GameDriver {
   state: GameState;
   paused = false;
+  failed = false;
   private carry = 0;
   private previousDistances = new Map<number, number>();
 
@@ -34,13 +35,14 @@ export class GameDriver {
   reset(state: GameState): void {
     this.state = state;
     this.paused = false;
+    this.failed = false;
     this.previousDistances.clear();
     this.carry = 0;
     this.pending = [];
   }
 
   queue(cmd: Command): void {
-    if (this.paused) return;
+    if (this.failed || (this.paused && cmd.type !== 'helperOpened')) return;
     const slot = cmd.type === 'move' ? cmd.from : cmd.type === 'sell' || cmd.type === 'combine' ? cmd.slot : undefined;
     this.pending.push({ command: cmd, unitId: slot === undefined ? undefined : this.state.slots[slot]?.id });
   }
@@ -69,7 +71,7 @@ export class GameDriver {
   }
 
   update(elapsedMs: number): void {
-    if (this.paused) return;
+    if (this.failed || this.paused) return;
     const { ticks, carryMs } = ticksToRun(elapsedMs, this.carry, this.state.data.balance.tickMs);
     this.carry = carryMs;
     for (let i = 0; i < ticks; i++) {

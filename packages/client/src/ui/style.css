@@ -96,3 +96,4 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .countdown strong { display: block; color: white; font-size: 29px; }
 #modal { z-index: 2; }
 #error { z-index: 3; top: 26px; left: 8px; right: 8px; background: #8a2028; padding: 8px; color: white; font-size: 12px; overflow-wrap: anywhere; }
+#error button { pointer-events: auto; }
