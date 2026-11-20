@@ -81,6 +81,12 @@ export function createLane(cols: number, rows: number): Lane {
       if (last && Math.abs(last[1] - iv[0]) < 1e-9) last[1] = iv[1];
       else merged.push([iv[0], iv[1]]);
     }
+    const first = merged[0];
+    const last = merged[merged.length - 1];
+    if (merged.length > 1 && first && last && first[0] < 1e-9 && Math.abs(last[1] - perimeter) < 1e-9) {
+      last[1] = perimeter + first[1];
+      merged.shift();
+    }
     return merged;
   };
 
@@ -88,4 +94,14 @@ export function createLane(cols: number, rows: number): Lane {
     coverage(cellIndex, range).reduce((sum, [a, b]) => sum + (b - a), 0);
 
   return { cols, rows, cells, perimeter, pointAt, coverage, coverageLength };
+}
+
+const laneCache = new WeakMap<object, Lane>();
+export function laneOf(state: { data: { balance: { grid: { cols: number; rows: number } } } }): Lane {
+  let lane = laneCache.get(state.data);
+  if (!lane) {
+    lane = createLane(state.data.balance.grid.cols, state.data.balance.grid.rows);
+    laneCache.set(state.data, lane);
+  }
+  return lane;
 }

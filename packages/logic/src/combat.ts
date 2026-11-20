@@ -1,7 +1,8 @@
 import type { DamageType, Enemy, GameEvent, GameState } from './types';
 import { unitAttack } from './data';
 import { dist } from './lane';
-import { laneOf, registerPhase } from './game';
+import { registerPhase } from './registry';
+import { laneOf } from './lane';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
 import { statsForRound } from './stats';
 import { unitDefFast } from './units';

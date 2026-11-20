@@ -1,5 +1,5 @@
 import type { GameState } from './types';
-import { registerCommand } from './game';
+import { registerCommand } from './registry';
 import { addUnit, unitDefFast } from './units';
 
 function ownedCounts(state: GameState): Map<string, number> {

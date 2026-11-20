@@ -1,41 +1,15 @@
-import type { Command, GameData, GameEvent, GameState, RejectReason, StepResult } from './types';
+import type { Command, GameData, GameEvent, GameState, StepResult } from './types';
 import { createRng, deriveSeed } from './rng';
-import { createLane, type Lane } from './lane';
 import { checkEnd, moveEnemies, spawnTick } from './flow';
+import { afterCommandHooks, handlers, phases, type PhaseName } from './registry';
+import './units';
+import './combine';
+import './combat';
+import './effects';
+import './upgrades';
 
-export type CommandHandler = (state: GameState, cmd: Command, events: GameEvent[]) => RejectReason | null;
-
-const handlers: Partial<Record<Command['type'], CommandHandler>> = {};
-const afterCommandHooks: ((state: GameState, events: GameEvent[]) => void)[] = [];
-const phases: {
-  tickStatuses: (state: GameState, events: GameEvent[]) => void;
-  unitAttacks: (state: GameState, events: GameEvent[]) => void;
-  resolveKills: (state: GameState, events: GameEvent[]) => void;
-} = {
-  tickStatuses: () => {},
-  unitAttacks: () => {},
-  resolveKills: (state) => { state.enemies = state.enemies.filter(e => e.hp > 0); },
-};
-
-export function registerCommand(type: Command['type'], handler: CommandHandler): void {
-  handlers[type] = handler;
-}
-export function registerAfterCommands(hook: (state: GameState, events: GameEvent[]) => void): void {
-  afterCommandHooks.push(hook);
-}
-export function registerPhase(name: keyof typeof phases, fn: (state: GameState, events: GameEvent[]) => void): void {
-  phases[name] = fn;
-}
-
-const laneCache = new WeakMap<GameData, Lane>();
-export function laneOf(state: GameState): Lane {
-  let lane = laneCache.get(state.data);
-  if (!lane) {
-    lane = createLane(state.data.balance.grid.cols, state.data.balance.grid.rows);
-    laneCache.set(state.data, lane);
-  }
-  return lane;
-}
+export { laneOf } from './lane';
+export { registerAfterCommands, registerCommand, registerPhase } from './registry';
 
 export function createGame(data: GameData, seed: number): GameState {
   const { cols, rows, initialOpenRows } = data.balance.grid;
@@ -57,15 +31,25 @@ export function createGame(data: GameData, seed: number): GameState {
   };
 }
 
+function runPhase(name: PhaseName, state: GameState, events: GameEvent[]): void {
+  const fn = phases.get(name);
+  if (!fn) throw new Error(`phase ${name} is not registered`);
+  fn(state, events);
+}
+
+function isEnded(state: GameState): boolean {
+  return state.phase === 'ended';
+}
+
 export function step(state: GameState, commands: Command[]): StepResult {
   const events: GameEvent[] = [];
   const rejected: StepResult['rejected'] = [];
-  if (state.phase === 'ended') {
+  if (isEnded(state)) {
     for (const command of commands) rejected.push({ command, reason: 'ended' });
     return { events, rejected };
   }
   for (const command of commands) {
-    const handler = handlers[command.type];
+    const handler = typeof command?.type === 'string' ? handlers.get(command.type) : undefined;
     const reason = handler ? handler(state, command, events) : 'unknown';
     if (reason) rejected.push({ command, reason });
   }
@@ -73,15 +57,13 @@ export function step(state: GameState, commands: Command[]): StepResult {
   spawnTick(state, events);
   if (!isEnded(state)) {
     moveEnemies(state);
-    phases.tickStatuses(state, events);
-    phases.unitAttacks(state, events);
-    phases.resolveKills(state, events);
+    runPhase('tickStatuses', state, events);
+    runPhase('unitAttacks', state, events);
+    runPhase('resolveKills', state, events);
     checkEnd(state, events);
   }
   state.tick++;
   return { events, rejected };
 }
 
-function isEnded(state: GameState): boolean {
-  return state.phase === 'ended';
-}
+export type { GameData };

@@ -1,6 +1,7 @@
 import type { GameData, GameEvent, GameState, Unit, UnitDef } from './types';
 import { nextFloat, nextInt } from './rng';
-import { laneOf, registerAfterCommands, registerCommand } from './game';
+import { registerAfterCommands, registerCommand } from './registry';
+import { laneOf } from './lane';
 import { toTicks } from './flow';
 
 const unitCache = new WeakMap<GameData, Map<string, UnitDef>>();
@@ -68,8 +69,13 @@ function receive(state: GameState, defId: string, events: GameEvent[]): boolean 
   return true;
 }
 
+function placePendingPity(state: GameState, events: GameEvent[]): void {
+  while (state.pendingPity.length && receive(state, state.pendingPity[0]!, events)) state.pendingPity.shift();
+}
+
 registerCommand('summon', (state, _cmd, events) => {
   if (state.tokens <= 0) return 'noToken';
+  placePendingPity(state, events);
   if (!state.slots.some((u, i) => !u && state.open[i])) return 'noSlot';
   state.tokens--;
   const defId = rollSummon(state);
@@ -86,9 +92,7 @@ registerCommand('summon', (state, _cmd, events) => {
   return null;
 });
 
-registerAfterCommands((state, events) => {
-  while (state.pendingPity.length && receive(state, state.pendingPity[0]!, events)) state.pendingPity.shift();
-});
+registerAfterCommands(placePendingPity);
 
 const validSlot = (state: GameState, i: number) => Number.isInteger(i) && i >= 0 && i < state.slots.length;
 

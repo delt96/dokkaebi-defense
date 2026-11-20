@@ -1,5 +1,5 @@
 import type { UpgradeDef } from './types';
-import { registerCommand } from './game';
+import { registerCommand } from './registry';
 
 export function upgradeCost(def: UpgradeDef, nextLevel: number): number {
   return def.costPerLevel * nextLevel;

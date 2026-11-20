@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createGame, step, loadGameData } from '../src/index';
 import { rollSummon, chooseSlot, pityPick } from '../src/units';
-import { placeUnitForTest } from '../src/testing';
+import { placeUnitForTest, makeData } from '../src/testing';
 import { unitDef } from '../src/data';
 
 const data = loadGameData();
@@ -14,10 +14,39 @@ describe('units', () => {
     expect(s.slots.filter(Boolean).length).toBe(1);
     expect(r.events.some(e => e.type === 'summon')).toBe(true);
   });
-  test('odds over 10000 rolls', () => {
-    const s = createGame(data, 9); const g = [0, 0, 0];
-    for (let i = 0; i < 10000; i++) g[unitDef(data, rollSummon(s)).grade - 1]!++;
-    expect(g[0]! / 10000).toBeCloseTo(0.70, 1); expect(g[1]! / 10000).toBeCloseTo(0.25, 1); expect(g[2]! / 10000).toBeCloseTo(0.05, 1);
+  test('odds over 40000 rolls, uniform inside a grade', () => {
+    const s = createGame(data, 9); const g = [0, 0, 0]; const ids: Record<string, number> = {};
+    const N = 40000;
+    for (let i = 0; i < N; i++) { const id = rollSummon(s); g[unitDef(data, id).grade - 1]!++; ids[id] = (ids[id] ?? 0) + 1; }
+    expect(Math.abs(g[0]! / N - 0.70)).toBeLessThan(0.02);
+    expect(Math.abs(g[1]! / N - 0.25)).toBeLessThan(0.02);
+    expect(Math.abs(g[2]! / N - 0.05)).toBeLessThan(0.01);
+    const grade1 = data.units.filter(u => u.grade === 1).map(u => ids[u.id] ?? 0);
+    for (const c of grade1) expect(Math.abs(c / g[0]! - 1 / 8)).toBeLessThan(0.02);
+  });
+  test('summon with no token is rejected and leaves rng untouched', () => {
+    const s = createGame(data, 1); s.tokens = 0;
+    const before = s.rng.summon.s;
+    expect(step(s, [{ type: 'summon' }]).rejected[0]!.reason).toBe('noToken');
+    expect(s.rng.summon.s).toBe(before);
+  });
+  test('7th grade-1 summon onto the last free slot queues the pity unit', () => {
+    const g1 = makeData(d => { d.balance.summonOdds = [1, 0, 0]; });
+    const s = createGame(g1, 1);
+    for (let i = 0; i < 17; i++) placeUnitForTest(s, 'sotlid', i);
+    s.tokens = 1; s.grade1Summons = 6;
+    step(s, [{ type: 'summon' }]);
+    expect(s.slots.filter(Boolean).length).toBe(18);
+    expect(s.pendingPity.length).toBe(1);
+    expect(s.grade1Summons).toBe(7);
+  });
+  test('queued pity takes a freed slot before a new summon in the same tick', () => {
+    const s = createGame(data, 1);
+    for (let i = 0; i < 18; i++) placeUnitForTest(s, 'sotlid', i);
+    s.pendingPity.push('jipsin');
+    const r = step(s, [{ type: 'sell', slot: 3 }, { type: 'summon' }]);
+    expect(s.slots[3]!.defId).toBe('jipsin');
+    expect(r.rejected.map(x => x.reason)).toEqual(['noSlot']);
   });
   test('placement: melee to edge, ranged to inner', () => {
     const s = createGame(data, 1);

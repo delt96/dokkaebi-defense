@@ -28,6 +28,12 @@ describe('lane', () => {
     expect(lane.coverageLength(8, 2.5)).toBeCloseTo(3.0, 2);
     expect(lane.coverageLength(8, 3.0)).toBeCloseTo(4.472, 2);
   });
+  test('coverage across the path start is one interval', () => {
+    const ivs = lane.coverage(0, 1.5);
+    expect(ivs.length).toBe(1);
+    expect(ivs[0]![1] - ivs[0]![0]).toBeCloseTo(lane.coverageLength(0, 1.5), 5);
+    expect(ivs[0]![0]).toBeLessThan(24); expect(ivs[0]![1]).toBeGreaterThan(24);
+  });
   test('coverage interval position', () => {
     const [iv] = lane.coverage(2, 1.5);
     expect(iv![0]).toBeCloseTo(3 - 1.118, 2);

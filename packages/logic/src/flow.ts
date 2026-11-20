@@ -51,6 +51,8 @@ export function spawnEnemy(state: GameState, defId: string, round: number, event
 
 export function finishGame(state: GameState, result: GameResult, events: GameEvent[]): void {
   if (state.phase === 'ended') return;
+  const st = currentStats(state);
+  if (st) st.endEnemies = countNormalEnemies(state);
   state.phase = 'ended';
   state.result = result;
   events.push({ type: 'ended', result });

@@ -39,6 +39,7 @@ describe('flow', () => {
     spawnEnemyForTest(s, 'japgwi', 0, 10 ** 9);
     run(s, 99); expect(s.phase).not.toBe('ended');
     run(s, 1); expect(s.result).toEqual({ outcome: 'defeat', reason: 'limit', round: 1 });
+    expect(s.stats.at(-1)!.endEnemies).toBe(61);
   });
   test('boss round: spawn, tokens, fail after 75s', () => {
     const s = createGame(data, 1); forceRound(s, 10);
