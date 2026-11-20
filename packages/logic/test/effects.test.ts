@@ -18,13 +18,16 @@ describe('effects', () => {
     const s = quiet(); placeUnitForTest(s, 'jeolgu', 2);
     const a = spawnEnemyForTest(s, 'japgwi', 3, 10000); const b = spawnEnemyForTest(s, 'japgwi', 3.8, 10000);
     const r = step(s, []);
+    expect(r.events.filter(e => e.type === 'damage').map(e => e.effect)).toEqual(['crit', undefined]);
     expect(dmg(r, a.id)[0]).toBe(Math.round(26 * 1.3 * 1.0 * 2));
     expect(dmg(r, b.id)[0]).toBe(Math.round(26 * 1.3 * 1.0 * 0.5));
   });
   test('execute doubles below 30%', () => {
     const s = quiet(); placeUnitForTest(s, 'bujigaengi', 2);
     const e = spawnEnemyForTest(s, 'japgwi', 3, 1000); e.hp = 300;
-    expect(dmg(step(s, []), e.id)[0]).toBe(Math.round(10 * 0.9 * 0.9 * 2));
+    const result = step(s, []);
+    expect(result.events).toContainEqual(expect.objectContaining({ type: 'damage', effect: 'execute' }));
+    expect(dmg(result, e.id)[0]).toBe(Math.round(10 * 0.9 * 0.9 * 2));
   });
   test('pierce hits followers only', () => {
     const s = quiet(); placeUnitForTest(s, 'hwaetbul', 2);
@@ -78,6 +81,7 @@ describe('effects', () => {
     spawnEnemyForTest(s, 'japgwi', 2.5, 1); spawnEnemyForTest(s, 'japgwi', 3.5, 1);
     const c = spawnEnemyForTest(s, 'japgwi', 4.8, 1); const far = spawnEnemyForTest(s, 'japgwi', 6.0, 1000);
     const r = step(s, []);
+    expect(r.events).toContainEqual(expect.objectContaining({ type: 'damage', enemyId: c.id, effect: 'explosion' }));
     expect(s.enemies.find(x => x.id === c.id)).toBeUndefined();
     expect(dmg(r, far.id).length).toBe(0);
   });

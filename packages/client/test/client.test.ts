@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { computeZoom, laneToStage, stageToCell } from '../src/layout';
-import { ticksToRun } from '../src/driver';
+import { createGame, loadGameData } from '@dorandi/logic';
+import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
+import { GameDriver, ticksToRun } from '../src/driver';
 
 describe('client helpers', () => {
   test('zoom: integer from 2x, a 1.5 step below', () => {
@@ -41,4 +43,43 @@ describe('final review fixes: placement and press handling', () => {
     listeners.pointerdown?.({ target: button, button: 2 });
     expect(got).toEqual(['summon']);
   });
+});
+
+test('movement interpolates the last fixed step through a lap boundary and freezes on pause', () => {
+  const state = createGame(loadGameData(), 1);
+  const enemy = spawnEnemyForTest(state, 'japgwi', 23.9);
+  const driver = new GameDriver(state);
+  driver.update(125);
+  expect(enemy.d).toBeCloseTo(24.06);
+  expect(driver.enemyDistance(enemy.id, enemy.d)).toBeCloseTo(24.02);
+  driver.paused = true;
+  driver.update(20);
+  expect(driver.enemyDistance(enemy.id, enemy.d)).toBeCloseTo(24.02);
+});
+
+test('paused commands are dropped and a restarted game runs immediately', () => {
+  const state = createGame(loadGameData(), 1);
+  const driver = new GameDriver(state);
+  driver.paused = true;
+  driver.queue({ type: 'summon' });
+  driver.paused = false;
+  driver.update(50);
+  expect(state.slots.every(unit => unit === null)).toBe(true);
+  driver.paused = true;
+  driver.reset(createGame(state.data, 2));
+  driver.update(50);
+  expect(driver.state.tick).toBe(1);
+});
+
+test('a sale pressed before a queued swap finishes still sells the picked unit', () => {
+  const state = createGame(loadGameData(), 1);
+  placeUnitForTest(state, 'sotlid', 0);
+  const other = placeUnitForTest(state, 'sotlid', 1);
+  const driver = new GameDriver(state);
+  driver.queue({ type: 'move', from: 0, to: 1 });
+  driver.queue({ type: 'sell', slot: 0 });
+  driver.update(100);
+  expect(state.slots[0]?.id).toBe(other.id);
+  expect(state.slots[1]).toBeNull();
+  expect(state.coins).toBe(5);
 });

@@ -70,12 +70,14 @@ export type Command =
   | { type: 'move'; from: number; to: number } | { type: 'convertToken' }
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' };
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'maxed' | 'unknown';
+export type HitEffect = 'crit' | 'execute' | 'explosion';
+
 export type GameEvent =
-  | { type: 'roundStart'; round: number } | { type: 'spawn'; enemyId: number }
+  | { type: 'roundStart'; round: number } | { type: 'spawn'; enemyId: number; defId: string }
   | { type: 'summon'; unitId: number; defId: string; grade: number; slot: number }
   | { type: 'combine'; unitId: number; defId: string; slot: number }
   | { type: 'attack'; unitId: number; enemyId: number }
-  | { type: 'damage'; enemyId: number; amount: number; source: string }
+  | { type: 'damage'; enemyId: number; amount: number; source: string; effect?: HitEffect }
   | { type: 'kill'; enemyId: number } | { type: 'speedChange'; enemyId: number; d: number; speed: number }
   | { type: 'ended'; result: GameResult };
 export interface StepResult { events: GameEvent[]; rejected: { command: Command; reason: RejectReason }[] }

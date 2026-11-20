@@ -38,15 +38,15 @@ html, body {
 
 #lane canvas { image-rendering: pixelated; display: block; }
 
-#top, #left, #right, #bottom { background: var(--panel); border: 1px solid var(--panel-edge); font-size: 9px; }
+#top, #left, #right, #bottom { background: var(--panel); border: 1px solid var(--panel-edge); font-size: 10px; }
 
 #modal { position: absolute; inset: 0; pointer-events: none; }
-#modal .modal { pointer-events: auto; position: absolute; left: 150px; top: 40px; width: 340px; max-height: 280px; overflow: auto; background: var(--panel); border: 1px solid var(--accent); padding: 6px; font-size: 9px; }
+#modal .modal { pointer-events: auto; position: absolute; left: 150px; top: 40px; width: 340px; max-height: 280px; overflow: auto; background: var(--panel); border: 1px solid var(--accent); padding: 6px; font-size: 10px; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; font-weight: bold; margin-bottom: 4px; }
 table { width: 100%; border-collapse: collapse; }
 td, th { padding: 2px 3px; border-bottom: 1px solid var(--panel-edge); text-align: left; }
 
-button { font: inherit; font-size: 9px; color: var(--ink); background: #2a2236; border: 1px solid #4a3e5a; border-radius: 2px; min-height: 22px; padding: 0 6px; cursor: pointer; }
+button { font: inherit; font-size: 10px; color: var(--ink); background: #2a2236; border: 1px solid #4a3e5a; border-radius: 2px; min-height: 22px; padding: 0 6px; cursor: pointer; }
 button:hover:not([disabled]) { border-color: var(--accent); }
 button[disabled] { opacity: 0.4; cursor: default; }
 button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; background: #3a2a1a; border-color: var(--accent); color: var(--accent); margin: 6px 0; }
@@ -74,8 +74,10 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .res span { color: var(--accent); }
 
 #bottom .card { display: flex; align-items: center; gap: 4px; height: 100%; padding: 0 8px; white-space: nowrap; overflow: hidden; }
-#bottom .unit-info { max-width: 42%; overflow: hidden; }
-#bottom .combine-options { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+#bottom .unit-info { display: grid; flex: none; line-height: 12px; }
+#bottom .unit-info > :last-child { color: #bfbbca; font-variant-numeric: tabular-nums; }
+#bottom .skill { min-width: 0; max-width: 115px; overflow: hidden; text-overflow: ellipsis; color: var(--ink-dim); }
+#bottom .combine-options { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
 #bottom .combine-options > *, #bottom [data-action="sell"] { flex-shrink: 0; }
 #bottom .combine-missing { color: var(--ink-dim); }
 #bottom [data-action="sell"] { margin-left: auto; }
@@ -84,3 +86,13 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 #modal .result { left: 160px; top: 30px; width: 320px; }
 #modal .result p { margin: 3px 0; }
 .graph { display: block; background: #120e1a; border: 1px solid var(--panel-edge); margin: 4px 0; }
+
+.hud { font-size: 11px; gap: 8px; }
+.hud .notice { color: #ffb396; font-weight: bold; }
+.hud .boss { color: #ffab99; }
+#round-banner, .countdown, #error { position: absolute; text-align: center; pointer-events: none; }
+#round-banner { top: 35px; left: 128px; width: 400px; white-space: pre-line; color: var(--accent); font-size: 13px; font-weight: bold; line-height: 17px; }
+.countdown { top: 50%; left: 328px; transform: translate(-50%, -50%); background: #32171ef0; border: 1px solid #ff836a; padding: 3px 10px; color: #ffb59f; font-size: 11px; }
+.countdown strong { display: block; color: white; font-size: 29px; }
+#modal { z-index: 2; }
+#error { z-index: 3; top: 26px; left: 8px; right: 8px; background: #8a2028; padding: 8px; color: white; font-size: 12px; overflow-wrap: anywhere; }

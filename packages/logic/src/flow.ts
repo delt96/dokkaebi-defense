@@ -45,7 +45,7 @@ export function spawnEnemy(state: GameState, defId: string, round: number, event
     const st = currentStats(state);
     if (st) st.hpSpawned += hp;
   }
-  events.push({ type: 'spawn', enemyId: e.id });
+  events.push({ type: 'spawn', enemyId: e.id, defId });
   return e;
 }
 

@@ -18,17 +18,19 @@ export function renderRight(state: GameState): void {
 
 export function renderBottom(state: GameState, selected: number | null): void {
   const card = selected === null ? null : unitCard(state, selected);
-  const options = selected === null ? '' : combineOptions(state, selected).slice(0, 4).map(option =>
+  const options = selected === null ? '' : combineOptions(state, selected).map(option =>
     option.missing.length
       ? `<span class="combine-missing">${esc(option.name)} (모자람: ${option.missing.map(esc).join(', ')})</span>`
       : `<button data-action="combine" data-arg="${esc(option.result)}@${selected}">${option.key ? `[${option.key}] ` : ''}${esc(option.name)}</button>`
   ).join('');
   setHtml(el('bottom'), card
-    ? `<div class="card"><span class="unit-info"><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
-        <b>${esc(card.name)}</b> · ${card.grade}등급 · ${card.typeText} · ${esc(card.skillText)}</span>
+    ? `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
+        <b>${esc(card.name)}</b> · ${card.grade}등급 · ${card.typeText}</span>
+        <span>공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${card.range}칸</span></span>
+        <span class="skill" title="${esc(card.skillText)}">${esc(card.skillText)}</span>
         ${options ? `<div class="combine-options">${options}</div>` : ''}
-        <button data-action="sell" data-arg="${selected}">판매 +${card.sellPrice}냥</button></div>`
-    : '<div class="card hint">유닛을 누르면 정보가 보입니다. 끌어서 다른 칸으로 옮길 수 있습니다.</div>');
+        <button data-action="sell" data-arg="${selected}">판매(S) +${card.sellPrice}냥</button></div>`
+    : '<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · Esc 선택 해제</div>');
 }
 
 export function upgradesHtml(state: GameState): string {

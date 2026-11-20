@@ -1,4 +1,4 @@
-import type { DamageType, Effect, Enemy, GameEvent, GameState } from './types';
+import type { DamageType, Effect, Enemy, GameEvent, GameState, HitEffect } from './types';
 import { nextFloat } from './rng';
 import { unitAttack } from './data';
 import { dist, loopPos } from './lane';
@@ -136,19 +136,20 @@ export function performAttack(state: GameState, slot: number, target: Enemy, eve
   }
 
   let mult = 1;
+  let effect: HitEffect | undefined;
   for (const e of fired) {
-    if (e.kind === 'crit') mult *= e.mult;
-    if (e.kind === 'execute' && target.hp / target.maxHp <= e.hpBelow) mult *= e.mult;
+    if (e.kind === 'crit') { mult *= e.mult; effect = 'crit'; }
+    if (e.kind === 'execute' && target.hp / target.maxHp <= e.hpBelow) { mult *= e.mult; effect = 'execute'; }
   }
   const explode = fired.find(e => e.kind === 'onKillExplode') as Extract<Effect, { kind: 'onKillExplode' }> | undefined;
   const killed: Enemy[] = [];
-  const hit = (e: Enemy, m: number, track: boolean) => {
+  const hit = (e: Enemy, m: number, track: boolean, hitEffect?: HitEffect) => {
     if (e.hp <= 0) return;
-    dealDamage(state, e, hitDamage(state, slot, e, m), def.id, events);
+    dealDamage(state, e, hitDamage(state, slot, e, m), def.id, events, hitEffect);
     if (track && e.hp <= 0) killed.push(e);
   };
 
-  hit(target, mult, true);
+  hit(target, mult, true, effect);
   const origin = lane.pointAt(target.d);
   for (const e of fired) {
     if (e.kind === 'extraAttack') hit(target, 1, true);
@@ -171,7 +172,7 @@ export function performAttack(state: GameState, slot: number, target: Enemy, eve
   if (explode) {
     for (const k of killed) {
       const at = lane.pointAt(k.d);
-      for (const o of state.enemies) if (o.hp > 0 && dist(lane.pointAt(o.d), at) <= explode.radius + 1e-9) hit(o, explode.mult, false);
+      for (const o of state.enemies) if (o.hp > 0 && dist(lane.pointAt(o.d), at) <= explode.radius + 1e-9) hit(o, explode.mult, false, 'explosion');
     }
   }
 }

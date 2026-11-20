@@ -1,4 +1,4 @@
-import type { DamageType, Enemy, GameEvent, GameState } from './types';
+import type { DamageType, Enemy, GameEvent, GameState, HitEffect } from './types';
 import { unitAttack } from './data';
 import { dist } from './lane';
 import { registerPhase } from './registry';
@@ -52,11 +52,11 @@ export function pickTarget(state: GameState, slot: number): Enemy | null {
   return best;
 }
 
-export function dealDamage(state: GameState, enemy: Enemy, amount: number, source: string, events: GameEvent[]): void {
+export function dealDamage(state: GameState, enemy: Enemy, amount: number, source: string, events: GameEvent[], effect?: HitEffect): void {
   if (enemy.hp <= 0) return;
   const actual = Math.min(amount, enemy.hp);
   enemy.hp -= amount;
-  events.push({ type: 'damage', enemyId: enemy.id, amount, source });
+  events.push({ type: 'damage', enemyId: enemy.id, amount, source, ...(effect && { effect }) });
   if (!enemy.boss) {
     const st = statsForRound(state, enemy.round);
     if (st) st.damageDealt += actual;

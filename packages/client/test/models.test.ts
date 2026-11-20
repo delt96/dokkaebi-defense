@@ -80,7 +80,7 @@ test('the card and physical keys combine at the selected slot while the helper u
   const events = new EventTarget();
   const panels = new Map<string, EventTarget & { innerHTML: string; classList: { toggle: () => void } }>();
   let select: (slot: number) => void = () => {};
-  const scene = { onSelect: (cb: typeof select) => { select = cb; }, onEvents: () => {} };
+  const scene = { onFrame: () => {}, onSelect: (cb: typeof select) => { select = cb; }, onEvents: () => {} };
   const press = (code: string, modifiers: Partial<KeyboardEvent> = {}) => {
     events.dispatchEvent(Object.assign(new Event('keydown'), { code, key: 'Process', ...modifiers }));
   };
@@ -125,6 +125,7 @@ test('the card and physical keys combine at the selected slot while the helper u
     expect(queue).toHaveBeenCalledExactlyOnceWith({ type: 'combine', result: 'gamasot', slot: 3 });
     driver.update(s.data.balance.tickMs);
     vi.advanceTimersByTime(100);
+    scene.onFrame();
     expect(card.innerHTML).toContain('<b>가마솥</b>');
     expect(card.innerHTML).toContain('data-action="sell" data-arg="3"');
   } finally {
@@ -133,7 +134,7 @@ test('the card and physical keys combine at the selected slot while the helper u
   }
 });
 
-import { rightModel, rejectText } from '../src/ui/models';
+import { activeNotice, nextUnitId, selectedSlot, rightModel, rejectText } from '../src/ui/models';
 
 describe('final review fixes: right panel and reject notices', () => {
   const unit = (id: number) => ({ id, defId: 'sotlid', cooldown: 0, attackCount: 0, periodic: [] });
@@ -180,4 +181,35 @@ describe('final review fixes: right panel and reject notices', () => {
     expect(rejectText('noUnit')).toBeNull();
     expect(rejectText('ended')).toBeNull();
   });
+});
+
+test('selection follows a swapped unit, cycles in board order and clears on sale', () => {
+  const state = createGame(data, 1);
+  expect(nextUnitId(state, null)).toBeNull();
+  const first = placeUnitForTest(state, 'sotlid', 1);
+  const second = placeUnitForTest(state, 'sotlid', 5);
+  step(state, [{ type: 'move', from: 1, to: 5 }]);
+  expect(selectedSlot(state, first.id)).toBe(5);
+  expect(nextUnitId(state, null)).toBe(second.id);
+  expect(nextUnitId(state, second.id)).toBe(first.id);
+  expect(nextUnitId(state, first.id)).toBe(second.id);
+  step(state, [{ type: 'sell', slot: 5 }]);
+  expect(selectedSlot(state, first.id)).toBeNull();
+});
+
+test('notice expires at its deadline', () => {
+  const notice = { text: '빈 칸이 없습니다', until: 1500 };
+  expect(activeNotice(notice, 1499)).toBe(notice.text);
+  expect(activeNotice(notice, 1500)).toBeNull();
+  expect(activeNotice(null, 0)).toBeNull();
+});
+
+test('card reflects attack upgrades and a nearby speed aura', () => {
+  const state = createGame(data, 1);
+  placeUnitForTest(state, 'sotlid', 0);
+  expect(unitCard(state, 0)).toMatchObject({ attack: 13, interval: 1.2, range: 1.5 });
+  state.upgrades.physical = 2;
+  placeUnitForTest(state, 'cheongsachorong', 1);
+  expect(unitCard(state, 0)!.attack).toBeGreaterThan(13);
+  expect(unitCard(state, 0)!.interval).toBe(1.1);
 });

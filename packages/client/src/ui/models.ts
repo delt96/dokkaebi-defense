@@ -1,5 +1,5 @@
 import {
-  availableRecipes, countNormalEnemies, recipesUsing, unitDefFast, upgradeCost,
+  attackIntervalTicks, damageBonus, speedBonus, unitAttack, availableRecipes, countNormalEnemies, recipesUsing, unitDefFast, upgradeCost,
   type Effect, type GameData, type GameState, type SkillDef, type Trigger, type UpgradeId,
 } from '@dorandi/logic';
 
@@ -39,6 +39,23 @@ function effectText(e: Effect): string {
 
 export function skillText(skills: SkillDef[]): string {
   return skills.map(s => triggerText(s.trigger) + s.effects.map(effectText).join(', ')).join(' / ');
+}
+
+export function selectedSlot(state: GameState, id: number | null): number | null {
+  const slot = state.slots.findIndex(unit => unit?.id === id);
+  return slot < 0 ? null : slot;
+}
+
+export function nextUnitId(state: GameState, selected: number | null): number | null {
+  const units = state.slots.filter(unit => unit !== null);
+  const next = units.findIndex(unit => unit.id === selected) + 1;
+  return (units[next] ?? units[0])?.id ?? null;
+}
+
+export interface Notice { text: string; until: number }
+
+export function activeNotice(notice: Notice | null, now: number): string | null {
+  return notice && now < notice.until ? notice.text : null;
 }
 
 export function rightModel(state: GameState): { canSummon: boolean; canConvert: boolean; pending: number; bonusIn: number } {
@@ -119,7 +136,7 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
   });
 }
 
-export function unitCard(state: GameState, slot: number): { name: string; grade: number; typeText: '물딜' | '마딜'; skillText: string; usedIn: string[]; sellPrice: number } | null {
+export function unitCard(state: GameState, slot: number): { name: string; grade: number; typeText: '물딜' | '마딜'; skillText: string; usedIn: string[]; attack: number; interval: number; range: number; sellPrice: number } | null {
   const unit = state.slots[slot];
   if (!unit) return null;
   const def = unitDefFast(state.data, unit.defId);
@@ -131,7 +148,9 @@ export function unitCard(state: GameState, slot: number): { name: string; grade:
   }
   return {
     name: def.name, grade: def.grade, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
-    skillText: skillText(def.skills), usedIn, sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
+    attack: Math.round(unitAttack(def, state.data.balance) * (1 + damageBonus(state, slot))),
+    interval: attackIntervalTicks(def.interval, speedBonus(state, slot)) * state.data.balance.tickMs / 1000,
+    range: def.range, skillText: skillText(def.skills), usedIn, sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
   };
 }
 

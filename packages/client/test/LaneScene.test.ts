@@ -49,4 +49,30 @@ test('combine markers appear for every eligible copy and clear when a material i
   scene['placeUnits']();
   expect(markers()[1]).toHaveBeenLastCalledWith(false);
   expect(markers()[4]).toHaveBeenLastCalledWith(false);
+
+  driver.queue({ type: 'move', from: 1, to: 8 });
+  driver.update(state.data.balance.tickMs);
+  scene['placeUnits']();
+  scene['placeUnits']();
+  expect(tweens.add).toHaveBeenCalledTimes(1);
+});
+
+test('a frame failure shows the exception once and stops further simulation', () => {
+  const driver = new GameDriver(createGame(loadGameData(), 1));
+  const scene = new LaneScene(driver);
+  const error = new Error('화면 갱신 실패');
+  const update = vi.spyOn(driver, 'update').mockImplementation(() => { throw error; });
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const banner = { textContent: '', hidden: true };
+  vi.stubGlobal('document', { getElementById: () => banner });
+  try {
+    scene.update(0, 16);
+    scene.update(16, 16);
+    expect(banner).toEqual({ textContent: '게임 오류 · 화면 갱신 실패', hidden: false });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledExactlyOnceWith(error);
+  } finally {
+    vi.unstubAllGlobals();
+    log.mockRestore();
+  }
 });
