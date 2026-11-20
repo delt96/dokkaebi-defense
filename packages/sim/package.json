@@ -1,0 +1,11 @@
+{
+  "name": "@dorandi/sim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@dorandi/logic": "*" },
+  "scripts": {
+    "sim": "tsx src/cli.ts",
+    "econ": "tsx src/econ.ts"
+  }
+}
