@@ -22,7 +22,7 @@ export type Effect =
 export interface SkillDef { trigger: Trigger; effects: Effect[] }
 export interface UnitDef { id: string; name: string; grade: number; damageType: DamageType; range: number; interval: number; factor: number; skills: SkillDef[] }
 export interface RecipeDef { result: string; materials: string[] }
-export interface EnemyDef { id: string; name: string; boss: boolean; hpMult: number; hp?: number; speed: number; resist: { physical: number; magical: number } }
+export interface EnemyDef { id: string; name: string; boss: boolean; shared?: boolean; hpMult: number; hp?: number; speed: number; resist: { physical: number; magical: number } }
 export type WaveDef = { round: number; type: 'normal'; pattern: string[] } | { round: number; type: 'boss'; boss: string };
 export interface BalanceDef {
   tickMs: number; prepSeconds: number; roundSeconds: number; bossRoundSeconds: number;

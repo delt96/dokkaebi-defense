@@ -7,6 +7,7 @@ import { laneOf } from './lane';
 import { enemySpeed, toTicks } from './flow';
 import { computeHitDamage, damageBonus, dealDamage, enemyResist, hitDamage, inRange } from './combat';
 import { unitDefFast } from './units';
+import { isShared } from './stats';
 
 function auraSum(state: GameState, slot: number, pick: (e: Effect) => number): number {
   const lane = laneOf(state);
@@ -80,6 +81,7 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
     return;
   }
   if (target.hp <= 0) return;
+  if ((eff.kind === 'stun' || eff.kind === 'slow' || eff.kind === 'knockback') && isShared(state.data, target)) return;
   switch (eff.kind) {
     case 'stun': {
       const t = ccTicks(state, target, eff.seconds);

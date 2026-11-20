@@ -4,7 +4,7 @@ import { dist } from './lane';
 import { registerPhase } from './registry';
 import { laneOf } from './lane';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
-import { currentStats, statsForRound } from './stats';
+import { currentStats, isShared, statsForRound } from './stats';
 import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnOf } from './effects';
 
@@ -45,9 +45,11 @@ export function pickTarget(state: GameState, slot: number): Enemy | null {
   if (!unit) return null;
   const range = unitDefFast(state.data, unit.defId).range;
   let best: Enemy | null = null;
+  let bestRank = 3;
   for (const e of state.enemies) {
     if (e.hp <= 0 || !inRange(state, slot, e, range)) continue;
-    if (!best || (e.boss && !best.boss) || (e.boss === best.boss && e.id < best.id)) best = e;
+    const rank = e.boss ? 0 : isShared(state.data, e) ? 1 : 2;
+    if (!best || rank < bestRank || (rank === bestRank && e.id < best.id)) { best = e; bestRank = rank; }
   }
   return best;
 }
@@ -57,7 +59,7 @@ export function dealDamage(state: GameState, enemy: Enemy, amount: number, sourc
   const actual = Math.min(amount, enemy.hp);
   enemy.hp -= amount;
   events.push({ type: 'damage', enemyId: enemy.id, amount, source, ...(effect && { effect }) });
-  if (!enemy.boss) {
+  if (!enemy.boss && !isShared(state.data, enemy)) {
     const st = statsForRound(state, enemy.round);
     if (st) st.damageDealt += actual;
     const cur = currentStats(state);
@@ -91,18 +93,20 @@ export function unitAttacks(state: GameState, events: GameEvent[]): void {
   }
 }
 
-export function resolveKills(state: GameState, events: GameEvent[]): void {
+export function resolveKills(state: GameState, events: GameEvent[], opts: { finalClear?: boolean } = {}): void {
+  const finalClear = opts.finalClear ?? true;
   const b = state.data.balance;
   const alive = [];
   for (const e of state.enemies) {
     if (e.hp > 0) { alive.push(e); continue; }
     events.push({ type: 'kill', enemyId: e.id });
+    if (isShared(state.data, e)) continue;
     if (e.boss) {
       state.coins += b.coins.boss;
       state.buckwheat += b.bossBuckwheat;
       const st = statsForRound(state, state.round);
       if (st) st.bossKillSeconds = (state.tick - state.roundStartTick) / TICKS_PER_SECOND;
-      if (state.round >= b.rounds) finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
+      if (finalClear && state.round >= b.rounds) finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
     } else {
       state.coins += b.coins.perKill;
     }
@@ -123,4 +127,3 @@ export function boardDps(state: GameState): number {
 }
 
 registerPhase('unitAttacks', unitAttacks);
-registerPhase('resolveKills', resolveKills);

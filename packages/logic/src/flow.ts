@@ -1,6 +1,6 @@
 import type { Enemy, EnemyDef, GameData, GameEvent, GameResult, GameState, WaveDef } from './types';
 import { enemyDef, enemyHp } from './data';
-import { countNormalEnemies, currentStats } from './stats';
+import { countNormalEnemies, currentStats, isShared } from './stats';
 
 export const TICKS_PER_SECOND = 20;
 export const toTicks = (seconds: number): number => Math.round(seconds * TICKS_PER_SECOND);
@@ -41,7 +41,7 @@ export function spawnEnemy(state: GameState, defId: string, round: number, event
     stunTicks: 0, slow: null, vulns: {}, dots: {}, fireHit: {},
   };
   state.enemies.push(e);
-  if (!def.boss) {
+  if (!def.boss && !def.shared) {
     const st = currentStats(state);
     if (st) st.hpSpawned += hp;
   }
@@ -69,16 +69,24 @@ export function spawnTick(state: GameState, events: GameEvent[]): void {
       finishGame(state, { outcome: 'defeat', reason: 'boss', round: state.round }, events);
       return;
     }
-    const st = currentStats(state);
-    if (st) st.endEnemies = countNormalEnemies(state);
-    state.coins += b.coins.roundEnd;
+    payRoundEnd(state);
     if (state.round >= b.rounds) {
       finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
       return;
     }
     startRound(state, state.round + 1, events);
   }
+  spawnDue(state, events);
+}
 
+export function payRoundEnd(state: GameState): void {
+  const st = currentStats(state);
+  if (st) st.endEnemies = countNormalEnemies(state);
+  state.coins += state.data.balance.coins.roundEnd;
+}
+
+export function spawnDue(state: GameState, events: GameEvent[]): void {
+  const b = state.data.balance;
   const wave = waveOf(state, state.round);
   if (wave.type === 'boss') {
     if (state.spawned === 0) { spawnEnemy(state, wave.boss, state.round, events); state.spawned = 1; }
@@ -98,20 +106,22 @@ export function enemySpeed(state: GameState, e: Enemy): number {
 
 export function moveEnemies(state: GameState): void {
   for (const e of state.enemies) {
-    if (e.hp <= 0) continue;
+    if (e.hp <= 0 || isShared(state.data, e)) continue;
     e.d += enemySpeed(state, e) / TICKS_PER_SECOND;
   }
 }
 
-export function checkEnd(state: GameState, events: GameEvent[]): void {
-  if (state.phase !== 'round') return;
+export function trackLimit(state: GameState): boolean {
   const b = state.data.balance;
   const n = countNormalEnemies(state);
   const st = currentStats(state);
   if (st && n > st.maxEnemies) st.maxEnemies = n;
   if (n > b.limit) state.overLimitTicks++;
   else state.overLimitTicks = 0;
-  if (state.overLimitTicks >= toTicks(b.limitSeconds)) {
-    finishGame(state, { outcome: 'defeat', reason: 'limit', round: state.round }, events);
-  }
+  return state.overLimitTicks >= toTicks(b.limitSeconds);
+}
+
+export function checkEnd(state: GameState, events: GameEvent[]): void {
+  if (state.phase !== 'round') return;
+  if (trackLimit(state)) finishGame(state, { outcome: 'defeat', reason: 'limit', round: state.round }, events);
 }

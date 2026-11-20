@@ -1,6 +1,7 @@
-import type { Command, GameData, GameEvent, GameState, StepResult } from './types';
+import type { Command, GameData, GameEvent, GameState, RejectReason, StepResult } from './types';
 import { createRng, deriveSeed } from './rng';
 import { checkEnd, moveEnemies, spawnTick } from './flow';
+import { resolveKills } from './combat';
 import { afterCommandHooks, handlers, phases, type PhaseName } from './registry';
 import './units';
 import './combine';
@@ -41,6 +42,23 @@ function isEnded(state: GameState): boolean {
   return state.phase === 'ended';
 }
 
+export function applyCommand(state: GameState, cmd: Command, events: GameEvent[]): RejectReason | null {
+  const handler = typeof cmd?.type === 'string' ? handlers.get(cmd.type) : undefined;
+  return handler ? handler(state, cmd, events) : 'unknown';
+}
+
+export function runAfterCommandHooks(state: GameState, events: GameEvent[]): void {
+  for (const hook of afterCommandHooks) hook(state, events);
+}
+
+export function runCombat(state: GameState, events: GameEvent[], opts: { finalClear: boolean; afterMove?: () => void }): void {
+  moveEnemies(state);
+  opts.afterMove?.();
+  runPhase('tickStatuses', state, events);
+  runPhase('unitAttacks', state, events);
+  resolveKills(state, events, { finalClear: opts.finalClear });
+}
+
 export function step(state: GameState, commands: Command[]): StepResult {
   const events: GameEvent[] = [];
   const rejected: StepResult['rejected'] = [];
@@ -49,17 +67,13 @@ export function step(state: GameState, commands: Command[]): StepResult {
     return { events, rejected };
   }
   for (const command of commands) {
-    const handler = typeof command?.type === 'string' ? handlers.get(command.type) : undefined;
-    const reason = handler ? handler(state, command, events) : 'unknown';
+    const reason = applyCommand(state, command, events);
     if (reason) rejected.push({ command, reason });
   }
-  for (const hook of afterCommandHooks) hook(state, events);
+  runAfterCommandHooks(state, events);
   spawnTick(state, events);
   if (!isEnded(state)) {
-    moveEnemies(state);
-    runPhase('tickStatuses', state, events);
-    runPhase('unitAttacks', state, events);
-    runPhase('resolveKills', state, events);
+    runCombat(state, events, { finalClear: true });
     checkEnd(state, events);
   }
   state.tick++;

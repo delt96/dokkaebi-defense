@@ -2,7 +2,7 @@ import type { Command, GameEvent, GameState, RejectReason } from './types';
 
 export type CommandHandler = (state: GameState, cmd: Command, events: GameEvent[]) => RejectReason | null;
 type Phase = (state: GameState, events: GameEvent[]) => void;
-export type PhaseName = 'tickStatuses' | 'unitAttacks' | 'resolveKills';
+export type PhaseName = 'tickStatuses' | 'unitAttacks';
 
 export const handlers = new Map<string, CommandHandler>();
 export const afterCommandHooks: Phase[] = [];
