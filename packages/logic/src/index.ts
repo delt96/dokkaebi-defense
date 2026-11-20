@@ -25,3 +25,4 @@ export { parseClientCommand, toWire } from './match/parse';
 export {
   buildFull, buildTick, MatchStreamer, applyFull, applyTick, applyLane, applyMine, enemyDistanceAt, diffViews,
 } from './match/view';
+export { normalizeNickname, sameNickname } from './match/nickname';
