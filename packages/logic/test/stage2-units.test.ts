@@ -103,6 +103,19 @@ describe('stage 2 units fire their spec effects', () => {
     expect(r.dmg(r.target)).toEqual([137, 137]);
     expect(r.target.vulns.jumadeung).toEqual({ pct: 0.18, damageType: 'magical', ticks: 60, stacks: 1 });
   });
+  test('nth units: no skill effect on any attack before the nth', () => {
+    const N: [string, number][] = [['dadeumitdol', 3], ['mumyeong', 4], ['baneul', 5], ['but', 4], ['hamjibak', 4], ['bagaji', 4],
+      ['golmu', 3], ['tteongme', 3], ['byeoru', 4], ['ja', 4], ['chaeban', 3], ['jumadeung', 4]];
+    for (const [id, n] of N) for (let k = 1; k < n; k++) {
+      const r = attackOnce(id, k);
+      const hits = r.events.filter(x => x.type === 'damage');
+      expect(hits.length, `${id} attack ${k}`).toBe(1);
+      expect(hits[0], `${id} attack ${k}`).toMatchObject({ enemyId: r.target.id });
+      expect(hits[0], `${id} attack ${k}`).not.toHaveProperty('effect');
+      expect([r.target.d, r.target.stunTicks, r.target.slow, r.target.vulns], `${id} attack ${k}`).toEqual([3, 0, null, {}]);
+      expect(Object.keys(r.target.dots), `${id} attack ${k}`).toEqual(id === 'byeoru' ? ['byeoru'] : []);
+    }
+  });
   test('byeoru dot is replaced on every attack, so 2 of its 6 pulses land per attack', () => {
     const s = createGame(data, 1); forceRound(s, 1); s.spawned = 30; s.roundEndTick = 1e9; s.enemies = [];
     placeUnitForTest(s, 'byeoru', 2);
