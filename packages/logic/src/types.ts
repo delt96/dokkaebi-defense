@@ -74,10 +74,11 @@ export interface GameState {
   nextId: number;
 }
 export type Command =
-  | { type: 'summon' } | { type: 'combine'; result: string; slot?: number } | { type: 'sell'; slot: number }
-  | { type: 'move'; from: number; to: number } | { type: 'convertToken' }
+  | { type: 'summon' } | { type: 'combine'; result: string; slot?: number; unitId?: number } | { type: 'sell'; slot: number; unitId?: number }
+  | { type: 'move'; from: number; to: number; unitId?: number; toUnitId?: number | null } | { type: 'convertToken' }
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' };
-export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'maxed' | 'unknown';
+export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'maxed' | 'unknown'
+  | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 
 export type GameEvent =

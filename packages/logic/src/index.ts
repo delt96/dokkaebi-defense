@@ -14,3 +14,7 @@ export { availableRecipes, missingMaterials, recipesUsing } from './combine';
 export { computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps, resolveKills } from './combat';
 export { upgradeCost } from './upgrades';
 export * from './hash';
+export * from './match/types';
+export { roundStartTick } from './match/schedule';
+export { createMatch, laneSeed, matchHash } from './match/create';
+export { stepMatch } from './match/step';
