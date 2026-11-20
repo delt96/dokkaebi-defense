@@ -9,3 +9,4 @@ export { rollSummon, chooseSlot, pityPick, unitDefFast } from './units';
 export { availableRecipes, missingMaterials, recipesUsing } from './combine';
 export { computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps } from './combat';
 export { upgradeCost } from './upgrades';
+export * from './hash';

@@ -6,6 +6,7 @@
   "dependencies": { "@dorandi/logic": "*" },
   "scripts": {
     "sim": "tsx src/cli.ts",
-    "econ": "tsx src/econ.ts"
+    "econ": "tsx src/econ.ts",
+    "golden": "tsx scripts/write-golden.ts"
   }
 }
