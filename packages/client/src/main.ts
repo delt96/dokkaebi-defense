@@ -3,6 +3,7 @@ import { createGame, loadGameData } from '@dorandi/logic';
 import { GameDriver } from './driver';
 import { LaneScene, LANE_CANVAS } from './LaneScene';
 import { computeZoom } from './layout';
+import { mountUi } from './ui/mount';
 import './ui/style.css';
 
 const data = loadGameData();
@@ -30,11 +31,12 @@ function fit(): void {
 window.addEventListener('resize', fit);
 fit();
 
+const ui = mountUi(driver, scene);
+
 export function restart(): void {
   driver.reset(createGame(data, newSeed()));
   scene.reset();
+  ui.resetUi();
 }
-
-export { driver, scene };
 
 if (import.meta.env.DEV) Object.assign(window, { __driver: driver, __scene: scene });
