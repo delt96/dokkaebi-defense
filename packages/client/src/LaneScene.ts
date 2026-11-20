@@ -4,7 +4,6 @@ import { selectedSlot } from './ui/models';
 import type { GameDriver } from './driver';
 import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasToCell, laneToCanvas } from './layout';
 
-const SPRITES = ['sotlid', 'bitjaru', 'japgwi'];
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
 const hex = (c: string) => Number.parseInt(c.slice(1), 16);
 
@@ -40,7 +39,15 @@ export class LaneScene extends Phaser.Scene {
   get lane(): Lane { return laneOf(this.state); }
 
   preload(): void {
-    for (const id of SPRITES) this.load.image(id, `sprites/${id}.png`);
+    const data = this.driver.state.data;
+    for (const def of [...data.units, ...data.enemies]) this.load.image(def.id, `sprites/${def.id}.png`);
+  }
+
+  private warned = new Set<string>();
+  private hasTexture(id: string): boolean {
+    if (this.textures.exists(id)) return true;
+    if (!this.warned.has(id)) { this.warned.add(id); console.warn(`missing sprite texture: ${id}`); }
+    return false;
   }
 
   create(): void {
@@ -147,7 +154,7 @@ export class LaneScene extends Phaser.Scene {
     const def = unitDefFast(this.state.data, defId);
     const view = this.add.container(0, 0) as UnitView;
     view.unitId = unitId;
-    if (this.textures.exists(defId)) {
+    if (this.hasTexture(defId)) {
       view.add(this.add.image(0, 0, defId));
     } else {
       view.add(this.add.circle(0, 0, 11, hex(GRADE_COLOR[def.grade] ?? '#ffffff')).setStrokeStyle(1, 0x000000));
@@ -238,11 +245,11 @@ export class LaneScene extends Phaser.Scene {
     const spawn = laneToCanvas(this.lane.pointAt(0));
     const view = this.add.container(spawn.x, spawn.y).setDepth(2);
     const radius = boss ? 14 : 6;
-    const body = this.textures.exists(defId)
-      ? this.add.image(0, 0, defId).setScale(boss ? 1.6 : 0.6)
+    const body = this.hasTexture(defId)
+      ? this.add.image(0, 0, defId).setScale(boss ? 1 : 0.75)
       : this.add.circle(0, 0, radius, ENEMY_COLOR[defId] ?? 0x7a6a9a).setStrokeStyle(1, 0xb8a8e8);
-    const width = boss ? 40 : 16;
-    const y = boss ? -20 : -12;
+    const width = boss ? 44 : 18;
+    const y = boss ? -28 : -15;
     view.add([body, this.add.rectangle(0, y, width + 2, 4, 0x100e14),
       this.add.rectangle(-width / 2, y, width, 2, boss ? 0xff715c : 0x83d5a3).setOrigin(0, 0.5).setName('hp')]);
     this.enemies.set(id, view);
