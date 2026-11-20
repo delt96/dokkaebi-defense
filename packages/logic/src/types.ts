@@ -42,14 +42,14 @@ export interface GameData { units: UnitDef[]; recipes: RecipeDef[]; enemies: Ene
 export interface RngState { s: number }
 export interface Unit { id: number; defId: string; cooldown: number; attackCount: number; periodic: number[] }
 export interface Vuln { pct: number; damageType: DamageType | 'all'; ticks: number; stacks: number }
-export interface Dot { perPulse: number; pulsesLeft: number; nextPulse: number }
+export interface Dot { remaining: number; pulsesLeft: number; nextPulse: number }
 export interface Enemy {
   id: number; defId: string; hp: number; maxHp: number; d: number; boss: boolean; round: number;
   stunTicks: number; slow: { pct: number; ticks: number } | null;
-  vulns: Record<string, Vuln>; dots: Record<string, Dot>;
+  vulns: Record<string, Vuln>; dots: Record<string, Dot>; fireHit: Record<string, number>;
 }
 export interface GroundFire { source: string; from: number; to: number; basePerPulse: number; nextPulse: number; endTick: number }
-export interface RoundStats { round: number; hpSpawned: number; damageDealt: number; maxEnemies: number; endEnemies: number; bossKillSeconds: number | null }
+export interface RoundStats { round: number; hpSpawned: number; damageDealt: number; damageInRound: number; maxEnemies: number; endEnemies: number; bossKillSeconds: number | null }
 export interface GameResult { outcome: 'clear' | 'defeat'; reason: 'limit' | 'boss' | null; round: number }
 export interface GameState {
   data: GameData; tick: number; phase: 'prep' | 'round' | 'ended';

@@ -4,7 +4,7 @@ import { dist } from './lane';
 import { registerPhase } from './registry';
 import { laneOf } from './lane';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
-import { statsForRound } from './stats';
+import { currentStats, statsForRound } from './stats';
 import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnOf } from './effects';
 
@@ -60,6 +60,8 @@ export function dealDamage(state: GameState, enemy: Enemy, amount: number, sourc
   if (!enemy.boss) {
     const st = statsForRound(state, enemy.round);
     if (st) st.damageDealt += actual;
+    const cur = currentStats(state);
+    if (cur) cur.damageInRound += actual;
   }
 }
 

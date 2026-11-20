@@ -68,8 +68,18 @@ function ccTicks(state: GameState, e: Enemy, seconds: number): number {
 }
 
 function applyStatus(state: GameState, slot: number, source: string, target: Enemy, eff: Effect, events: GameEvent[]): void {
-  if (target.hp <= 0) return;
   const b = state.data.balance;
+  if (eff.kind === 'groundFire') {
+    const def = unitDefFast(state.data, source);
+    const center = loopPos(target.d, laneOf(state).perimeter);
+    state.fires.push({
+      source, from: center - eff.length / 2, to: center + eff.length / 2,
+      basePerPulse: unitAttack(def, b) * eff.pulseMult * (1 + damageBonus(state, slot)),
+      nextPulse: state.tick + toTicks(b.pulseSeconds), endTick: state.tick + toTicks(eff.seconds),
+    });
+    return;
+  }
+  if (target.hp <= 0) return;
   switch (eff.kind) {
     case 'stun': {
       const t = ccTicks(state, target, eff.seconds);
@@ -105,17 +115,7 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
     case 'dot': {
       const total = hitDamage(state, slot, target, eff.mult);
       const pulses = Math.max(1, Math.round(eff.seconds / b.pulseSeconds));
-      target.dots[source] = { perPulse: Math.max(1, Math.round(total / pulses)), pulsesLeft: pulses, nextPulse: state.tick + toTicks(b.pulseSeconds) };
-      break;
-    }
-    case 'groundFire': {
-      const def = unitDefFast(state.data, source);
-      const center = loopPos(target.d, laneOf(state).perimeter);
-      state.fires.push({
-        source, from: center - eff.length / 2, to: center + eff.length / 2,
-        basePerPulse: unitAttack(def, b) * eff.pulseMult * (1 + damageBonus(state, slot)),
-        nextPulse: state.tick + toTicks(b.pulseSeconds), endTick: state.tick + toTicks(eff.seconds),
-      });
+      target.dots[source] = { remaining: total, pulsesLeft: pulses, nextPulse: state.tick + toTicks(b.pulseSeconds) };
       break;
     }
     default:
@@ -156,7 +156,11 @@ export function performAttack(state: GameState, slot: number, target: Enemy, eve
       for (const o of state.enemies) if (o !== target && dist(lane.pointAt(o.d), origin) <= e.radius + 1e-9) hit(o, e.mult, true);
     }
     if (e.kind === 'pierce') {
-      for (const o of state.enemies) if (o !== target && o.d < target.d && o.d >= target.d - e.length) hit(o, e.mult, true);
+      for (const o of state.enemies) {
+        if (o === target) continue;
+        const gap = loopPos(target.d - o.d, lane.perimeter);
+        if (gap > 1e-9 && gap <= e.length + 1e-9) hit(o, e.mult, true);
+      }
     }
   }
   for (const e of fired) {
@@ -186,7 +190,7 @@ export function runPeriodics(state: GameState, slot: number, events: GameEvent[]
       if (eff.kind !== 'allInRange') continue;
       for (const e of targets) if (e.hp > 0) dealDamage(state, e, hitDamage(state, slot, e, eff.mult), def.id, events);
     }
-    unit.periodic[idx] = toTicks(skill.trigger.seconds);
+    unit.periodic[idx] = toTicks(skill.trigger.seconds) - 1;
   }
 }
 
@@ -209,7 +213,9 @@ export function tickStatuses(state: GameState, events: GameEvent[]): void {
     for (const key of Object.keys(e.dots)) {
       const d = e.dots[key]!;
       if (state.tick < d.nextPulse) continue;
-      dealDamage(state, e, d.perPulse, key, events);
+      const amount = Math.round(d.remaining / d.pulsesLeft);
+      d.remaining -= amount;
+      if (amount > 0) dealDamage(state, e, amount, key, events);
       d.pulsesLeft--;
       d.nextPulse += pulse;
       if (d.pulsesLeft <= 0) delete e.dots[key];
@@ -218,16 +224,15 @@ export function tickStatuses(state: GameState, events: GameEvent[]): void {
   }
 
   const perimeter = laneOf(state).perimeter;
-  const hitBySource = new Map<string, Set<number>>();
   for (const f of state.fires) {
     if (state.tick < f.nextPulse || f.nextPulse > f.endTick) continue;
     f.nextPulse += pulse;
-    let seen = hitBySource.get(f.source);
-    if (!seen) { seen = new Set(); hitBySource.set(f.source, seen); }
     const type = unitDefFast(state.data, f.source).damageType;
     for (const e of state.enemies) {
-      if (e.hp <= 0 || seen.has(e.id) || !inFire(loopPos(e.d, perimeter), f.from, f.to, perimeter)) continue;
-      seen.add(e.id);
+      if (e.hp <= 0 || !inFire(loopPos(e.d, perimeter), f.from, f.to, perimeter)) continue;
+      const last = e.fireHit[f.source];
+      if (last !== undefined && state.tick - last < pulse) continue;
+      e.fireHit[f.source] = state.tick;
       const amount = computeHitDamage({ attack: f.basePerPulse, mult: 1, bonus: 0, resist: enemyResist(state, e, type), vuln: vulnOf(state, e, type) });
       dealDamage(state, e, amount, f.source, events);
     }

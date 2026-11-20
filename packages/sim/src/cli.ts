@@ -40,12 +40,15 @@ console.log(`clear ${clears}/${seeds}`);
 const dist = new Map<number, number>();
 for (const r of endRounds) dist.set(r, (dist.get(r) ?? 0) + 1);
 console.log(`defeat rounds: ${[...dist.entries()].sort((a, b) => a[0] - b[0]).map(([r, n]) => `R${r}x${n}`).join(' ') || '-'}`);
-console.log('round | median multiplier | median maxEnemies | median bossKillSeconds');
+console.log('round | median nominal | median real | median maxEnemies | median bossKillSeconds (killed/total)');
 const maxRound = Math.max(...rows.map(r => r.round));
 for (let round = 1; round <= maxRound; round++) {
   const rs = rows.filter(r => r.round === round);
-  const mult = median(rs.map(r => r.multiplier).filter((v): v is number => v !== null));
+  const nominal = median(rs.map(r => r.nominalMultiplier).filter((v): v is number => v !== null));
+  const real = median(rs.map(r => r.realMultiplier).filter((v): v is number => v !== null));
   const maxE = median(rs.map(r => r.maxEnemies));
-  const boss = median(rs.map(r => r.bossKillSeconds).filter((v): v is number => v !== null));
-  console.log(`R${round} | ${mult === null ? '-' : mult.toFixed(2)} | ${maxE ?? '-'} | ${boss === null ? '-' : boss.toFixed(1)}`);
+  const kills = rs.map(r => r.bossKillSeconds).filter((v): v is number => v !== null);
+  const boss = median(kills);
+  const f = (v: number | null) => (v === null ? '-' : v.toFixed(2));
+  console.log(`R${round} | ${f(nominal)} | ${f(real)} | ${maxE ?? '-'} | ${boss === null ? '-' : `${boss.toFixed(1)} (${kills.length}/${rs.length})`}`);
 }

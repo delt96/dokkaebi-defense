@@ -29,7 +29,7 @@ export function startRound(state: GameState, round: number, events: GameEvent[])
   state.roundEndTick = state.tick + toTicks(wave.type === 'boss' ? b.bossRoundSeconds : b.roundSeconds);
   state.spawned = 0;
   state.tokens += b.tokens.perRound;
-  state.stats.push({ round, hpSpawned: 0, damageDealt: 0, maxEnemies: countNormalEnemies(state), endEnemies: 0, bossKillSeconds: null });
+  state.stats.push({ round, hpSpawned: 0, damageDealt: 0, damageInRound: 0, maxEnemies: countNormalEnemies(state), endEnemies: 0, bossKillSeconds: null });
   events.push({ type: 'roundStart', round });
 }
 
@@ -38,7 +38,7 @@ export function spawnEnemy(state: GameState, defId: string, round: number, event
   const hp = enemyHp(def, round, state.data.balance);
   const e: Enemy = {
     id: state.nextId++, defId, hp, maxHp: hp, d: 0, boss: def.boss, round,
-    stunTicks: 0, slow: null, vulns: {}, dots: {},
+    stunTicks: 0, slow: null, vulns: {}, dots: {}, fireHit: {},
   };
   state.enemies.push(e);
   if (!def.boss) {

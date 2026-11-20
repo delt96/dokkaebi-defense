@@ -55,19 +55,47 @@ function cheapestUpgrade(state: GameState): UpgradeId | null {
   return best !== null && bestCost <= state.coins ? best : null;
 }
 
+const isMelee = (state: GameState, i: number) => unitDefFast(state.data, state.slots[i]!.defId).range <= MELEE_MAX_RANGE;
+
 function placementFix(state: GameState): Command | null {
   const lane = laneOf(state);
   const empty = emptyOpenSlots(state);
   for (let i = 0; i < state.slots.length; i++) {
-    const u = state.slots[i];
-    if (!u) continue;
-    const melee = unitDefFast(state.data, u.defId).range <= MELEE_MAX_RANGE;
+    if (!state.slots[i]) continue;
+    const melee = isMelee(state, i);
     const onEdge = lane.cells[i]!.isEdge;
     if (melee === onEdge) continue;
     const to = empty.find(j => lane.cells[j]!.isEdge === melee);
     if (to !== undefined) return { type: 'move', from: i, to };
+    if (melee) {
+      const swap = state.slots.findIndex((u, j) => u && lane.cells[j]!.isEdge && !isMelee(state, j));
+      if (swap >= 0) return { type: 'move', from: i, to: swap };
+    }
   }
   return null;
+}
+
+function sellForRoom(state: GameState): Command | null {
+  const counts = new Map<string, number>();
+  for (const u of state.slots) if (u) counts.set(u.defId, (counts.get(u.defId) ?? 0) + 1);
+  let best = -1;
+  for (let i = 0; i < state.slots.length; i++) {
+    const u = state.slots[i];
+    if (!u) continue;
+    if (best < 0) { best = i; continue; }
+    const g = unitDefFast(state.data, u.defId).grade;
+    const bu = state.slots[best]!;
+    const bg = unitDefFast(state.data, bu.defId).grade;
+    if (g < bg || (g === bg && (counts.get(u.defId) ?? 0) > (counts.get(bu.defId) ?? 0))) best = i;
+  }
+  return best >= 0 ? { type: 'sell', slot: best } : null;
+}
+
+function slotsAffordable(state: GameState): boolean {
+  const def = state.data.upgrades.find(u => u.id === 'slots');
+  if (!def) return false;
+  const level = state.upgrades.slots;
+  return level < def.max && state.coins >= upgradeCost(def, level + 1);
 }
 
 function followBoss(state: GameState): Command[] {
@@ -107,6 +135,14 @@ export function normalBot(): Bot {
       const cmds = summonAll(state);
       const recipe = bestRecipe(state);
       if (recipe) cmds.push({ type: 'combine', result: recipe });
+      const full = emptyOpenSlots(state).length === 0;
+      if (full && state.tokens > 0) {
+        if (slotsAffordable(state)) cmds.push({ type: 'upgrade', id: 'slots' });
+        else if (!recipe) {
+          const sell = sellForRoom(state);
+          if (sell) cmds.push(sell, { type: 'summon' });
+        }
+      }
       const up = cheapestUpgrade(state);
       if (up) cmds.push({ type: 'upgrade', id: up });
       const fix = placementFix(state);

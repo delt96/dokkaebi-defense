@@ -62,7 +62,7 @@ describe('effects', () => {
     const s = quiet(); placeUnitForTest(s, 'horong', 2);
     const e = spawnEnemyForTest(s, 'japgwi', 3, 10 ** 6); step(s, []);
     expect(e.dots.horong!.pulsesLeft).toBe(6);
-    expect(e.dots.horong!.perPulse).toBe(Math.max(1, Math.round(Math.round(10 * 1.0 * 0.85) / 6)));
+    expect(e.dots.horong!.remaining).toBe(Math.round(10 * 1.0 * 0.85));
   });
   test('ground fire stays after the unit is sold and hits once per pulse', () => {
     const s = quiet(); placeUnitForTest(s, 'hwaro', 2);
@@ -107,5 +107,53 @@ describe('effects', () => {
     const s = quiet(); placeUnitForTest(s, 'yeonjabangga', 2);
     for (let i = 0; i < 100; i++) step(s, []);
     expect(s.slots[2]!.periodic[0]).toBe(0);
+  });
+});
+
+describe('checkpoint 2 fixes', () => {
+  test('same-source fires never hit one enemy more than once per pulse', () => {
+    const s = quiet();
+    const e = spawnEnemyForTest(s, 'japgwi', 3, 10 ** 6); e.stunTicks = 10 ** 6;
+    s.fires.push({ source: 'hwaro', from: 2.5, to: 3.5, basePerPulse: 5, nextPulse: s.tick + 10, endTick: s.tick + 40 });
+    s.fires.push({ source: 'hwaro', from: 2.5, to: 3.5, basePerPulse: 5, nextPulse: s.tick + 15, endTick: s.tick + 45 });
+    const hits: number[] = [];
+    for (let i = 0; i < 46; i++) hits.push(...dmg(step(s, []), e.id));
+    expect(hits.length).toBe(4);
+  });
+  test('a killing hit still leaves its ground fire', () => {
+    const s = quiet(); placeUnitForTest(s, 'jwibul', 2);
+    spawnEnemyForTest(s, 'japgwi', 3, 1);
+    step(s, []);
+    expect(s.fires.length).toBe(1);
+  });
+  test('pierce measures the gap around the loop', () => {
+    const s = quiet(); placeUnitForTest(s, 'hwaetbul', 2);
+    const t = spawnEnemyForTest(s, 'japgwi', 27, 10000); t.id = -1;
+    const behind = spawnEnemyForTest(s, 'japgwi', 1.5, 10000);
+    const r = step(s, []);
+    expect(dmg(r, behind.id).length).toBe(1);
+  });
+  test('dot pulses add up to the fixed total', () => {
+    const s = quiet(); placeUnitForTest(s, 'horong', 2);
+    const e = spawnEnemyForTest(s, 'japgwi', 3, 10 ** 6); e.stunTicks = 10 ** 6;
+    step(s, []);
+    s.slots[2] = null;
+    const pulses: number[] = [];
+    for (let i = 0; i < 70; i++) pulses.push(...step(s, []).events.filter(x => x.type === 'damage' && x.enemyId === e.id && x.source === 'horong').map(x => (x as { amount: number }).amount));
+    expect(pulses.length).toBe(6);
+    expect(pulses.reduce((a, b) => a + b, 0)).toBe(Math.round(10 * 1.0 * 0.85));
+  });
+  test('periodic fires every 2 seconds exactly', () => {
+    const s = quiet(); placeUnitForTest(s, 'yeonjabangga', 2);
+    const e = spawnEnemyForTest(s, 'japgwi', 3, 10 ** 7); e.stunTicks = 10 ** 7;
+    const fireTicks: number[] = [];
+    for (let i = 0; i < 130; i++) {
+      const t = s.tick;
+      const r = step(s, []);
+      if (r.events.filter(x => x.type === 'damage' && x.enemyId === e.id).length > (r.events.some(x => x.type === 'attack') ? 1 : 0)) fireTicks.push(t);
+    }
+    expect(fireTicks.length).toBeGreaterThanOrEqual(3);
+    expect(fireTicks[1]! - fireTicks[0]!).toBe(40);
+    expect(fireTicks[2]! - fireTicks[1]!).toBe(40);
   });
 });
