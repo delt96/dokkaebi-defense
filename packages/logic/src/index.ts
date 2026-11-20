@@ -6,3 +6,4 @@ export * from './lane';
 export * from './stats';
 export { createGame, step, laneOf } from './game';
 export { rollSummon, chooseSlot, pityPick, unitDefFast } from './units';
+export { availableRecipes, missingMaterials } from './combine';
