@@ -19,3 +19,9 @@ export { roundStartTick } from './match/schedule';
 export { createMatch, laneSeed, matchHash } from './match/create';
 export { stepMatch } from './match/step';
 export { replayMatch, type InputLogEntry } from './match/replay';
+export { gateDeadlineTick, nextAliveSeat } from './match/yeoksin';
+export * from './match/wire';
+export { parseClientCommand, toWire } from './match/parse';
+export {
+  buildFull, buildTick, MatchStreamer, applyFull, applyTick, applyLane, applyMine, enemyDistanceAt, diffViews,
+} from './match/view';
