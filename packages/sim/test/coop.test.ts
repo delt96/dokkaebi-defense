@@ -11,6 +11,8 @@ describe('coop sim', () => {
     const a = runMatch(data, 4, ['normal', 'clumsy']);
     expect(a.match.result).not.toBeNull();
     expect(matchHash(runMatch(data, 4, ['normal', 'clumsy']).match)).toBe(matchHash(a.match));
+    expect(a.hashes.at(-1)![0]).toBe(a.match.tick);
+    expect(a.hashes.at(-1)![1]).toBe(matchHash(a.match));
     expect(replayMatch(data, 4, [1, 2], a.log)).toEqual(a.hashes);
   }, 120_000);
   test('normal bot follows the yeoksin like a boss', () => {

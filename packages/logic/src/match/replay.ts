@@ -7,7 +7,10 @@ export interface InputLogEntry { tick: number; inputs: MatchInput[] }
 
 const MAX_TICKS = 200_000;
 
-/** Replays a recorded input log on a fresh match and returns [tick, matchHash] every `every` ticks, until the match has a result. */
+/**
+ * Replays a recorded input log on a fresh match and returns [tick, matchHash] every `every` ticks, until the match has a result.
+ * The end tick always gets a final entry (when it is not already a multiple of `every`), so the result is compared too.
+ */
 export function replayMatch(
   data: GameData, seed: number, seats: number[], log: InputLogEntry[], every = 100, options: MatchOptions = {},
 ): [number, string][] {
@@ -19,5 +22,6 @@ export function replayMatch(
     stepMatch(match, byTick.get(match.tick) ?? []);
     if (match.tick % every === 0) hashes.push([match.tick, matchHash(match)]);
   }
+  if (match.tick % every !== 0) hashes.push([match.tick, matchHash(match)]);
   return hashes;
 }

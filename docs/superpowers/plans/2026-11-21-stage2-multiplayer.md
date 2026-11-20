@@ -1290,7 +1290,7 @@ git commit -m "feat(logic): yeoksin ring, stay, rewards and story gate"
 **Interfaces:**
 - Consumes: Task 5 `createMatch`, `stepMatch`, `matchHash`, `laneSeed`, `MatchState`, `MatchInput`, `MatchCommand`; Task 6 결과 필드; Task 7 `yeoksin`; `isShared`, `countNormalEnemies`, `unitDefFast`; 기존 `normalBot`, `clumsyBot`, `roundRows` 열 정의
 - Produces:
-  - `replay.ts`: `interface InputLogEntry { tick: number; inputs: MatchInput[] }`, `replayMatch(data, seed, seats: number[], log: InputLogEntry[], every = 100, options?: MatchOptions): [number, string][]` — 새 판에서 매 틱 그 틱의 입력을 넣어 `stepMatch`, `match.tick % every === 0`마다 `[tick, matchHash]`. 결과가 날 때까지 돈다
+  - `replay.ts`: `interface InputLogEntry { tick: number; inputs: MatchInput[] }`, `replayMatch(data, seed, seats: number[], log: InputLogEntry[], every = 100, options?: MatchOptions): [number, string][]` — 새 판에서 매 틱 그 틱의 입력을 넣어 `stepMatch`, `match.tick % every === 0`마다 `[tick, matchHash]`. 결과가 날 때까지 돈다. 반복이 끝난 뒤 끝 틱이 `every`의 배수가 아니면 `[match.tick, matchHash]`를 한 번 더 넣는다(결과가 `MatchState.result`에 있어 해시로 함께 비교된다). `runMatch`의 `hashes`와 Task 12 방 시험의 서버 해시도 같은 규칙으로 쌓는다
   - `bots.ts`: `followBoss(state: GameState): Command[]`를 내보내고, 추적 대상을 "보스 중 첫째, 없으면 shared 적 중 첫째(hp > 0)"로 바꾼다. 1단계에는 shared가 없어 골든이 그대로다
   - `coop.ts`:
     - `type BotKind = 'normal' | 'clumsy'`
@@ -1937,7 +1937,7 @@ describe('match room', () => {
 });
 ```
 
-마지막 시험은 위 주석대로 작성한다. 서버 해시는 시험이 `tickOnce`마다 `core.match.tick % 100 === 0`일 때 `matchHash(core.match)`를 모아 둔다. 각 링크의 관전 고개와 키는 마지막으로 받은 `full`에서 읽는다.
+마지막 시험은 위 주석대로 작성한다. 서버 해시는 시험이 `tickOnce`마다 `core.match.tick % 100 === 0`일 때 `matchHash(core.match)`를 모아 둔다, 판이 끝난 틱이 100의 배수가 아니면 끝에 `[core.match.tick, matchHash(core.match)]`를 한 번 더 넣는다(Task 8 `replayMatch`와 같은 규칙). 각 링크의 관전 고개와 키는 마지막으로 받은 `full`에서 읽는다.
 
 - [ ] **Step 2: 실패를 확인한다**
 

@@ -81,6 +81,16 @@ describe('disconnect', () => {
     stepMatch(m, []);
     expect(m.seats[1]!.record!.cause).toBe('disconnect');
   });
+  test('disconnected on the boss round start tick: the boss still spawns on schedule and only the clock pauses', () => {
+    const m = createMatch(data, 1, [1, 2], { noElimination: true }); jumpToTick(m, 7800);
+    const tokens = m.lanes[1]!.tokens;
+    const r = stepMatch(m, [{ seat: 1, seq: 0, cmd: { type: 'disconnect' } }]);
+    expect(m.seats[1]!.connected).toBe(false);
+    expect(m.lanes[1]!.enemies.filter(e => e.boss)).toHaveLength(1);
+    expect(m.seats[1]!.bosses[10]).toMatchObject({ status: 'fighting', ticksLeft: 1500, pausedTicks: 1 });
+    expect(r.events).toContainEqual(expect.objectContaining({ type: 'bossSpawn', seat: 1, round: 10 }));
+    expect(m.lanes[1]!.tokens).toBe(tokens + 2);
+  });
   test('boss clock pauses while disconnected, resumes on reconnect, and runs again after 3600 paused ticks', () => {
     const m = createMatch(data, 1, [1, 2], { noElimination: true }); jumpToTick(m, 7800); stepMatch(m, []);
     stepMatch(m, [{ seat: 1, seq: 0, cmd: { type: 'disconnect' } }]);

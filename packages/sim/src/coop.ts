@@ -124,6 +124,7 @@ export function runMatch(data: GameData, seed: number, kinds: BotKind[], options
     }
     if (match.tick % HASH_EVERY === 0) hashes.push([match.tick, matchHash(match)]);
   }
+  if (match.tick % HASH_EVERY !== 0) hashes.push([match.tick, matchHash(match)]);
   if (match.result) {
     for (const s of seats) if (match.seats[s]!.alive) snaps[s]!.set(match.result.round, snapshot(match.lanes[s]!, earned[s]!));
   }
