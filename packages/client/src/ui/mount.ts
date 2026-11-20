@@ -6,11 +6,13 @@ import { dexHtml } from './dex';
 import { el, onAction, setHtml } from './dom';
 import { renderHelper } from './helper';
 import { renderHud } from './hud';
+import { rejectText } from './models';
 import { renderBottom, renderRight, upgradesHtml } from './panels';
 import { resultHtml } from './result';
 
 const UPGRADE_KEYS: UpgradeId[] = ['physical', 'magical', 'polish', 'slots'];
 const RENDER_MS = 100;
+const NOTICE_MS = 1500;
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void }
 
@@ -19,6 +21,7 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
   let helperOpen = false;
   let modal: 'dex' | 'upgrades' | null = null;
   let best: { id: string; grade: number } | null = null;
+  let notice: { text: string; until: number } | null = null;
 
   const act = (action: string, arg: string) => {
     switch (action) {
@@ -41,6 +44,12 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
 
   for (const id of ['left', 'right', 'bottom', 'modal']) onAction(el(id), act);
   scene.onSelect(slot => { selected = slot !== null && driver.state.slots[slot] ? slot : null; render(); });
+  driver.onEvents((_events, rejected) => {
+    for (const r of rejected) {
+      const text = rejectText(r.reason);
+      if (text) notice = { text, until: performance.now() + NOTICE_MS };
+    }
+  });
   scene.onEvents(events => {
     for (const e of events) {
       if ((e.type === 'summon' || e.type === 'combine')) {
@@ -67,7 +76,8 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
   function render(): void {
     const s = driver.state;
     if (selected !== null && !s.slots[selected]) selected = null;
-    renderHud(s, driver.paused);
+    if (notice && performance.now() > notice.until) notice = null;
+    renderHud(s, driver.paused, notice?.text ?? null);
     renderHelper(s, helperOpen);
     renderRight(s);
     renderBottom(s, selected);
@@ -77,7 +87,7 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
 
   setInterval(render, RENDER_MS);
   render();
-  return { resetUi: () => { selected = null; modal = null; best = null; render(); } };
+  return { resetUi: () => { selected = null; modal = null; best = null; notice = null; render(); } };
 }
 
 export function unitName(driver: GameDriver, defId: string): string {

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { createGame, loadGameData } from '@dorandi/logic';
 import { GameDriver } from './driver';
 import { LaneScene, LANE_CANVAS } from './LaneScene';
-import { computeZoom } from './layout';
+import { stagePlacement } from './layout';
 import { mountUi } from './ui/mount';
 import './ui/style.css';
 
@@ -24,8 +24,10 @@ const game = new Phaser.Game({
 
 const stage = document.getElementById('stage')!;
 function fit(): void {
-  const z = computeZoom(window.innerWidth, window.innerHeight);
-  stage.style.transform = `scale(${z})`;
+  const p = stagePlacement(window.innerWidth, window.innerHeight);
+  stage.style.transform = `scale(${p.zoom})`;
+  stage.style.left = `${p.left}px`;
+  stage.style.top = `${p.top}px`;
   game.scale.refresh();
 }
 window.addEventListener('resize', fit);

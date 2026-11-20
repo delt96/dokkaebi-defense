@@ -3,9 +3,9 @@ import { computeZoom, laneToStage, stageToCell } from '../src/layout';
 import { ticksToRun } from '../src/driver';
 
 describe('client helpers', () => {
-  test('integer zoom', () => {
+  test('zoom: integer from 2x, a 1.5 step below', () => {
     expect(computeZoom(1280, 720)).toBe(2); expect(computeZoom(1920, 1080)).toBe(3);
-    expect(computeZoom(1000, 700)).toBe(1); expect(computeZoom(300, 200)).toBe(1);
+    expect(computeZoom(1000, 700)).toBe(1.5); expect(computeZoom(900, 500)).toBe(1); expect(computeZoom(300, 200)).toBe(1);
   });
   test('lane to stage and back', () => {
     expect(laneToStage({ x: 0.5, y: 0.5 })).toEqual({ x: 248, y: 130 });
@@ -17,5 +17,28 @@ describe('client helpers', () => {
     expect(ticksToRun(120, 0)).toEqual({ ticks: 2, carryMs: 20 });
     expect(ticksToRun(40, 20)).toEqual({ ticks: 1, carryMs: 10 });
     expect(ticksToRun(60_000, 0)).toEqual({ ticks: 40, carryMs: 0 });
+  });
+});
+
+import { stagePlacement } from '../src/layout';
+import { onAction } from '../src/ui/dom';
+
+describe('final review fixes: placement and press handling', () => {
+  test('stage is centred, with a 1.5 step between 1x and 2x', () => {
+    expect(stagePlacement(1280, 720)).toEqual({ zoom: 2, left: 0, top: 0 });
+    expect(stagePlacement(1536, 700)).toEqual({ zoom: 1.5, left: 288, top: 80 });
+    expect(stagePlacement(1920, 1000)).toEqual({ zoom: 2, left: 320, top: 140 });
+    expect(stagePlacement(900, 500)).toEqual({ zoom: 1, left: 130, top: 70 });
+    expect(stagePlacement(500, 300)).toEqual({ zoom: 1, left: 0, top: 0 });
+  });
+  test('actions fire on press, so a re-render before release cannot swallow them', () => {
+    const listeners: Record<string, (ev: unknown) => void> = {};
+    const button = { dataset: { action: 'summon', arg: '' }, hasAttribute: () => false, closest: () => button };
+    const node = { addEventListener: (t: string, f: (ev: unknown) => void) => { listeners[t] = f; }, contains: () => true };
+    const got: string[] = [];
+    onAction(node as never, a => got.push(a));
+    listeners.pointerdown?.({ target: button, button: 0 });
+    listeners.pointerdown?.({ target: button, button: 2 });
+    expect(got).toEqual(['summon']);
   });
 });

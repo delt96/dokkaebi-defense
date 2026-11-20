@@ -41,6 +41,24 @@ export function skillText(skills: SkillDef[]): string {
   return skills.map(s => triggerText(s.trigger) + s.effects.map(effectText).join(', ')).join(' / ');
 }
 
+export function rightModel(state: GameState): { canSummon: boolean; canConvert: boolean; pending: number } {
+  const live = state.phase !== 'ended' && state.tokens > 0;
+  const freeCell = state.slots.some((u, i) => !u && state.open[i]);
+  return { canSummon: live && freeCell, canConvert: live, pending: state.pendingPity.length };
+}
+
+const REJECT_TEXT: Record<string, string> = {
+  noSlot: '빈 칸이 없습니다',
+  noToken: '도깨비불이 없습니다',
+  noCoins: '엽전이 모자랍니다',
+  maxed: '이미 최대 단계입니다',
+  missingMaterials: '재료가 모자랍니다',
+};
+
+export function rejectText(reason: string): string | null {
+  return REJECT_TEXT[reason] ?? null;
+}
+
 export function hudModel(state: GameState): { roundText: string; secondsLeft: number; enemyText: string; danger: number } {
   const b = state.data.balance;
   const n = countNormalEnemies(state);

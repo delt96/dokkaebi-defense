@@ -19,7 +19,17 @@ export const CENTER_H = STAGE_H - TOP_H - BOTTOM_H;
 export const GRADE_COLOR: Record<number, string> = { 1: '#4f9dff', 2: '#4fd27a', 3: '#b07aff', 4: '#ffb347' };
 
 export function computeZoom(w: number, h: number): number {
-  return Math.max(1, Math.floor(Math.min(w / STAGE_W, h / STAGE_H)));
+  const m = Math.min(w / STAGE_W, h / STAGE_H);
+  return m >= 2 ? Math.floor(m) : m >= 1.5 ? 1.5 : 1;
+}
+
+export function stagePlacement(w: number, h: number): { zoom: number; left: number; top: number } {
+  const zoom = computeZoom(w, h);
+  return {
+    zoom,
+    left: Math.max(0, Math.floor((w - STAGE_W * zoom) / 2)),
+    top: Math.max(0, Math.floor((h - STAGE_H * zoom) / 2)),
+  };
 }
 
 export function laneToStage(p: Vec2): Vec2 {

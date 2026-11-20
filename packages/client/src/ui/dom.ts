@@ -16,7 +16,10 @@ export function setHtml(node: HTMLElement, html: string): void {
 }
 
 export function onAction(node: HTMLElement, handler: (action: string, arg: string) => void): void {
-  node.addEventListener('click', ev => {
+  // pointerdown, not click: panels re-render on every kill, and a button replaced
+  // between press and release never receives its click.
+  node.addEventListener('pointerdown', ev => {
+    if ((ev as PointerEvent).button !== 0) return;
     const target = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');
     if (!target || !node.contains(target) || target.hasAttribute('disabled')) return;
     handler(target.dataset.action!, target.dataset.arg ?? '');

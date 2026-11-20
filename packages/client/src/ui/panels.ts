@@ -1,16 +1,17 @@
 import type { GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { unitCard, upgradeRows } from './models';
+import { rightModel, unitCard, upgradeRows } from './models';
 import { el, esc, setHtml } from './dom';
 
 export function renderRight(state: GameState): void {
-  const canSummon = state.tokens > 0 && state.phase !== 'ended';
+  const m = rightModel(state);
   setHtml(el('right'), `
     <div class="res"><b>도깨비불</b><span>${state.tokens}</span></div>
     <div class="res"><b>엽전</b><span>${state.coins}</span></div>
     <div class="res"><b>메밀묵</b><span>${state.buckwheat}</span></div>
-    <button class="big" data-action="summon" ${canSummon ? '' : 'disabled'}>뚝딱!</button>
-    <button data-action="convert" ${canSummon ? '' : 'disabled'}>불 바꾸기 (+${state.data.balance.tokens.toCoins}냥)</button>
+    <button class="big" data-action="summon" ${m.canSummon ? '' : 'disabled'}>뚝딱!</button>
+    ${m.pending ? `<div class="res pending"><b>보관 중</b><span>${m.pending}</span></div>` : ''}
+    <button data-action="convert" ${m.canConvert ? '' : 'disabled'}>불 바꾸기 (+${state.data.balance.tokens.toCoins}냥)</button>
     <button data-action="openUpgrades">강화</button>`);
 }
 

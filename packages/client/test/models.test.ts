@@ -46,3 +46,29 @@ test('result model', () => {
   expect(m).toMatchObject({ title: '탈락', reasonText: '고개 보스를 놓쳤습니다', roundReached: 10, bestUnit: { name: '가마솥', grade: 2 }, helperText: '도우미 3회' });
   expect(m.series.length).toBe(s.stats.length);
 });
+
+import { rightModel, rejectText } from '../src/ui/models';
+
+describe('final review fixes: right panel and reject notices', () => {
+  const unit = (id: number) => ({ id, defId: 'sotlid', cooldown: 0, attackCount: 0, periodic: [] });
+  test('summon is disabled when no open cell is free, convert is not', () => {
+    const s = createGame(data, 1);
+    expect(rightModel(s)).toEqual({ canSummon: true, canConvert: true, pending: 0 });
+    s.open.forEach((o, i) => { if (o) s.slots[i] = unit(i + 1); });
+    expect(rightModel(s)).toMatchObject({ canSummon: false, canConvert: true });
+  });
+  test('stored pity units are counted', () => {
+    const s = createGame(data, 1);
+    s.pendingPity.push('bitjaru', 'japgwi' as never);
+    expect(rightModel(s).pending).toBe(2);
+  });
+  test('reject reasons the player caused get a message, stale clicks stay silent', () => {
+    expect(rejectText('noSlot')).toBe('빈 칸이 없습니다');
+    expect(rejectText('noToken')).toBe('도깨비불이 없습니다');
+    expect(rejectText('noCoins')).toBe('엽전이 모자랍니다');
+    expect(rejectText('maxed')).toBe('이미 최대 단계입니다');
+    expect(rejectText('missingMaterials')).toBe('재료가 모자랍니다');
+    expect(rejectText('noUnit')).toBeNull();
+    expect(rejectText('ended')).toBeNull();
+  });
+});

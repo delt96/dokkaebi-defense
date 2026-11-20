@@ -56,7 +56,9 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .hud .enemies { margin-left: auto; }
 .gauge { display: inline-block; width: 60px; height: 6px; background: #2a2232; border: 1px solid #4a3e5a; }
 .gauge i { display: block; height: 100%; background: linear-gradient(90deg, #8a6a4a, var(--danger)); }
-#stage.over-limit { box-shadow: inset 0 0 24px 4px rgba(255, 59, 47, 0.6); }
+#alert { position: absolute; inset: 0; pointer-events: none; }
+#alert.on { box-shadow: inset 0 0 24px 4px rgba(255, 59, 47, 0.6); }
+.hud .notice { color: var(--danger); }
 
 #left { padding: 4px; display: flex; flex-direction: column; gap: 4px; }
 .panel-title { width: 100%; text-align: left; }
