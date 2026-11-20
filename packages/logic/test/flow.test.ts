@@ -16,7 +16,7 @@ describe('flow', () => {
     const s = createGame(data, 1);
     run(s, 400); expect(s.phase).toBe('prep');
     run(s, 1); expect(s).toMatchObject({ phase: 'round', round: 1, tokens: 6 });
-    expect(s.enemies.length).toBe(1); expect(s.enemies[0]!.hp).toBe(52);
+    expect(s.enemies.length).toBe(1); expect(s.enemies[0]!.hp).toBe(94);
     run(s, 16 * 29); expect(s.enemies.length).toBe(30);
     run(s, 16); expect(s.enemies.length).toBe(30);
   });
@@ -45,7 +45,7 @@ describe('flow', () => {
     const s = createGame(data, 1); forceRound(s, 10);
     const tokens = s.tokens;
     run(s, 1);
-    expect(s.enemies.find(e => e.boss)!.hp).toBe(3000);
+    expect(s.enemies.find(e => e.boss)!.hp).toBe(5000);
     run(s, 1499); expect(s.phase).not.toBe('ended');
     run(s, 1); expect(s.result).toEqual({ outcome: 'defeat', reason: 'boss', round: 10 });
     expect(tokens).toBe(6);
@@ -58,7 +58,7 @@ describe('flow', () => {
   });
   test('stats track spawned hp and max enemies', () => {
     const s = createGame(data, 1); run(s, 1201);
-    expect(s.stats[0]).toMatchObject({ round: 1, hpSpawned: 52 * 30, maxEnemies: 30, endEnemies: 30 });
+    expect(s.stats[0]).toMatchObject({ round: 1, hpSpawned: 94 * 30, maxEnemies: 30, endEnemies: 30 });
     expect(countNormalEnemies(s)).toBeGreaterThanOrEqual(30);
   });
 });

@@ -17,11 +17,11 @@ describe('data', () => {
   test('derived numbers', () => {
     expect(unitAttack(unitDef(data, 'sotlid'), data.balance)).toBeCloseTo(13.2);
     expect(gradeDps(data.balance, 4)).toBeCloseTo(175.76);
-    expect(enemyHp(enemyDef(data, 'japgwi'), 1, data.balance)).toBe(52);
-    expect(enemyHp(enemyDef(data, 'japgwi'), 10, data.balance)).toBe(419);
-    expect(enemyHp(enemyDef(data, 'japgwi'), 19, data.balance)).toBe(1034);
-    expect(enemyHp(enemyDef(data, 'dueoksini'), 10, data.balance)).toBe(629);
-    expect(enemyHp(enemyDef(data, 'jinegaksi'), 10, data.balance)).toBe(3000);
+    expect(enemyHp(enemyDef(data, 'japgwi'), 1, data.balance)).toBe(94);
+    expect(enemyHp(enemyDef(data, 'japgwi'), 10, data.balance)).toBe(676);
+    expect(enemyHp(enemyDef(data, 'japgwi'), 19, data.balance)).toBe(1649);
+    expect(enemyHp(enemyDef(data, 'dueoksini'), 10, data.balance)).toBe(1014);
+    expect(enemyHp(enemyDef(data, 'jinegaksi'), 10, data.balance)).toBe(5000);
   });
   test('shipped data validates with 4 one-sided warnings', () => {
     const r = v(data);

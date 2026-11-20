@@ -6,17 +6,45 @@
   "spawnCount": 30,
   "spawnIntervalSeconds": 0.8,
   "rounds": 20,
-  "hp": { "base": 40, "coef": 12, "exp": 1.5 },
-  "gradeDps": { "base": 10, "mult": 2.6 },
-  "tokens": { "start": 4, "perRound": 2, "toCoins": 25 },
-  "coins": { "perKill": 1, "roundEnd": 10, "boss": 60 },
+  "hp": {
+    "base": 75,
+    "coef": 19,
+    "exp": 1.5
+  },
+  "gradeDps": {
+    "base": 10,
+    "mult": 2.6
+  },
+  "tokens": {
+    "start": 4,
+    "perRound": 2,
+    "toCoins": 25
+  },
+  "coins": {
+    "perKill": 1,
+    "roundEnd": 10,
+    "boss": 60
+  },
   "bossBuckwheat": 2,
-  "sellPrice": [5, 10, 20, 40],
+  "sellPrice": [
+    5,
+    10,
+    20,
+    40
+  ],
   "limit": 60,
   "limitSeconds": 5,
-  "summonOdds": [0.7, 0.25, 0.05],
+  "summonOdds": [
+    0.7,
+    0.25,
+    0.05
+  ],
   "pityEvery": 7,
-  "grid": { "cols": 6, "rows": 4, "initialOpenRows": 3 },
+  "grid": {
+    "cols": 6,
+    "rows": 4,
+    "initialOpenRows": 3
+  },
   "bossCcFactor": 0.5,
   "vulnCap": 0.5,
   "auraRadius": 1.5,
