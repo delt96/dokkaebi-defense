@@ -1,5 +1,5 @@
 import type { GameData } from './types';
-import { gradeValue, recipeValue } from './data';
+import { gradeValue, recipeDemand, recipeValue } from './data';
 
 const SHAPES: Record<number, number[]> = { 2: [1, 1], 3: [1, 1, 2], 4: [2, 2, 3] };
 
@@ -7,6 +7,11 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
   const errors: string[] = [];
   const warnings: string[] = [];
   const byId = new Map(data.units.map(u => [u.id, u]));
+  const seen = new Set<string>();
+  for (const u of data.units) {
+    if (seen.has(u.id)) errors.push(`duplicate unit id ${u.id}`);
+    seen.add(u.id);
+  }
   const enemyIds = new Set(data.enemies.map(e => e.id));
 
   for (const r of data.recipes) {
@@ -27,6 +32,8 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
 
   for (const u of data.units) {
     if (u.grade >= 2 && !data.recipes.some(r => r.result === u.id)) errors.push(`unit ${u.id} (grade ${u.grade}) has no recipe`);
+    const demand = recipeDemand(data, u.id);
+    if (demand > 7) errors.push(`unit ${u.id} is used in ${demand} recipes (max 7)`);
     if (u.grade <= 3 && !data.recipes.some(r => r.materials.includes(u.id))) errors.push(`unit ${u.id} (grade ${u.grade}) is not used in any recipe`);
   }
 

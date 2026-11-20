@@ -37,7 +37,15 @@ export interface BalanceDef {
 }
 export type UpgradeId = 'physical' | 'magical' | 'polish' | 'slots';
 export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number; openCount?: number }
-export interface GameData { units: UnitDef[]; recipes: RecipeDef[]; enemies: EnemyDef[]; waves: WaveDef[]; balance: BalanceDef; upgrades: UpgradeDef[] }
+export interface YeoksinStageDef { stage: 1 | 2; enemy: string; startRound: number; deadlineRound: number; baseHp: number; startIndex: number }
+export interface CoopDef {
+  yeoksin: YeoksinStageDef[]; hpPerExtraPlayer: number; staySeconds: number;
+  killReward: { coins: number; buckwheat: number }; topDamageBonus: number;
+  support: { perRound: number; max: number; coins: number };
+  disconnectSeconds: number; bossPauseCapSeconds: number; danger: number;
+  maxCommandsPerTick: number; resultSeconds: number;
+}
+export interface GameData { units: UnitDef[]; recipes: RecipeDef[]; enemies: EnemyDef[]; waves: WaveDef[]; balance: BalanceDef; upgrades: UpgradeDef[]; coop?: CoopDef }
 
 export interface RngState { s: number }
 export interface Unit { id: number; defId: string; cooldown: number; attackCount: number; periodic: number[] }

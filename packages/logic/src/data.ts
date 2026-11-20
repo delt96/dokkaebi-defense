@@ -1,13 +1,35 @@
-import type { BalanceDef, EnemyDef, GameData, RecipeDef, UnitDef } from './types';
+import type { BalanceDef, CoopDef, EnemyDef, GameData, RecipeDef, UnitDef } from './types';
 import units from '../data/units.json';
 import recipes from '../data/recipes.json';
 import enemies from '../data/enemies.json';
 import waves from '../data/waves.json';
 import balance from '../data/balance.json';
 import upgrades from '../data/upgrades.json';
+import units2 from '../data/stage2/units.json';
+import recipes2 from '../data/stage2/recipes.json';
+import enemies2 from '../data/stage2/enemies.json';
+import balance2 from '../data/stage2/balance.json';
+import coop2 from '../data/stage2/coop.json';
 
-export function loadGameData(): GameData {
-  return structuredClone({ units, recipes, enemies, waves, balance, upgrades }) as GameData;
+export function loadGameData(stage: 'stage1' | 'stage2' = 'stage1'): GameData {
+  if (stage === 'stage1') return structuredClone({ units, recipes, enemies, waves, balance, upgrades }) as GameData;
+  const gradeOf = new Map<string, number>();
+  const allUnits = [...units, ...units2] as UnitDef[];
+  for (const u of allUnits) if (!gradeOf.has(u.id)) gradeOf.set(u.id, u.grade);
+  const allRecipes = [...recipes, ...recipes2] as RecipeDef[];
+  return structuredClone({
+    units: allUnits.sort((a, b) => a.grade - b.grade),
+    recipes: allRecipes.sort((a, b) => (gradeOf.get(a.result) ?? 0) - (gradeOf.get(b.result) ?? 0)),
+    enemies: [...enemies, ...enemies2],
+    waves,
+    balance: { ...balance, ...balance2 },
+    upgrades,
+    coop: coop2 as CoopDef,
+  }) as GameData;
+}
+
+export function recipeDemand(data: GameData, unitId: string): number {
+  return data.recipes.filter(r => r.materials.includes(unitId)).length;
 }
 
 export function unitDef(data: GameData, id: string): UnitDef {

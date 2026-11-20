@@ -1,0 +1,11 @@
+{
+  "yeoksin": [
+    {"stage": 1, "enemy": "yeoksin1", "startRound": 6, "deadlineRound": 9, "baseHp": 8000, "startIndex": 0},
+    {"stage": 2, "enemy": "yeoksin2", "startRound": 15, "deadlineRound": 19, "baseHp": 30000, "startIndex": 1}
+  ],
+  "hpPerExtraPlayer": 0.1, "staySeconds": 12,
+  "killReward": {"coins": 15, "buckwheat": 1}, "topDamageBonus": 10,
+  "support": {"perRound": 1, "max": 1, "coins": 5},
+  "disconnectSeconds": 180, "bossPauseCapSeconds": 180, "danger": 48,
+  "maxCommandsPerTick": 20, "resultSeconds": 120
+}

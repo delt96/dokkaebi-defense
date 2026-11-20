@@ -1,0 +1,20 @@
+[
+  { "result": "sseurebatgi", "materials": ["bitjaru", "ki"] },
+  { "result": "sut", "materials": ["bujigaengi", "buchae"] },
+  { "result": "dadeumitdol", "materials": ["dadeumi", "dadeumi"] },
+  { "result": "mumyeong", "materials": ["dadeumi", "horong"] },
+  { "result": "hanji", "materials": ["buchae", "dadeumi"] },
+  { "result": "baneul", "materials": ["mumyeong", "jipsin", "horong"] },
+  { "result": "but", "materials": ["hanji", "buchae", "horong"] },
+  { "result": "gireumbyeong", "materials": ["gamasot", "horong", "sotlid"] },
+  { "result": "hamjibak", "materials": ["jeolgu", "sotlid", "ki"] },
+  { "result": "bagaji", "materials": ["meongseok", "sotlid", "ki"] },
+  { "result": "golmu", "materials": ["baneul", "mumyeong", "dadeumitdol"] },
+  { "result": "tteongme", "materials": ["hamjibak", "gamasot", "jeolgu"] },
+  { "result": "gawi", "materials": ["baneul", "mumyeong", "hwaro"] },
+  { "result": "sokuri", "materials": ["hamjibak", "jeolgu", "meongseok"] },
+  { "result": "byeoru", "materials": ["but", "hanji", "sut"] },
+  { "result": "ja", "materials": ["baneul", "hanji", "mumyeong"] },
+  { "result": "chaeban", "materials": ["bagaji", "gamasot", "sseurebatgi"] },
+  { "result": "jumadeung", "materials": ["gireumbyeong", "cheongsachorong", "hanji"] }
+]

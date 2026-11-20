@@ -1,0 +1,4 @@
+[
+  {"id": "yeoksin1", "name": "역신 첫째 탈", "boss": false, "shared": true, "hpMult": 1, "speed": 2, "resist": {"physical": 0, "magical": 0}},
+  {"id": "yeoksin2", "name": "역신 둘째 탈", "boss": false, "shared": true, "hpMult": 1, "speed": 2, "resist": {"physical": 0, "magical": 0}}
+]

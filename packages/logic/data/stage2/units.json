@@ -1,0 +1,43 @@
+[
+  { "id": "sseurebatgi", "name": "쓰레받기", "grade": 2, "damageType": "physical", "range": 2.0, "interval": 0.9, "factor": 0.94,
+    "skills": [{ "trigger": { "kind": "chance", "p": 0.25 }, "effects": [{ "kind": "slow", "pct": 0.25, "seconds": 1.5, "radius": 1.0 }] }] },
+  { "id": "sut", "name": "숯", "grade": 2, "damageType": "magical", "range": 2.5, "interval": 1.25, "factor": 0.93,
+    "skills": [{ "trigger": { "kind": "chance", "p": 0.3 }, "effects": [{ "kind": "dot", "mult": 1.4, "seconds": 2 }] }] },
+  { "id": "dadeumitdol", "name": "다듬잇돌", "grade": 2, "damageType": "physical", "range": 2.0, "interval": 1.25, "factor": 1.02,
+    "skills": [{ "trigger": { "kind": "nth", "n": 3 }, "effects": [{ "kind": "splash", "radius": 0.8, "mult": 0.75 }] }] },
+  { "id": "mumyeong", "name": "무명", "grade": 2, "damageType": "magical", "range": 3.0, "interval": 1.15, "factor": 0.82,
+    "skills": [{ "trigger": { "kind": "nth", "n": 4 }, "effects": [{ "kind": "extraAttack" }] }] },
+  { "id": "hanji", "name": "한지", "grade": 2, "damageType": "physical", "range": 2.0, "interval": 0.7, "factor": 0.93,
+    "skills": [{ "trigger": { "kind": "chance", "p": 0.25 }, "effects": [{ "kind": "knockback", "distance": 0.75 }] }] },
+
+  { "id": "baneul", "name": "바늘", "grade": 3, "damageType": "magical", "range": 3.0, "interval": 1.1, "factor": 0.85,
+    "skills": [{ "trigger": { "kind": "nth", "n": 5 }, "effects": [{ "kind": "pierce", "length": 3, "mult": 1.25 }] }] },
+  { "id": "but", "name": "붓", "grade": 3, "damageType": "magical", "range": 3.0, "interval": 1.2, "factor": 0.78,
+    "skills": [{ "trigger": { "kind": "nth", "n": 4 }, "effects": [{ "kind": "splash", "radius": 1.5, "mult": 1.15 }] }] },
+  { "id": "gireumbyeong", "name": "기름병", "grade": 3, "damageType": "physical", "range": 1.5, "interval": 0.85, "factor": 0.97,
+    "skills": [{ "trigger": { "kind": "chance", "p": 0.3 }, "effects": [{ "kind": "vuln", "pct": 0.18, "seconds": 2.5, "damageType": "physical" }] }] },
+  { "id": "hamjibak", "name": "함지박", "grade": 3, "damageType": "physical", "range": 1.5, "interval": 1.25, "factor": 1.05,
+    "skills": [{ "trigger": { "kind": "nth", "n": 4 }, "effects": [{ "kind": "crit", "mult": 2.1 }, { "kind": "stun", "seconds": 0.75 }] }] },
+  { "id": "bagaji", "name": "바가지", "grade": 3, "damageType": "physical", "range": 2.0, "interval": 1.0, "factor": 0.92,
+    "skills": [{ "trigger": { "kind": "nth", "n": 4 }, "effects": [{ "kind": "pierce", "length": 1.5, "mult": 0.75 }, { "kind": "knockback", "distance": 1 }] }] },
+
+  { "id": "golmu", "name": "골무", "grade": 4, "damageType": "physical", "range": 2.0, "interval": 1.25, "factor": 0.96,
+    "skills": [{ "trigger": { "kind": "nth", "n": 3 }, "effects": [{ "kind": "splash", "radius": 1.3, "mult": 0.85 }, { "kind": "knockback", "distance": 1.5 }] }] },
+  { "id": "tteongme", "name": "떡메", "grade": 4, "damageType": "physical", "range": 1.5, "interval": 1.35, "factor": 1.1,
+    "skills": [{ "trigger": { "kind": "nth", "n": 3 }, "effects": [{ "kind": "crit", "mult": 2.35 }, { "kind": "splash", "radius": 0.9, "mult": 0.65 }] }] },
+  { "id": "gawi", "name": "가위", "grade": 4, "damageType": "physical", "range": 2.0, "interval": 1.15, "factor": 1.02,
+    "skills": [{ "trigger": { "kind": "chance", "p": 0.25 }, "effects": [{ "kind": "stun", "seconds": 1.1 }, { "kind": "vuln", "pct": 0.14, "seconds": 3, "damageType": "physical" }] }] },
+  { "id": "sokuri", "name": "소쿠리", "grade": 4, "damageType": "physical", "range": 2.0, "interval": 0.85, "factor": 0.94,
+    "skills": [{ "trigger": { "kind": "chance", "p": 0.25 }, "effects": [{ "kind": "splash", "radius": 1.2, "mult": 1.0 }, { "kind": "slow", "pct": 0.26, "seconds": 2.5, "radius": 1.2 }] }] },
+  { "id": "byeoru", "name": "벼루", "grade": 4, "damageType": "magical", "range": 2.5, "interval": 1.15, "factor": 0.88,
+    "skills": [
+      { "trigger": { "kind": "always" }, "effects": [{ "kind": "dot", "mult": 1.05, "seconds": 3 }] },
+      { "trigger": { "kind": "nth", "n": 4 }, "effects": [{ "kind": "knockback", "distance": 1 }] }
+    ] },
+  { "id": "ja", "name": "자", "grade": 4, "damageType": "magical", "range": 3.0, "interval": 1.2, "factor": 0.81,
+    "skills": [{ "trigger": { "kind": "nth", "n": 4 }, "effects": [{ "kind": "pierce", "length": 2.5, "mult": 1.3 }, { "kind": "dot", "mult": 0.7, "seconds": 2 }] }] },
+  { "id": "chaeban", "name": "채반", "grade": 4, "damageType": "magical", "range": 2.5, "interval": 1.3, "factor": 0.85,
+    "skills": [{ "trigger": { "kind": "nth", "n": 3 }, "effects": [{ "kind": "crit", "mult": 1.85 }, { "kind": "slow", "pct": 0.42, "seconds": 3 }] }] },
+  { "id": "jumadeung", "name": "주마등", "grade": 4, "damageType": "magical", "range": 3.0, "interval": 0.95, "factor": 0.82,
+    "skills": [{ "trigger": { "kind": "nth", "n": 4 }, "effects": [{ "kind": "extraAttack" }, { "kind": "vuln", "pct": 0.18, "seconds": 3, "damageType": "magical" }] }] }
+]
