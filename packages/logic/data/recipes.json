@@ -1,0 +1,16 @@
+[
+  { "result": "gamasot", "materials": ["sotlid", "bujigaengi"] },
+  { "result": "meongseok", "materials": ["jipsin", "bitjaru"] },
+  { "result": "jeolgu", "materials": ["dadeumi", "ki"] },
+  { "result": "hwaro", "materials": ["bujigaengi", "horong"] },
+  { "result": "cheongsachorong", "materials": ["horong", "buchae"] },
+  { "result": "hwaetbul", "materials": ["jipsin", "bujigaengi"] },
+  { "result": "didilbangga", "materials": ["jeolgu", "dadeumi", "jipsin"] },
+  { "result": "jangdok", "materials": ["gamasot", "ki", "sotlid"] },
+  { "result": "pulmu", "materials": ["hwaro", "buchae", "ki"] },
+  { "result": "jwibul", "materials": ["hwaetbul", "horong", "bitjaru"] },
+  { "result": "yeonjabangga", "materials": ["didilbangga", "jeolgu", "meongseok"] },
+  { "result": "moru", "materials": ["pulmu", "gamasot", "hwaro"] },
+  { "result": "onggigama", "materials": ["jangdok", "hwaro", "hwaetbul"] },
+  { "result": "daljip", "materials": ["jwibul", "hwaetbul", "cheongsachorong"] }
+]

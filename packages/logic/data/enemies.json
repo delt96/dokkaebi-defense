@@ -1,0 +1,7 @@
+[
+  { "id": "japgwi", "name": "잡귀", "boss": false, "hpMult": 1, "speed": 1.6, "resist": { "physical": 0, "magical": 0 } },
+  { "id": "geuseundae", "name": "그슨대", "boss": false, "hpMult": 1, "speed": 2.2, "resist": { "physical": 0.5, "magical": 0 } },
+  { "id": "dueoksini", "name": "두억시니", "boss": false, "hpMult": 1.5, "speed": 1.1, "resist": { "physical": 0, "magical": 0.5 } },
+  { "id": "jinegaksi", "name": "지네각시", "boss": true, "hpMult": 1, "hp": 3000, "speed": 0.9, "resist": { "physical": 0, "magical": 0 } },
+  { "id": "gangcheori", "name": "강철이", "boss": true, "hpMult": 1, "hp": 8000, "speed": 0.9, "resist": { "physical": 0, "magical": 0.3 } }
+]

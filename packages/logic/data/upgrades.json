@@ -1,0 +1,6 @@
+[
+  { "id": "physical", "label": "물딜 강화", "max": 10, "costPerLevel": 25, "pct": 0.10 },
+  { "id": "magical", "label": "마딜 강화", "max": 10, "costPerLevel": 25, "pct": 0.10 },
+  { "id": "polish", "label": "등급 손질", "max": 10, "costPerLevel": 25, "pct": 0.06 },
+  { "id": "slots", "label": "칸 늘리기", "max": 3, "costPerLevel": 50, "openCount": 2 }
+]

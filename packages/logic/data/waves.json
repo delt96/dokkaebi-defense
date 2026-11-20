@@ -1,0 +1,22 @@
+[
+  { "round": 1, "type": "normal", "pattern": ["japgwi"] },
+  { "round": 2, "type": "normal", "pattern": ["japgwi"] },
+  { "round": 3, "type": "normal", "pattern": ["geuseundae"] },
+  { "round": 4, "type": "normal", "pattern": ["japgwi"] },
+  { "round": 5, "type": "normal", "pattern": ["japgwi"] },
+  { "round": 6, "type": "normal", "pattern": ["dueoksini"] },
+  { "round": 7, "type": "normal", "pattern": ["japgwi"] },
+  { "round": 8, "type": "normal", "pattern": ["geuseundae"] },
+  { "round": 9, "type": "normal", "pattern": ["dueoksini"] },
+  { "round": 10, "type": "boss", "boss": "jinegaksi" },
+  { "round": 11, "type": "normal", "pattern": ["japgwi"] },
+  { "round": 12, "type": "normal", "pattern": ["japgwi", "geuseundae", "dueoksini"] },
+  { "round": 13, "type": "normal", "pattern": ["geuseundae"] },
+  { "round": 14, "type": "normal", "pattern": ["japgwi"] },
+  { "round": 15, "type": "normal", "pattern": ["dueoksini"] },
+  { "round": 16, "type": "normal", "pattern": ["japgwi", "geuseundae", "dueoksini"] },
+  { "round": 17, "type": "normal", "pattern": ["geuseundae"] },
+  { "round": 18, "type": "normal", "pattern": ["dueoksini"] },
+  { "round": 19, "type": "normal", "pattern": ["japgwi", "geuseundae", "dueoksini"] },
+  { "round": 20, "type": "boss", "boss": "gangcheori" }
+]

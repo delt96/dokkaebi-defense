@@ -1,14 +1,14 @@
 {
-  "name": "mukeun",
+  "name": "dorandi",
   "private": true,
   "type": "module",
   "workspaces": ["packages/*"],
   "scripts": {
     "test": "vitest run",
-    "validate": "npm run validate -w @mukeun/logic",
-    "sim": "npm run sim -w @mukeun/sim --",
-    "econ": "npm run econ -w @mukeun/sim",
-    "dev": "npm run dev -w @mukeun/client"
+    "validate": "npm run validate -w @dorandi/logic",
+    "sim": "npm run sim -w @dorandi/sim --",
+    "econ": "npm run econ -w @dorandi/sim",
+    "dev": "npm run dev -w @dorandi/client"
   },
   "devDependencies": {
     "typescript": "^5.8.0",

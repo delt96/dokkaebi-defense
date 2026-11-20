@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 브라우저에서 혼자 20라운드를 처음부터 끝까지 할 수 있는 「묵은 것들」 1인 프로토타입과, 같은 게임 로직을 화면 없이 돌리는 밸런스 시뮬레이터를 만든다.
+**Goal:** 브라우저에서 혼자 20라운드를 처음부터 끝까지 할 수 있는 「도깨비 랜덤 디펜스」(도랜디) 1인 프로토타입과, 같은 게임 로직을 화면 없이 돌리는 밸런스 시뮬레이터를 만든다.
 
 **Architecture:** npm workspaces 모노레포다. `packages/logic`은 DOM과 Phaser를 모르는 순수 TypeScript 게임 로직이고, 50ms 고정 틱으로 상태를 바꾼다. `packages/sim`은 logic을 화면 없이 돌리는 봇과 CSV 출력이다. `packages/client`는 Vite + Phaser 화면이다. 고개는 Phaser 캔버스로, 패널은 DOM으로 그린다. 2단계 서버는 logic을 그대로 가져다 쓴다.
 
@@ -39,7 +39,7 @@ tsconfig.base.json
 vitest.config.ts
 .gitignore
 packages/logic/
-  package.json                   name @mukeun/logic, exports ./src/index.ts
+  package.json                   name @dorandi/logic, exports ./src/index.ts
   data/units.json recipes.json enemies.json waves.json balance.json upgrades.json
   src/rng.ts                     시드 난수
   src/types.ts                   데이터·상태·명령·이벤트 타입
@@ -59,11 +59,11 @@ packages/logic/
   scripts/validate.ts            npm run validate
   test/*.test.ts
 packages/sim/
-  package.json                   name @mukeun/sim
+  package.json                   name @dorandi/sim
   src/bots.ts  src/runner.ts  src/csv.ts  src/cli.ts  src/econ.ts
   test/*.test.ts
 packages/client/
-  package.json                   name @mukeun/client
+  package.json                   name @dorandi/client
   index.html  vite.config.ts
   public/sprites/                sotlid.png bitjaru.png japgwi.png
   src/main.ts  src/driver.ts  src/layout.ts  src/LaneScene.ts
@@ -180,13 +180,13 @@ git init -b main
 
 `.gitignore`: `node_modules/`, `dist/`, `sim-out/`, `*.w3x`, `.superpowers/`, `*.log`
 
-루트 `package.json`: `"private": true`, `"type": "module"`, `"workspaces": ["packages/*"]`, scripts `"test": "vitest run"`, `"validate": "npm run validate -w @mukeun/logic"`, `"sim": "npm run sim -w @mukeun/sim --"`, `"econ": "npm run econ -w @mukeun/sim"`, `"dev": "npm run dev -w @mukeun/client"`. devDependencies: `typescript@^5.8.0`, `vitest@^3.2.0`, `tsx@^4.19.0`.
+루트 `package.json`: `"private": true`, `"type": "module"`, `"workspaces": ["packages/*"]`, scripts `"test": "vitest run"`, `"validate": "npm run validate -w @dorandi/logic"`, `"sim": "npm run sim -w @dorandi/sim --"`, `"econ": "npm run econ -w @dorandi/sim"`, `"dev": "npm run dev -w @dorandi/client"`. devDependencies: `typescript@^5.8.0`, `vitest@^3.2.0`, `tsx@^4.19.0`.
 
 `tsconfig.base.json`: `strict`, `target ES2022`, `module ESNext`, `moduleResolution Bundler`, `resolveJsonModule`, `noUncheckedIndexedAccess`, `verbatimModuleSyntax false`, `skipLibCheck`.
 
 `vitest.config.ts`: `test.include = ['packages/*/test/**/*.test.ts']`.
 
-`packages/logic/package.json`: name `@mukeun/logic`, `"type": "module"`, `"exports": { ".": "./src/index.ts", "./testing": "./src/testing.ts" }`, script `"validate": "tsx scripts/validate.ts"`.
+`packages/logic/package.json`: name `@dorandi/logic`, `"type": "module"`, `"exports": { ".": "./src/index.ts", "./testing": "./src/testing.ts" }`, script `"validate": "tsx scripts/validate.ts"`.
 
 Run: `npm install`
 Expected: 오류 없이 끝남
@@ -582,7 +582,7 @@ Expected: FAIL
 
 - [ ] **Step 3: `game.ts`, `flow.ts`, `stats.ts`, `testing.ts`, `index.ts`를 구현한다**
 
-`index.ts`는 rng, types, data, validate, lane, game, combine, upgrades, stats를 다시 내보낸다. `testing.ts`는 `@mukeun/logic/testing`으로만 연다. 아직 없는 모듈은 해당 Task에서 index에 추가한다.
+`index.ts`는 rng, types, data, validate, lane, game, combine, upgrades, stats를 다시 내보낸다. `testing.ts`는 `@dorandi/logic/testing`으로만 연다. 아직 없는 모듈은 해당 Task에서 index에 추가한다.
 
 - [ ] **Step 4: 통과를 확인한다**
 
@@ -1101,7 +1101,7 @@ git commit -m "feat(logic): status effects, skills and auras"
 ### Task 9: 시뮬레이터
 
 **Files:**
-- Create: `packages/sim/package.json` (name `@mukeun/sim`, dependency `"@mukeun/logic": "*"`, scripts `"sim": "tsx src/cli.ts"`, `"econ": "tsx src/econ.ts"`)
+- Create: `packages/sim/package.json` (name `@dorandi/sim`, dependency `"@dorandi/logic": "*"`, scripts `"sim": "tsx src/cli.ts"`, `"econ": "tsx src/econ.ts"`)
 - Create: `packages/sim/src/bots.ts`, `src/runner.ts`, `src/csv.ts`, `src/cli.ts`, `src/econ.ts`
 - Test: `packages/sim/test/sim.test.ts`
 
@@ -1141,7 +1141,7 @@ git commit -m "feat(logic): status effects, skills and auras"
 
 ```ts
 import { describe, expect, test } from 'vitest';
-import { loadGameData } from '@mukeun/logic';
+import { loadGameData } from '@dorandi/logic';
 import { runGame, roundRows, toCsv } from '../src/runner';
 import { clumsyBot, normalBot } from '../src/bots';
 import { econTable } from '../src/econ';
@@ -1195,7 +1195,7 @@ git commit -m "feat(sim): bots, runner, csv and economy table"
 ### Task 10: 클라이언트 뼈대와 고개 화면
 
 **Files:**
-- Create: `packages/client/package.json` (name `@mukeun/client`, deps `phaser@3.90.0`, `@mukeun/logic`, devDeps `vite@^6.3.0`, scripts `dev`, `build`)
+- Create: `packages/client/package.json` (name `@dorandi/client`, deps `phaser@3.90.0`, `@dorandi/logic`, devDeps `vite@^6.3.0`, scripts `dev`, `build`)
 - Create: `packages/client/index.html`, `vite.config.ts`, `src/main.ts`, `src/driver.ts`, `src/layout.ts`, `src/LaneScene.ts`, `src/ui/style.css`
 - Create: `packages/client/public/sprites/sotlid.png`, `bitjaru.png`, `japgwi.png`
 - Test: `packages/client/test/client.test.ts`
@@ -1327,7 +1327,7 @@ git commit -m "feat(client): stage scaling, fixed-step driver and lane scene"
 
 ```ts
 import { describe, expect, test } from 'vitest';
-import { createGame, loadGameData, step } from '@mukeun/logic';
+import { createGame, loadGameData, step } from '@dorandi/logic';
 import { hudModel, helperModel, upgradeRows, unitCard, dexEntries } from '../src/ui/models';
 
 const data = loadGameData();
@@ -1425,7 +1425,7 @@ git commit -m "feat(client): hud, side panels, helper, dex and shortcuts"
 
 ```ts
 import { resultModel } from '../src/ui/models';
-import { forceRound } from '@mukeun/logic/testing';
+import { forceRound } from '@dorandi/logic/testing';
 
 test('result model', () => {
   const s = createGame(data, 1); forceRound(s, 10);
