@@ -7,16 +7,18 @@ import { el, onAction, setHtml } from './dom';
 import { renderHelper } from './helper';
 import { renderHud } from './hud';
 import { renderBottom, renderRight, upgradesHtml } from './panels';
+import { resultHtml } from './result';
 
 const UPGRADE_KEYS: UpgradeId[] = ['physical', 'magical', 'polish', 'slots'];
 const RENDER_MS = 100;
 
-export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void }
+export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void }
 
 export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {}): { resetUi: () => void } {
   let selected: number | null = null;
   let helperOpen = false;
   let modal: 'dex' | 'upgrades' | null = null;
+  let best: { id: string; grade: number } | null = null;
 
   const act = (action: string, arg: string) => {
     switch (action) {
@@ -32,6 +34,7 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
       case 'openDex': modal = 'dex'; break;
       case 'openUpgrades': modal = 'upgrades'; break;
       case 'closeModal': modal = null; break;
+      case 'restart': hooks.onRestart?.(); break;
     }
     render();
   };
@@ -40,6 +43,10 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
   scene.onSelect(slot => { selected = slot !== null && driver.state.slots[slot] ? slot : null; render(); });
   scene.onEvents(events => {
     for (const e of events) {
+      if ((e.type === 'summon' || e.type === 'combine')) {
+        const grade = unitDefFast(driver.state.data, e.defId).grade;
+        if (!best || grade > best.grade) best = { id: e.defId, grade };
+      }
       if (e.type === 'summon') playSfx(e.grade >= 3 ? 'summon3' : e.grade === 2 ? 'summon2' : 'summon1');
       if (e.type === 'combine') playSfx('combine');
       if (e.type === 'kill') playSfx('kill');
@@ -64,13 +71,13 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
     renderHelper(s, helperOpen);
     renderRight(s);
     renderBottom(s, selected);
-    setHtml(el('modal'), modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    setHtml(el('modal'), s.phase === 'ended' ? resultHtml(s, best?.id ?? null) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
     hooks.onRender?.();
   }
 
   setInterval(render, RENDER_MS);
   render();
-  return { resetUi: () => { selected = null; modal = null; render(); } };
+  return { resetUi: () => { selected = null; modal = null; best = null; render(); } };
 }
 
 export function unitName(driver: GameDriver, defId: string): string {

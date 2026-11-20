@@ -202,11 +202,22 @@ export class LaneScene extends Phaser.Scene {
       if (e.type === 'summon' || e.type === 'combine') {
         this.placeUnits();
         const view = this.units.get(e.unitId);
-        if (view && e.type === 'summon') { view.setScale(0.5); this.tweens.add({ targets: view, scale: 1, duration: 260, ease: 'Back.Out' }); }
+        if (view && e.type === 'summon') this.revealSummon(view, e.grade);
         if (view && e.type === 'combine') this.tweens.add({ targets: view, scaleX: 1.3, scaleY: 0.7, duration: 90, yoyo: true, ease: 'Quad.Out' });
       }
     }
     for (const cb of this.eventListeners) cb(events);
+  }
+
+  private revealSummon(view: UnitView, grade: number): void {
+    view.setVisible(false);
+    const flame = this.add.circle(view.x, view.y, 6, hex(GRADE_COLOR[grade] ?? '#ffffff'), 0.9).setDepth(7);
+    this.tweens.add({ targets: flame, radius: 14, alpha: 0.4, duration: 300, onComplete: () => {
+      flame.destroy();
+      view.setVisible(true).setScale(0.5);
+      this.tweens.add({ targets: view, scale: 1, duration: 260, ease: 'Back.Out' });
+    } });
+    if (grade >= 3) this.cameras.main.shake(200, 0.01);
   }
 
   private projectile(unitId: number, enemyId: number): void {

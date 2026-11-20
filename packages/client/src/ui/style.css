@@ -74,3 +74,7 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 #bottom .card { display: flex; align-items: center; gap: 4px; height: 100%; padding: 0 8px; white-space: nowrap; overflow: hidden; }
 #bottom .card button { margin-left: auto; }
 #bottom .hint { color: var(--ink-dim); }
+
+#modal .result { left: 160px; top: 30px; width: 320px; }
+#modal .result p { margin: 3px 0; }
+.graph { display: block; background: #120e1a; border: 1px solid var(--panel-edge); margin: 4px 0; }

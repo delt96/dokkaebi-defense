@@ -31,12 +31,12 @@ function fit(): void {
 window.addEventListener('resize', fit);
 fit();
 
-const ui = mountUi(driver, scene);
-
-export function restart(): void {
+function restart(): void {
   driver.reset(createGame(data, newSeed()));
   scene.reset();
   ui.resetUi();
 }
+
+const ui = mountUi(driver, scene, { onRestart: restart });
 
 if (import.meta.env.DEV) Object.assign(window, { __driver: driver, __scene: scene });

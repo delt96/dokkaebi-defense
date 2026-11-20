@@ -104,3 +104,23 @@ export function dexEntries(data: GameData): { id: string; name: string; grade: n
     recipe: (data.recipes.find(r => r.result === u.id)?.materials ?? []).map(name),
   }));
 }
+
+export function resultModel(state: GameState, bestUnitId: string | null): {
+  title: '클리어' | '탈락'; reasonText: string; roundReached: number; series: number[];
+  lastEnemies: number; maxEnemies: number; bestUnit: { name: string; grade: number } | null; helperText: string;
+} {
+  const r = state.result;
+  const reasonText = r?.reason === 'limit' ? '고개가 뚫렸습니다' : r?.reason === 'boss' ? '고개 보스를 놓쳤습니다' : '';
+  const series = state.stats.map(s => s.endEnemies);
+  const best = bestUnitId ? unitDefFast(state.data, bestUnitId) : null;
+  return {
+    title: r?.outcome === 'clear' ? '클리어' : '탈락',
+    reasonText,
+    roundReached: r?.round ?? state.round,
+    series,
+    lastEnemies: series[series.length - 1] ?? 0,
+    maxEnemies: Math.max(0, ...state.stats.map(s => s.maxEnemies)),
+    bestUnit: best ? { name: best.name, grade: best.grade } : null,
+    helperText: `도우미 ${state.helperOpens}회`,
+  };
+}

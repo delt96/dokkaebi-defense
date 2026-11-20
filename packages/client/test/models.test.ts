@@ -34,3 +34,15 @@ describe('ui models', () => {
     expect(d.find(x => x.id === 'sotlid')!.recipe).toEqual([]);
   });
 });
+
+import { resultModel } from '../src/ui/models';
+import { forceRound } from '@dorandi/logic/testing';
+
+test('result model', () => {
+  const s = createGame(data, 1); forceRound(s, 10);
+  for (let i = 0; i < 1501; i++) step(s, []);
+  s.helperOpens = 3;
+  const m = resultModel(s, 'gamasot');
+  expect(m).toMatchObject({ title: '탈락', reasonText: '고개 보스를 놓쳤습니다', roundReached: 10, bestUnit: { name: '가마솥', grade: 2 }, helperText: '도우미 3회' });
+  expect(m.series.length).toBe(s.stats.length);
+});
