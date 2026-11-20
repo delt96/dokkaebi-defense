@@ -1,5 +1,5 @@
 import {
-  availableRecipes, createRng, deriveSeed, dist, laneOf, nextInt, unitDefFast, upgradeCost,
+  availableRecipes, createRng, deriveSeed, dist, isShared, laneOf, nextInt, unitDefFast, upgradeCost,
   type Command, type GameState, type UpgradeId,
 } from '@dorandi/logic';
 
@@ -98,8 +98,8 @@ function slotsAffordable(state: GameState): boolean {
   return level < def.max && state.coins >= upgradeCost(def, level + 1);
 }
 
-function followBoss(state: GameState): Command[] {
-  const boss = state.enemies.find(e => e.boss && e.hp > 0);
+export function followBoss(state: GameState): Command[] {
+  const boss = state.enemies.find(e => e.boss && e.hp > 0) ?? state.enemies.find(e => isShared(state.data, e) && e.hp > 0);
   if (!boss) return [];
   const lane = laneOf(state);
   const at = lane.pointAt(boss.d);

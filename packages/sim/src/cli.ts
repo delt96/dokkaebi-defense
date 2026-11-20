@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { loadGameData } from '@dorandi/logic';
 import { clumsyBot, normalBot, type Bot } from './bots';
+import { coopCli } from './coop';
 import { roundRows, runGame, toCsv, type Row } from './runner';
 
 function arg(name: string, fallback: string): string {
@@ -15,6 +16,11 @@ const median = (xs: number[]): number | null => {
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 };
+
+if (arg('stage', '1') === '2') {
+  coopCli(arg);
+  process.exit(0);
+}
 
 const botName = arg('bot', 'normal');
 const seeds = Number(arg('seeds', '20'));
