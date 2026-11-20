@@ -2,17 +2,21 @@
   "name": "dorandi",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "test": "vitest run",
     "validate": "npm run validate -w @dorandi/logic",
     "sim": "npm run sim -w @dorandi/sim --",
     "econ": "npm run econ -w @dorandi/sim",
-    "dev": "npm run dev -w @dorandi/client"
+    "dev": "npm run dev -w @dorandi/client",
+    "typecheck": "tsc -p packages/logic"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.19.0",
     "typescript": "^5.8.0",
-    "vitest": "^3.2.0",
-    "tsx": "^4.19.0"
+    "vitest": "^3.2.0"
   }
 }
