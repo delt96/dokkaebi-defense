@@ -1,0 +1,21 @@
+{
+  "name": "@dorandi/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "load": "tsx scripts/load.ts"
+  },
+  "dependencies": {
+    "@dorandi/logic": "*",
+    "colyseus": "0.18.12",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@colyseus/sdk": "0.18.10",
+    "@colyseus/testing": "0.18.6"
+  }
+}
