@@ -6,11 +6,13 @@ import { dexHtml } from './dex';
 import { el, onAction, setHtml } from './dom';
 import { renderHelper } from './helper';
 import { renderHud } from './hud';
-import { rejectText } from './models';
+import { combineOptions, rejectText } from './models';
 import { renderBottom, renderRight, upgradesHtml } from './panels';
 import { resultHtml } from './result';
 
-const UPGRADE_KEYS: UpgradeId[] = ['physical', 'magical', 'polish', 'slots'];
+const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
+  Digit1: 'physical', Digit2: 'magical', Digit3: 'polish', Digit4: 'slots',
+};
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
 
@@ -27,7 +29,11 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
     switch (action) {
       case 'summon': driver.queue({ type: 'summon' }); break;
       case 'convert': driver.queue({ type: 'convertToken' }); break;
-      case 'combine': driver.queue({ type: 'combine', result: arg }); break;
+      case 'combine': {
+        const [result = '', slot] = arg.split('@');
+        driver.queue(slot === undefined ? { type: 'combine', result } : { type: 'combine', result, slot: Number(slot) });
+        break;
+      }
       case 'sell': driver.queue({ type: 'sell', slot: Number(arg) }); selected = null; break;
       case 'upgrade': driver.queue({ type: 'upgrade', id: arg as UpgradeId }); break;
       case 'toggleHelper':
@@ -65,12 +71,17 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
   });
 
   window.addEventListener('keydown', ev => {
-    if (ev.repeat) return;
+    if (ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+    const upgrade = UPGRADE_KEYS[ev.code];
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
-    else if (ev.key >= '1' && ev.key <= '4') act('upgrade', UPGRADE_KEYS[Number(ev.key) - 1]!);
-    else if (ev.key === 'q' || ev.key === 'Q') act('toggleHelper', '');
-    else if (ev.key === 'p' || ev.key === 'P') { driver.paused = !driver.paused; render(); }
-    else if (ev.key === 'Escape') act('closeModal', '');
+    else if (upgrade) act('upgrade', upgrade);
+    else if (ev.code === 'KeyQ') act('toggleHelper', '');
+    else if (ev.code === 'KeyP') { driver.paused = !driver.paused; render(); }
+    else if (ev.code === 'Escape') act('closeModal', '');
+    else if (selected !== null && (ev.code === 'KeyZ' || ev.code === 'KeyX' || ev.code === 'KeyC')) {
+      const option = combineOptions(driver.state, selected).find(o => `Key${o.key}` === ev.code);
+      if (option) act('combine', `${option.result}@${selected}`);
+    }
   });
 
   function render(): void {

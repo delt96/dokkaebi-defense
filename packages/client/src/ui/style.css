@@ -74,7 +74,11 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .res span { color: var(--accent); }
 
 #bottom .card { display: flex; align-items: center; gap: 4px; height: 100%; padding: 0 8px; white-space: nowrap; overflow: hidden; }
-#bottom .card button { margin-left: auto; }
+#bottom .unit-info { max-width: 42%; overflow: hidden; }
+#bottom .combine-options { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+#bottom .combine-options > *, #bottom [data-action="sell"] { flex-shrink: 0; }
+#bottom .combine-missing { color: var(--ink-dim); }
+#bottom [data-action="sell"] { margin-left: auto; }
 #bottom .hint { color: var(--ink-dim); }
 
 #modal .result { left: 160px; top: 30px; width: 320px; }

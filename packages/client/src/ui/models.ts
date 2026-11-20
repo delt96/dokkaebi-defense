@@ -1,5 +1,5 @@
 import {
-  availableRecipes, countNormalEnemies, unitDefFast, upgradeCost,
+  availableRecipes, countNormalEnemies, recipesUsing, unitDefFast, upgradeCost,
   type Effect, type GameData, type GameState, type SkillDef, type Trigger, type UpgradeId,
 } from '@dorandi/logic';
 
@@ -41,10 +41,14 @@ export function skillText(skills: SkillDef[]): string {
   return skills.map(s => triggerText(s.trigger) + s.effects.map(effectText).join(', ')).join(' / ');
 }
 
-export function rightModel(state: GameState): { canSummon: boolean; canConvert: boolean; pending: number } {
+export function rightModel(state: GameState): { canSummon: boolean; canConvert: boolean; pending: number; bonusIn: number } {
   const live = state.phase !== 'ended' && state.tokens > 0;
   const freeCell = state.slots.some((u, i) => !u && state.open[i]);
-  return { canSummon: live && freeCell, canConvert: live, pending: state.pendingPity.length };
+  const { pityEvery } = state.data.balance;
+  return {
+    canSummon: live && freeCell, canConvert: live, pending: state.pendingPity.length,
+    bonusIn: pityEvery - (state.grade1Summons % pityEvery),
+  };
 }
 
 const REJECT_TEXT: Record<string, string> = {
@@ -77,6 +81,22 @@ export function helperModel(state: GameState): { recipe: string; name: string; g
   return availableRecipes(state).map(id => {
     const def = unitDefFast(state.data, id);
     return { recipe: id, name: def.name, grade: def.grade };
+  });
+}
+
+const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
+
+export function combineOptions(state: GameState, slot: number): {
+  result: string; name: string; grade: number; missing: string[]; key: 'Z' | 'X' | 'C' | null;
+}[] {
+  let ready = 0;
+  return recipesUsing(state, slot).map(({ result, missing }) => {
+    const { name, grade } = unitDefFast(state.data, result);
+    return {
+      result, name, grade,
+      missing: missing.map(id => unitDefFast(state.data, id).name),
+      key: missing.length === 0 ? COMBINE_KEYS[ready++] ?? null : null,
+    };
   });
 }
 

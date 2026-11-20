@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { countNormalEnemies, laneOf, loopPos, unitDefFast, type GameEvent, type GameState, type Lane } from '@dorandi/logic';
+import { availableRecipes, countNormalEnemies, laneOf, loopPos, unitDefFast, type GameEvent, type GameState, type Lane } from '@dorandi/logic';
 import type { GameDriver } from './driver';
 import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasToCell, laneToCanvas } from './layout';
 
@@ -7,7 +7,7 @@ const SPRITES = ['sotlid', 'bitjaru', 'japgwi'];
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
 const hex = (c: string) => Number.parseInt(c.slice(1), 16);
 
-type UnitView = Phaser.GameObjects.Container & { unitId: number };
+type UnitView = Phaser.GameObjects.Container & { unitId: number; combineMarker: Phaser.GameObjects.Arc };
 
 export class LaneScene extends Phaser.Scene {
   private driver: GameDriver;
@@ -109,6 +109,8 @@ export class LaneScene extends Phaser.Scene {
       view.add(this.add.text(0, 0, def.name.slice(0, 1), { fontSize: '11px', color: '#10101a', fontFamily: 'sans-serif' }).setOrigin(0.5));
     }
     view.add(this.add.circle(0, -14, 2, hex(GRADE_COLOR[def.grade] ?? '#ffffff')));
+    view.combineMarker = this.add.circle(12, -12, 3, 0xffd65c);
+    view.add(view.combineMarker);
     view.setSize(CELL, CELL).setInteractive({ draggable: true, useHandCursor: true }).setDepth(3);
     view.on('dragstart', () => {
       const from = this.state.slots.findIndex(u => u?.id === unitId);
@@ -144,18 +146,39 @@ export class LaneScene extends Phaser.Scene {
 
   private placeUnits(snap = false): void {
     const seen = new Set<number>();
+    let unitsChanged = false;
     this.state.slots.forEach((u, slot) => {
       if (!u) return;
       seen.add(u.id);
       let view = this.units.get(u.id);
-      if (!view) { view = this.makeUnitView(u.id, u.defId); this.units.set(u.id, view); }
+      if (!view) {
+        view = this.makeUnitView(u.id, u.defId);
+        this.units.set(u.id, view);
+        unitsChanged = true;
+      }
       if (this.dragging?.view === view) return;
       const c = this.lane.cells[slot]!;
       const p = laneToCanvas({ x: c.x, y: c.y });
       if (snap || view.x === 0) view.setPosition(p.x, p.y);
       else if (view.x !== p.x || view.y !== p.y) this.tweens.add({ targets: view, x: p.x, y: p.y, duration: 80 });
     });
-    for (const [id, view] of this.units) if (!seen.has(id)) { view.destroy(); this.units.delete(id); }
+    for (const [id, view] of this.units) {
+      if (seen.has(id)) continue;
+      view.destroy();
+      this.units.delete(id);
+      unitsChanged = true;
+    }
+    if (unitsChanged) this.updateCombineMarkers();
+  }
+
+  private updateCombineMarkers(): void {
+    const ready = new Set(availableRecipes(this.state));
+    const materials = new Set(
+      this.state.data.recipes.filter(recipe => ready.has(recipe.result)).flatMap(recipe => recipe.materials),
+    );
+    for (const unit of this.state.slots) {
+      if (unit) this.units.get(unit.id)?.combineMarker.setVisible(materials.has(unit.defId));
+    }
   }
 
   private placeEnemies(): void {

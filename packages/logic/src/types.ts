@@ -66,7 +66,7 @@ export interface GameState {
   nextId: number;
 }
 export type Command =
-  | { type: 'summon' } | { type: 'combine'; result: string } | { type: 'sell'; slot: number }
+  | { type: 'summon' } | { type: 'combine'; result: string; slot?: number } | { type: 'sell'; slot: number }
   | { type: 'move'; from: number; to: number } | { type: 'convertToken' }
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' };
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'maxed' | 'unknown';
