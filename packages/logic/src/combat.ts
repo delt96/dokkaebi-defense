@@ -5,6 +5,7 @@ import { laneOf, registerPhase } from './game';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
 import { statsForRound } from './stats';
 import { unitDefFast } from './units';
+import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnOf } from './effects';
 
 export function computeHitDamage(a: { attack: number; mult: number; bonus: number; resist: number; vuln: number }): number {
   return Math.max(1, Math.round(a.attack * a.mult * (1 + a.bonus) * (1 - a.resist) * (1 + a.vuln)));
@@ -19,17 +20,7 @@ function upgradePct(state: GameState, id: 'physical' | 'magical' | 'polish'): nu
   return (def?.pct ?? 0) * state.upgrades[id];
 }
 
-export function auraAttackPower(_state: GameState, _slot: number): number {
-  return 0;
-}
-
-export function speedBonus(_state: GameState, _slot: number): number {
-  return 0;
-}
-
-export function vulnOf(_state: GameState, _enemy: Enemy, _damageType: DamageType): number {
-  return 0;
-}
+export { speedBonus, vulnOf };
 
 export function damageBonus(state: GameState, slot: number): number {
   const unit = state.slots[slot];
@@ -81,22 +72,18 @@ export function hitDamage(state: GameState, slot: number, enemy: Enemy, mult: nu
   });
 }
 
-export function onAttack(state: GameState, slot: number, target: Enemy, events: GameEvent[]): void {
-  const unit = state.slots[slot]!;
-  dealDamage(state, target, hitDamage(state, slot, target, 1), unit.defId, events);
-}
-
 export function unitAttacks(state: GameState, events: GameEvent[]): void {
   for (let slot = 0; slot < state.slots.length; slot++) {
     const unit = state.slots[slot];
     if (!unit) continue;
+    runPeriodics(state, slot, events);
     if (unit.cooldown > 0) { unit.cooldown--; continue; }
     const target = pickTarget(state, slot);
     if (!target) continue;
     const def = unitDefFast(state.data, unit.defId);
     unit.attackCount++;
     events.push({ type: 'attack', unitId: unit.id, enemyId: target.id });
-    onAttack(state, slot, target, events);
+    performAttack(state, slot, target, events);
     unit.cooldown = attackIntervalTicks(def.interval, speedBonus(state, slot)) - 1;
   }
 }

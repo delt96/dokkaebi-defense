@@ -1,6 +1,7 @@
 import type { Enemy, GameData, GameState, Unit } from './types';
 import { loadGameData } from './data';
 import { spawnEnemy, startRound } from './flow';
+import { addUnit } from './units';
 import './index';
 
 export function forceRound(state: GameState, round: number): void {
@@ -18,9 +19,7 @@ export function spawnEnemyForTest(state: GameState, defId: string, d: number, hp
 }
 
 export function placeUnitForTest(state: GameState, defId: string, slot: number): Unit {
-  const unit: Unit = { id: state.nextId++, defId, cooldown: 0, attackCount: 0, periodic: [] };
-  state.slots[slot] = unit;
-  return unit;
+  return addUnit(state, defId, slot, []);
 }
 
 export function makeData(patch: (d: GameData) => void): GameData {
