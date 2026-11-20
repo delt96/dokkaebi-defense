@@ -1,0 +1,41 @@
+:root {
+  --bg: #0d0a14;
+  --panel: #17121f;
+  --panel-edge: #2a2236;
+  --ink: #e8e0d0;
+  --ink-dim: #9a90a8;
+  --accent: #ffe08a;
+  --danger: #ff3b2f;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+}
+
+#stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 640px;
+  height: 360px;
+  background: var(--bg);
+  transform-origin: top left;
+  user-select: none;
+}
+
+#top { position: absolute; left: 0; top: 0; width: 640px; height: 24px; }
+#left { position: absolute; left: 0; top: 24px; width: 128px; height: 308px; }
+#lane { position: absolute; left: 128px; top: 24px; width: 400px; height: 308px; }
+#right { position: absolute; left: 528px; top: 24px; width: 112px; height: 308px; }
+#bottom { position: absolute; left: 0; top: 332px; width: 640px; height: 28px; }
+
+#lane canvas { image-rendering: pixelated; display: block; }
+
+#top, #left, #right, #bottom { background: var(--panel); border: 1px solid var(--panel-edge); font-size: 9px; }
