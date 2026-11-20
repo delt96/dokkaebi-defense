@@ -1,0 +1,18 @@
+{
+  "name": "mukeun",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "vitest run",
+    "validate": "npm run validate -w @mukeun/logic",
+    "sim": "npm run sim -w @mukeun/sim --",
+    "econ": "npm run econ -w @mukeun/sim",
+    "dev": "npm run dev -w @mukeun/client"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0",
+    "tsx": "^4.19.0"
+  }
+}
