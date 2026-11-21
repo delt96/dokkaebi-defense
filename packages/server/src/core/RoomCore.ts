@@ -50,14 +50,18 @@ export class RoomCore {
   private pending = new Map<number, LaneBatch[]>();
   private lastTickAt = 0;
   private resultAt = 0;
+  /** Link ids that get a `full` at the end of the next tick (rejoins during play); they get no stream messages before it. */
+  private awaitingFull = new Set<string>();
+  /** The one rematch room, created on the first press. */
+  private rematch: { hostSeat: number; hostToken: string; roomId: Promise<string> } | null = null;
 
   constructor(readonly roomId: string, readonly deps: RoomDeps, readonly options: RoomOptions = {}) {}
 
   join(link: ClientLink, opts: JoinOptions): void {
     if (this.phase !== 'lobby') {
-      // The rejoin-key path arrives in Task 13; without a key a started room refuses new names.
+      // A started room only takes rejoin keys; a nickname alone never gets a seat back.
       if (opts.rejoinKey === undefined || opts.rejoinKey === null) throw new JoinError('alreadyStarted');
-      throw new JoinError('badKey');
+      return this.rejoin(link, opts.rejoinKey);
     }
     const name = normalizeNickname(opts.name);
     if (name === null) throw new JoinError('badName');
@@ -77,7 +81,10 @@ export class RoomCore {
     const entry = this.links.get(linkId);
     if (!entry) return;
     this.links.delete(linkId);
-    if (this.phase !== 'lobby') return; // Disconnects during the match arrive in Task 13.
+    this.awaitingFull.delete(linkId);
+    // An explicit give-up arrives first as a `forfeit` command, so every leave during play is a disconnect.
+    if (this.phase === 'playing') this.queue.push({ seat: entry.seat, seq: 0, cmd: { type: 'disconnect' } });
+    if (this.phase !== 'lobby') return;
     this.seats.delete(entry.seat);
     if (this.seats.size === 0) {
       this.hostSeat = null;
@@ -100,7 +107,9 @@ export class RoomCore {
     if (type === 'watch') return this.onWatch(entry.link, entry.seat, payload);
     if (type === 'resync') {
       if (this.match) this.sendFull(entry.link, entry.seat);
+      return;
     }
+    if (type === 'rematch') this.onRematch(entry.link, entry.seat);
   }
 
   /** Server clock driver: runs every 50 ms tick that has come due (none are skipped), then closes the room after the result hold. */
@@ -124,9 +133,50 @@ export class RoomCore {
     const parsed = parseClientCommand(payload, match.lanes[seat]?.slots.length);
     if (!parsed) return;
     let count = 0;
-    for (const q of this.queue) if (q.seat === seat) count++;
+    for (const q of this.queue) if (q.seat === seat && q.seq > 0) count++;
     if (count >= match.data.coop!.maxCommandsPerTick) return;
     this.queue.push({ seat, seq: parsed.seq, cmd: parsed.cmd });
+  }
+
+  /** Rejoin by key (playing or result): swap the key, replace any old tab, and send a snapshot. */
+  private rejoin(link: ClientLink, rejoinKey: unknown): void {
+    if (this.phase !== 'playing' && this.phase !== 'result') throw new JoinError('badKey');
+    let seat = 0;
+    if (typeof rejoinKey === 'string') for (const s of this.seats.keys()) if (this.keys[s] === rejoinKey) { seat = s; break; }
+    if (seat === 0) throw new JoinError('badKey');
+
+    this.keys[seat] = this.deps.random128();
+    let wasLinked = false;
+    for (const [id, entry] of this.links) {
+      if (entry.seat !== seat) continue;
+      wasLinked = true;
+      this.links.delete(id);
+      this.awaitingFull.delete(id);
+      this.notice(entry.link, { kind: 'replaced' });
+      entry.link.close(4001);
+    }
+    this.links.set(link.id, { link, seat });
+    this.seats.get(seat)!.linkId = link.id;
+    if (this.phase === 'result') return this.sendFull(link, seat);
+    if (!wasLinked) this.queue.push({ seat, seq: 0, cmd: { type: 'reconnect' } });
+    // Inputs already received are stepped first; the snapshot follows at the end of the next tick.
+    this.awaitingFull.add(link.id);
+  }
+
+  private onRematch(link: ClientLink, seat: number): void {
+    if (this.phase !== 'result') return;
+    if (!this.rematch) {
+      const hostToken = this.deps.random128();
+      const roomId = this.deps.createRematchRoom({ hostToken });
+      this.rematch = { hostSeat: seat, hostToken, roomId };
+      // A failed create lets the next press try again.
+      roomId.catch(() => { if (this.rematch?.roomId === roomId) this.rematch = null; });
+    }
+    const { hostSeat, hostToken, roomId: pending } = this.rematch;
+    pending.then(roomId => {
+      if (this.links.get(link.id)?.link !== link) return;
+      this.notice(link, seat === hostSeat ? { kind: 'rematch', roomId, hostToken } : { kind: 'rematch', roomId });
+    }, () => {});
   }
 
   private onWatch(link: ClientLink, seat: number, payload: unknown): void {
@@ -149,7 +199,7 @@ export class RoomCore {
     const out = this.streamer!.afterStep(step);
     for (const { link, seat } of this.links.values()) {
       const mine = out.mine[seat];
-      if (mine) link.send('mine', mine);
+      if (mine && !this.awaitingFull.has(link.id)) link.send('mine', mine);
     }
 
     // 3. lane events wait for the next update
@@ -172,6 +222,7 @@ export class RoomCore {
       this.n += 1;
       const tick = buildTick(match, this.names, this.n);
       for (const { link, seat } of this.links.values()) {
+        if (this.awaitingFull.has(link.id)) continue;
         const w = this.watching[seat]!;
         link.send('tick', tick);
         link.send('lane', { n: this.n, seat: w, batches: this.pending.get(w) ?? [] });
@@ -179,8 +230,9 @@ export class RoomCore {
       for (const seat of match.ring) this.pending.set(seat, []);
     }
 
-    // 6. snapshots for those whose lane changed
-    for (const { link, seat } of this.links.values()) if (needFull.has(seat)) this.sendFull(link, seat);
+    // 6. snapshots for those whose lane changed and for rejoined links
+    for (const [id, { link, seat }] of this.links) if (needFull.has(seat) || this.awaitingFull.has(id)) this.sendFull(link, seat);
+    this.awaitingFull.clear();
 
     // 7. the result, once
     if (match.result && this.phase === 'playing') {
