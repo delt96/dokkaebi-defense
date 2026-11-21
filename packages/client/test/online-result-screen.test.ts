@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { MatchResult } from '@dorandi/logic';
+import { loadGameData, type GameData, type MatchResult } from '@dorandi/logic';
 import { NetClient } from '../src/net/NetClient';
 import { mountResult, renderResult } from '../src/online/result';
 import { graph } from '../src/ui/result';
@@ -32,6 +32,16 @@ describe('team result screen', () => {
     short.seats[1]!.series = [30, 61];
     renderResult(root, short, {}, data, { rematch() {}, leave() {} }, { opened: 2, rematching: false });
     expect(lastX(root.querySelector('.graph')!)).toBeCloseTo(300 * 3 / 19, 1);
+  });
+
+  test('the graph scale names the last round of the match (20 and 60 rounds)', () => {
+    const scale = (d: GameData): string[] => {
+      const root = document.createElement('div');
+      renderResult(root, result, {}, d, { rematch() {}, leave() {} }, { opened: 1, rematching: false });
+      return Array.from(root.querySelectorAll('.graph-scale span'), s => s.textContent ?? '');
+    };
+    expect(scale(data)).toEqual(['1라운드', '20라운드']);
+    expect(scale(loadGameData('stage3'))).toEqual(['1라운드', '60라운드']);
   });
 
   test('graph breaks the line at empty rounds; a full series spans the width as before', () => {

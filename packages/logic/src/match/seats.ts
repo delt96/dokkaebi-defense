@@ -80,7 +80,7 @@ export function eliminate(match: MatchState, seat: number, cause: EliminationCau
   const cur = currentStats(lane);
   if (cur && cur.round === match.round) cur.endEnemies = countNormalEnemies(lane);
   st.record = buildRecord(match, seat, cause, ctx.tick);
-  if (match.econ) dropOffersOf(match, seat, ctx);
+  if (match.econ) dropOffersOf(match, seat, 'eliminated', ctx);
   clearLane(lane);
   st.alive = false;
   st.supportTokens = 0;
@@ -121,7 +121,7 @@ export function applySeatCommand(match: MatchState, input: MatchInput, ctx: Step
       if (!st.connected) return null;
       st.connected = false;
       st.disconnectTick = ctx.tick;
-      if (match.econ) dropOffersOf(match, input.seat, ctx);
+      if (match.econ) dropOffersOf(match, input.seat, 'disconnected', ctx);
       ctx.events.push({ type: 'disconnected', seat: input.seat });
       return null;
     case 'reconnect':

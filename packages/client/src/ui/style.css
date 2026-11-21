@@ -108,7 +108,7 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .screen-actions > .big:last-child:not(:only-child) { background: #2a2236; color: var(--ink); border-color: #574a65; }
 .lobby .screen-title { grid-column: 1; text-align: left; margin: 0; }
 .lobby { display: grid; width: min(400px, 100% - 32px); grid-template-columns: 1fr auto; align-items: center; }
-.lobby > .lobby-rows, .lobby > .screen-actions, .lobby > .lobby-hint, .lobby > .entry-error { grid-column: 1 / -1; }
+.lobby > .lobby-rows, .lobby > .screen-actions, .lobby > .lobby-hint, .lobby > .entry-error, .lobby > .lobby-modes { grid-column: 1 / -1; }
 .screen-box.message { text-align: center; line-height: 1.6; }
 .screen-title { margin: 0 0 8px; text-align: center; color: var(--accent); font-size: 26px; }
 .screen-box button { font-size: 15px; min-height: 38px; }
@@ -128,6 +128,13 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .lobby-state { color: var(--ink-dim); font-size: 13px; }
 .lobby-state.on { color: var(--accent); }
 .lobby-hint { color: var(--ink-dim); font-size: 13px; text-align: center; }
+.lobby-modes { display: flex; align-items: center; gap: 6px; }
+.lobby-mode-label { color: var(--ink-dim); font-size: 13px; white-space: nowrap; }
+.screen-box .lobby-mode { flex: 1; min-height: 34px; font-size: 14px; background: var(--panel); color: var(--ink-dim); border: 1px solid var(--panel-edge); }
+.screen-box .lobby-mode.on { color: var(--accent); border-color: var(--accent); background: #2a2236; }
+.screen-box .lobby-mode:disabled { cursor: default; opacity: 1; }
+.screen-box .lobby-mode:disabled:not(.on) { opacity: 0.55; }
+.entry-solo { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
 
 /* Online battle (spec 7, layout A): 44px bottom card, 292px middle row. */
 body.online #left, body.online #lane, body.online #right { height: 292px; }
@@ -197,6 +204,18 @@ body.online #modal .modal-head { position: sticky; top: -10px; z-index: 1; backg
 body.online #modal .modal-actions button { min-height: 28px; flex: auto; }
 body.online #right .notices { border-left: 2px solid var(--accent); padding: 4px; background: #322a23; font-size: 11px; word-break: keep-all; }
 .recipe-list { display: grid; gap: 4px; }
+.recipe-list .recipe { display: grid; gap: 2px; justify-items: start; }
+.card-notes { margin: 2px 0 0; padding-left: 12px; color: var(--ink-dim); line-height: 1.45; word-break: keep-all; }
+.card-notes li { margin: 0; }
+.combine-cost { color: #c9b98a; }
+.combine-short { color: #ffab99; }
+button.combine-blocked[disabled] { opacity: 0.85; border-style: dashed; color: var(--ink-dim); }
+.helper li:has(small) { flex-wrap: wrap; white-space: nowrap; row-gap: 0; }
+.helper li small { flex-basis: 100%; padding-left: 9px; font-size: 9px; line-height: 1.2; white-space: normal; }
+.dex td { vertical-align: top; padding-block: 3px; }
+.dex th, .dex td:nth-child(-n + 2) { white-space: nowrap; }
+.card-notes + .recipe-list { margin-top: 6px; }
+.dex .dex-skill { margin-top: 1px; color: var(--ink-dim); line-height: 1.45; word-break: keep-all; }
 body.online #bottom [data-action="unitDetails"] { margin-left: auto; }
 body.online #bottom [data-action="sell"] { margin-left: 0; }
 body.online #bottom .card button { min-height: 28px; }
@@ -211,3 +230,55 @@ body.online #bottom .card button { min-height: 28px; }
   .result-screen { gap: 3px; }
   .screen-box .result-row { min-height: 29px; }
 }
+
+/* Stage 3 economy: the B panel over the left column, prompts over the top of the lane, the quest tracker under it. */
+#econ-panel { position: absolute; left: 0; top: 24px; width: 128px; height: 308px; z-index: 1; }
+body.online #econ-panel { height: 292px; }
+#econ-panel:empty, #econ-top:empty, #econ-bottom:empty { display: none; }
+.econ-panel { height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--accent); font-size: 10px; }
+.econ-head { display: flex; gap: 2px; padding: 2px; border-bottom: 1px solid var(--panel-edge); }
+.econ-head button { min-height: 18px; padding: 0 4px; }
+.econ-head button.on { border-color: var(--accent); color: var(--accent); }
+.econ-head .econ-close { margin-left: auto; color: var(--ink-dim); }
+.econ-body { flex: 1; min-height: 0; overflow-y: auto; padding: 3px; display: flex; flex-direction: column; gap: 3px; scrollbar-width: thin; }
+.econ-sub { color: var(--ink-dim); }
+.shop { display: flex; flex-direction: column; gap: 1px; padding: 3px; background: #1f1829; border: 1px solid var(--panel-edge); }
+.shop-title { display: flex; justify-content: space-between; gap: 4px; }
+.shop-title span { color: var(--accent); white-space: nowrap; }
+.shop-line { color: #c9c0d6; line-height: 12px; word-break: keep-all; }
+.shop button { margin-top: 2px; min-height: 20px; }
+.shop-short { color: #ffab99; line-height: 12px; }
+.ship-targets { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.ship-targets button { padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.story-target { color: var(--accent); font-weight: bold; }
+.story-actions { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 2px; }
+.story-actions button { flex: 1; }
+#econ-top { position: absolute; left: 132px; top: 26px; width: 392px; z-index: 1; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
+/* each prompt is one 19px row: two of them end at y 66, above the top lane's boss bar (y 68) */
+.prompt { position: relative; height: 19px; overflow: hidden; pointer-events: auto; background: #1d1626ee; border: 1px solid var(--accent); padding: 1px 4px 2px; font-size: 10px; }
+.prompt-line { display: flex; align-items: center; gap: 5px; white-space: nowrap; height: 15px; }
+.prompt-line > * { flex-shrink: 0; }
+.prompt-line > b, .prompt-line > span:first-child { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.prompt-line button { min-height: 15px; height: 15px; line-height: 13px; padding: 0 5px; }
+.prompt-gain { color: var(--accent); }
+.prompt-time { margin-left: auto; color: #ffb396; font-weight: bold; font-variant-numeric: tabular-nums; }
+.prompt-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #2a2232; }
+.prompt-bar i { display: block; height: 100%; background: #ffb396; }
+.prompt .ok { color: #9fe0a8; }
+.prompt .no { color: #ff9482; font-weight: bold; }
+.prompt.tame button { margin-left: auto; color: var(--accent); border-color: var(--accent); }
+#econ-bottom { position: absolute; left: 132px; top: 274px; width: 392px; height: 56px; z-index: 1; display: flex; flex-wrap: wrap; align-content: flex-end; gap: 2px; pointer-events: none; overflow: hidden; }
+body.online #econ-bottom { top: 272px; height: 42px; }
+.q { pointer-events: auto; display: flex; align-items: center; gap: 4px; height: 19px; max-width: 100%; padding: 0 4px; background: #1d1626dd; border: 1px solid var(--panel-edge); font-size: 10px; white-space: nowrap; }
+.q b { color: var(--accent); }
+.q span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.q.hot { border-color: #ff9a6a; }
+.q.done b { color: #9fe0a8; }
+.q button { min-height: 16px; padding: 0 4px; }
+/* one prompt row over the lane: the banner takes the second row, on one line */
+#round-banner.low { top: 47px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.market-btn .badge { margin-left: 4px; padding: 0 3px; border-radius: 2px; background: #ff9a6a; color: #1d1626; font-weight: bold; }
+.econ-head button.unread { border-color: #ff9a6a; color: #ffb396; }
+.dex-target { margin-left: 4px; min-height: 16px; padding: 0 4px; font-size: 9px; }
+.dex-target.on { color: var(--accent); border-color: var(--accent); }
+.market-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }

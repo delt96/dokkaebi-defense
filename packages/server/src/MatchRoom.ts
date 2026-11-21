@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { CloseCode, Room, ServerError, matchMaker, type Client } from 'colyseus';
 import { JOIN_ERROR_CODES } from '@dorandi/logic';
-import { JoinError, RoomCore, type ClientLink, type JoinOptions, type RoomOptions } from './core/RoomCore';
+import { JoinError, RoomCore, isMatchStage, type ClientLink, type JoinOptions, type RoomOptions } from './core/RoomCore';
 
 /** Keeps only the room options RoomCore understands, with the right types. */
 function roomOptions(raw: unknown): RoomOptions {
@@ -13,6 +13,7 @@ function roomOptions(raw: unknown): RoomOptions {
   if (typeof o.devJumpTick === 'number' && Number.isInteger(o.devJumpTick)) out.devJumpTick = o.devJumpTick;
   if (o.devNoElimination === true) out.devNoElimination = true;
   if (typeof o.keepOpenMs === 'number' && Number.isFinite(o.keepOpenMs) && o.keepOpenMs > 0) out.keepOpenMs = o.keepOpenMs;
+  if (isMatchStage(o.stage)) out.stage = o.stage;
   return out;
 }
 

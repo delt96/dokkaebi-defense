@@ -1,6 +1,6 @@
 import {
   buildFull, buildTick, createMatch, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
-  type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchState, type NoticeMsg,
+  MATCH_STAGES, type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchStage, type MatchState, type NoticeMsg,
   type ResultMsg,
 } from '@dorandi/logic';
 
@@ -11,11 +11,16 @@ const LOBBY_REFRESH_GRACE_MS = 15_000;
 export interface ClientLink { id: string; send(type: string, msg: unknown): void; close(code?: number): void }
 export interface RoomDeps {
   now(): number; random128(): string; randomSeed(): number;
-  createRematchRoom(opts: { hostToken: string; keepOpenMs: number }): Promise<string>;
+  createRematchRoom(opts: { hostToken: string; keepOpenMs: number; stage?: MatchStage }): Promise<string>;
   setAutoDispose(v: boolean): void; dispose(): void; dev: boolean;
 }
 /** keepOpenMs: a rematch lobby stays open while empty for this long (the rest of the old room's result hold, capped at the full hold). */
-export interface RoomOptions { seed?: number; hostToken?: string; devJumpTick?: number; devNoElimination?: boolean; keepOpenMs?: number }
+/** stage: the rule data the room starts with (the host can change it in the lobby); a rematch room gets the old room's. */
+export interface RoomOptions { seed?: number; hostToken?: string; devJumpTick?: number; devNoElimination?: boolean; keepOpenMs?: number; stage?: MatchStage }
+
+export function isMatchStage(v: unknown): v is MatchStage {
+  return typeof v === 'string' && (MATCH_STAGES as readonly string[]).includes(v);
+}
 export interface JoinOptions { name?: unknown; rejoinKey?: unknown; hostToken?: unknown }
 
 export class JoinError extends Error {
@@ -36,6 +41,8 @@ export class RoomCore {
   /** Connected link id -> link and seat. */
   readonly links = new Map<string, { link: ClientLink; seat: number }>();
   hostSeat: number | null = null;
+  /** Rule data for the match; chosen by the host in the lobby, fixed once the match starts. */
+  stage: MatchStage;
   names: Record<number, string> = {};
   keys: Record<number, string> = {};
   /** Seat -> the lane that seat's player is shown (a living seat always watches its own lane). */
@@ -65,6 +72,7 @@ export class RoomCore {
   private keepOpenUntil: number | null = null;
 
   constructor(readonly roomId: string, readonly deps: RoomDeps, readonly options: RoomOptions = {}) {
+    this.stage = options.stage ?? 'stage2';
     const keep = options.keepOpenMs;
     if (keep !== undefined && keep > 0) {
       this.keepOpenUntil = deps.now() + Math.min(keep, loadGameData('stage2').coop!.resultSeconds * 1000);
@@ -119,9 +127,10 @@ export class RoomCore {
     if (!entry) return;
     // The new link has its snapshot (and so its new key) and is talking: the old key is done.
     if (this.prevKeys.get(entry.seat)?.linkId === linkId && !this.awaitingFull.has(linkId)) this.prevKeys.delete(entry.seat);
-    if (type === 'ready' || type === 'start') {
+    if (type === 'ready' || type === 'start' || type === 'stage') {
       if (this.phase !== 'lobby') return this.notice(entry.link, { kind: 'roomError', reason: 'notInLobby' });
       if (type === 'ready') return this.onReady(entry.seat, payload);
+      if (type === 'stage') return this.onStage(entry.link, entry.seat, payload);
       return this.onStart(entry.link, entry.seat);
     }
     if (type === 'cmd') return this.onCommand(entry.seat, payload);
@@ -204,7 +213,8 @@ export class RoomCore {
       const hostToken = this.deps.random128();
       // The new lobby outlives an early empty spell: everyone who presses within this room's hold is sent there.
       const keepOpenMs = this.match!.data.coop!.resultSeconds * 1000 - (this.deps.now() - this.resultAt);
-      const roomId = this.deps.createRematchRoom({ hostToken, keepOpenMs });
+      // a 20-round room asks exactly as before; a 60-round one carries its stage over
+      const roomId = this.deps.createRematchRoom(this.stage === 'stage2' ? { hostToken, keepOpenMs } : { hostToken, keepOpenMs, stage: this.stage });
       this.rematch = { hostSeat: seat, hostToken, roomId };
       // A failed create lets the next press try again.
       roomId.catch(() => { if (this.rematch?.roomId === roomId) this.rematch = null; });
@@ -291,12 +301,37 @@ export class RoomCore {
     link.send('full', buildFull(match, seat, { watching: this.watching[seat] ?? seat, names: this.names, key: this.keys[seat]!, n: this.n }));
   }
 
+  /**
+   * A ready sent with the round count the player saw is taken only while that is still the room's choice: a press that
+   * crosses the host's switch in flight must not mark the guest ready for a mode they never saw. A ready without
+   * `stage` (older page) keeps the old behaviour.
+   */
   private onReady(seat: number, payload: unknown): void {
-    const ready = (payload as { ready?: unknown } | null)?.ready;
+    const p = payload as { ready?: unknown; stage?: unknown } | null;
+    const ready = p?.ready;
     if (typeof ready !== 'boolean') return;
     const s = this.seats.get(seat);
-    if (!s || s.ready === ready) return;
+    if (!s) return;
+    if (ready && p?.stage !== undefined && p.stage !== this.stage) {
+      // tell the sender the current choice again; its button still says "준비"
+      this.broadcastLobby();
+      return;
+    }
+    if (s.ready === ready) return;
     s.ready = ready;
+    this.broadcastLobby();
+  }
+
+  /**
+   * Host only: switch the rule data. The new choice and every cleared ready go out in one lobby message, so no one
+   * ever sees the new mode next to a ready given for the old one.
+   */
+  private onStage(link: ClientLink, seat: number, payload: unknown): void {
+    if (seat !== this.hostSeat) return this.notice(link, { kind: 'roomError', reason: 'notHost' });
+    const stage = (payload as { stage?: unknown } | null)?.stage;
+    if (!isMatchStage(stage) || stage === this.stage) return;
+    this.stage = stage;
+    for (const s of this.seats.values()) s.ready = false;
     this.broadcastLobby();
   }
 
@@ -313,7 +348,7 @@ export class RoomCore {
     const ring = [...this.seats.keys()].sort((a, b) => a - b);
     // Only set the option when it is on, so a normal room hashes (and replays) like createMatch with default options.
     const matchOptions = deps.dev && options.devNoElimination === true ? { noElimination: true } : {};
-    this.match = createMatch(loadGameData('stage2'), seed, ring, matchOptions);
+    this.match = createMatch(loadGameData(this.stage), seed, ring, matchOptions);
     if (deps.dev && options.devJumpTick !== undefined) jumpToTick(this.match, options.devJumpTick);
     deps.setAutoDispose(false);
     for (const seat of ring) {
@@ -334,7 +369,7 @@ export class RoomCore {
   private broadcastLobby(): void {
     const seats = [...this.seats.values()].sort((a, b) => a.seat - b.seat).map(s => ({ seat: s.seat, name: s.name, ready: s.ready }));
     for (const { link, seat } of this.links.values()) {
-      const msg: LobbyMsg = { roomId: this.roomId, you: seat, hostSeat: this.hostSeat, seats };
+      const msg: LobbyMsg = { roomId: this.roomId, you: seat, hostSeat: this.hostSeat, seats, stage: this.stage };
       link.send('lobby', msg);
     }
   }

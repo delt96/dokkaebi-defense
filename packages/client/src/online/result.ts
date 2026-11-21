@@ -12,7 +12,6 @@ export interface TeamResultModel { title: string; subtitle: string; rows: TeamRo
 
 const TITLE: Record<TeamOutcome, string> = { clear: '팀 클리어', wipe: '전멸', gate: '스토리 관문 실패' };
 const CAUSE: Record<EliminationCause, string> = { limit: '잡귀 한도', boss: '고개 보스', forfeit: '포기', disconnect: '단절' };
-const ROUNDS = 20;
 
 function statusText(outcome: SeatOutcome, cause: EliminationCause | null, round: number): string {
   switch (outcome) {
@@ -26,12 +25,12 @@ function statusText(outcome: SeatOutcome, cause: EliminationCause | null, round:
 export function teamResultModel(result: MatchResult, names: Record<number, string>, data: GameData): TeamResultModel {
   return {
     title: TITLE[result.outcome],
-    subtitle: `도달 ${result.round}라운드 · 역신 격파 ${result.yeoksinKills}/2 · 생존 ${result.alive}/${result.started}`,
+    subtitle: `도달 ${result.round}라운드 · 역신 격파 ${result.yeoksinKills}/${data.coop?.yeoksin.length ?? 2} · 생존 ${result.alive}/${result.started}`,
     rows: result.seats.map(s => {
       const best = s.bestUnit ? `${unitDefFast(data, s.bestUnit.defId).name} (${s.bestUnit.grade}등급)` : '–';
       // one slot per round; rounds after an elimination stay empty
       const first = Math.max(0, s.round - s.series.length);
-      const series: (number | null)[] = Array.from({ length: ROUNDS }, (_, i) => s.series[i - first] ?? null);
+      const series: (number | null)[] = Array.from({ length: data.balance.rounds }, (_, i) => s.series[i - first] ?? null);
       return {
         seat: s.seat, name: names[s.seat] ?? `${s.seat}번`, status: statusText(s.outcome, s.cause, s.round),
         last: s.lastEnemies, max: s.maxEnemies, best, damage: s.yeoksinDamage, series, helperText: `도우미 ${s.helperOpens}회`,
@@ -77,7 +76,7 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
     if (open) {
       const detail = div('result-detail');
       const plot = graph(r.series, data.balance.limit);
-      const scale = '<div class="graph-scale"><span>1라운드</span><span>20라운드</span></div>';
+      const scale = `<div class="graph-scale"><span>1라운드</span><span>${data.balance.rounds}라운드</span></div>`;
       detail.innerHTML = `<p><b>${esc(r.name)}</b> · 라운드 끝 잡귀 · 한도 ${data.balance.limit}마리</p>${plot ? plot + scale : '<p>아직 라운드 기록이 없습니다.</p>'}<p>${esc(r.helperText)}</p>`;
       box.append(detail);
     }

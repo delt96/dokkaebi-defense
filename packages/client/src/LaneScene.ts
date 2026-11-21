@@ -5,6 +5,7 @@ import type { Driver } from './driver';
 import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasToCell, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_KEYS, textureKey } from './fx/atlas';
+import { spriteKey, tameArt } from './sprites';
 import { FX_FLAGS, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, writeReduceFx, type FxCmd } from './fx/plan';
 
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
@@ -94,6 +95,9 @@ export class LaneScene extends Phaser.Scene {
   }
 
   private warned = new Set<string>();
+  private aliasCache: ReadonlyMap<string, string> | null = null;
+  /** Art borrowed by stage 3 event enemies (the hidden unit each one is tamed into). */
+  private get artAlias(): ReadonlyMap<string, string> { return (this.aliasCache ??= tameArt(this.driver.state.data)); }
   private hasTexture(id: string): boolean {
     if (this.textures.exists(id)) return true;
     // only a sprite file that failed to load is worth a warning; units without art are expected
@@ -370,8 +374,9 @@ export class LaneScene extends Phaser.Scene {
     const view: EnemyContainer = this.add.container(spawn.x, spawn.y).setDepth(2);
     view.defId = defId;
     const radius = boss ? 14 : 6;
-    const body = this.hasTexture(defId)
-      ? this.add.image(0, 0, defId).setScale(boss ? 1 : 0.75)
+    const key = spriteKey(defId, SPRITE_IDS, this.artAlias) ?? defId;
+    const body = this.hasTexture(key)
+      ? this.add.image(0, 0, key).setScale(boss ? 1 : 0.75)
       : this.add.circle(0, 0, radius, ENEMY_COLOR[defId] ?? 0x7a6a9a).setStrokeStyle(1, 0xb8a8e8);
     view.add(body);
     this.attachBar(view, boss ? 44 : 18, boss ? -28 : -15, boss ? 0xff715c : 0x83d5a3);
@@ -442,7 +447,8 @@ export class LaneScene extends Phaser.Scene {
       if (status.stunned || status.slowed || status.marked) {
         const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
         const scale = body instanceof Phaser.GameObjects.Image ? body.scaleY : 0.75;
-        statuses.push({ id: enemy.id, defId: enemy.defId, x: view.x, y: view.y, feet: view.y + 16 * scale, scale, r: body.displayHeight / 2, status });
+        // status sheets are drawn per sprite, so a repeated boss uses its base boss's sheet
+        statuses.push({ id: enemy.id, defId: spriteKey(enemy.defId, SPRITE_IDS, this.artAlias) ?? enemy.defId, x: view.x, y: view.y, feet: view.y + 16 * scale, scale, r: body.displayHeight / 2, status });
       }
       view.hp?.setScale(Math.max(0, enemy.hp / enemy.maxHp), 1);
     }
@@ -532,6 +538,16 @@ export class LaneScene extends Phaser.Scene {
           if (view.shared) this.yeoksinKilled = true;
           view.bar?.setVisible(false);
           this.tweens.add({ targets: view, scale: 1.3, alpha: 0, duration: 145, onComplete: () => view.destroy() });
+        }
+      }
+      // stage 3 event enemies run off at their time limit or the round end: they fade without a kill
+      if (e.type === 'flee') {
+        const view = this.enemies.get(e.enemyId);
+        if (view) {
+          this.enemies.delete(e.enemyId);
+          this.effects.add(view);
+          view.bar?.setVisible(false);
+          this.tweens.add({ targets: view, alpha: 0, duration: 300, onComplete: () => view.destroy() });
         }
       }
       if (e.type === 'attack') this.swing(e.unitId);

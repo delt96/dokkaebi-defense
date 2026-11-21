@@ -48,7 +48,7 @@ describe('jige transfer', () => {
     expect(send(m, [[1, offer(0, moru.id, 1)]]).reasons).toEqual(['targetNotAlive']);
     expect(send(m, [[1, offer(0, moru.id, 5)]]).reasons).toEqual(['targetNotAlive']);
     send(m, [[2, { type: 'disconnect' }]]);
-    expect(send(m, [[1, offer(0, moru.id, 2)]]).reasons).toEqual(['targetNotAlive']);
+    expect(send(m, [[1, offer(0, moru.id, 2)]]).reasons).toEqual(['targetAway']);
     moru.delivered = true;
     expect(send(m, [[1, offer(0, moru.id, 3)]]).reasons).toEqual(['badArgs']);
     delete moru.delivered;
@@ -97,7 +97,7 @@ describe('jige transfer', () => {
     while (m.tick < r.tick + 199) go(m);
     const last = go(m);
     expect(ends(last)).toEqual([]);
-    expect(ends(go(m))).toEqual([{ type: 'transferEnd', from: 1, to: 2, outcome: 'expired' }]);
+    expect(ends(go(m))).toEqual([{ type: 'transferEnd', from: 1, to: 2, defId: 'moru', outcome: 'expired', by: null, cause: null }]);
   });
 
   test('success moves cost and N, marks delivered, starts a 5-round cooldown on both seats and pays the first-delivery buckwheat', () => {
@@ -112,7 +112,7 @@ describe('jige transfer', () => {
     expect([got.defId, got.cost, got.delivered, got.locked]).toEqual(['moru', 5, true, undefined]);
     expect(got.id).toBe(m.lanes[2]!.nextId - 1);
     expect(acc.r.lanes[2]!.events.some(e => e.type === 'summon' && e.defId === 'moru' && e.slot === 4)).toBe(true);
-    expect(ends(acc.r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, outcome: 'accepted' }]);
+    expect(ends(acc.r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, defId: 'moru', outcome: 'accepted', by: null, cause: null }]);
     expect(totals(m)).toEqual(before);
     expect([m.lanes[1]!.buckwheat, m.lanes[2]!.buckwheat]).toEqual([1, 1]);
     expect(m.econ!.readyRound).toEqual({ 1: 27, 2: 27 });
@@ -140,19 +140,23 @@ describe('jige transfer', () => {
       return [s, { type: 'transferOffer', target: 1, slot: 0, unitId: u.id }];
     });
     const { reasons } = send(m, inputs);
-    expect(reasons).toEqual([null, 'busy', 'busy', 'busy', 'busy']);
+    expect(reasons).toEqual([null, 'targetBusy', 'targetBusy', 'targetBusy', 'targetBusy']);
     expect(m.econ!.offers.length).toBe(1);
     expect([3, 4, 5, 6].every(s => !m.lanes[s]!.slots[0]!.locked)).toBe(true);
   });
 
-  test('receiver eliminated or disconnected ends the offer as invalid and unlocks the unit', () => {
-    for (const cmd of [{ type: 'forfeit' }, { type: 'disconnect' }] as const) {
+  test('a seat eliminated or disconnected ends the offer as invalid, says which seat and why, and unlocks the unit', () => {
+    const cases = [
+      [2, { type: 'forfeit' }, 'eliminated'], [2, { type: 'disconnect' }, 'disconnected'],
+      [1, { type: 'forfeit' }, 'eliminated'], [1, { type: 'disconnect' }, 'disconnected'],
+    ] as const;
+    for (const [seat, cmd, cause] of cases) {
       const m = match([1, 2, 3]);
       const moru = placeUnitForTest(m.lanes[1]!, 'moru', 0);
       send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
-      const r = go(m, [[2, cmd]]);
-      expect(ends(r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, outcome: 'invalid' }]);
-      expect(moru.locked).toBeUndefined();
+      const r = go(m, [[seat, cmd]]);
+      expect(ends(r), `${seat} ${cmd.type}`).toEqual([{ type: 'transferEnd', from: 1, to: 2, defId: 'moru', outcome: 'invalid', by: seat, cause }]);
+      if (seat === 2) expect(moru.locked).toBeUndefined();
       expect(m.econ!.offers).toEqual([]);
     }
     const m = match([1, 2]);
@@ -172,8 +176,21 @@ describe('jige transfer', () => {
     expect(send(m, [[1, { type: 'transferAccept', slot: 4 }]]).reasons).toEqual(['noOffer']);
     const { r, reasons } = send(m, [[1, { type: 'transferDecline' }]]);
     expect(reasons).toEqual([null]);
-    expect(ends(r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, outcome: 'declined' }]);
+    expect(ends(r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, defId: 'moru', outcome: 'declined', by: 1, cause: null }]);
     expect(moru.locked).toBeUndefined();
+    send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
+    expect(ends(send(m, [[2, { type: 'transferDecline' }]]).r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, defId: 'moru', outcome: 'declined', by: 2, cause: null }]);
+  });
+
+  test('busy tells the sender\'s own open offer apart from a target already in one', () => {
+    const m = match([1, 2, 3, 4]);
+    const a = placeUnitForTest(m.lanes[1]!, 'moru', 0);
+    const b = placeUnitForTest(m.lanes[1]!, 'jipsin', 1);
+    const c = placeUnitForTest(m.lanes[3]!, 'jipsin', 0);
+    send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: a.id }]]);
+    expect(send(m, [[1, { type: 'transferOffer', target: 4, slot: 1, unitId: b.id }]]).reasons).toEqual(['busy']);
+    expect(send(m, [[3, { type: 'transferOffer', target: 2, slot: 0, unitId: c.id }]]).reasons).toEqual(['targetBusy']);
+    expect(send(m, [[3, { type: 'transferOffer', target: 1, slot: 0, unitId: c.id }]]).reasons).toEqual(['targetBusy']);
   });
 
   test('team reward cap: no more than 6 transfer buckwheat in a match', () => {

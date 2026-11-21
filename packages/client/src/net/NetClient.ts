@@ -1,6 +1,6 @@
 import {
-  applyFull, applyLane, applyMine, applyTick, canonicalJson, fnv1a, loadGameData, toWire,
-  type ClientView, type Command, type FullMsg, type LaneBatch, type LaneMsg, type LobbyMsg, type MineMsg, type NoticeMsg,
+  applyFull, applyLane, applyMine, applyTick, canonicalJson, fnv1a, loadGameData, MATCH_STAGES, toWire,
+  type ClientView, type MatchStage, type Command, type FullMsg, type LaneBatch, type LaneMsg, type LobbyMsg, type MineMsg, type NoticeMsg,
   type RejectReason, type ResultMsg, type TickMsg, type UnitView,
 } from '@dorandi/logic';
 import { dimmedSlots, predictUnits, summonsLeft, type PendingCmd } from './predict';
@@ -12,11 +12,34 @@ export type NetEvent =
   | { kind: 'rejected'; cmd: PendingCmd; reason: RejectReason } | { kind: 'notice'; msg: NoticeMsg }
   | { kind: 'result'; msg: ResultMsg } | { kind: 'left'; code: number } | { kind: 'versionMismatch' };
 
-export type OutgoingCommand = Command | { type: 'support'; target: number } | { type: 'forfeit' };
+export type OutgoingCommand = Command | { type: 'support'; target: number } | { type: 'forfeit' }
+  | { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; slot: number }
+  | { type: 'transferDecline' };
 
-/** The rule-data version this build would play with; computed the same way as MatchState.dataVersion. */
+const versions = new Map<MatchStage, string>();
+
+/** The rule-data version of one stage in this build; computed the same way as MatchState.dataVersion. */
+export function matchDataVersion(stage: MatchStage): string {
+  let v = versions.get(stage);
+  if (v === undefined) {
+    v = fnv1a(canonicalJson(loadGameData(stage), new Set()));
+    versions.set(stage, v);
+  }
+  return v;
+}
+
 export function stage2DataVersion(): string {
-  return fnv1a(canonicalJson(loadGameData('stage2'), new Set()));
+  return matchDataVersion('stage2');
+}
+
+/** Every version this build can play (20 and 60 rounds); a room on any of them is joined with the matching data. */
+export function knownDataVersions(): string[] {
+  return MATCH_STAGES.map(matchDataVersion);
+}
+
+/** Which stage a snapshot's data version belongs to, or null for a build this page cannot play. */
+export function stageOfVersion(version: string): MatchStage | null {
+  return MATCH_STAGES.find(s => matchDataVersion(s) === version) ?? null;
 }
 
 /** One connection to a match room: applies server messages to a ClientView and sends seq-numbered commands. */
@@ -32,7 +55,11 @@ export class NetClient {
   private keySaved = false;
   private readonly listeners: ((e: NetEvent) => void)[] = [];
 
-  constructor(private readonly room: RoomLike, private readonly dataVersion: string) {
+  private readonly dataVersions: readonly string[];
+
+  /** `dataVersion`: the version (or versions) this page can play; any other snapshot is a version mismatch. */
+  constructor(private readonly room: RoomLike, dataVersion: string | readonly string[]) {
+    this.dataVersions = typeof dataVersion === 'string' ? [dataVersion] : dataVersion;
     this.roomId = room.roomId;
     room.onMessage('lobby', (msg: LobbyMsg) => { this.lobby = msg; this.emit({ kind: 'lobby', msg }); });
     room.onMessage('full', (msg: FullMsg) => this.onFull(msg));
@@ -66,8 +93,11 @@ export class NetClient {
     return true;
   }
 
-  ready(v: boolean): void { this.room.send('ready', { ready: v }); }
+  /** `stage`: the round count shown when the button was pressed; the server drops a ready given for an old choice. */
+  ready(v: boolean, stage?: MatchStage): void { this.room.send('ready', stage ? { ready: v, stage } : { ready: v }); }
   start(): void { this.room.send('start', {}); }
+  /** Host in the lobby: play 20 rounds ('stage2') or the 60-round trial ('stage3'). */
+  setStage(stage: MatchStage): void { this.room.send('stage', { stage }); }
   watch(seat: number): void { this.room.send('watch', { seat }); }
   rematch(): void { this.room.send('rematch', {}); }
 
@@ -134,7 +164,7 @@ export class NetClient {
       this.keySaved = true;
       this.room.send('keySaved', {});
     }
-    if (msg.dataVersion !== this.dataVersion) {
+    if (!this.dataVersions.includes(msg.dataVersion)) {
       this.emit({ kind: 'versionMismatch' });
       return;
     }

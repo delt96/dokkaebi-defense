@@ -3,11 +3,13 @@ import { createGame, loadGameData } from '@dorandi/logic';
 import { GameDriver } from './driver';
 import { LaneScene, LANE_CANVAS } from './LaneScene';
 import { stagePlacement } from './layout';
+import { soloStage } from './online/entry';
 import { mountUi } from './ui/mount';
 import './ui/style.css';
 
 export function startSolo(): void {
-  const data = loadGameData();
+  const rules = soloStage(location.search);
+  const data = rules === 'stage1' ? loadGameData() : loadGameData(rules);
   const newSeed = () => (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
   const driver = new GameDriver(createGame(data, newSeed()));
   const scene = new LaneScene(driver);

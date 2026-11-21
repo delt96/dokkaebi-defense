@@ -1,4 +1,6 @@
-import type { ClientView, Command, GameData, GameEvent, GameState, LaneBatch, LaneEvent, RejectReason, StepResult } from '@dorandi/logic';
+import type {
+  ClientView, Command, EconMine, GameData, GameEvent, GameState, LaneBatch, LaneEvent, RejectReason, StepResult, TransferEndView,
+} from '@dorandi/logic';
 import { enemyDistanceAt } from '@dorandi/logic';
 import type { Driver } from '../driver';
 import type { NetClient } from './NetClient';
@@ -40,6 +42,7 @@ export class NetDriver implements Driver {
   private view: ClientView;
   private readonly listeners: Listener[] = [];
   private readonly remapListeners: ((ids: Map<number, number>) => void)[] = [];
+  private readonly transferEndListeners: ((ends: TransferEndView[]) => void)[] = [];
   /**
    * Lane events waiting for the next frame. Messages keep arriving while a tab is hidden and no
    * frame runs, so they are held here (old ticks dropped) and only the newest 10 ticks get animated.
@@ -79,6 +82,10 @@ export class NetDriver implements Driver {
     this.listeners.push(cb);
   }
 
+  onTransferEnd(cb: (ends: TransferEndView[]) => void): void {
+    this.transferEndListeners.push(cb);
+  }
+
   /** Called with old id → new id when a `mine` puts a new unit where one stood (a combine result in its target slot). */
   onRemap(cb: (ids: Map<number, number>) => void): void {
     this.remapListeners.push(cb);
@@ -94,6 +101,12 @@ export class NetDriver implements Driver {
     this.renderTick = renderTickAt(this.now(), this.latestTick, this.receivedAt, this.renderTick, this.data.balance.tickMs);
     this.refresh();
     this.flushLane();
+  }
+
+  /** The own economy from the latest `mine`; null while only watching (spirit or another lane). */
+  econ(): EconMine | null {
+    if (this.readOnly) return null;
+    return (this.net.view ?? this.view).mine.econ ?? null;
   }
 
   laneEliminated(): boolean {
@@ -143,7 +156,12 @@ export class NetDriver implements Driver {
         this.latestTick = view.clock.tick;
         this.receivedAt = this.now();
       }
-      if (view.mine !== this.lastMine) this.noteMine(this.lastMine, view);
+      if (view.mine !== this.lastMine) {
+        this.noteMine(this.lastMine, view);
+        // read from the message itself: the next mine replaces it, and it comes for the own seat even while watching
+        const ends = view.mine.transferEnds;
+        if (ends?.length) for (const cb of this.transferEndListeners) cb(ends);
+      }
     }
   }
 
@@ -210,6 +228,9 @@ function toGameEvent(ev: LaneEvent, before: (number | null)[]): GameEvent | null
       ? { type: 'damage', enemyId: ev.id, amount: ev.amount, source: ev.source, effect: ev.effect }
       : { type: 'damage', enemyId: ev.id, amount: ev.amount, source: ev.source };
     case 'kill': return { type: 'kill', enemyId: ev.id };
+    case 'flee': return { type: 'flee', enemyId: ev.id };
+    case 'grow': return { type: 'grow', enemyId: ev.id, hp: ev.hp };
+    case 'note': return ev.ev;
     case 'speed': return { type: 'speedChange', enemyId: ev.id, d: ev.d, speed: ev.speed };
     case 'summon': return { type: 'summon', unitId: ev.unitId, defId: ev.defId, grade: ev.grade, slot: ev.slot };
     case 'combine': {
