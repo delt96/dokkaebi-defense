@@ -5,6 +5,7 @@ import type { Driver } from './driver';
 import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasToCell, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_KEYS, textureKey } from './fx/atlas';
+import { spriteKey } from './sprites';
 import { FX_FLAGS, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, writeReduceFx, type FxCmd } from './fx/plan';
 
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
@@ -370,8 +371,9 @@ export class LaneScene extends Phaser.Scene {
     const view: EnemyContainer = this.add.container(spawn.x, spawn.y).setDepth(2);
     view.defId = defId;
     const radius = boss ? 14 : 6;
-    const body = this.hasTexture(defId)
-      ? this.add.image(0, 0, defId).setScale(boss ? 1 : 0.75)
+    const key = spriteKey(defId, SPRITE_IDS) ?? defId;
+    const body = this.hasTexture(key)
+      ? this.add.image(0, 0, key).setScale(boss ? 1 : 0.75)
       : this.add.circle(0, 0, radius, ENEMY_COLOR[defId] ?? 0x7a6a9a).setStrokeStyle(1, 0xb8a8e8);
     view.add(body);
     this.attachBar(view, boss ? 44 : 18, boss ? -28 : -15, boss ? 0xff715c : 0x83d5a3);
@@ -442,7 +444,8 @@ export class LaneScene extends Phaser.Scene {
       if (status.stunned || status.slowed || status.marked) {
         const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
         const scale = body instanceof Phaser.GameObjects.Image ? body.scaleY : 0.75;
-        statuses.push({ id: enemy.id, defId: enemy.defId, x: view.x, y: view.y, feet: view.y + 16 * scale, scale, r: body.displayHeight / 2, status });
+        // status sheets are drawn per sprite, so a repeated boss uses its base boss's sheet
+        statuses.push({ id: enemy.id, defId: spriteKey(enemy.defId, SPRITE_IDS) ?? enemy.defId, x: view.x, y: view.y, feet: view.y + 16 * scale, scale, r: body.displayHeight / 2, status });
       }
       view.hp?.setScale(Math.max(0, enemy.hp / enemy.maxHp), 1);
     }
