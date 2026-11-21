@@ -304,7 +304,7 @@ export class RoomCore {
   /**
    * A ready sent with the round count the player saw is taken only while that is still the room's choice: a press that
    * crosses the host's switch in flight must not mark the guest ready for a mode they never saw. A ready without
-   * `stage` (older page) keeps the old behaviour.
+   * `stage` comes from the original 20-round lobby.
    */
   private onReady(seat: number, payload: unknown): void {
     const p = payload as { ready?: unknown; stage?: unknown } | null;
@@ -312,7 +312,8 @@ export class RoomCore {
     if (typeof ready !== 'boolean') return;
     const s = this.seats.get(seat);
     if (!s) return;
-    if (ready && p?.stage !== undefined && p.stage !== this.stage) {
+    const shownStage = p?.stage === undefined ? 'stage2' : p.stage;
+    if (ready && shownStage !== this.stage) {
       // tell the sender the current choice again; its button still says "준비"
       this.broadcastLobby();
       return;

@@ -50,10 +50,22 @@ describe('round count choice', () => {
     expect(a!.last('notice')).toEqual({ kind: 'roomError', reason: 'notReady' });
   });
 
+  test('a legacy ready only consents to a 20-round room', () => {
+    const { core } = lobby(1);
+    core.message('a', 'stage', { stage: 'stage3' });
+    core.message('a', 'ready', { ready: true });
+    core.message('a', 'start', {});
+    expect(core.phase).toBe('lobby');
+    core.message('a', 'stage', { stage: 'stage2' });
+    core.message('a', 'ready', { ready: true });
+    core.message('a', 'start', {});
+    expect(core.phase).toBe('playing');
+  });
+
   test('a 60-round room starts on stage 3 data and a rejoin gets the same data version', () => {
     const { core, deps, links: [a] } = lobby(2);
     core.message('a', 'stage', { stage: 'stage3' });
-    core.message('a', 'ready', { ready: true }); core.message('b', 'ready', { ready: true });
+    core.message('a', 'ready', { ready: true, stage: 'stage3' }); core.message('b', 'ready', { ready: true, stage: 'stage3' });
     core.message('a', 'start', {});
     expect(core.match!.data.balance.rounds).toBe(60);
     const key = a!.last('full').me.key;
