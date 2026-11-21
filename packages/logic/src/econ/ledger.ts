@@ -11,7 +11,7 @@ export function createEcon(seed: number, economy: EconomyDef): EconState {
     },
     roundKills: 0, questTokens: 0,
     ledger: { story: 0, tokens: 0 },
-    pityQuest: [], pendingDrops: [],
+    pendingDrops: [],
     bundle: { day: 0, bought: 0, left: [...(economy.market?.bundle.deck ?? [])] },
     jar: { period: 0, done: 0, missed: false },
     jige: false,

@@ -17,7 +17,7 @@ function viewWith(o: ViewOpts): ClientView {
     yeoksin: null,
     me: { seat: o.me, key: 'k' },
     mine: {
-      tick, tokens: 0, coins: 0, buckwheat: 0, upgrades: { physical: 0, magical: 0, polish: 0, slots: 0 }, pendingPity: [],
+      tick, tokens: 0, coins: 0, buckwheat: 0, upgrades: { physical: 0, magical: 0, polish: 0, slots: 0 },
       grade1Summons: 0, helperOpens: 0, supportTokens: 0, received: false, lastSeq: 0, open: [], units: [], acks: [], supportIn: [],
     },
     watching: o.watching ?? o.me,

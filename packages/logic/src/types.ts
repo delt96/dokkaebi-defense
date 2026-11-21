@@ -106,7 +106,7 @@ export interface EconState {
   rng: { bundle: RngState; jar: RngState; jige: RngState; drop: RngState };
   roundKills: number; questTokens: number;
   ledger: { story: number; tokens: number };
-  pityQuest: boolean[]; pendingDrops: string[];
+  pendingDrops: string[];
   bundle: { day: number; bought: number; left: number[] };
   jar: { period: number; done: number; missed: boolean };
   jige: boolean;
@@ -144,7 +144,7 @@ export interface GameState {
   slots: (Unit | null)[]; open: boolean[];
   /** Grade 1-2 units the player put away off the board (no attacks, no auras); absent until first used. */
   storage?: Unit[];
-  pendingPity: string[]; summonCounts: Record<string, number>; grade1Summons: number;
+  summonCounts: Record<string, number>; grade1Summons: number;
   enemies: Enemy[]; fires: GroundFire[];
   upgrades: Record<UpgradeId, number>;
   overLimitTicks: number; helperOpens: number;

@@ -247,11 +247,11 @@ export function summonOddsText(data: GameData, round: number): string {
   return `소환 확률 · ${rates}${opens && opens > 1 ? ` (3등급은 ${opens}라운드부터)` : ''}`;
 }
 
-export function rightModel(state: GameState): { canSummon: boolean; canConvert: boolean; pending: number } {
+export function rightModel(state: GameState): { canSummon: boolean; canConvert: boolean } {
   const live = state.phase !== 'ended' && state.tokens > 0;
   const freeCell = state.slots.some((u, i) => !u && state.open[i]);
   return {
-    canSummon: live && freeCell, canConvert: live, pending: state.pendingPity.length,
+    canSummon: live && freeCell, canConvert: live,
   };
 }
 

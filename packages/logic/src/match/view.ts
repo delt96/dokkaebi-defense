@@ -110,7 +110,7 @@ function mineOf(
   const st = match.seats[seat]!;
   return {
     tick, tokens: lane.tokens, coins: lane.coins, buckwheat: lane.buckwheat, upgrades: { ...lane.upgrades },
-    pendingPity: [...lane.pendingPity], grade1Summons: lane.grade1Summons, helperOpens: lane.helperOpens,
+    grade1Summons: lane.grade1Summons, helperOpens: lane.helperOpens,
     supportTokens: st.supportTokens, received: st.receivedThisRound, lastSeq: st.lastSeq,
     open: [...lane.open], units: unitsOf(lane), acks, supportIn,
     ...(lane.storage && { storage: storageOf(lane) }),
@@ -172,7 +172,7 @@ function mineKey(match: MatchState, seat: number, econ: EconMine | undefined): s
   const lane = match.lanes[seat]!;
   const st = match.seats[seat]!;
   return JSON.stringify([
-    lane.tokens, lane.coins, lane.buckwheat, lane.upgrades, lane.pendingPity, lane.grade1Summons, lane.helperOpens,
+    lane.tokens, lane.coins, lane.buckwheat, lane.upgrades, lane.grade1Summons, lane.helperOpens,
     st.supportTokens, st.receivedThisRound, st.lastSeq,
   ]) + boardKey(lane) + (lane.storage ? `|${lane.storage.map(u => `${u.id}:${u.defId}`).join(',')}|` : '') + (econ ? JSON.stringify(econ) : '');
 }

@@ -25,7 +25,7 @@ describe('stage 3 data, grades 1-4', () => {
     }
   });
 
-  test('stage 3 adds a pity unit every 5 grade-1 summons; stages 1 and 2 keep 7', () => {
+  test('stage 3 swaps every 5th grade-1 summon for the least-summoned grade 1; stages 1 and 2 keep 7', () => {
     expect(d3.balance.pityEvery).toBe(5);
     expect(loadGameData().balance.pityEvery).toBe(7);
     expect(loadGameData('stage2').balance.pityEvery).toBe(7);

@@ -95,10 +95,10 @@ describe('bundle', () => {
 
   test('buying never touches the summon or combat streams or the pity counters', () => {
     const s = lane(1);
-    const before = canonicalJson({ r: s.rng, g: s.grade1Summons, c: s.summonCounts, p: s.pendingPity });
+    const before = canonicalJson({ r: s.rng, g: s.grade1Summons, c: s.summonCounts });
     for (const item of ['bundle', 'jar', 'jar', 'bundle'] as const) applyCommand(s, { type: 'buy', item }, []);
     expect(units(s).length).toBeGreaterThan(1);
-    expect(canonicalJson({ r: s.rng, g: s.grade1Summons, c: s.summonCounts, p: s.pendingPity })).toBe(before);
+    expect(canonicalJson({ r: s.rng, g: s.grade1Summons, c: s.summonCounts })).toBe(before);
   });
 });
 
