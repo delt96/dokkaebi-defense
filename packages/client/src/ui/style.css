@@ -418,6 +418,6 @@ body.online #modal .dex-browser .modal-head { position: static; padding: 0; }
 .dex-browser .dex .card-notes li { margin: 0; }
 .dex-side .dex-filters button { white-space: nowrap; padding: 0 1px; flex-basis: 18%; }
 
-.type-badge { display: inline-block; padding: 0 4px; border-radius: 3px; border: 1px solid; font-size: 10px; font-weight: bold; line-height: 13px; vertical-align: 1px; }
+.type-badge { display: inline-block; padding: 0 2px; border-radius: 2px; border: 1px solid; font-size: 8px; font-weight: normal; line-height: 9px; vertical-align: 1px; }
 .type-badge.physical { color: #ffab5e; background: #3d2412; border-color: #b8651f; }
 .type-badge.magical { color: #a9b8ff; background: #1f2347; border-color: #5a6ad6; }
