@@ -17,7 +17,7 @@ const SPRITE_IDS: ReadonlySet<string> = new Set(
   Object.keys(import.meta.glob('../public/sprites/*.png')).map(p => p.slice(p.lastIndexOf('/') + 1, -'.png'.length)),
 );
 
-type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; combineMarker: Phaser.GameObjects.Arc };
+type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; gradeColor: number; combineMarker: Phaser.GameObjects.Arc };
 type EnemyContainer = Phaser.GameObjects.Container & {
   defId?: string; shared?: boolean; bar?: Phaser.GameObjects.Container; hp?: Phaser.GameObjects.Rectangle;
   /** Shared enemy only: when it came in (ms) and from which side, for the slide-in. */
@@ -119,7 +119,7 @@ export class LaneScene extends Phaser.Scene {
     this.effects = this.add.group();
     this.fires = this.add.graphics();
     this.coverage = this.add.graphics().setDepth(1);
-    this.overlay = this.add.graphics().setDepth(5);
+    this.overlay = this.add.graphics().setDepth(FX_DEPTH.unitOverlay);
     const post = laneToCanvas({ x: this.lane.cols + 0.9, y: this.lane.rows + 0.4 });
     this.jangseung = this.add.rectangle(post.x, post.y, 8, 22, 0x8a6a4a).setStrokeStyle(1, 0x2a1a0e);
     if (this.driver.online) {
@@ -264,6 +264,11 @@ export class LaneScene extends Phaser.Scene {
 
   private drawSelection(): void {
     this.overlay.clear();
+    for (const view of this.units.values()) {
+      if (!view.visible) continue;
+      this.overlay.fillStyle(view.gradeColor, view.alpha);
+      this.overlay.fillCircle(view.x, view.y - 14 * view.scaleY, 2 * view.scaleY);
+    }
     this.coverage.clear();
     const draw = (id: number | null, alpha: number) => {
       const slot = selectedSlot(this.state, id);
@@ -288,13 +293,13 @@ export class LaneScene extends Phaser.Scene {
     const view = this.add.container(0, 0) as UnitView;
     view.unitId = unitId;
     view.defId = defId;
+    view.gradeColor = hex(GRADE_COLOR[def.grade] ?? '#ffffff');
     if (this.hasTexture(defId)) {
       view.add(this.add.image(0, 0, defId));
     } else {
-      view.add(this.add.circle(0, 0, 11, hex(GRADE_COLOR[def.grade] ?? '#ffffff')).setStrokeStyle(1, 0x000000));
+      view.add(this.add.circle(0, 0, 11, view.gradeColor).setStrokeStyle(1, 0x000000));
       view.add(this.add.text(0, 0, def.name.slice(0, 1), { fontSize: '11px', color: '#10101a', fontFamily: 'sans-serif' }).setOrigin(0.5));
     }
-    view.add(this.add.circle(0, -14, 2, hex(GRADE_COLOR[def.grade] ?? '#ffffff')));
     view.combineMarker = this.add.circle(12, -12, 3, 0xffd65c);
     view.add(view.combineMarker);
     view.setSize(CELL, CELL).setInteractive({ draggable: true, useHandCursor: true }).setDepth(3);
