@@ -1,4 +1,4 @@
-import type { HitEffect, UpgradeId } from '../types';
+import type { GameEvent, HitEffect, UpgradeId } from '../types';
 import type { EconView } from '../econ/view';
 import type { Ack, EliminationCause, MatchResult } from './types';
 
@@ -22,6 +22,8 @@ export interface TransferMine {
   ready: number; readyRounds: Record<number, number>; busy: number[];
   offer: { from: number; to: number; defId: string; slot: number; unitId: number; deadlineTick: number } | null;
   rewarded: boolean; rewardsLeft: number;
+  /** Ids of this seat's units that came by delivery (they cannot be sent on). */
+  delivered: number[];
 }
 /** Stage 3 only: the lane economy plus the match parts one seat needs (delivery, team request night count). */
 export interface EconMine extends EconView {
@@ -48,7 +50,11 @@ export type LaneEvent =
   | { t: 'damage'; id: number; amount: number; source: string; effect?: HitEffect } | { t: 'attack'; unitId: number; id: number }
   | { t: 'kill'; id: number } | { t: 'fire'; source: string; from: number; to: number; endTick: number }
   | { t: 'board'; open: boolean[]; units: (UnitView | null)[] } | { t: 'clear' }
-  | { t: 'summon'; unitId: number; defId: string; grade: number; slot: number } | { t: 'combine'; unitId: number; defId: string; slot: number };
+  | { t: 'summon'; unitId: number; defId: string; grade: number; slot: number } | { t: 'combine'; unitId: number; defId: string; slot: number }
+  // stage 3 only: an event enemy runs off or grows, and economy results the lane's owner is told about
+  | { t: 'flee'; id: number } | { t: 'grow'; id: number; hp: number } | { t: 'note'; ev: EconNote };
+/** Economy results streamed for messages on the owner's screen (purchases, rewards, requests, taming). */
+export type EconNote = Extract<GameEvent, { type: 'buy' | 'questReward' | 'storyOffer' | 'storyEnd' | 'tame' }>;
 export interface LaneBatch { tick: number; events: LaneEvent[] }
 export interface LaneMsg { n: number; seat: number; batches: LaneBatch[] }
 export type MineMsg = MineView;

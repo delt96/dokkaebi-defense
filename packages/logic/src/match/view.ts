@@ -86,6 +86,7 @@ function transferOf(match: MatchState, seat: number): TransferMine | null {
       }
       : null,
     rewarded: econ.rewarded.includes(seat), rewardsLeft: Math.max(0, def.rewardCap - econ.rewarded.length),
+    delivered: (match.lanes[seat]?.slots ?? []).flatMap(u => (u?.delivered ? [u.id] : [])),
   };
 }
 
@@ -181,6 +182,10 @@ function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {
     case 'kill': return { t: 'kill', id: e.enemyId };
     case 'summon': return { t: 'summon', unitId: e.unitId, defId: e.defId, grade: e.grade, slot: e.slot };
     case 'combine': return { t: 'combine', unitId: e.unitId, defId: e.defId, slot: e.slot };
+    case 'flee': return { t: 'flee', id: e.enemyId };
+    case 'grow': return { t: 'grow', id: e.enemyId, hp: e.hp };
+    case 'buy': case 'questReward': case 'storyOffer': case 'storyEnd': case 'tame':
+      return { t: 'note', ev: structuredClone(e) };
     default: return null;
   }
 }
@@ -275,8 +280,14 @@ function applyLaneEvent(lane: LaneView, ev: LaneEvent, tick: number): void {
       break;
     case 'leave':
     case 'kill':
+    case 'flee':
       lane.enemies = lane.enemies.filter(e => e.id !== ev.id);
       break;
+    case 'grow': {
+      const e = find(ev.id);
+      if (e) { e.hp = ev.hp; e.maxHp = ev.hp; }
+      break;
+    }
     case 'speed': {
       const e = find(ev.id);
       if (e) { e.d = ev.d; e.t = tick; e.speed = ev.speed; }

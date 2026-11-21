@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
-  applyMine, buildFull, buyCheck, createGame, createMatch, econView, loadGameData, MatchStreamer, roundStartTick, step, stepMatch,
-  type MatchCommand, type MatchState,
+  applyFull, applyLane, applyMine, applyTick, buildFull, buildTick, buyCheck, createGame, createMatch, diffViews, econView, loadGameData,
+  MatchStreamer, roundStartTick, step, stepMatch, type LaneBatch, type MatchCommand, type MatchState,
 } from '../src/index';
 import { forceRound, jumpToTick, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
 
@@ -84,5 +84,44 @@ describe('econ in the mine stream', () => {
     out = streamer.afterStep(r);
     expect(out.mine[2]!.econ!.transfer).toMatchObject({ offer: null, ready: m.round + 5, rewarded: true, rewardsLeft: 4 });
     expect(out.mine[1]!.econ!.transfer!.readyRounds).toEqual({ 1: m.round + 5, 2: m.round + 5 });
+  });
+});
+
+describe('event enemies in the lane stream', () => {
+  test('the shadow grows and runs off at round end the same way in the stream and in a fresh full', () => {
+    const m = createMatch(d3, 5, [1, 2], { noElimination: true });
+    const shadowRound = d3.economy!.shadow!.round;
+    jumpToTick(m, roundStartTick(d3, shadowRound) - 4);
+    const streamer = new MatchStreamer(m);
+    const view = applyFull(buildFull(m, 1, { watching: 1, names, key: 'k', n: 0 }));
+    let pending: LaneBatch[] = [];
+    let n = 0;
+    const kinds = new Set<string>();
+    while (m.tick < roundStartTick(d3, shadowRound + 1) + 6) {
+      const step = stepMatch(m, []);
+      const out = streamer.afterStep(step);
+      for (const e of out.lanes[1] ?? []) kinds.add(e.t);
+      if (out.mine[1]) applyMine(view, out.mine[1]);
+      pending.push({ tick: step.tick, events: out.lanes[1] ?? [] });
+      if (step.tick % 2 === 1) {
+        n++;
+        expect(applyTick(view, buildTick(m, names, n))).toBe('ok');
+        expect(applyLane(view, { n, seat: 1, batches: pending })).toBe('ok');
+        pending = [];
+        if (m.tick % 40 === 0) expect(diffViews(view, applyFull(buildFull(m, 1, { watching: 1, names, key: 'k', n })))).toEqual([]);
+      }
+    }
+    expect([...kinds]).toEqual(expect.arrayContaining(['grow', 'flee']));
+    expect(view.lane.enemies.some(e => e.defId === d3.economy!.shadow!.enemy)).toBe(false);
+  });
+
+  test('a purchase reaches the lane stream as a note', () => {
+    const m = createMatch(d3, 5, [1, 2]);
+    jumpToTick(m, roundStartTick(d3, 2) + 1);
+    m.lanes[1]!.coins = 100;
+    const streamer = new MatchStreamer(m);
+    const out = streamer.afterStep(stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'buy', item: 'bundle' } }]));
+    const note = out.lanes[1]!.find(e => e.t === 'note');
+    expect(note).toMatchObject({ t: 'note', ev: { type: 'buy', item: 'bundle' } });
   });
 });
