@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { enemyDef, loadGameData, recipeDemand, unitDef } from '../src/index';
+import { buildGameData, dataSources, enemyDef, enemyHp, loadGameData, recipeDemand, unitDef } from '../src/index';
 import { readV5 } from './v5-table';
 
 const d3 = loadGameData('stage3');
@@ -116,5 +116,60 @@ describe('stage 3 data, grades 5-6 and hidden', () => {
       effects: [{ kind: 'auraAttackPower', pct: 0.13, damageType: 'magical', source: 'gat' }] });
     expect(unitDef(d3, 'gamtudokkaebi').skills[0]!.trigger).toEqual({ kind: 'charge', seconds: 4 });
     expect(unitDef(d3, 'cheonnyeondadeumitdol').skills[0]!.trigger).toEqual({ kind: 'nth', n: 2, phase: 1 });
+  });
+});
+
+describe('stage 3 balance stands on its own', () => {
+  test('pins every resolved balance and coop value', () => {
+    expect(d3.balance).toEqual({
+      tickMs: 50, prepSeconds: 30, roundSeconds: 40, bossRoundSeconds: 75,
+      spawnCount: 30, spawnIntervalSeconds: 0.8, rounds: 60,
+      hp: { base: 75, coef: 16, exp: 1.5 },
+      gradeDps: { base: 10, mult: 2.6 },
+      tokens: { start: 4, perRound: 2, toCoins: 25 },
+      coins: { perKill: 1, roundEnd: 10, boss: 60 },
+      bossBuckwheat: 2,
+      sellPrice: [5, 10, 20, 40, 80, 180],
+      limit: 60, limitSeconds: 5,
+      summonOdds: [0.7, 0.25, 0.05], pityEvery: 5,
+      grid: { cols: 6, rows: 4, initialOpenRows: 3 },
+      bossCcFactor: 0.5, vulnCap: 0.5, auraRadius: 1.5, pulseSeconds: 0.5,
+      onBasicHitRadius: 3,
+      auraCaps: { attackSpeed: 0.5, attackPower: 0.4 },
+      inheritUpgrades: true, periodicReady: true, extendedCombat: true,
+      bossControl: { windowTicks: 200, stunTicks: 60, pushDistance: 3, maxStoppedShare: 0.3 },
+    });
+    expect(d3.coop).toEqual({
+      yeoksin: [
+        { stage: 1, enemy: 'yeoksin1', startRound: 6, deadlineRound: 9, baseHp: 8000, startIndex: 0 },
+        { stage: 2, enemy: 'yeoksin2', startRound: 15, deadlineRound: 19, baseHp: 30000, startIndex: 1 },
+        { stage: 3, enemy: 'yeoksin3', startRound: 35, deadlineRound: 39, baseHp: 109000, startIndex: 2 },
+        { stage: 4, enemy: 'yeoksin4', startRound: 55, deadlineRound: 59, baseHp: 210000, startIndex: 3 },
+      ],
+      hpPerExtraPlayer: 0.1, staySeconds: 12,
+      killReward: { coins: 15, buckwheat: 1 }, topDamageBonus: 10,
+      support: { perRound: 1, max: 1, coins: 5 },
+      disconnectSeconds: 180, bossPauseCapSeconds: 180, danger: 48,
+      maxCommandsPerTick: 20, resultSeconds: 120,
+    });
+    expect([1, 10, 30, 60].map(r => enemyHp(enemyDef(d3, 'japgwi'), r, d3.balance))).toEqual([91, 581, 2704, 7511]);
+  });
+
+  test('retuning stage 1 or stage 2 balance and coop leaves stage 3 unchanged', () => {
+    const src = dataSources();
+    expect(buildGameData('stage3', src)).toEqual(d3);
+    src.stage1.balance.hp.coef = 99;
+    src.stage1.balance.tokens.perRound = 9;
+    src.stage1.balance.summonOdds = [0.1, 0.1, 0.8];
+    src.stage2.balance.hp = { base: 500, coef: 50, exp: 2 };
+    src.stage2.balance.prepSeconds = 99;
+    src.stage2.coop.hpPerExtraPlayer = 0.9;
+    src.stage2.coop.killReward.coins = 999;
+    const s2 = buildGameData('stage2', src);
+    expect(s2.balance.hp).toEqual({ base: 500, coef: 50, exp: 2 });
+    expect(s2.coop!.hpPerExtraPlayer).toBe(0.9);
+    const s3 = buildGameData('stage3', src);
+    expect(s3.balance).toEqual(d3.balance);
+    expect(s3.coop).toEqual(d3.coop);
   });
 });

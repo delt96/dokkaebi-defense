@@ -19,31 +19,57 @@ import onBasicHit3 from '../data/stage3/onBasicHit.json';
 import economy3 from '../data/stage3/economy.json';
 import coop3 from '../data/stage3/coop.json';
 
-export function loadGameData(stage: 'stage1' | 'stage2' | 'stage3' = 'stage1'): GameData {
-  if (stage === 'stage1') return structuredClone({ units, recipes, enemies, waves, balance, upgrades }) as GameData;
+const SOURCES = {
+  stage1: { units, recipes, enemies, waves, balance, upgrades },
+  stage2: { units: units2, recipes: recipes2, enemies: enemies2, balance: balance2, coop: coop2 },
+  stage3: {
+    units: units3, recipes: recipes3, enemies: enemies3, waves: waves3, balance: balance3,
+    onBasicHit: onBasicHit3, economy: economy3, coop: coop3,
+  },
+};
+
+export type DataSources = typeof SOURCES;
+export type DataStage = 'stage1' | 'stage2' | 'stage3';
+
+/** A fresh copy of the raw per-stage JSON that loadGameData builds from. */
+export function dataSources(): DataSources {
+  return structuredClone(SOURCES);
+}
+
+export function loadGameData(stage: DataStage = 'stage1'): GameData {
+  return buildGameData(stage, SOURCES);
+}
+
+/**
+ * Stage 2 layers its balance over stage 1's. Stage 3's balance and coop files
+ * are complete on their own, so stage 1 and 2 tuning never reaches stage 3.
+ */
+export function buildGameData(stage: DataStage, src: DataSources): GameData {
+  const s1 = src.stage1, s2 = src.stage2, s3 = src.stage3;
+  if (stage === 'stage1') return structuredClone(s1) as GameData;
   const three = stage === 'stage3';
   const gradeOf = new Map<string, number>();
-  const allUnits = [...units, ...units2, ...(three ? units3 : [])] as UnitDef[];
+  const allUnits = [...s1.units, ...s2.units, ...(three ? s3.units : [])] as UnitDef[];
   for (const u of allUnits) if (!gradeOf.has(u.id)) gradeOf.set(u.id, u.grade);
-  const allRecipes = [...recipes, ...recipes2, ...(three ? recipes3 : [])] as RecipeDef[];
+  const allRecipes = [...s1.recipes, ...s2.recipes, ...(three ? s3.recipes : [])] as RecipeDef[];
   const data = structuredClone({
     units: allUnits.sort((a, b) => a.grade - b.grade),
     recipes: allRecipes.sort((a, b) => (gradeOf.get(a.result) ?? 0) - (gradeOf.get(b.result) ?? 0)),
-    enemies: [...enemies, ...enemies2, ...(three ? enemies3 : [])],
-    waves: three ? waves3 : waves,
-    balance: three ? { ...balance, ...balance2, ...balance3 } : { ...balance, ...balance2 },
-    upgrades,
-    coop: (three ? { ...coop2, ...coop3 } : coop2) as CoopDef,
+    enemies: [...s1.enemies, ...s2.enemies, ...(three ? s3.enemies : [])],
+    waves: three ? s3.waves : s1.waves,
+    balance: three ? s3.balance : { ...s1.balance, ...s2.balance },
+    upgrades: s1.upgrades,
+    coop: (three ? s3.coop : s2.coop) as CoopDef,
   }) as GameData;
   if (three) {
     const byId = new Map(data.units.map(u => [u.id, u]));
-    for (const [id, hit] of Object.entries(onBasicHit3 as Record<string, { targetPct: number; splashPct: number }>)) {
+    for (const [id, hit] of Object.entries(s3.onBasicHit as Record<string, { targetPct: number; splashPct: number }>)) {
       const u = byId.get(id);
       if (!u) throw new Error(`onBasicHit for unknown unit ${id}`);
       u.onBasicHit = { ...hit };
     }
     addLineage(data);
-    data.economy = structuredClone(economy3) as EconomyDef;
+    data.economy = structuredClone(s3.economy) as EconomyDef;
   }
   return data;
 }
