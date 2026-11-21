@@ -287,12 +287,18 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       else { scene.selectedId = null; render(); }
       return;
     }
+    if (modal === 'upgrades') {
+      // the window never pauses anything; E toggles it and 1-4 buy only while it is open
+      const open = UPGRADE_KEYS[ev.code];
+      if (ev.code === 'KeyE') act('closeModal', '');
+      else if (open) act('upgrade', open);
+      return;
+    }
     if (modal || driver.state.phase === 'ended') return;
     if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button')) return;
     const card = displayedCard;
-    const upgrade = UPGRADE_KEYS[ev.code];
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
-    else if (upgrade) act('upgrade', upgrade);
+    else if (ev.code === 'KeyE') act('openUpgrades', '');
     else if (ev.code === 'KeyQ') act('toggleHelper', '');
     else if (ev.code === `Key${STORE_ALL_KEY}`) act('storeAll', '');
     else if (ev.code === 'KeyB' && driver.state.data.economy?.market) act('toggleMarket', '');

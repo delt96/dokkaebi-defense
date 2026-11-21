@@ -271,7 +271,7 @@ describe('market hotkey', () => {
     keydown(window, { code: 'KeyB' });
     expect(panel()).toBe('');
     expect(document.querySelector('[data-action="toggleMarket"]')).toBeNull();
-    expect(document.getElementById('bottom')!.textContent).toBe('유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · G 1·2등급 보관 · Esc 선택 해제');
+    expect(document.getElementById('bottom')!.textContent).toBe('유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · E 강화 · G 1·2등급 보관 · Esc 선택 해제');
   });
 
   test('B opens and closes the market; the help line names it', () => {

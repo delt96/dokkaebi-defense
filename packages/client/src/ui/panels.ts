@@ -18,7 +18,7 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     ${needSlot ? '<div class="need-slot">빈칸 필요</div>' : ''}
     ${m.pending ? `<div class="res pending"><b>보관 중</b><span>${m.pending}</span></div>` : ''}
     <button data-action="convert" ${m.canConvert ? '' : 'disabled'}>불 바꾸기 (+${state.data.balance.tokens.toCoins}냥)</button>
-    <button data-action="openUpgrades">강화</button>
+    <button data-action="openUpgrades">강화 (E)</button>
     ${opts.market === undefined ? '' : `<button data-action="toggleMarket" class="market-btn" aria-pressed="${opts.market}">장터 (B)${opts.badge ? '<span class="badge">의뢰</span>' : ''}</button>`}
     ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}`);
 }
@@ -65,14 +65,14 @@ export function renderBottom(state: GameState, selected: number | null, online =
         ${options ? `<div class="combine-options">${options}</div>` : ''}
         ${online || state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세</button>' : ''}
         <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`
-    : `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · ${STORE_ALL_KEY} 1·2등급 보관 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`);
+    : `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · E 강화 · ${STORE_ALL_KEY} 1·2등급 보관 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`);
   return { unitId, recipes };
 }
 
 export function upgradesHtml(state: GameState): string {
   const rows = upgradeRows(state).map((r, i) => `
-    <tr><td>${i + 1}</td><td>${esc(r.label)}</td><td>${r.level} / ${r.max}</td><td>${esc(r.effectText)}</td>
+    <tr><td class="upgrade-key">${i + 1}</td><td>${esc(r.label)}</td><td>${r.level} / ${r.max}</td><td>${esc(r.effectText)}</td>
     <td><button data-action="upgrade" data-arg="${r.id}" ${r.affordable ? '' : 'disabled'}>${r.cost === null ? '최대' : `${r.cost}냥`}</button></td></tr>`).join('');
-  return `<div class="modal"><div class="modal-head">강화 · 엽전 ${state.coins}냥 <button data-action="closeModal">닫기</button></div>
+  return `<div class="modal"><div class="modal-head">강화 · 엽전 ${state.coins}냥 <button data-action="closeModal">E·Esc 닫기</button></div>
     <table class="upgrades"><tbody>${rows}</tbody></table></div>`;
 }
