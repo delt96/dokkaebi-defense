@@ -5,6 +5,7 @@ import { registerPhase } from './registry';
 import { laneOf } from './lane';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
 import { currentStats, isEvent, isShared, statsForRound } from './stats';
+import { roundStartTick } from './match/schedule';
 import { econBossKill, econEventKill } from './econ/hooks';
 import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnKillExplosions, vulnOf } from './effects';
@@ -116,8 +117,11 @@ export function resolveKills(state: GameState, events: GameEvent[], opts: { fina
     if (e.boss) {
       state.coins += b.coins.boss;
       state.buckwheat += b.bossBuckwheat;
-      const st = statsForRound(state, state.round);
-      if (st) st.bossKillSeconds = (state.tick - state.roundStartTick) / TICKS_PER_SECOND;
+      const st = statsForRound(state, e.round);
+      if (st) {
+        const start = e.round === state.round ? state.roundStartTick : roundStartTick(state.data, e.round);
+        st.bossKillSeconds = (state.tick - start) / TICKS_PER_SECOND;
+      }
       if (finalClear && state.round >= b.rounds) finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
       if (state.econ) econBossKill(state, e.round, events);
     } else {

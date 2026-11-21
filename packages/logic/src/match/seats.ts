@@ -71,6 +71,10 @@ function clearLane(lane: GameState): void {
     lane.econ.pityQuest = [];
     lane.econ.pendingDrops = [];
     lane.econ.story.active = null;
+    lane.econ.events = [];
+    if (lane.econ.mission.phase === 'active') {
+      lane.econ.mission = { phase: 'lost', beastId: null, beastDown: false };
+    }
   }
   lane.upgrades = { physical: 0, magical: 0, polish: 0, slots: 0 };
   lane.tokens = 0;

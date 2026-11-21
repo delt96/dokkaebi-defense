@@ -1,4 +1,4 @@
-import type { Command, GameState, RejectReason } from '../types';
+import type { Command, GameEvent, GameState, RejectReason } from '../types';
 import type { MatchInput, MatchState, StepMatchResult } from './types';
 import { applyCommand, runAfterCommandHooks, runCombat } from '../game';
 import { spawnDue, startRound, trackLimit, waveOf } from '../flow';
@@ -61,9 +61,10 @@ function applyInput(match: MatchState, input: MatchInput, ctx: StepMatchResult):
   return applyCommand(lane, laneCmd, laneStep(ctx, input.seat).events);
 }
 
-function updateBestUnit(match: MatchState, seat: number, ctx: StepMatchResult): void {
+function updateBestUnit(match: MatchState, seat: number, events: GameEvent[], from = 0): void {
   const st = match.seats[seat]!;
-  for (const e of ctx.lanes[seat]!.events) {
+  for (let i = from; i < events.length; i++) {
+    const e = events[i]!;
     let grade: number;
     if (e.type === 'summon') grade = e.grade;
     else if (e.type === 'combine') grade = unitDefFast(match.data, e.defId).grade;
@@ -147,7 +148,7 @@ export function stepMatch(match: MatchState, inputs: MatchInput[]): StepMatchRes
     const firesBefore = new Set(lane.fires);
     runCombat(lane, step.events, { finalClear: false, afterMove: () => yeoksinPosition(match, seat) });
     step.newFires = lane.fires.filter(f => !firesBefore.has(f));
-    updateBestUnit(match, seat, ctx);
+    updateBestUnit(match, seat, step.events);
     seatsAfterLane(match, seat, ctx);
     yeoksinAfterLane(match, seat, ctx);
   }
@@ -167,7 +168,11 @@ export function stepMatch(match: MatchState, inputs: MatchInput[]): StepMatchRes
   if (lastTickOfRound) {
     for (const seat of aliveSeats(match)) {
       const lane = match.lanes[seat]!;
-      if (lane.econ) econRoundEnd(lane, laneStep(ctx, seat).events);
+      if (!lane.econ) continue;
+      const events = laneStep(ctx, seat).events;
+      const before = events.length;
+      econRoundEnd(lane, events);
+      updateBestUnit(match, seat, events, before);
     }
     if (match.econ) matchEconRoundEnd(match, ctx);
   }

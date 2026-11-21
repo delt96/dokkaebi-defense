@@ -8,7 +8,7 @@ import { laneOf } from './lane';
 import { enemySpeed, toTicks } from './flow';
 import { computeHitDamage, damageBonus, dealDamage, enemyResist, hitDamage, inRange, pickTarget } from './combat';
 import { unitDefFast } from './units';
-import { isShared } from './stats';
+import { isEvent, isShared } from './stats';
 import { payFirstHit } from './income';
 import { applyBossKnockback } from './bosscontrol';
 
@@ -222,7 +222,7 @@ function chainHits(state: GameState, first: Enemy, e: Extract<Effect, { kind: 'c
     let bestRank = 3;
     for (const o of state.enemies) {
       if (o.hp <= 0 || done.has(o) || dist(lane.pointAt(o.d), at) > e.range + 1e-9) continue;
-      const rank = o.boss ? 0 : isShared(state.data, o) ? 1 : 2;
+      const rank = o.boss || isEvent(state.data, o) ? 0 : isShared(state.data, o) ? 1 : 2;
       if (!best || rank < bestRank || (rank === bestRank && o.id < best.id)) { best = o; bestRank = rank; }
     }
     if (!best) return;

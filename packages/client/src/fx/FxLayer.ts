@@ -7,7 +7,7 @@ import { Pool } from './pool';
 type Pt = { x: number; y: number };
 
 /** Depths: board and fire 0, ground effects under the units, enemies 2, units 3, HP bars 6, numbers 8. */
-export const FX_DEPTH = { ground: 0.6, status: 2.5, air: 4, hp: 6, top: 9, text: 9.5 } as const;
+export const FX_DEPTH = { ground: 0.6, status: 2.5, air: 4, unitOverlay: 5, hp: 6, top: 9, text: 9.5 } as const;
 
 /**
  * Transient effects. Most are pixelfx sheets (`sheet`); a few stay drawn with Phaser graphics because

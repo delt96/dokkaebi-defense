@@ -243,6 +243,7 @@ export function questChips(econ: EconMine, state: GameState, view: ClientView | 
 
 export interface StoryModel {
   title: string; lines: string[]; shortfalls: string[]; offer: boolean; target: string | null; canClear: boolean; done: boolean;
+  terms?: { label: string; value: string }[];
 }
 
 export function storyModel(econ: EconMine, state: GameState): StoryModel | null {
@@ -268,10 +269,11 @@ export function storyModel(econ: EconMine, state: GameState): StoryModel | null 
     if (state.buckwheat < def.fee.buckwheat) shortfalls.push(`메밀묵 ${def.fee.buckwheat - state.buckwheat}개 부족`);
     return {
       title: `설화 의뢰 · ${s.active.round}라운드`, offer: true, target: s.active.target, canClear: false, done: false, shortfalls,
-      lines: [
-        target, matLine ?? '', `우리 고개 잡귀 ${Math.min(econ.roundKills, def.kills)}/${def.kills}`,
-        `${s.active.round}라운드가 끝나면 ${withJosa(heldText, '과/와')} ${def.fee.coins}냥·묵 ${def.fee.buckwheat}개를 내고 ${withJosa(target, '을/를')} 받습니다`,
-        ...ledger,
+      lines: [target, matLine ?? '', ledger[0] ?? ''],
+      terms: [
+        { label: '잡귀 처치', value: `${Math.min(econ.roundKills, def.kills)}/${def.kills}` },
+        { label: '라운드 종료 시 지불', value: `${heldText} · ${def.fee.coins}냥 · 묵 ${def.fee.buckwheat}개` },
+        { label: '이번 판 지원 사용', value: `${v.used}/${v.cap}` },
       ],
     };
   }
@@ -357,11 +359,13 @@ export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: Sh
     body = `<div class="econ-sub">${esc(market.head)}</div>${shops}${shipHtml}`;
   } else if (story) {
     const lines = story.lines.filter(Boolean).map((l, i) => `<div class="${i === 0 && story.offer ? 'story-target' : 'shop-line'}">${esc(l)}</div>`).join('');
+    const terms = story.terms ? `<dl class="story-terms">${story.terms.map(({ label, value }) =>
+      `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>` : '';
     const shorts = story.shortfalls.map(l => `<div class="shop-short">${esc(l)}</div>`).join('');
     const actions = story.offer
       ? `<div class="story-actions">${button('econClose', '', '닫기')}${button('storyDecline', '', '의뢰 거절')}</div>`
       : story.done ? '' : `<div class="story-actions">${button('openDex', 'story', story.target ? '목표 바꾸기' : '도감에서 목표 고르기')}${story.canClear ? button('storyTarget', '', '목표 해제') : ''}</div>`;
-    body = `<div class="econ-sub">${esc(story.title)}</div><section class="shop">${lines}${shorts}${actions}</section>`;
+    body = `<div class="econ-sub">${esc(story.title)}</div><section class="shop">${lines}${terms}${shorts}${actions}</section>`;
   }
   return `<div class="econ-panel">${tabs}<div class="econ-body">${body}</div></div>`;
 }

@@ -11,6 +11,20 @@ const firstEvery = (ids: string[]) => makeData(d => {
 }, 'stage3');
 
 describe('stage 3 effect extensions', () => {
+  test('a chain bounce prefers the event enemy over a lower-id normal enemy', () => {
+    const s = quiet3();
+    placeUnitForTest(s, 'bitdondokkaebi', 2);
+    const normal = spawnEnemyForTest(s, 'japgwi', 3, 1e6);
+    const boss = spawnEnemyForTest(s, 'jinegaksi', 3, 1e6);
+    const event = spawnEnemyForTest(s, 'ev_ssireum', 3, 1e6);
+
+    const hits = step(s, []).events.filter(e => e.type === 'damage').map(e => e.enemyId);
+    expect(hits.indexOf(boss.id)).toBe(0);
+    expect(hits).toContain(normal.id);
+    expect(hits).toContain(event.id);
+    expect(hits.indexOf(event.id)).toBeLessThan(hits.indexOf(normal.id));
+  });
+
   test('onBasicHit: tteoksiru adds 20% to target and 20% within 3 tiles', () => {
     const s = quiet3(); placeUnitForTest(s, 'tteoksiru', 2);
     const t = spawnEnemyForTest(s, 'japgwi', 3, 1e6); const near = spawnEnemyForTest(s, 'japgwi', 5, 1e6); const far = spawnEnemyForTest(s, 'japgwi', 6.7, 1e6);

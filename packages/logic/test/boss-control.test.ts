@@ -20,11 +20,11 @@ describe('lane boss control caps', () => {
     expect(b.ctl!.maxWindowStopped).toBeLessThanOrEqual(60);
   });
 
-  test('a stun right after spawn is dropped and the boss moves', () => {
+  test('a stun right after spawn is dropped and the speed event reports the moved position', () => {
     const s = quietOf(d3); const b = spawnEnemyForTest(s, 'jinegaksi', 5); b.stunTicks = 100;
     const d0 = b.d; const r = step(s, []);
     expect([b.stunTicks, b.d > d0, b.ctl!.stunClipped, b.stunEndTick]).toEqual([0, true, 100, 0]);
-    expect(r.events.some(e => e.type === 'speedChange' && e.enemyId === b.id)).toBe(true);
+    expect(r.events).toContainEqual({ type: 'speedChange', enemyId: b.id, d: b.d, speed: d3.enemies.find(e => e.id === b.defId)!.speed });
   });
 
   test('knockback budget 3 tiles per 200 ticks and entrance clip', () => {
