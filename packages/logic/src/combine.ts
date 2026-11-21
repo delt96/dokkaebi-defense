@@ -64,8 +64,9 @@ registerCommand('combine', (state, cmd, events) => {
       if (state.slots[i]?.defId === m) { used.add(i); break; }
     }
   }
+  const replacedUnitId = state.slots[resultSlot]!.id;
   for (const i of used) state.slots[i] = null;
   const unit = addUnit(state, recipe.result, resultSlot, events);
-  events.push({ type: 'combine', unitId: unit.id, defId: unit.defId, slot: resultSlot });
+  events.push({ type: 'combine', replacedUnitId, unitId: unit.id, defId: unit.defId, slot: resultSlot });
   return null;
 });

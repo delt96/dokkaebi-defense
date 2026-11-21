@@ -1,4 +1,5 @@
-import { describe, expect, test, vi } from 'vitest';
+import stageHtml from '../index.html?raw';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createGame, loadGameData, step } from '@dorandi/logic';
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
@@ -39,10 +40,10 @@ describe('ui models', () => {
 
     expect(combineOptions(s, 3)).toEqual([
       { result: 'gamasot', name: '가마솥', grade: 2, missing: [], key: 'Z' },
-      { result: 'hwaro', name: '화로', grade: 2, missing: ['호롱'], key: null },
       { result: 'hwaetbul', name: '횃불', grade: 2, missing: [], key: 'X' },
       { result: 'meongseok', name: '멍석', grade: 2, missing: [], key: 'C' },
       { result: 'jeolgu', name: '절구', grade: 2, missing: [], key: null },
+      { result: 'hwaro', name: '화로', grade: 2, missing: ['호롱'], key: null },
     ]);
     expect(combineOptions(s, 2)).toEqual([]);
   });
@@ -71,10 +72,7 @@ test('result model', () => {
   expect(m.series.length).toBe(s.stats.length);
 });
 
-test('the card and physical keys combine at the selected slot while the helper uses the default slot', () => {
-  const s = createGame(data, 1);
-  placeUnitForTest(s, 'sotlid', 0);
-  placeUnitForTest(s, 'bujigaengi', 3);
+function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void) {
   const driver = new GameDriver(s);
   const queue = vi.spyOn(driver, 'queue');
   const events = new EventTarget();
@@ -84,54 +82,154 @@ test('the card and physical keys combine at the selected slot while the helper u
   const press = (code: string, modifiers: Partial<KeyboardEvent> = {}) => {
     events.dispatchEvent(Object.assign(new Event('keydown'), { code, key: 'Process', ...modifiers }));
   };
-  const click = (panel: string, dataArg: string) => {
-    const button = { dataset: { action: 'combine', arg: dataArg }, hasAttribute: () => false };
+  const click = (panel: string, dataArg: string, action = 'combine', keyboard = false) => {
+    const button = { dataset: { action, arg: dataArg }, hasAttribute: () => false };
     const node = Object.assign(panels.get(panel)!, { closest: () => button });
-    node.dispatchEvent(Object.assign(new Event('pointerdown'), { button: 0 }));
+    node.dispatchEvent(Object.assign(new Event(keyboard ? 'click' : 'pointerdown'), { button: 0, detail: keyboard ? 0 : 1 }));
   };
   vi.useFakeTimers();
   vi.stubGlobal('window', events);
   vi.stubGlobal('document', {
     getElementById: (id: string) => {
       if (!panels.has(id)) panels.set(id, Object.assign(new EventTarget(), {
-        innerHTML: '', classList: { toggle: () => {} }, contains: () => true,
+        innerHTML: '', querySelector: () => null, classList: { toggle: () => {} }, contains: () => true,
       }));
       return panels.get(id);
     },
   });
 
-  try {
-    mountUi(driver, scene as never);
-    select(3);
-    const card = panels.get('bottom')!;
-    expect(card.innerHTML).toContain('data-action="combine" data-arg="gamasot@3">[Z] 가마솥</button>');
-    expect(card.innerHTML).toContain('화로 (모자람: 호롱)');
-    expect(card.innerHTML).toContain('data-action="sell" data-arg="3"');
-    click('bottom', 'gamasot@3');
-    expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
-    press('KeyQ');
-    expect(panels.get('left')!.innerHTML).toContain('data-arg="gamasot"');
-    click('left', 'gamasot');
-    expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot' });
+  const ui = mountUi(driver, scene as never, { onRestart });
+  return { driver, queue, press, click, panels, select, scene, ui };
+}
 
-    driver.reset(s);
-    queue.mockClear();
-    press('KeyZ', { ctrlKey: true });
-    press('KeyZ', { altKey: true });
-    press('KeyZ', { metaKey: true });
-    press('KeyX');
-    expect(queue).not.toHaveBeenCalled();
-    press('KeyZ');
-    expect(queue).toHaveBeenCalledExactlyOnceWith({ type: 'combine', result: 'gamasot', slot: 3 });
-    driver.update(s.data.balance.tickMs);
-    vi.advanceTimersByTime(100);
-    scene.onFrame();
-    expect(card.innerHTML).toContain('<b>가마솥</b>');
-    expect(card.innerHTML).toContain('data-action="sell" data-arg="3"');
-  } finally {
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
-  }
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+test('the card and physical keys combine at the selected slot while the helper uses the default slot', () => {
+  const s = createGame(data, 1);
+  placeUnitForTest(s, 'sotlid', 0);
+  const chosen = placeUnitForTest(s, 'bujigaengi', 3);
+  const { driver, queue, press, click, panels, select, scene } = mountTestUi(s);
+  select(3);
+  const card = panels.get('bottom')!;
+  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}">[Z] 가마솥</button>`);
+  expect(card.innerHTML).toContain('화로 (모자람: 호롱)');
+  expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
+  click('bottom', `gamasot@${chosen.id}`);
+  expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
+  press('KeyQ');
+  expect(panels.get('left')!.innerHTML).toContain('data-arg="gamasot"');
+  click('left', 'gamasot');
+  expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot' });
+
+  driver.reset(s);
+  queue.mockClear();
+  press('KeyZ', { ctrlKey: true });
+  press('KeyZ', { altKey: true });
+  press('KeyZ', { metaKey: true });
+  press('KeyX');
+  expect(queue).not.toHaveBeenCalled();
+  press('KeyZ');
+  expect(queue).toHaveBeenCalledExactlyOnceWith({ type: 'combine', result: 'gamasot', slot: 3 });
+  driver.update(s.data.balance.tickMs);
+  vi.advanceTimersByTime(100);
+  scene.onFrame();
+  expect(card.innerHTML).toContain('<b>가마솥</b>');
+  expect(card.innerHTML).toContain(`data-action="sell" data-arg="${s.slots[3]!.id}"`);
+});
+
+test('Z uses the recipe shown on the card until it refreshes', () => {
+  const s = createGame(data, 1);
+  placeUnitForTest(s, 'sotlid', 0);
+  placeUnitForTest(s, 'bujigaengi', 1);
+  placeUnitForTest(s, 'bujigaengi', 3);
+  placeUnitForTest(s, 'horong', 4);
+  const { select, click, driver, press, panels } = mountTestUi(s);
+  select(1);
+  press('KeyQ');
+  click('left', 'gamasot');
+  driver.update(50);
+  expect(panels.get('bottom')!.innerHTML).toContain('[Z] 가마솥');
+  press('KeyZ');
+  driver.update(50);
+  expect(s.slots[1]?.defId).toBe('bujigaengi');
+  expect(s.slots[4]?.defId).toBe('horong');
+});
+
+test('a stale sell button cannot sell the combine result', () => {
+  const s = createGame(data, 1);
+  placeUnitForTest(s, 'sotlid', 0);
+  placeUnitForTest(s, 'bujigaengi', 3);
+  const { select, click, driver, press, panels } = mountTestUi(s);
+  select(3);
+  const sale = panels.get('bottom')!.innerHTML.match(/data-action="sell" data-arg="(\d+)"/)![1]!;
+  press('KeyZ');
+  driver.update(50);
+  click('bottom', sale, 'sell');
+  driver.update(50);
+  expect(s.slots[3]?.defId).toBe('gamasot');
+  expect(s.coins).toBe(0);
+});
+
+test('modal keys preserve resources and keyboard activation closes the dialog', () => {
+  const s = createGame(data, 1);
+  placeUnitForTest(s, 'sotlid', 0);
+  placeUnitForTest(s, 'bujigaengi', 3);
+  const { select, click, driver, press, panels, queue } = mountTestUi(s);
+  select(3);
+  click('left', '', 'openDex');
+  for (const key of ['KeyZ', 'Space', 'Digit1', 'KeyP', 'KeyQ']) press(key);
+  expect(queue).not.toHaveBeenCalled();
+  expect(driver.paused).toBe(false);
+  click('modal', '', 'closeModal', true);
+  expect(panels.get('modal')!.innerHTML).toBe('');
+  press('KeyZ');
+  expect(queue).toHaveBeenCalledTimes(1);
+});
+
+test('moving then combining before a render selects the result', () => {
+  const s = createGame(data, 1);
+  placeUnitForTest(s, 'sotlid', 0);
+  placeUnitForTest(s, 'bujigaengi', 3);
+  const { select, driver, press, scene, panels } = mountTestUi(s);
+  select(0);
+  driver.queue({ type: 'move', from: 0, to: 2 });
+  press('KeyZ');
+  driver.update(100);
+  vi.advanceTimersByTime(100);
+  scene.onFrame();
+  expect(s.slots[2]?.defId).toBe('gamasot');
+  expect(panels.get('bottom')!.innerHTML).toContain('<b>가마솥</b>');
+});
+
+test('paused helper opens are counted on resume and discarded on restart', () => {
+  const s = createGame(data, 1);
+  const { driver, press, ui } = mountTestUi(s);
+  press('KeyP');
+  for (let i = 0; i < 4; i++) press('KeyQ');
+  press('KeyP');
+  driver.update(50);
+  expect(s.helperOpens).toBe(2);
+  press('KeyP');
+  press('KeyQ');
+  driver.reset(createGame(data, 2));
+  ui.resetUi();
+  driver.update(50);
+  expect(driver.state.helperOpens).toBe(0);
+});
+
+test('ready recipes precede missing materials on the card', () => {
+  const s = createGame(data, 1);
+  placeUnitForTest(s, 'ki', 0);
+  placeUnitForTest(s, 'hwaro', 1);
+  placeUnitForTest(s, 'buchae', 2);
+  const { select, panels } = mountTestUi(s);
+  select(0);
+  const html = panels.get('bottom')!.innerHTML;
+  expect(html).toContain('[Z] 풀무');
+  expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('절구 (모자람'));
 });
 
 import { activeNotice, nextUnitId, selectedSlot, rightModel, rejectText } from '../src/ui/models';
@@ -212,4 +310,17 @@ test('card reflects attack upgrades and a nearby speed aura', () => {
   placeUnitForTest(state, 'cheongsachorong', 1);
   expect(unitCard(state, 0)!.attack).toBeGreaterThan(13);
   expect(unitCard(state, 0)!.interval).toBe(1.1);
+});
+
+test('the crash banner offers an in-game restart', () => {
+  const restart = vi.fn();
+  const { click, driver, queue, press } = mountTestUi(createGame(data, 1), restart);
+  driver.failed = true;
+  click('right', '', 'summon');
+  press('Space');
+  expect(queue).not.toHaveBeenCalled();
+  const errorMarkup = stageHtml.split('id="error"')[1]!.split('</div>')[0]!;
+  expect(errorMarkup).toContain('data-action="restart"');
+  click('error', '', 'restart');
+  expect(restart).toHaveBeenCalledOnce();
 });

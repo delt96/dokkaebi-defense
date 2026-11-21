@@ -16,12 +16,13 @@ export function setHtml(node: HTMLElement, html: string): void {
 }
 
 export function onAction(node: HTMLElement, handler: (action: string, arg: string) => void): void {
-  // pointerdown, not click: panels re-render on every kill, and a button replaced
-  // between press and release never receives its click.
-  node.addEventListener('pointerdown', ev => {
-    if ((ev as PointerEvent).button !== 0) return;
+  const activate = (ev: Event) => {
     const target = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');
     if (!target || !node.contains(target) || target.hasAttribute('disabled')) return;
     handler(target.dataset.action!, target.dataset.arg ?? '');
-  });
+  };
+  // Handle the press before a panel redraw can remove the pointer target.
+  node.addEventListener('pointerdown', ev => { if (ev.button === 0) activate(ev); });
+  // Keyboard and assistive technology produce clicks without a pointer press.
+  node.addEventListener('click', ev => { if (ev.detail === 0) activate(ev); });
 }
