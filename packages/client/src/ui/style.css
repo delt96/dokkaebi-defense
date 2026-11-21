@@ -255,8 +255,9 @@ body.online #econ-panel { height: 292px; }
 .story-actions button { flex: 1; }
 #econ-top { position: absolute; left: 132px; top: 26px; width: 392px; z-index: 1; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
 .prompt { pointer-events: auto; background: #1d1626ee; border: 1px solid var(--accent); padding: 2px 4px; font-size: 10px; }
-.prompt-line { display: flex; align-items: center; gap: 5px; white-space: nowrap; min-height: 18px; }
-.prompt-line button { min-height: 18px; }
+.prompt-line { display: flex; align-items: center; gap: 5px; white-space: nowrap; min-height: 16px; }
+.prompt-line + .prompt-line { margin-top: 2px; }
+.prompt-line button { min-height: 16px; }
 .prompt-gain { color: var(--accent); }
 .prompt-time { margin-left: auto; color: #ffb396; font-weight: bold; font-variant-numeric: tabular-nums; }
 .prompt-hint { color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; }

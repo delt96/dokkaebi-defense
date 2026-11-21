@@ -183,7 +183,7 @@ describe('story request page', () => {
     const fee = eco.story!.fee;
     expect(m.title).toBe('설화 의뢰 · 31라운드');
     expect(m.lines.slice(0, 4)).toEqual([
-      '천년 징', '장구 ✓ · 꽹과리 부족 · 모루 ✓', `우리 고개 잡귀 17/${eco.story!.kills}`,
+      '천년 징', '장구 ✓ · 꽹과리 부족 · 모루 ✓', `우리 고개 잡귀 17/${eco.story!.kills}`,
       `31라운드가 끝나면 장구·모루와 ${fee.coins}냥·묵 ${fee.buckwheat}개를 내고 천년 징을 받습니다`,
     ]);
     expect(m.shortfalls).toContain(`엽전 ${fee.coins - 40}냥 부족`);

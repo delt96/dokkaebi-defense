@@ -7,6 +7,8 @@ import { esc } from './dom';
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
+/** Keeps a name and its mark (or a label and its number) on one line in the narrow panel. */
+const NBSP = ' ';
 const nameOf = (data: GameData, id: string): string => data.units.find(u => u.id === id)?.name ?? data.enemies.find(e => e.id === id)?.name ?? id;
 const gradeOf = (data: GameData, id: string): number => data.units.find(u => u.id === id)?.grade ?? 0;
 const secondsOf = (data: GameData, ticks: number): number => Math.max(0, Math.ceil((ticks * data.balance.tickMs) / 1000));
@@ -254,8 +256,8 @@ export function storyModel(econ: EconMine, state: GameState): StoryModel | null 
   const checks = def.checks.map(c => c.round).join('·');
   const v = s.view;
   const recipe = s.target ? data.recipes.find(r => r.result === s.target) : undefined;
-  const matLine = recipe && v ? recipe.materials.map((id, i) => `${nameOf(data, id)} ${v.have[i] ? '✓' : '부족'}`).join(' · ') : null;
-  const ledger = v ? [`완성 ${v.total} · 내 재료 ${v.paid} · 지원 +${v.support}`, `이번 판 지원 ${v.cap} 중 ${v.used} 사용`] : [];
+  const matLine = recipe && v ? recipe.materials.map((id, i) => `${nameOf(data, id)}${NBSP}${v.have[i] ? '✓' : '부족'}`).join(' · ') : null;
+  const ledger = v ? [`완성${NBSP}${v.total} · 내 재료${NBSP}${v.paid} · 지원${NBSP}+${v.support}`, `이번 판 지원 ${v.cap} 중 ${v.used} 사용`] : [];
   const shortfalls: string[] = [];
   if (v && v.short > 0) shortfalls.push(`유닛 값 ${v.short} 부족`);
   if (s.awarded) {
