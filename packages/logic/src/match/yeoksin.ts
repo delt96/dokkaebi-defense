@@ -134,6 +134,17 @@ export function yeoksinAfterLane(match: MatchState, seat: number, ctx: StepMatch
   match.yeoksin = null;
 }
 
+/**
+ * No-gate runs only: a yeoksin still alive at the end of its deadline tick leaves the board without a kill or reward,
+ * so a missed gate counts as missed and the mask never walks into later rounds.
+ */
+export function expireMissedYeoksin(match: MatchState, ctx: StepMatchResult): void {
+  const y = match.yeoksin;
+  if (!y || ctx.tick !== gateDeadlineTick(match.data, y.stage)) return;
+  moveTo(match, null, ctx);
+  match.yeoksin = null;
+}
+
 export function gateFailed(match: MatchState, tick: number): boolean {
   const data = match.data;
   if (!data.coop) return false;

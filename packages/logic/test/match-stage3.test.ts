@@ -4,7 +4,7 @@ import {
   type GameEvent, type MatchState,
 } from '../src/index';
 import { allBossesKilled, bossRounds } from '../src/match/seats';
-import { jumpToTick, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
+import { jumpToTick, placeUnitForTest, spawnEnemyForTest, stepMatchUntil } from '../src/testing';
 
 const d2 = loadGameData('stage2');
 const d3 = loadGameData('stage3');
@@ -72,6 +72,46 @@ describe('stage 3 match schedule', () => {
     expect(m.result).toBeNull();
     stepMatch(m, []);
     expect(m.round).toBe(40);
+  });
+
+  test('noGate takes a yeoksin still alive at its deadline off the board without a kill or reward', () => {
+    const m = createMatch(d3, 1, SIX, { noGate: true });
+    jumpToTick(m, rst(35));
+    const deadline = gateDeadlineTick(d3, 3);
+    const steps = stepMatchUntil(m, deadline, { clearEnemies: true });
+    expect(m.yeoksin?.stage).toBe(3);
+    const seat = m.yeoksin!.seat!;
+    expect(m.lanes[seat]!.enemies.some(e => e.id === -3)).toBe(true);
+    expect(steps.flatMap(r => r.events).some(e => e.type === 'yeoksinKilled')).toBe(false);
+    const coins = SIX.map(s => m.lanes[s]!.coins);
+    const buckwheat = SIX.map(s => m.lanes[s]!.buckwheat);
+
+    const last = stepMatch(m, []);
+    expect(last.tick).toBe(deadline);
+    expect(m.result).toBeNull();
+    expect(m.yeoksin).toBeNull();
+    expect(m.yeoksinKills).toBe(2);
+    expect(last.events).toContainEqual({ type: 'yeoksinLeave', stage: 3, seat });
+    for (const s of SIX) expect(m.lanes[s]!.enemies.some(e => e.id === -3)).toBe(false);
+    const roundEnd = d3.balance.coins.roundEnd;
+    expect(SIX.map(s => m.lanes[s]!.coins)).toEqual(coins.map(c => c + roundEnd));
+    expect(SIX.map(s => m.lanes[s]!.buckwheat)).toEqual(buckwheat);
+
+    stepMatchUntil(m, rst(41), { clearEnemies: true });
+    expect(m.round).toBe(40);
+    expect(m.yeoksin).toBeNull();
+    for (const s of SIX) expect(m.lanes[s]!.enemies.some(e => e.id === -3)).toBe(false);
+  });
+
+  test('noGate still counts a yeoksin killed on its deadline tick', () => {
+    const m = createMatch(d3, 1, SIX, { noGate: true });
+    jumpToTick(m, rst(35));
+    stepMatchUntil(m, gateDeadlineTick(d3, 3), { clearEnemies: true });
+    m.yeoksin!.enemy.hp = 0;
+    const r = stepMatch(m, []);
+    expect(r.events.some(e => e.type === 'yeoksinKilled' && e.stage === 3)).toBe(true);
+    expect(r.events.some(e => e.type === 'yeoksinLeave')).toBe(false);
+    expect(m.yeoksinKills).toBe(3);
   });
 
   test('story settlement sees coins before the round-end 10', () => {

@@ -8,7 +8,7 @@ import { roundStartTick } from './schedule';
 import {
   applySeatCommand, decideResult, expireDisconnects, judgeSeats, onBossSpawned, seatsAfterLane, seatsOnRoundStart,
 } from './seats';
-import { yeoksinAfterLane, yeoksinPosition, yeoksinStep2 } from './yeoksin';
+import { expireMissedYeoksin, yeoksinAfterLane, yeoksinPosition, yeoksinStep2 } from './yeoksin';
 import { applyTransferCommand, matchEconRoundEnd, matchEconRoundStart, TRANSFER_COMMANDS, transferStep } from './econ';
 import { econRoundEnd } from '../econ/hooks';
 
@@ -172,6 +172,7 @@ export function stepMatch(match: MatchState, inputs: MatchInput[]): StepMatchRes
   // 5. round-end income, team result, advance the shared clock
   if (lastTickOfRound) for (const seat of aliveSeats(match)) match.lanes[seat]!.coins += b.coins.roundEnd;
   decideResult(match, ctx);
+  if (match.options.noGate && !match.result) expireMissedYeoksin(match, ctx);
   match.tick += 1;
   return ctx;
 }
