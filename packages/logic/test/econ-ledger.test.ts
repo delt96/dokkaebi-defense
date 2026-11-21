@@ -29,7 +29,7 @@ describe('economy ledger', () => {
     const s = createGame(d3, 7);
     expect(s.econ!.rng.bundle.s).toBe(createRng(deriveSeed(7, 'bundle')).s);
     expect(s.econ!.rng.drop.s).toBe(createRng(deriveSeed(7, 'drop')).s);
-    expect(s.econ!.bundle.left).toEqual([3, 3, 2]);
+    expect(s.econ!.bundle.left).toEqual([4, 4, 3]);
     expect(s.econ!.questTokens).toBe(0);
     expect(s.econ!.ledger).toEqual({ story: 0, tokens: 0 });
   });

@@ -6,6 +6,12 @@ import {
 import { forceRound, makeData, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
 
 const d3 = loadGameData('stage3');
+/** The draft's first bundle (3/3/2 deck, two a day), kept to exercise the deck rules with a grade-2 card. */
+const draftBundle = (): GameData => {
+  const d = structuredClone(d3);
+  d.economy!.market!.bundle = { ...d.economy!.market!.bundle, perDay: 2, deck: [3, 3, 2] };
+  return d;
+};
 const gradeOf = (d: GameData, id: string) => d.units.find(u => u.id === id)!.grade;
 const units = (s: GameState) => s.slots.filter(Boolean).map(u => u!);
 
@@ -24,7 +30,7 @@ function fillOpen(s: GameState, except: number[] = []): void {
 function pullBundle(s: GameState): number {
   for (let i = 0; i < s.slots.length; i++) s.slots[i] = null;
   const before = s.econ!.bundle.bought;
-  if (before >= 2) { s.econ!.bundle.bought = 0; }
+  if (before >= s.data.economy!.market!.bundle.perDay) { s.econ!.bundle.bought = 0; }
   const r = step(s, [{ type: 'buy', item: 'bundle' }]);
   expect(r.rejected).toEqual([]);
   const u = units(s);
@@ -33,16 +39,17 @@ function pullBundle(s: GameState): number {
 }
 
 describe('bundle', () => {
-  test('bundle: closed in prep, 55 coins per pull, two per market day, resets on day 2', () => {
+  test('bundle: closed in prep, 55 coins per pull, seven per market day, resets on day 2', () => {
     const s = lane(0);
     expect(step(s, [{ type: 'buy', item: 'bundle' }]).rejected[0]!.reason).toBe('marketClosed');
     forceRound(s, 1);
     expect(marketDay(s)).toBe(1);
-    const r = step(s, [{ type: 'buy', item: 'bundle' }, { type: 'buy', item: 'bundle' }, { type: 'buy', item: 'bundle' }]);
+    const r = step(s, Array.from({ length: 8 }, () => ({ type: 'buy', item: 'bundle' }) as const));
     expect(r.rejected.map(x => x.reason)).toEqual(['soldOut']);
-    expect(s.coins).toBe(1000 - 110 + 0);
-    expect(r.events.filter(e => e.type === 'buy').length).toBe(2);
-    expect(r.events.filter(e => e.type === 'summon').length).toBe(2);
+    const kills = r.events.filter(e => e.type === 'kill').length;
+    expect(s.coins).toBe(1000 - 7 * 55 + kills * s.data.balance.coins.perKill);
+    expect(r.events.filter(e => e.type === 'buy').length).toBe(7);
+    expect(r.events.filter(e => e.type === 'summon').length).toBe(7);
     forceRound(s, 10);
     expect(step(s, [{ type: 'buy', item: 'bundle' }]).rejected[0]!.reason).toBe('soldOut');
     forceRound(s, 11);
@@ -52,9 +59,19 @@ describe('bundle', () => {
     expect(step(poor, [{ type: 'buy', item: 'bundle' }]).rejected[0]!.reason).toBe('noCoins');
   });
 
-  test('bundle deck: every 3 pulls are {3,3,2}, 12 pulls are worth 40, and grade 2 is never followed by grade 2 within a deck', () => {
+  test('stage 3 bundle deck: every 3 pulls are {4,4,3}, so 12 pulls are worth 80', () => {
     for (let seed = 1; seed <= 100; seed++) {
       const s = lane(1, 100000, seed);
+      const grades = Array.from({ length: 12 }, () => pullBundle(s));
+      for (let i = 0; i < 12; i += 3) expect(grades.slice(i, i + 3).sort()).toEqual([3, 4, 4]);
+      expect(grades.reduce((a, g) => a + 2 ** (g - 1), 0)).toBe(80);
+    }
+  });
+
+  test('draft deck: every 3 pulls are {3,3,2}, 12 pulls are worth 40, and grade 2 is never followed by grade 2 within a deck', () => {
+    const d = draftBundle();
+    for (let seed = 1; seed <= 100; seed++) {
+      const s = lane(1, 100000, seed, d);
       const grades = Array.from({ length: 12 }, () => pullBundle(s));
       for (let i = 0; i < 12; i += 3) expect(grades.slice(i, i + 3).sort()).toEqual([2, 3, 3]);
       expect(grades.reduce((a, g) => a + 2 ** (g - 1), 0)).toBe(40);
@@ -64,7 +81,7 @@ describe('bundle', () => {
   test('across a deck boundary two grade-2 pulls in a row are followed by a grade 3', () => {
     let found = 0;
     for (let seed = 1; seed <= 200 && found < 3; seed++) {
-      const s = lane(1, 100000, seed);
+      const s = lane(1, 100000, seed, draftBundle());
       const g = Array.from({ length: 6 }, () => pullBundle(s));
       if (g[2] === 2 && g[3] === 2) { expect(g[4]).toBe(3); expect(g[5]).toBe(3); found++; }
     }
@@ -244,9 +261,9 @@ describe('market in a match and boss drops', () => {
 
   test('marketView shows real remaining odds and the 60-coin shortfall for a story target', () => {
     const s = lane(1, 100);
-    expect(marketView(s)).toMatchObject({ bundle: { price: 55, left: 2, odds: { 3: 2 / 3, 2: 1 / 3 } }, jar: { price: 35, left: 1, chance: 0.5 }, shortAfter: null });
-    s.econ!.bundle.left = [3, 3];
-    expect(marketView(s)!.bundle.odds).toEqual({ 3: 1, 2: 0 });
+    expect(marketView(s)).toMatchObject({ bundle: { price: 55, left: 7, odds: { 4: 2 / 3, 3: 1 / 3 } }, jar: { price: 35, left: 1, chance: 0.5 }, shortAfter: null });
+    s.econ!.bundle.left = [4, 4];
+    expect(marketView(s)!.bundle.odds).toEqual({ 4: 1, 3: 0 });
     s.econ!.story.target = 'cheonnyeonjing';
     expect(marketView(s)!.shortAfter).toEqual({ bundle: 15, jar: 0 });
     s.coins = 200;
