@@ -74,6 +74,12 @@ const REJECT_TEXT: Record<string, string> = {
   noCoins: '엽전이 모자랍니다',
   maxed: '이미 최대 단계입니다',
   missingMaterials: '재료가 모자랍니다',
+  notAlive: '넋은 할 수 없습니다',
+  staleUnit: '배치가 바뀌었습니다. 다시 시도해 주세요',
+  noSupportToken: '지원 토큰이 없습니다',
+  targetNotAlive: '그 고개는 이미 뚫렸습니다',
+  targetAlreadyReceived: '이번 라운드에 이미 지원을 받았습니다',
+  badArgs: '잘못된 입력입니다',
 };
 
 export function rejectText(reason: string): string | null {

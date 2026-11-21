@@ -149,3 +149,15 @@ body.online #left { border: 0; box-shadow: inset -1px 0 var(--panel-edge); paddi
 
 body.online #right .need-slot { color: var(--danger); text-align: center; margin-top: -2px; }
 body.online #right .notices { margin-top: auto; color: var(--accent); }
+
+/* Spirit card, menu, notices (Task 18). */
+.menu-btn { position: absolute; right: 6px; top: 4px; height: 20px; font-size: 10px; padding: 0 8px; }
+.lane-row.pickable { cursor: pointer; }
+.lane-row.pickable:hover, .lane-row.watching { background: #2a2030; }
+#bottom .card.spirit { gap: 10px; }
+#bottom .spirit-title { color: var(--accent); }
+#bottom .spirit-reason { color: var(--ink-dim); }
+.modal-text { margin: 6px 0; font-size: 11px; }
+.modal-actions { display: flex; gap: 6px; }
+#conn-band { position: fixed; left: 0; right: 0; top: 0; z-index: 20; padding: 6px 12px; text-align: center; font-size: 14px; background: #5a2230; color: #fff; }
+#conn-band:empty { display: none; }

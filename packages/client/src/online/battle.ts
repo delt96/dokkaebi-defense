@@ -35,7 +35,14 @@ export function startBattle(net: NetClient, data: GameData): void {
   window.addEventListener('resize', fit);
   fit();
 
-  mountUi(driver, scene, {}, { online: true, view: () => net.view, data });
+  mountUi(driver, scene, {}, {
+    online: true, view: () => net.view, data,
+    actions: {
+      support: () => { if (net.view) net.send({ type: 'support', target: net.view.watching }); },
+      watch: seat => net.watch(seat),
+      forfeit: () => { net.send({ type: 'forfeit' }); },
+    },
+  });
 
   if (import.meta.env.DEV) Object.assign(window, { __net: net, __driver: driver, __scene: scene });
 }

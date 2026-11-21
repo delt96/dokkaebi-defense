@@ -3,6 +3,7 @@ import type { Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
 import { rightNotices } from '../online/models';
 import { renderRows, renderTop } from '../online/panels';
+import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
 import { playSfx } from '../sfx';
 import { dexHtml } from './dex';
@@ -26,7 +27,8 @@ const GAME_ACTIONS: ReadonlySet<string> = new Set(['summon', 'convert', 'combine
 const PRESS_MS = 120;
 
 /** Online screens also read the server view for the scoreboard and the two-line top bar. */
-export interface MountOpts { online?: boolean; view?: () => ClientView | null; data?: GameData }
+export interface OnlineActions { support(): void; watch(seat: number): void; forfeit(): void }
+export interface MountOpts { online?: boolean; view?: () => ClientView | null; data?: GameData; actions?: OnlineActions }
 
 export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, opts: MountOpts = {}): { resetUi: () => void } {
   const online = opts.online === true;
@@ -34,7 +36,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let displayedCard: ReturnType<typeof renderBottom> | null = null;
   let banner: Notice | null = null;
   let helperOpen = false;
-  let modal: 'dex' | 'upgrades' | null = null;
+  let modal: 'dex' | 'upgrades' | 'menu' | 'forfeit' | null = null;
   let best: { id: string; grade: number } | null = null;
   let notice: Notice | null = null;
 
@@ -68,6 +70,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         helperOpen = !helperOpen;
         if (helperOpen && !driver.readOnly) driver.queue({ type: 'helperOpened' });
         break;
+      case 'support': opts.actions?.support(); break;
+      case 'watch': opts.actions?.watch(Number(arg)); break;
+      case 'openMenu': modal = 'menu'; break;
+      case 'askForfeit': modal = 'forfeit'; break;
+      case 'forfeit': opts.actions?.forfeit(); modal = null; break;
       case 'openDex': modal = 'dex'; break;
       case 'openUpgrades': modal = 'upgrades'; break;
       case 'closeModal': modal = null; break;
@@ -77,7 +84,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (modal && modal !== previousModal) el('modal').querySelector<HTMLButtonElement>('button')?.focus();
   };
 
-  for (const id of ['left', 'right', 'bottom', 'modal', 'error']) onAction(el(id), act);
+  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error']) onAction(el(id), act);
   scene.onSelect(slot => {
     if (modal || driver.failed || driver.state.phase === 'ended') return;
     scene.selectedId = slot === null ? null : driver.state.slots[slot]?.id ?? null;
@@ -165,12 +172,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     el('round-banner').textContent = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? (view ? activeNotice(notice, now) ?? '' : '');
     renderRight(s, view ? { online: !driver.readOnly, notices: rightNotices(view, now) } : {});
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');
-    displayedCard = renderBottom(s, selected);
+    const spiritCard = view && opts.data ? spiritCardHtml(view, opts.data) : null;
+    if (spiritCard) {
+      displayedCard = { unitId: null, recipes: [] };
+      setHtml(el('bottom'), spiritCard);
+    } else displayedCard = renderBottom(s, selected);
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
     const dialogOpen = modal !== null || soloResult;
-    for (const id of ['left', 'right', 'bottom', 'lane']) el(id).inert = dialogOpen;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    for (const id of ['top', 'left', 'right', 'bottom', 'lane']) el(id).inert = dialogOpen;
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
     hooks.onRender?.();
   }
 

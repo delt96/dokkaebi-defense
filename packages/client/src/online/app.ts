@@ -7,6 +7,11 @@ import { renderEntry } from './entry';
 import { renderLobby } from './lobby';
 import { NO_ROOM_CODE, TEXT, joinErrorText } from './text';
 
+const RETRY_MS = 2000;
+/** Colyseus close codes: 4000 consented leave, 4001 server-side close (tab replaced). */
+const LEAVE_CONSENTED = 4000;
+const LEAVE_REPLACED = 4001;
+
 type Screen = 'entry' | 'connecting' | 'lobby' | 'battle';
 
 function errorCode(err: unknown): number {
@@ -69,6 +74,51 @@ export function startOnline(opts: { roomId?: string }): void {
     startBattle(n, loadGameData('stage2'));
   };
 
+  let stopped = false;
+  let reconnecting = false;
+  const band = document.createElement('div');
+  band.id = 'conn-band';
+  band.setAttribute('role', 'status');
+  document.body.append(band);
+
+  const showMessage = (text: string): void => {
+    stopped = true;
+    band.textContent = '';
+    root.replaceChildren();
+    const box = document.createElement('div');
+    box.className = 'screen-box';
+    box.textContent = text;
+    root.append(box);
+  };
+
+  // Lost link during the match: retry with the stored key every 2 seconds (spec 6).
+  const reconnect = (): void => {
+    if (reconnecting || stopped) return;
+    const roomId = opts.roomId ?? net?.roomId;
+    const stored = roomId ? loadSession(roomId) : null;
+    if (!roomId || !stored?.key) { showEntry(TEXT.noRoom, stored?.name, true); return; }
+    reconnecting = true;
+    band.textContent = TEXT.disconnected;
+    const attempt = (): void => {
+      if (stopped) return;
+      connectJoin(roomId, { name: stored.name, rejoinKey: stored.key }).then(room => {
+        // the new client saves the reissued key on its first snapshot; a reload then takes the seat again
+        const fresh = new NetClient(room, stage2DataVersion());
+        fresh.on(ev => { if (ev.kind === 'view') location.reload(); });
+      }, (err: unknown) => {
+        const code = errorCode(err);
+        if (code === JOIN_ERROR_CODES.badKey || code === NO_ROOM_CODE) {
+          stopped = true;
+          band.textContent = '';
+          showEntry(TEXT.noRoom, stored.name, true);
+          return;
+        }
+        setTimeout(attempt, RETRY_MS);
+      });
+    };
+    setTimeout(attempt, RETRY_MS);
+  };
+
   const onEvent = (e: NetEvent): void => {
     switch (e.kind) {
       case 'lobby':
@@ -78,12 +128,17 @@ export function startOnline(opts: { roomId?: string }): void {
         // the first full snapshot means the match is on
         if (screen !== 'battle' && net) showBattle(net);
         break;
+      case 'versionMismatch':
+        showMessage(TEXT.versionMismatch);
+        break;
       case 'notice':
+        if (e.msg.kind === 'replaced') { showMessage(TEXT.replaced); break; }
         // a second "start" answers notInLobby; once the match runs it is not worth a message
         if (e.msg.kind === 'roomError' && e.msg.reason === 'notReady' && screen === 'lobby') flashNotice(TEXT.notReady);
         break;
       case 'left':
         if (screen === 'lobby' || screen === 'connecting') showEntry(TEXT.connectFail);
+        else if (screen === 'battle' && e.code !== LEAVE_CONSENTED && e.code !== LEAVE_REPLACED) reconnect();
         break;
       default:
         break;
