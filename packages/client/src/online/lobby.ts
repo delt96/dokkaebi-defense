@@ -37,7 +37,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActions, notice?: string): void {
   const m = lobbyModel(msg);
   root.replaceChildren();
-  const box = el('div', 'screen-box');
+  const box = el('div', 'screen-box lobby');
   box.append(el('h1', 'screen-title', TEXT.lobbyTitle));
 
   const copy = el('button', undefined, TEXT.copy);
@@ -63,14 +63,16 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
   const ready = el('button', 'big', m.myReady ? TEXT.unreadyBtn : TEXT.readyBtn);
   ready.type = 'button';
   ready.addEventListener('click', () => actions.ready(!m.myReady));
-  box.append(ready);
+  const controls = el('div', 'screen-actions');
+  box.append(controls);
+  controls.append(ready);
 
   if (m.isHost) {
     const start = el('button', 'big', TEXT.start);
     start.type = 'button';
     start.disabled = !m.canStart;
     start.addEventListener('click', () => actions.start());
-    box.append(start);
+    controls.append(start);
   }
   if (m.hint) box.append(el('div', 'lobby-hint', m.hint));
   if (notice) box.append(el('div', 'entry-error', notice));

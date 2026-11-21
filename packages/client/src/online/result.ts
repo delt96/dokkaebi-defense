@@ -30,7 +30,8 @@ export function teamResultModel(result: MatchResult, names: Record<number, strin
     rows: result.seats.map(s => {
       const best = s.bestUnit ? `${unitDefFast(data, s.bestUnit.defId).name} (${s.bestUnit.grade}등급)` : '–';
       // one slot per round; rounds after an elimination stay empty
-      const series: (number | null)[] = Array.from({ length: ROUNDS }, (_, i) => s.series[i] ?? null);
+      const first = Math.max(0, s.round - s.series.length);
+      const series: (number | null)[] = Array.from({ length: ROUNDS }, (_, i) => s.series[i - first] ?? null);
       return {
         seat: s.seat, name: names[s.seat] ?? `${s.seat}번`, status: statusText(s.outcome, s.cause, s.round),
         last: s.lastEnemies, max: s.maxEnemies, best, damage: s.yeoksinDamage, series, helperText: `도우미 ${s.helperOpens}회`,
@@ -66,6 +67,8 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
     const open = ui.opened === r.seat;
     const row = document.createElement('button');
     row.type = 'button';
+    row.title = r.name;
+    row.setAttribute('aria-expanded', String(open));
     row.className = open ? 'result-row open' : 'result-row';
     row.innerHTML = `<span class="r-name">${esc(r.name)}</span><span class="r-status">${esc(r.status)}</span>`
       + `<span class="r-count">${r.last} / ${r.max}</span><span class="r-best">${esc(r.best)}</span><span class="r-dmg">${r.damage.toLocaleString('ko-KR')}</span>`;
@@ -73,12 +76,14 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
     box.append(row);
     if (open) {
       const detail = div('result-detail');
-      detail.innerHTML = `<p>라운드 끝 잡귀 (빨간 점선: 한도 ${data.balance.limit})</p>${graph(r.series, data.balance.limit)}<p>${esc(r.helperText)}</p>`;
+      const plot = graph(r.series, data.balance.limit);
+      const scale = '<div class="graph-scale"><span>1라운드</span><span>20라운드</span></div>';
+      detail.innerHTML = `<p><b>${esc(r.name)}</b> · 라운드 끝 잡귀 · 한도 ${data.balance.limit}마리</p>${plot ? plot + scale : '<p>아직 라운드 기록이 없습니다.</p>'}<p>${esc(r.helperText)}</p>`;
       box.append(detail);
     }
   }
   const head = div('result-head');
-  head.innerHTML = '<span>이름</span><span>상태</span><span>마지막 / 최대 잡귀</span><span>최고 유닛</span><span>역신 피해</span>';
+  head.innerHTML = '<span>이름</span><span>상태</span><span>잡귀 마지막 / 최대</span><span>최고 유닛</span><span>역신 피해</span>';
   box.insertBefore(head, box.children[2] ?? null);
 
   const again = document.createElement('button');
@@ -92,7 +97,9 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
   leave.className = 'big';
   leave.textContent = '나가기';
   leave.addEventListener('click', () => actions.leave());
-  box.append(again, leave);
+  const controls = div('screen-actions');
+  controls.append(again, leave);
+  box.append(controls);
   if (ui.closed) {
     const link = document.createElement('a');
     link.className = 'entry-link';

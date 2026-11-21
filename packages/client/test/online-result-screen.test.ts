@@ -26,6 +26,14 @@ describe('team result screen', () => {
     expect(lastX(svg)).toBeCloseTo(300 * 3 / 19, 1);
   });
 
+  test('a shortened history still ends at the recorded elimination round', () => {
+    const root = document.createElement('div');
+    const short = structuredClone(result);
+    short.seats[1]!.series = [30, 61];
+    renderResult(root, short, {}, data, { rematch() {}, leave() {} }, { opened: 2, rematching: false });
+    expect(lastX(root.querySelector('.graph')!)).toBeCloseTo(300 * 3 / 19, 1);
+  });
+
   test('graph breaks the line at empty rounds; a full series spans the width as before', () => {
     const host = document.createElement('div');
     host.innerHTML = graph([1, 2, null, 4, 5, null], 60);

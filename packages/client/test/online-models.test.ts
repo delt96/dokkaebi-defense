@@ -46,6 +46,16 @@ describe('online rows', () => {
     expect(r[1]).toMatchObject({ mark: 'current' }); expect(r[1]!.progress).toBeCloseTo(120 / 240, 9);
     expect(rowsModel(viewWith({ ...o, tick: 5011 }), data)[4]!.status).toBe('탈락·넋');
   });
+  test('my row shows the arrival countdown alongside the danger warning', () => {
+    document.body.innerHTML = '<div id="left"></div>';
+    const v = viewWith({ me: 1, rows: [row({ count: 49 }), row({ seat: 2 })],
+      yeoksin: { stage: 1, hp: 80, maxHp: 100, seat: 2, enterTick: 0, nextSeat: 1 } });
+    renderRows(v, data);
+    const mine = document.querySelector('.lane-row.me')!;
+    expect(mine.textContent).toContain('위험');
+    expect(mine.textContent).toContain('다음은 내 고개 · 12초');
+  });
+
   test('top lines and my-turn notice', () => {
     const o: ViewOpts = { me: 1, tick: 5000, round: 6, roundEndTick: 5400, rows: [row({ seat: 1, count: 12 }), row({ seat: 2 })],
       gate: { stage: 1, kills: 0, deadlineTick: 7799 }, yeoksin: { stage: 1, hp: 7950, maxHp: 8800, seat: 2, enterTick: 4881, nextSeat: 1 } };
@@ -65,7 +75,7 @@ describe('online rows', () => {
     const v = viewWith({ me: 1, rows: [row({})] }); v.mine.supportIn = [{ from: 3, coins: 5 }];
     noteSupport(v.mine.supportIn, 1000);
     noteSupport(v.mine.supportIn, 1500);
-    expect(rightNotices(1000)).toEqual(['3번 넋이 엽전 +5']);
+    expect(rightNotices(1000)).toEqual(['3번 넋이 보낸 엽전 +5']);
     expect(rightNotices(4001)).toEqual([]);
   });
   test('a support arrival shows although the next mine replaces supportIn before any redraw (checkpoint 17-19, finding 2)', () => {
@@ -77,7 +87,7 @@ describe('online rows', () => {
     room.emit('mine', { ...structuredClone(full.mine), tick: full.mine.tick + 1, supportIn: [{ from: 2, coins: 5 }] });
     room.emit('mine', { ...structuredClone(full.mine), tick: full.mine.tick + 2, supportIn: [] });
     expect(net.view!.mine.supportIn).toEqual([]);
-    expect(rightNotices(20000)).toEqual(['2번 넋이 엽전 +5']);
+    expect(rightNotices(20000)).toEqual(['2번 넋이 보낸 엽전 +5']);
     expect(rightNotices(23001)).toEqual([]);
   });
   test('rendered markup fits six rows and two lines', () => {
