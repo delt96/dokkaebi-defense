@@ -462,9 +462,7 @@ export class LaneScene extends Phaser.Scene {
     this.freshLane = false;
   }
 
-  /** Slowed enemies are drawn in a cold blue; a hit flash wins over it for its 85 ms. */
   private tintSlow(view: EnemyContainer, slowed: boolean): void {
-    if (view.getData('flashUntil')) return;
     if (!!view.getData('slowTint') === slowed) return;
     view.setData('slowTint', slowed);
     const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
@@ -479,24 +477,19 @@ export class LaneScene extends Phaser.Scene {
   private showHit(event: Extract<GameEvent, { type: 'damage' }>): void {
     const view = this.enemies.get(event.enemyId);
     if (!view) return;
-    // reduced effects: plain hits no longer blink the enemy white (the impact sheet already shows them)
-    if (this.reduceFx && !event.effect) return;
+    const now = this.time.now;
+    if (event.effect) this.fx?.number(view.x, view.y - 12, String(event.amount), now);
+    if (this.reduceFx || now < (view.getData('nextFlashAt') ?? 0)) return;
     const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
-    if (body instanceof Phaser.GameObjects.Image) body.setTintFill(0xffffff);
-    else {
-      if (body.getData('color') === undefined) body.setData('color', body.fillColor);
-      body.setFillStyle(0xffffff);
-    }
-    view.setData('flashUntil', this.time.now + 85);
-    view.setData('slowTint', false);
-    if (event.effect) this.fx?.number(view.x, view.y - 12, String(event.amount), this.time.now);
+    body.setAlpha(0.76);
+    view.setData('flashUntil', now + 45);
+    view.setData('nextFlashAt', now + 120);
   }
 
   private clearFlash(view: Phaser.GameObjects.Container): void {
-    if (!view.getData('flashUntil') || this.time.now < view.getData('flashUntil')) return;
-    const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
-    if (body instanceof Phaser.GameObjects.Image) body.clearTint();
-    else body.setFillStyle(body.getData('color'));
+    const until = view.getData('flashUntil');
+    if (!until || (!this.reduceFx && this.time.now < until)) return;
+    (view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc).setAlpha(1);
     view.setData('flashUntil', 0);
   }
 
