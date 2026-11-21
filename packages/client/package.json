@@ -3,7 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "vite", "build": "vite build" },
-  "dependencies": { "@dorandi/logic": "*", "phaser": "3.90.0" },
-  "devDependencies": { "vite": "^6.3.0" }
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@colyseus/sdk": "0.18.10",
+    "@dorandi/logic": "*",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "vite": "^6.3.0"
+  }
 }
