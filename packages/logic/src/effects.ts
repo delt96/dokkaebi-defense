@@ -1,4 +1,4 @@
-import type { DamageType, Effect, Enemy, GameEvent, GameState, HitEffect, StatusArea } from './types';
+import type { DamageType, Effect, Enemy, GameEvent, GameState, HitEffect, StatusArea, UnitDef } from './types';
 import type { Vec2 } from './lane';
 import { nextFloat } from './rng';
 import { unitAttack } from './data';
@@ -6,7 +6,7 @@ import { dist, loopPos } from './lane';
 import { registerPhase } from './registry';
 import { laneOf } from './lane';
 import { enemySpeed, toTicks } from './flow';
-import { computeHitDamage, damageBonus, dealDamage, enemyResist, hitDamage, inRange } from './combat';
+import { computeHitDamage, damageBonus, dealDamage, enemyResist, hitDamage, inRange, pickTarget } from './combat';
 import { unitDefFast } from './units';
 import { isShared } from './stats';
 
@@ -127,7 +127,9 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
     }
     case 'knockback': {
       const d = eff.distance * (target.boss ? b.bossCcFactor : 1);
+      const before = target.d;
       target.d = Math.max(0, target.d - d);
+      if (b.extendedCombat && target.d < before) target.knockedRound = state.round;
       emitSpeed(state, target, events);
       break;
     }
@@ -151,6 +153,31 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
   }
 }
 
+function tracksStreak(def: UnitDef): boolean {
+  return def.skills.some(s => s.trigger.kind === 'streak' || s.effects.some(e => e.kind === 'rampCrit'));
+}
+
+/** Bounces from the last enemy hit to the best-ranked unhit enemy within `range`, at most `maxBounces` times. */
+function chainHits(state: GameState, first: Enemy, e: Extract<Effect, { kind: 'chain' }>, hit: (o: Enemy, mult: number) => void): void {
+  const lane = laneOf(state);
+  const done = new Set<Enemy>([first]);
+  let prev = first;
+  for (let n = 0; n < e.maxBounces; n++) {
+    const at = lane.pointAt(prev.d);
+    let best: Enemy | null = null;
+    let bestRank = 3;
+    for (const o of state.enemies) {
+      if (o.hp <= 0 || done.has(o) || dist(lane.pointAt(o.d), at) > e.range + 1e-9) continue;
+      const rank = o.boss ? 0 : isShared(state.data, o) ? 1 : 2;
+      if (!best || rank < bestRank || (rank === bestRank && o.id < best.id)) { best = o; bestRank = rank; }
+    }
+    if (!best) return;
+    done.add(best);
+    hit(best, e.mult);
+    prev = best;
+  }
+}
+
 const AREA_KINDS = new Set<Effect['kind']>(['stun', 'slow', 'knockback', 'vuln', 'dot']);
 
 /** Who a status lands on: everyone within `radius` of the hit, everyone this hit damaged (`area`), or the target. */
@@ -169,13 +196,22 @@ function statusTargets(state: GameState, e: Effect, target: Enemy, origin: Vec2,
 export function performAttack(state: GameState, slot: number, target: Enemy, events: GameEvent[]): void {
   const unit = state.slots[slot]!;
   const def = unitDefFast(state.data, unit.defId);
-  const lane = laneOf(state);
+  if (tracksStreak(def)) {
+    const st = unit.streak;
+    unit.streak = st && st.enemyId === target.id ? { enemyId: target.id, count: st.count + 1 } : { enemyId: target.id, count: 1 };
+  }
   const fired: Effect[] = [];
   for (const skill of def.skills) {
     const t = skill.trigger;
     if (t.kind === 'always') fired.push(...skill.effects);
     else if (t.kind === 'chance') { if (nextFloat(state.rng.combat) < t.p) fired.push(...skill.effects); }
     else if (t.kind === 'nth') { if (unit.attackCount % t.n === (t.phase ?? 0)) fired.push(...skill.effects); }
+    else if (t.kind === 'charge') {
+      if (unit.charged) { fired.push(...skill.effects); unit.charged = false; unit.chargeTicks = toTicks(t.seconds); }
+    }
+    else if (t.kind === 'streak') { if (unit.streak && unit.streak.count % t.n === 0) fired.push(...skill.effects); }
+    else if (t.kind === 'targetHpBelow') { if (target.hp / target.maxHp <= t.pct) fired.push(...skill.effects); }
+    else if (t.kind === 'targetSlowed') { if (target.slow) fired.push(...skill.effects); }
   }
 
   let mult = 1;
@@ -183,8 +219,24 @@ export function performAttack(state: GameState, slot: number, target: Enemy, eve
   for (const e of fired) {
     if (e.kind === 'crit') { mult *= e.mult; effect = 'crit'; }
     if (e.kind === 'execute' && target.hp / target.maxHp <= e.hpBelow) { mult *= e.mult; effect = 'execute'; }
+    if (e.kind === 'rampCrit' && unit.streak) mult *= Math.min(e.max, 1 + e.step * (unit.streak.count - 1));
   }
+  applyPackage(state, slot, target, fired, { basic: true, mult, effect }, events);
+}
+
+/**
+ * Applies one hit package to `target`: the basic hit (when `basic`), extra damage in `fired` order,
+ * on-hit damage (basic only), statuses, then kill explosions.
+ */
+export function applyPackage(
+  state: GameState, slot: number, target: Enemy, fired: Effect[],
+  opts: { basic: boolean; mult: number; effect?: HitEffect }, events: GameEvent[],
+): void {
+  const unit = state.slots[slot]!;
+  const def = unitDefFast(state.data, unit.defId);
+  const lane = laneOf(state);
   const explode = fired.find(e => e.kind === 'onKillExplode') as Extract<Effect, { kind: 'onKillExplode' }> | undefined;
+  const executed = opts.basic && fired.some(e => e.kind === 'execute' && target.hp / target.maxHp <= e.hpBelow);
   const killed: Enemy[] = [];
   const struck = new Set<Enemy>();
   const hit = (e: Enemy, m: number, track: boolean, hitEffect?: HitEffect, mark = true) => {
@@ -194,22 +246,34 @@ export function performAttack(state: GameState, slot: number, target: Enemy, eve
     if (track && e.hp <= 0) killed.push(e);
   };
 
-  hit(target, mult, true, effect);
+  if (opts.basic) hit(target, opts.mult, true, opts.effect);
+  const executeKill = executed && target.hp <= 0;
   const origin = lane.pointAt(target.d);
   for (const e of fired) {
     if (e.kind === 'extraAttack') hit(target, 1, true);
+    if (e.kind === 'strike') hit(target, e.mult, true);
     if (e.kind === 'splash') {
-      for (const o of state.enemies) if (o !== target && dist(lane.pointAt(o.d), origin) <= e.radius + 1e-9) hit(o, e.mult, true);
+      const radius = opts.basic && e.radiusCycle?.length ? e.radiusCycle[(unit.attackCount - 1) % e.radiusCycle.length]! : e.radius;
+      let m = e.mult;
+      if (e.stunnedBonus) {
+        const end = target.stunEndTick;
+        if (target.stunTicks > 0 || (end !== undefined && state.tick - end < toTicks(e.stunnedBonus.graceSeconds))) m *= e.stunnedBonus.mult;
+      }
+      for (const o of state.enemies) if (o !== target && dist(lane.pointAt(o.d), origin) <= radius + 1e-9) hit(o, m, true);
     }
     if (e.kind === 'pierce') {
       for (const o of state.enemies) {
         if (o === target) continue;
-        const gap = loopPos(target.d - o.d, lane.perimeter);
-        if (gap > 1e-9 && gap <= e.length + 1e-9) hit(o, e.mult, true);
+        const behind = loopPos(target.d - o.d, lane.perimeter);
+        const ahead = loopPos(o.d - target.d, lane.perimeter);
+        const within = (g: number) => g > 1e-9 && g <= e.length + 1e-9;
+        if (!within(behind) && !(e.both && within(ahead))) continue;
+        hit(o, e.knockedBonus && o.knockedRound === state.round ? e.mult * e.knockedBonus : e.mult, true);
       }
     }
+    if (e.kind === 'chain') chainHits(state, target, e, (o, m) => hit(o, m, true));
   }
-  const extra = def.onBasicHit;
+  const extra = opts.basic ? def.onBasicHit : undefined;
   if (extra) {
     if (extra.targetPct > 0) hit(target, extra.targetPct, false, undefined, false);
     if (extra.splashPct > 0) {
@@ -220,8 +284,8 @@ export function performAttack(state: GameState, slot: number, target: Enemy, eve
   for (const e of fired) {
     for (const o of statusTargets(state, e, target, origin, struck)) applyStatus(state, slot, def.id, o, e, events);
   }
-  if (explode) {
-    for (const k of killed) {
+  if (explode && (!explode.requireExecute || executeKill)) {
+    for (const k of explode.requireExecute ? [target] : killed) {
       const at = lane.pointAt(k.d);
       for (const o of state.enemies) if (o.hp > 0 && dist(lane.pointAt(o.d), at) <= explode.radius + 1e-9) hit(o, explode.mult, false, 'explosion');
     }
@@ -236,6 +300,13 @@ export function runPeriodics(state: GameState, slot: number, events: GameEvent[]
     if (skill.trigger.kind !== 'periodic') continue;
     const idx = k++;
     if ((unit.periodic[idx] ?? 0) > 0) { unit.periodic[idx]!--; continue; }
+    if (!skill.effects.some(e => e.kind === 'allInRange')) {
+      const target = pickTarget(state, slot);
+      if (!target) { unit.periodic[idx] = 0; continue; }
+      applyPackage(state, slot, target, skill.effects, { basic: false, mult: 1 }, events);
+      unit.periodic[idx] = toTicks(skill.trigger.seconds) - 1;
+      continue;
+    }
     const targets = state.enemies.filter(e => e.hp > 0 && inRange(state, slot, e, def.range));
     if (!targets.length) { unit.periodic[idx] = 0; continue; }
     const damaged: Enemy[] = [];
@@ -264,7 +335,13 @@ export function tickStatuses(state: GameState, events: GameEvent[]): void {
   const pulse = toTicks(state.data.balance.pulseSeconds);
   for (const e of state.enemies) {
     if (e.hp <= 0) continue;
-    if (e.stunTicks > 0) { e.stunTicks--; if (e.stunTicks === 0) emitSpeed(state, e, events); }
+    if (e.stunTicks > 0) {
+      e.stunTicks--;
+      if (e.stunTicks === 0) {
+        if (state.data.balance.extendedCombat) e.stunEndTick = state.tick;
+        emitSpeed(state, e, events);
+      }
+    }
     if (e.slow) { e.slow.ticks--; if (e.slow.ticks <= 0) { e.slow = null; emitSpeed(state, e, events); } }
     for (const key of Object.keys(e.vulns)) {
       const v = e.vulns[key]!;

@@ -85,6 +85,10 @@ export function unitAttacks(state: GameState, events: GameEvent[]): void {
     const unit = state.slots[slot];
     if (!unit) continue;
     runPeriodics(state, slot, events);
+    if (unit.chargeTicks !== undefined && !unit.charged) {
+      unit.chargeTicks--;
+      if (unit.chargeTicks <= 0) unit.charged = true;
+    }
     if (unit.cooldown > 0) { unit.cooldown--; continue; }
     const target = pickTarget(state, slot);
     if (!target) continue;

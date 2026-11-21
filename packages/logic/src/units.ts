@@ -57,6 +57,8 @@ export function addUnit(state: GameState, defId: string, slot: number, _events: 
   const periodic = def.skills.filter(s => s.trigger.kind === 'periodic')
     .map(s => (ready ? 0 : toTicks((s.trigger as { seconds: number }).seconds)));
   const unit: Unit = { id: state.nextId++, defId, cooldown: 0, attackCount: 0, periodic };
+  const charge = def.skills.find(s => s.trigger.kind === 'charge')?.trigger;
+  if (charge?.kind === 'charge') unit.chargeTicks = toTicks(charge.seconds);
   state.slots[slot] = unit;
   return unit;
 }
