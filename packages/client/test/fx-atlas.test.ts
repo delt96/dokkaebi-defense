@@ -1,4 +1,3 @@
-import { CELL } from '../src/layout';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { inflateSync } from 'node:zlib';
@@ -65,16 +64,16 @@ describe('areas at their real size', () => {
     return [...out];
   };
 
-  test.each(['ring', 'frost', 'blast', 'pierce'] as const)('every %s radius in the data has its own sheet, drawn at the lane scale', kind => {
+  test.each(['ring', 'frost', 'blast', 'pierce'] as const)('every %s radius in the data has a sheet drawn at scale 1', kind => {
     const list = radii(kind);
     expect(list.length).toBeGreaterThan(0);
-    for (const r of list) expect(kind === 'pierce' ? pierceSheet(r) : areaSheet(kind, r), `${kind} ${r}`).toEqual({ key: `${kind}-${Math.round(r * 32)}`, scale: CELL / 32 });
+    for (const r of list) expect(kind === 'pierce' ? pierceSheet(r) : areaSheet(kind, r), `${kind} ${r}`).toEqual({ key: `${kind}-${Math.round(r * 32)}`, scale: 1 });
   });
 
   test('a radius with no sheet takes the nearest one, scaled to fit', () => {
     const s = areaSheet('blast', 2)!;
     expect(s.key).toBe('blast-48');
-    expect(s.scale).toBeCloseTo((64 / 48) * (CELL / 32), 9);
+    expect(s.scale).toBeCloseTo(64 / 48, 9);
   });
 });
 

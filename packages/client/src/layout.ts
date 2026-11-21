@@ -6,15 +6,10 @@ export const TOP_H = 24;
 export const BOTTOM_H = 28;
 export const LEFT_W = 128;
 export const RIGHT_W = 112;
-/**
- * Pixels per path unit; a 6 x 4 board's cells are this size, a bigger board inside the same path draws them smaller.
- * 28 leaves room for the storage strip above the path while the ring's bottom edge stays at y 271, clear of the
- * quest chips (y >= 272). Unit art stays at its own 32px (scaling it to 28 drops pixel rows), so neighbours may overlap by a pixel or two.
- */
-export const CELL = 28;
-export const ART_PX = 32;
-export const GRID_LEFT = 244;
-export const GRID_TOP = 133;
+/** Pixels per path unit; a 6 x 4 board's cells are this size, a bigger board inside the same path draws them smaller. */
+export const CELL = 32;
+export const GRID_LEFT = 232;
+export const GRID_TOP = 114;
 export const CENTER_X = LEFT_W;
 export const CENTER_Y = TOP_H;
 export const CENTER_W = STAGE_W - LEFT_W - RIGHT_W;
@@ -25,10 +20,10 @@ export const ONLINE_CENTER_H = STAGE_H - TOP_H - ONLINE_BOTTOM_H;
 export const LANE_CANVAS_ONLINE = { width: CENTER_W, height: ONLINE_CENTER_H };
 
 /**
- * The storage strip (stage px): one row above the board's path, under the round banner and the two economy prompt
- * rows (y < 67) and over the bar of a boss walking the top of the path (y >= 89).
+ * The storage column (stage px): left of the board, clear of the lane path and a boss's bar on it (x >= 196),
+ * the economy prompts above (y < 68) and the trackers under the lane (y >= 272).
  */
-export const STORAGE_BOX = { x: 132, y: 67, w: 392, h: 21 } as const;
+export const STORAGE_BOX = { x: 130, y: 70, w: 66, h: 200 } as const;
 
 /** Whether a point in lane-canvas pixels lies over the storage column. */
 export function canvasInStorage(x: number, y: number): boolean {
@@ -72,8 +67,7 @@ export function cellPx(lane: Lane): number {
 /** Top-left corner of a cell in lane-canvas pixels. */
 export function cellCorner(lane: Lane, index: number): Vec2 {
   const c = lane.cells[index]!;
-  const p = laneToCanvas({ x: c.x - lane.pitch / 2, y: c.y - lane.pitch / 2 });
-  return { x: Math.round(p.x), y: Math.round(p.y) };
+  return laneToCanvas({ x: c.x - lane.pitch / 2, y: c.y - lane.pitch / 2 });
 }
 
 export function stageToCell(lane: Lane, x: number, y: number): number | null {

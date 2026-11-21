@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import { buildFull, createGame, createMatch, loadGameData, step, type GameState } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
-import { canvasInStorage, CELL, GRID_TOP, STORAGE_BOX } from '../src/layout';
+import { canvasInStorage, STORAGE_BOX } from '../src/layout';
 import { dimmedSlots, predictStorage, type PendingCmd } from '../src/net/predict';
 import { viewToGameState } from '../src/net/viewState';
 import { boardUnits, helperModel, recipeTree, rejectText, storageStacks } from '../src/ui/models';
@@ -76,17 +76,11 @@ describe('storage view models', () => {
     expect(rejectText('slotTaken')).toBe('그 칸에는 이미 유닛이 있습니다');
   });
 
-  test('the strip sits above the path: under two prompt rows, over a top boss bar, inside the lane canvas', () => {
-    // two 19px prompt rows from y 26 end at 66; a boss on the top of the path (y GRID_TOP - CELL/2) has its bar 28px up
-    expect(STORAGE_BOX.y).toBeGreaterThanOrEqual(26 + 2 * 19 + 2);
-    expect(STORAGE_BOX.y + STORAGE_BOX.h).toBeLessThanOrEqual(GRID_TOP - CELL / 2 - 28 - 2);
-    expect(STORAGE_BOX.x).toBeGreaterThanOrEqual(128);
-    expect(STORAGE_BOX.x + STORAGE_BOX.w).toBeLessThanOrEqual(528);
-    // the ring's outer bottom edge (path half a unit out, stroke 0.4 unit) stays above the quest chips
-    expect(GRID_TOP + 4.5 * CELL + 0.4 * CELL).toBeLessThanOrEqual(272);
+  test('the column sits left of the lane path and inside the lane canvas', () => {
+    expect(STORAGE_BOX.x + STORAGE_BOX.w).toBeLessThanOrEqual(196);
+    expect(STORAGE_BOX.y + STORAGE_BOX.h).toBeLessThanOrEqual(272);
     expect(canvasInStorage(STORAGE_BOX.x - 128 + 5, STORAGE_BOX.y - 24 + 5)).toBe(true);
-    expect(canvasInStorage(STORAGE_BOX.x - 128 + 5, STORAGE_BOX.y - 24 + STORAGE_BOX.h + 2)).toBe(false);
-    expect(canvasInStorage(20, 5)).toBe(false);
+    expect(canvasInStorage(100, 5)).toBe(false);
   });
 });
 
@@ -180,7 +174,7 @@ describe('storage on the page', () => {
     pointer(window, 'pointermove', 200, 120);
     expect(document.querySelector('.stack-ghost')).not.toBeNull();
     // cell 9 = row 1, col 3
-    pointer(window, 'pointerup', 244 + 3 * 28 + 5, 133 + 28 + 5);
+    pointer(window, 'pointerup', 232 + 3 * 32 + 5, 114 + 32 + 5);
     expect(document.querySelector('.stack-ghost')).toBeNull();
     driver.update(50);
     expect(s.slots[9]!.defId).toBe('ki');

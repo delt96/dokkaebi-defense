@@ -4,7 +4,7 @@ import {
 } from '@dorandi/logic';
 import { selectedSlot } from './ui/models';
 import type { Driver } from './driver';
-import { ART_PX, CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
+import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_KEYS, textureKey } from './fx/atlas';
 import { spriteKey, tameArt } from './sprites';
@@ -296,8 +296,7 @@ export class LaneScene extends Phaser.Scene {
     view.unitId = unitId;
     view.defId = defId;
     view.gradeColor = hex(GRADE_COLOR[def.grade] ?? '#ffffff');
-    // the art stays at its own 32px: nearest-neighbour scaling to a 28px cell drops pixel rows and breaks the sprites
-    const k = 1;
+    const k = this.lane.pitch;
     if (this.hasTexture(defId)) {
       view.add(this.add.image(0, 0, defId));
     } else {

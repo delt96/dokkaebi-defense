@@ -10,20 +10,20 @@ describe('client helpers', () => {
     expect(computeZoom(1000, 700)).toBe(1.5); expect(computeZoom(900, 500)).toBe(1); expect(computeZoom(300, 200)).toBe(1);
   });
   test('lane to stage and back', () => {
-    expect(laneToStage({ x: 0.5, y: 0.5 })).toEqual({ x: 258, y: 147 });
+    expect(laneToStage({ x: 0.5, y: 0.5 })).toEqual({ x: 248, y: 130 });
     const six = createLane(6, 4);
-    expect(stageToCell(six, 258, 147)).toBe(0);
-    expect(stageToCell(six, 244 + 28 * 5 + 1, 133 + 28 * 3 + 1)).toBe(23);
+    expect(stageToCell(six, 248, 130)).toBe(0);
+    expect(stageToCell(six, 232 + 32 * 5 + 1, 114 + 32 * 3 + 1)).toBe(23);
     expect(stageToCell(six, 10, 10)).toBeNull();
   });
-  test('stage 3 draws the same 6 x 4 board of 28px cells as stage 1, below the storage strip', () => {
+  test('stage 3 draws the same 6 x 4 board of 32px cells as stage 1, clear of the storage column', () => {
     const lane = laneOf({ data: loadGameData('stage3') });
-    expect([lane.cols, lane.rows, cellPx(lane)]).toEqual([6, 4, 28]);
-    expect(cellCorner(lane, 0)).toEqual({ x: 244 - 128, y: 133 - 24 });
-    expect(cellCorner(lane, 23)).toEqual({ x: 244 + 5 * 28 - 128, y: 133 + 3 * 28 - 24 });
-    expect(stageToCell(lane, 244 + 28 * 3 + 1, 133 + 28 + 1)).toBe(9);
-    expect(stageToCell(lane, 244 + 28 * 6 + 1, 140)).toBeNull();
-    expect(STORAGE_BOX.y + STORAGE_BOX.h).toBeLessThanOrEqual(133 - 14 - 28 - 2);
+    expect([lane.cols, lane.rows, cellPx(lane)]).toEqual([6, 4, 32]);
+    expect(cellCorner(lane, 0)).toEqual({ x: 232 - 128, y: 114 - 24 });
+    expect(cellCorner(lane, 23)).toEqual({ x: 232 + 5 * 32 - 128, y: 114 + 3 * 32 - 24 });
+    expect(stageToCell(lane, 232 + 32 * 3 + 1, 114 + 32 + 1)).toBe(9);
+    expect(stageToCell(lane, 232 + 32 * 6 + 1, 130)).toBeNull();
+    expect(STORAGE_BOX.x + STORAGE_BOX.w).toBeLessThanOrEqual(232 - 32 / 2);
     expect(laneToStage(lane.pointAt(0))).toEqual(laneToStage(createLane(6, 4).pointAt(0)));
   });
   test('grade colours cover grades 1 to 6, matching the sprite flames', () => {
