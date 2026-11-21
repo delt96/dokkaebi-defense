@@ -130,4 +130,20 @@ describe('NetDriver', () => {
     net.view!.watching = 2; drv.update(16);
     expect(drv.readOnly).toBe(true);
   });
+  test('a combine keeps its replaced unit id although mine arrives and a frame runs before the lane event (checkpoint 4)', () => {
+    const { net, room, data, view } = fixtureNet();
+    const drv = new NetDriver(net, data); drv.update(16);
+    const oldId = drv.state.slots[0]!.id;
+    const events: GameEvent[] = [];
+    drv.onEvents(e => events.push(...e));
+    drv.queue({ type: 'combine', result: 'gamasot', slot: 0 });
+    const tick = view.clock.tick + 1;
+    const newUnit = { id: oldId + 100, defId: 'gamasot' };
+    room.emit('mine', { ...structuredClone(view.mine), tick, lastSeq: 1, acks: [{ seq: 1, ok: true }], units: [newUnit, ...view.mine.units.slice(1)] });
+    drv.update(16);
+    expect(drv.state.slots[0]!.id).toBe(newUnit.id);
+    room.emit('lane', { n: view.n, seat: 1, batches: [{ tick, events: [{ t: 'combine', unitId: newUnit.id, defId: 'gamasot', slot: 0 }] }] });
+    drv.update(16);
+    expect(events.find(e => e.type === 'combine')).toMatchObject({ replacedUnitId: oldId, unitId: newUnit.id, slot: 0 });
+  });
 });

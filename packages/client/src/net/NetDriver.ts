@@ -46,11 +46,18 @@ export class NetDriver implements Driver {
   private buffered: { tick: number; events: GameEvent[] }[] = [];
   /** The newest tick the lane stream or the clock has reached. */
   private newestTick = 0;
+  /**
+   * The own board as drawn just before the latest board-changing `mine`. The lane's combine event
+   * arrives after that `mine` and does not name the unit it consumed, so the id comes from here.
+   */
+  private boardBeforeMine: { tick: number; ids: (number | null)[] } | null = null;
+  private lastMine: ClientView['mine'];
 
   constructor(private readonly net: NetClient, private readonly data: GameData, private readonly now: () => number = () => performance.now()) {
     const view = net.view;
     if (!view) throw new Error('NetDriver needs a view (start it after the first full)');
     this.view = view;
+    this.lastMine = view.mine;
     this.laneSeat = view.watching;
     this.latestTick = view.clock.tick;
     this.receivedAt = now();
@@ -111,6 +118,8 @@ export class NetDriver implements Driver {
     if (view !== this.view) {
       // a new snapshot (resync, watch switch): draw from it, nothing of the old lane is replayed
       this.view = view;
+      this.lastMine = view.mine;
+      this.boardBeforeMine = null;
       this.laneSeat = view.watching;
       this.laneEpoch++;
       this.latestTick = view.clock.tick;
@@ -118,19 +127,31 @@ export class NetDriver implements Driver {
       this.renderTick = Math.max(this.renderTick, this.latestTick - RENDER_LAG_TICKS);
       this.buffered = [];
       this.newestTick = this.latestTick;
-    } else if (view.clock.tick !== this.latestTick) {
-      this.latestTick = view.clock.tick;
-      this.receivedAt = this.now();
+    } else {
+      if (view.mine !== this.lastMine) this.noteMine(this.lastMine, view);
+      if (view.clock.tick !== this.latestTick) {
+        this.latestTick = view.clock.tick;
+        this.receivedAt = this.now();
+      }
     }
   }
 
+  /** Runs before any frame redraws from the new `mine`: this.state still shows the board the player saw. */
+  private noteMine(previous: ClientView['mine'], view: ClientView): void {
+    this.lastMine = view.mine;
+    if (view.watching !== view.me.seat) return;
+    const same = previous.units.length === view.mine.units.length && previous.units.every((u, i) => u?.id === view.mine.units[i]?.id);
+    if (!same) this.boardBeforeMine = { tick: view.mine.tick, ids: this.state.slots.map(u => u?.id ?? null) };
+  }
+
   private onLane(batches: LaneBatch[]): void {
-    const before = this.state.slots;
+    const before = this.state.slots.map(u => u?.id ?? null);
+    const beforeMine = this.boardBeforeMine;
     this.refresh();
     for (const batch of batches) {
       const events: GameEvent[] = [];
       for (const ev of batch.events) {
-        const out = toGameEvent(ev, before);
+        const out = toGameEvent(ev, beforeMine && beforeMine.tick === batch.tick ? beforeMine.ids : before);
         if (out) events.push(out);
       }
       if (events.length) this.buffered.push({ tick: batch.tick, events });
@@ -159,7 +180,7 @@ export class NetDriver implements Driver {
   }
 }
 
-function toGameEvent(ev: LaneEvent, before: GameState['slots']): GameEvent | null {
+function toGameEvent(ev: LaneEvent, before: (number | null)[]): GameEvent | null {
   switch (ev.t) {
     case 'spawn': return { type: 'spawn', enemyId: ev.id, defId: ev.defId };
     case 'attack': return { type: 'attack', unitId: ev.unitId, enemyId: ev.id };
@@ -171,7 +192,7 @@ function toGameEvent(ev: LaneEvent, before: GameState['slots']): GameEvent | nul
     case 'summon': return { type: 'summon', unitId: ev.unitId, defId: ev.defId, grade: ev.grade, slot: ev.slot };
     case 'combine': {
       // the lane stream does not name the consumed unit; the one drawn at that slot before is the best guess
-      const prior = before[ev.slot]?.id;
+      const prior = before[ev.slot] ?? undefined;
       return { type: 'combine', replacedUnitId: prior !== undefined && prior !== ev.unitId ? prior : -1, unitId: ev.unitId, defId: ev.defId, slot: ev.slot };
     }
     default: return null;

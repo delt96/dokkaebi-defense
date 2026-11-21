@@ -123,3 +123,29 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 body.online #left, body.online #lane, body.online #right { height: 292px; }
 body.online #bottom { top: 316px; height: 44px; }
 button.big.pressed { transform: translateY(1px) scale(0.97); background: #5a3e22; }
+
+/* Online top bar: two 12px lines (spec 7). */
+body.online #top { border: 0; box-shadow: inset 0 -1px var(--panel-edge); padding: 0 8px; display: flex; flex-direction: column; }
+body.online #top .line { height: 12px; line-height: 12px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+body.online #top .line:first-child { color: var(--accent); font-weight: bold; }
+body.online #top .line.second { color: var(--ink); }
+body.online #top .line.turn { color: #ffb396; }
+
+/* Online left panel: a 28px title and six 44px rows inside the 128px column. */
+body.online #left { border: 0; box-shadow: inset -1px 0 var(--panel-edge); padding: 0; gap: 0; display: block; overflow: hidden; }
+.rows-title { height: 28px; line-height: 28px; padding: 0 6px; font-size: 10px; font-weight: bold; color: var(--ink-dim); border-bottom: 1px solid var(--panel-edge); }
+.lane-row { height: 44px; padding: 5px 5px 0 6px; border-bottom: 1px solid var(--panel-edge); border-left: 2px solid transparent; font-size: 9px; letter-spacing: -0.02em; overflow: hidden; }
+.lane-row.me { border-left-color: var(--accent); }
+.lane-row.current { background: #2a2030; }
+.lane-row.empty { color: var(--ink-dim); }
+.lane-row .line1, .lane-row .line2 { display: flex; align-items: center; gap: 3px; height: 16px; line-height: 16px; white-space: nowrap; }
+.lane-row .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.lane-row .count { flex: none; min-width: 14px; text-align: right; font-variant-numeric: tabular-nums; }
+.lane-row.danger .count, .lane-row.danger .status { color: var(--danger); }
+.lane-row .status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-dim); }
+.lane-row .mask { flex: none; color: var(--accent); font-weight: bold; }
+.lane-row .bar { flex: none; width: 34px; height: 5px; background: #2a2232; border: 1px solid #4a3e5a; }
+.lane-row .bar i { display: block; height: 100%; background: var(--accent); }
+
+body.online #right .need-slot { color: var(--danger); text-align: center; margin-top: -2px; }
+body.online #right .notices { margin-top: auto; color: var(--accent); }

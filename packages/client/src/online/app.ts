@@ -1,5 +1,5 @@
 import { NetClient, stage2DataVersion, type NetEvent } from '../net/NetClient';
-import { connectCreate, connectJoin, type RoomLike } from '../net/room';
+import { connectCreate, connectJoin, devCreateOptions, type RoomLike } from '../net/room';
 import { clearSession, lastName, loadSession } from '../net/session';
 import { JOIN_ERROR_CODES, loadGameData } from '@dorandi/logic';
 import { startBattle } from './battle';
@@ -100,7 +100,7 @@ export function startOnline(opts: { roomId?: string }): void {
   async function submit(name: string): Promise<void> {
     showConnecting();
     try {
-      attach(opts.roomId ? await connectJoin(opts.roomId, { name }) : await connectCreate(name));
+      attach(opts.roomId ? await connectJoin(opts.roomId, { name }) : await connectCreate(name, devCreateOptions(location.search, import.meta.env.DEV)));
     } catch (err) {
       const code = errorCode(err);
       showEntry(joinErrorText(code), name, code === NO_ROOM_CODE);

@@ -40,9 +40,16 @@ function rethrow(err: unknown): never {
   throw new ConnectError(message, typeof code === 'number' ? code : 0);
 }
 
-export async function connectCreate(name: string): Promise<RoomLike> {
+/** Dev only: ?dev=jump4590 starts the room at that tick (room option devJumpTick). Never read outside dev mode. */
+export function devCreateOptions(search: string, dev: boolean): { devJumpTick?: number } {
+  if (!dev) return {};
+  const m = /^jump(\d{1,6})$/.exec(new URLSearchParams(search).get('dev') ?? '');
+  return m ? { devJumpTick: Number(m[1]) } : {};
+}
+
+export async function connectCreate(name: string, extra: { devJumpTick?: number } = {}): Promise<RoomLike> {
   try {
-    return wrap(await new Client(serverUrl()).create('match', { name }));
+    return wrap(await new Client(serverUrl()).create('match', { name, ...extra }));
   } catch (err) {
     return rethrow(err);
   }

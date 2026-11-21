@@ -1,12 +1,14 @@
-import { unitDefFast, type GameEvent, type UpgradeId } from '@dorandi/logic';
+import { unitDefFast, type ClientView, type GameData, type GameEvent, type UpgradeId } from '@dorandi/logic';
 import type { Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
+import { rightNotices } from '../online/models';
+import { renderRows, renderTop } from '../online/panels';
 import type { LaneScene } from '../LaneScene';
 import { playSfx } from '../sfx';
 import { dexHtml } from './dex';
 import { el, onAction, setHtml } from './dom';
 import { renderHelper } from './helper';
-import { renderHud } from './hud';
+import { renderAlert, renderHud } from './hud';
 import { activeNotice, nextUnitId, rejectText, selectedSlot, type Notice } from './models';
 import { renderBottom, renderRight, upgradesHtml } from './panels';
 import { resultHtml } from './result';
@@ -23,7 +25,10 @@ export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: 
 const GAME_ACTIONS: ReadonlySet<string> = new Set(['summon', 'convert', 'combine', 'sell', 'upgrade']);
 const PRESS_MS = 120;
 
-export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, opts: { online?: boolean } = {}): { resetUi: () => void } {
+/** Online screens also read the server view for the scoreboard and the two-line top bar. */
+export interface MountOpts { online?: boolean; view?: () => ClientView | null; data?: GameData }
+
+export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, opts: MountOpts = {}): { resetUi: () => void } {
   const online = opts.online === true;
   scene.selectedId = null;
   let displayedCard: ReturnType<typeof renderBottom> | null = null;
@@ -148,10 +153,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const selected = selectedSlot(s, scene.selectedId);
     if (selected === null) scene.selectedId = null;
     const now = performance.now();
-    renderHud(s, driver.paused, activeNotice(notice, now));
-    el('round-banner').textContent = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? '';
-    renderHelper(s, helperOpen);
-    renderRight(s);
+    const view = online && opts.data ? opts.view?.() ?? null : null;
+    if (view && opts.data) {
+      renderTop(view, opts.data);
+      renderRows(view, opts.data);
+      renderAlert(s);
+    } else {
+      renderHud(s, driver.paused, activeNotice(notice, now));
+      renderHelper(s, helperOpen);
+    }
+    el('round-banner').textContent = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? (view ? activeNotice(notice, now) ?? '' : '');
+    renderRight(s, view ? { online: !driver.readOnly, notices: rightNotices(view, now) } : {});
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');
     displayedCard = renderBottom(s, selected);
     // online the team result screen (Task 19) replaces the 1-player result window

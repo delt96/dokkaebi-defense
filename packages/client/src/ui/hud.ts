@@ -15,6 +15,11 @@ export function renderHud(state: GameState, paused: boolean, notice: string | nu
       <span class="enemies">${esc(m.enemyText)}</span>
       <span class="gauge" title="장승: ${crack}"><i style="width:${Math.round(m.danger * 100)}%"></i></span>
     </div>`);
+  renderAlert(state);
+}
+
+/** The red edge glow and the over-limit countdown; the online top bar leaves them to this. */
+export function renderAlert(state: GameState): void {
   const danger = state.phase === 'round' && state.overLimitTicks > 0;
   el('alert').classList.toggle('on', danger);
   const remaining = Math.ceil(state.data.balance.limitSeconds - state.overLimitTicks * state.data.balance.tickMs / 1000);
