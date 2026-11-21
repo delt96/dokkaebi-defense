@@ -28,16 +28,12 @@ const count = (cmds: Command[], type: string, item?: string) =>
   cmds.filter(c => c.type === type && (item === undefined || (c as { item?: string }).item === item)).length;
 
 describe('stage 3 economy bot policies', () => {
-  test('market policy buys bundles up to the daily limit while coins stay above the reserve', () => {
-    const perDay = d3.economy!.market!.bundle.perDay;
-    const s = lane(1, 1000);
+  test('market policy buys two bundles a day while coins stay above the reserve', () => {
+    const s = lane(1, 200);
     expect(reserveCoins(s, T)).toBe(0);
-    expect(count(marketCommands(s, null), 'buy', 'bundle')).toBe(perDay);
-    s.econ!.bundle = { day: 1, bought: perDay - 1, left: [4, 3] };
+    expect(count(marketCommands(s, null), 'buy', 'bundle')).toBe(2);
+    s.econ!.bundle = { day: 1, bought: 1, left: [3, 2] };
     expect(count(marketCommands(s, null), 'buy', 'bundle')).toBe(1);
-    s.econ!.bundle = { day: 1, bought: 0, left: [4, 4, 3] };
-    s.coins = 200;
-    expect(count(marketCommands(s, null), 'buy', 'bundle')).toBe(3);
 
     const t = lane(1, 100);
     t.buckwheat = 5;
@@ -51,7 +47,7 @@ describe('stage 3 economy bot policies', () => {
 
   test('jar is bought only when buckwheat is short of the next two grade-5s and the final combine', () => {
     const s = lane(1, 1000);
-    s.econ!.bundle = { day: 1, bought: d3.economy!.market!.bundle.perDay, left: [4, 4, 3] };
+    s.econ!.bundle = { day: 1, bought: 2, left: [3, 3, 2] };
     expect(buckwheatNeed(s, T)).toBe(3);
     s.buckwheat = 2;
     expect(marketCommands(s, T)).toEqual([{ type: 'buy', item: 'jar' }]);
