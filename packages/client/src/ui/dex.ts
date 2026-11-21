@@ -10,7 +10,7 @@ import { withRo } from './josa';
  * material tree is shown, `board` the def ids on the player's board that the tree marks with ✓, `unfold` the branches
  * under a ✓ material that are unfolded (branchKey; the rest stay folded).
  */
-export interface DexExtra { back?: readonly DexStep[]; open?: readonly string[]; board?: readonly string[]; unfold?: readonly string[] }
+export interface DexExtra { recent?: readonly string[]; back?: readonly DexStep[]; open?: readonly string[]; board?: readonly string[]; unfold?: readonly string[] }
 
 /** `story`: stage 3 lets a normal grade-6 row be picked as the story request's target. */
 export function dexHtml(data: GameData, story?: { target: string | null; canSet: boolean }, filter = 'all', query = '', round = 1, extra: DexExtra = {}, more: { kind?: string; role?: string } = {}): string {
@@ -19,7 +19,7 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
   const visible = entries.filter(d => dexShows(data, d, filter, query, more));
   const kind = more.kind ?? 'all';
   const role = more.role ?? 'all';
-  const narrowed = filter !== 'all' || query !== '' || kind !== 'all' || role !== 'all';
+  const narrowed = (browsable && (filter !== 'all' || query !== '')) || kind !== 'all' || role !== 'all';
   const nameOf = new Map(entries.map(d => [d.id, d.name]));
   const open = new Set(extra.open ?? []);
   const rows = visible.map(d => {
@@ -51,7 +51,14 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
   const back = backName ? `<button class="dex-back" data-action="dexBack">← ${esc(withRo(backName))}</button>` : '';
   return `<div class="modal dex-modal${browsable ? ' dex-browser' : ''}"><div class="modal-head">도감 <span class="dex-head-actions">${back}<button data-action="closeModal">닫기</button></span></div>
     <div>${esc(summonOddsText(data, round))}</div>
-    <div class="dex-top">${browsable ? `<form class="dex-search"><input type="search" name="query" aria-label="이름·재료 검색" placeholder="이름·재료 검색" value="${esc(query)}"><button>검색</button></form>` : ''}${summary}</div>${browsable ? `<div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div>` : ''}<div class="dex-chips" role="group" aria-label="도감 계열"><span class="dex-filter-label">계열</span>${kindRow}</div><div class="dex-chips" role="group" aria-label="도감 역할"><span class="dex-filter-label">역할</span>${roleRow}</div>${browsable ? '<div class="dex-scroll">' : ''}<table class="dex"><thead><tr><th>등급</th><th>이름</th><th>재료</th></tr></thead><tbody>${rows || '<tr><td colspan="3">찾는 유닛이 없습니다.</td></tr>'}</tbody></table>${browsable ? '</div>' : ''}</div>`;
+    <div class="dex-searchbox"><div class="dex-top">${browsable ? `<form class="dex-search"><input type="search" name="query" aria-label="이름·재료 검색" placeholder="이름·재료 검색" value="${esc(query)}"><button>검색</button></form>` : ''}${summary}</div>${browsable ? recentHtml(extra.recent ?? [], query) : ''}</div>${browsable ? `<div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div>` : ''}<div class="dex-chips" role="group" aria-label="도감 계열"><span class="dex-filter-label">계열</span>${kindRow}</div><div class="dex-chips" role="group" aria-label="도감 역할"><span class="dex-filter-label">역할</span>${roleRow}</div>${browsable ? '<div class="dex-scroll">' : ''}<table class="dex"><thead><tr><th>등급</th><th>이름</th><th>재료</th></tr></thead><tbody>${rows || '<tr><td colspan="3">찾는 유닛이 없습니다.</td></tr>'}</tbody></table>${browsable ? '</div>' : ''}</div>`;
+}
+
+/** The recent searches under the search box: a chip runs its search, its × removes it. Hidden by CSS while a search shows and the box is not focused. */
+function recentHtml(recent: readonly string[], query: string): string {
+  if (!recent.length) return '';
+  const chips = recent.map(t => `<span class="recent-chip"><button class="recent-run" data-action="dexRecent" data-arg="${esc(t)}" title="${esc(t)}">${esc(t)}</button><button class="recent-del" data-action="dexRecentDel" data-arg="${esc(t)}" aria-label="${esc(t)} 삭제" title="삭제">×</button></span>`).join('');
+  return `<div class="dex-recent" data-searching="${query !== ''}"><span class="dex-filter-label">최근</span>${chips}</div>`;
 }
 
 /** A material name that jumps to its own entry; `from` is the entry it is shown in, for the back button. */

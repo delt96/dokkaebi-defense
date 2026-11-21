@@ -4,6 +4,7 @@ import { createGame, loadGameData } from '@dorandi/logic';
 import { GameDriver } from '../src/driver';
 import { dexHtml } from '../src/ui/dex';
 import { roleText, unitRoles } from '../src/ui/dex-roles';
+import { RECENT_KEY, VIEW_KEY, addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from '../src/ui/dex-memory';
 import { dexEntries, dexGo, dexNavStart, dexShows } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
 import { STAGE_HTML, key, press } from './fixtures/net';
@@ -79,7 +80,7 @@ describe('dex filters', () => {
     const html = dexHtml(d2, undefined, 'all', '', 1, {}, { role: 'physVuln' });
     expect(ids(html)).toContain('dadeumi');
     expect(html).toContain('data-action="dexRole"');
-    expect(html).not.toContain('dex-search');
+    expect(html).not.toContain('class="dex-search"');
     expect(html).not.toContain('data-action="dexFilter"');
     expect(html).toContain('필터 초기화');
   });
@@ -100,7 +101,7 @@ class FakeScene {
 }
 
 describe('dex filters in the mounted ui', () => {
-  beforeEach(() => { document.body.innerHTML = STAGE_HTML; });
+  beforeEach(() => { document.body.innerHTML = STAGE_HTML; localStorage.clear(); });
   afterEach(() => { vi.restoreAllMocks(); });
 
   test('chips filter, a role chip toggles off, reset clears everything, and the search keeps working', () => {
@@ -141,5 +142,111 @@ describe('dex filters in the mounted ui', () => {
     expect(ids(modal.innerHTML).length).toBeLessThan(d2.units.length);
     key('KeyD');
     expect(modal.querySelector('.dex-modal')).toBeNull();
+  });
+});
+
+describe('dex memory', () => {
+  const fake = () => { const m = new Map<string, string>(); return { m, getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v); } }; };
+  const broken = { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); } };
+
+  test('recent searches: newest first, no duplicates, five at most, blanks ignored', () => {
+    let list: string[] = [];
+    for (const t of ['a', 'b', 'c', 'd', 'e', 'f']) list = addRecent(list, t);
+    expect(list).toEqual(['f', 'e', 'd', 'c', 'b']);
+    expect(addRecent(list, 'd')).toEqual(['d', 'f', 'e', 'c', 'b']);
+    expect(addRecent(list, '  d  ')).toEqual(['d', 'f', 'e', 'c', 'b']);
+    expect(addRecent(list, '   ')).toEqual(list);
+    expect(removeRecent(list, 'e')).toEqual(['f', 'd', 'c', 'b']);
+  });
+
+  test('recent searches and the view survive a reload through storage', () => {
+    const s = fake();
+    saveRecent(['x', 'y'], s);
+    saveView({ filter: '5', kind: 'magical', role: 'slow', query: '짚' }, s);
+    expect(loadRecent(s)).toEqual(['x', 'y']);
+    expect(loadView(s)).toEqual({ filter: '5', kind: 'magical', role: 'slow', query: '짚' });
+  });
+
+  test('without usable storage everything falls back and nothing throws', () => {
+    expect(() => saveRecent(['x'], broken)).not.toThrow();
+    expect(() => saveView({ filter: 'all', kind: 'all', role: 'all', query: '' }, broken)).not.toThrow();
+    expect(loadRecent(broken)).toEqual([]);
+    expect(loadView(broken)).toEqual({ filter: 'all', kind: 'all', role: 'all', query: '' });
+    expect(loadRecent(null)).toEqual([]);
+    const bad = fake();
+    bad.m.set(RECENT_KEY, '{oops'); bad.m.set(VIEW_KEY, '7');
+    expect(loadRecent(bad)).toEqual([]);
+    expect(loadView(bad).role).toBe('all');
+  });
+
+  test('chips render under the search box with a remove button', () => {
+    const html = dexHtml(d3, undefined, 'all', '', 1, { recent: ['짚', '북'] });
+    expect(html).toContain('data-action="dexRecent" data-arg="짚"');
+    expect(html).toContain('data-action="dexRecentDel" data-arg="북"');
+    expect(dexHtml(d3)).not.toContain('dex-recent');
+    expect(dexHtml(d2, undefined, 'all', '', 1, { recent: ['짚'] })).not.toContain('dex-recent');
+  });
+});
+
+describe('dex memory in the mounted ui', () => {
+  beforeEach(() => { document.body.innerHTML = STAGE_HTML; localStorage.clear(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+  const search = (modal: HTMLElement, text: string) => {
+    modal.querySelector<HTMLInputElement>('.dex-search input')!.value = text;
+    modal.querySelector<HTMLFormElement>('.dex-search')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  };
+
+  test('searches become chips; a chip reruns its search; × removes it; reload restores them', () => {
+    mountUi(new GameDriver(createGame(d3, 1)), new FakeScene() as never);
+    const modal = document.getElementById('modal')!;
+    press(document.querySelector('[data-action="openDex"]'));
+    search(modal, '숯다리미');
+    search(modal, '약연');
+    search(modal, '숯다리미');
+    const chips = () => Array.from(modal.querySelectorAll('.recent-run')).map(b => b.textContent);
+    expect(chips()).toEqual(['숯다리미', '약연']);
+    press(modal.querySelector('.recent-run[data-arg="약연"]'));
+    expect(ids(modal.innerHTML)).toContain('yagyeon');
+    expect(chips()).toEqual(['약연', '숯다리미']);
+    press(modal.querySelector('.recent-del[data-arg="숯다리미"]'));
+    expect(chips()).toEqual(['약연']);
+    expect(JSON.parse(localStorage.getItem('dorandi.dexRecent')!)).toEqual(['약연']);
+
+    document.body.innerHTML = STAGE_HTML;
+    mountUi(new GameDriver(createGame(d3, 1)), new FakeScene() as never);
+    press(document.querySelector('[data-action="openDex"]'));
+    expect(Array.from(document.querySelectorAll('.recent-run')).map(b => b.textContent)).toEqual(['약연']);
+  });
+
+  test('closing and reopening keeps the search text and filters, a reload too', () => {
+    mountUi(new GameDriver(createGame(d3, 1)), new FakeScene() as never);
+    const modal = document.getElementById('modal')!;
+    press(document.querySelector('[data-action="openDex"]'));
+    press(modal.querySelector('[data-action="dexKind"][data-arg="magical"]'));
+    press(modal.querySelector('[data-action="dexRole"][data-arg="magVuln"]'));
+    search(modal, '다리미');
+    // buttons, not the D key: earlier tests' mounts still listen on window and would write the same storage
+    press(modal.querySelector('[data-action="closeModal"]'));
+    expect(modal.querySelector('.dex-modal')).toBeNull();
+    press(document.querySelector('[data-action="openDex"]'));
+    expect(modal.querySelector<HTMLInputElement>('.dex-search input')!.value).toBe('다리미');
+    expect(ids(modal.innerHTML)).toEqual(['sutdarimi']);
+    expect(modal.querySelector('[data-action="dexRole"][data-arg="magVuln"]')!.getAttribute('aria-pressed')).toBe('true');
+
+    document.body.innerHTML = STAGE_HTML;
+    mountUi(new GameDriver(createGame(d3, 1)), new FakeScene() as never);
+    press(document.querySelector('[data-action="openDex"]'));
+    expect(ids(document.getElementById('modal')!.innerHTML)).toEqual(['sutdarimi']);
+  });
+
+  test('a throwing localStorage does not break the dex', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('denied'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('denied'); });
+    mountUi(new GameDriver(createGame(d3, 1)), new FakeScene() as never);
+    const modal = document.getElementById('modal')!;
+    press(document.querySelector('[data-action="openDex"]'));
+    search(modal, '약연');
+    expect(ids(modal.innerHTML)).toContain('yagyeon');
+    expect(modal.querySelector('.recent-run')!.textContent).toBe('약연');
   });
 });

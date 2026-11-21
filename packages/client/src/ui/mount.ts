@@ -9,6 +9,7 @@ import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
 import { playSfx } from '../sfx';
 import { dexHtml } from './dex';
+import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, econTopHtml, incomingModel, marketModel, noteText, questChips, shipModel, storyModel, tameModel,
   tameRejectText, transferEndText, type EconTab,
@@ -51,7 +52,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   scene.selectedId = null;
   let displayedCard: ReturnType<typeof renderBottom> | null = null;
   let banner: Notice | null = null;
-  let dex: DexNav = dexNavStart();
+  // the dex keeps its filters, search and recent searches across openings (and, in localStorage, across visits)
+  let dex: DexNav = { ...dexNavStart(), ...loadView() };
+  let dexRecent = loadRecent();
+  const dexRemember = () => saveView({ filter: dex.filter, kind: dex.kind, role: dex.role, query: dex.query });
+  const dexSearched = (term: string) => { dexRecent = addRecent(dexRecent, term); saveRecent(dexRecent); };
   // the list the dex scroll position belongs to: a new filter or search starts at the top
   let dexListKey = '';
   let helperOpen = false;
@@ -154,13 +159,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'askForfeit': modal = 'forfeit'; break;
       case 'forfeit': opts.actions?.forfeit(); modal = null; break;
       case 'unitDetails': modal = 'unitDetails'; break;
-      case 'openDex': dex = dexNavStart(arg === 'story' ? '6' : 'all'); modal = 'dex'; break;
+      case 'openDex': dex = arg === 'story' ? dexNavStart('6') : { ...dex, back: [], focus: null, open: [], unfold: [] }; modal = 'dex'; break;
       case 'dexFilter':
         dex = { ...dex, filter: arg, query: dexQueryNow() };
         break;
       case 'dexKind': dex = { ...dex, kind: arg, query: dexQueryNow() }; break;
       case 'dexRole': dex = { ...dex, role: dex.role === arg ? 'all' : arg, query: dexQueryNow() }; break;
       case 'dexReset': dex = { ...dex, filter: 'all', kind: 'all', role: 'all', query: '' }; break;
+      case 'dexRecent': dex = { ...dex, query: arg }; dexSearched(arg); break;
+      case 'dexRecentDel': dexRecent = removeRecent(dexRecent, arg); saveRecent(dexRecent); break;
       case 'dexGo': {
         const [target = '', from = ''] = arg.split('@');
         dex = dexGo(driver.state.data, dex, target, from);
@@ -170,14 +177,21 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'dexTree': dex = dexToggle(dex, arg); break;
       case 'dexFold': dex = dexFold(dex, arg); break;
       case 'openUpgrades': modal = 'upgrades'; break;
-      case 'closeModal': modal = null; break;
+      case 'closeModal':
+        // text typed but not searched is kept too
+        if (modal === 'dex' && el('modal').querySelector('.dex-search')) dex = { ...dex, query: dexQueryNow() };
+        dexRemember();
+        modal = null;
+        break;
       case 'toggleFx': scene.setReduceEffects(!scene.reduceEffects); break;
       case 'restart': hooks.onRestart?.(); break;
     }
+    if (action.startsWith('dex')) dexRemember();
     render();
     if (action === 'dexFilter' || action === 'dexKind' || action === 'dexRole') {
       el('modal').querySelector<HTMLButtonElement>(`.dex-filters [data-action="${action}"][aria-pressed="true"], .dex-chips [data-action="${action}"][aria-pressed="true"]`)?.focus();
     }
+    if (action === 'dexRecent' || action === 'dexRecentDel') el('modal').querySelector<HTMLInputElement>('.dex-search input')?.focus();
     if (action === 'dexReset') el('modal').querySelector<HTMLButtonElement>('.dex-chips [aria-pressed="true"]')?.focus();
     if (action === 'dexTree') el('modal').querySelector<HTMLButtonElement>(`.dex-tree-toggle[data-arg="${arg}"]`)?.focus({ preventScroll: true });
     if (action === 'dexFold') el('modal').querySelector<HTMLButtonElement>(`.dex-fold[data-arg="${arg}"]`)?.focus({ preventScroll: true });
@@ -207,6 +221,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (!form.matches('.dex-search')) return;
     ev.preventDefault();
     dex = { ...dex, query: String(new FormData(form).get('query') ?? '').trim() };
+    dexSearched(dex.query);
+    dexRemember();
     render();
     el('modal').querySelector<HTMLInputElement>('.dex-search input')?.focus();
   });
@@ -374,7 +390,7 @@ ${dex.kind}
 ${dex.role}
 ${dex.query}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data, dexStory(), dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold }, { kind: dex.kind, role: dex.role }) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data, dexStory(), dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent }, { kind: dex.kind, role: dex.role }) : modal === 'upgrades' ? upgradesHtml(s) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
