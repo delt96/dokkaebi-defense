@@ -197,7 +197,7 @@ describe('dex links in the mounted ui', () => {
     press(modal.querySelector('[data-action="dexFilter"][data-arg="6"]'));
     press(modal.querySelector('[data-action="dexTree"][data-arg="bihyeongrang"]'));
     const treeRow = modal.querySelector('tr[data-dex-id="bihyeongrang"] + tr.dex-tree-row')!;
-    expect([...treeRow.querySelector('.dex-tree')!.children].map(li => li.className)).toEqual(['missing', 'missing', 'have']);
+    expect(Array.from(treeRow.querySelector('.dex-tree')!.children).map(li => li.className)).toEqual(['missing', 'missing', 'have']);
     press(modal.querySelector('tr[data-dex-id="bihyeongrang"] [data-action="dexGo"][data-arg="top@bihyeongrang"]'));
     expect(modal.querySelector('[data-action="dexFilter"][aria-pressed="true"]')!.getAttribute('data-arg')).toBe('all');
     expect(modal.querySelector('tr[data-dex-id="top"]')!.classList.contains('dex-flash')).toBe(true);
