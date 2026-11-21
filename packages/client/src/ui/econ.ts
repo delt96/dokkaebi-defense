@@ -1,7 +1,8 @@
 import {
-  toTicks, type ClientView, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
+  toTicks, type ClientView, type EconMine, type EconNote, type GameData, type GameState, type RejectReason, type TransferEndView,
 } from '@dorandi/logic';
 import { esc } from './dom';
+import { withJosa } from './josa';
 
 // Stage 3 economy on screen: the market panel (B), the delivery and tame prompts over the top of the lane and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
@@ -13,13 +14,6 @@ const nameOf = (data: GameData, id: string): string => data.units.find(u => u.id
 const gradeOf = (data: GameData, id: string): number => data.units.find(u => u.id === id)?.grade ?? 0;
 const secondsOf = (data: GameData, ticks: number): number => Math.max(0, Math.ceil((ticks * data.balance.tickMs) / 1000));
 const freeSlots = (state: GameState): number[] => state.slots.flatMap((u, i) => (!u && state.open[i] ? [i] : []));
-
-/** Korean particle after a word: 을/를, 이/가, 와/과 by whether the last syllable has a final consonant. */
-export function josa(word: string, withFinal: string, withoutFinal: string): string {
-  const code = word.charCodeAt(word.length - 1) - 0xac00;
-  if (code < 0 || code > 11171) return `${withFinal}(${withoutFinal})`;
-  return code % 28 ? withFinal : withoutFinal;
-}
 
 // ---------- market ----------
 
@@ -41,8 +35,9 @@ export function marketModel(econ: EconMine, state: GameState): MarketModel | nul
   const odds = cards.length === 1 ? `다음은 ${cards[0]!.grade}등급 확정` : cards.map(d => `${d.grade}등급 ${d.left}/${total}`).join(' · ');
   const short = (n: number | undefined) => (n ? `조합비까지 ${n}냥 부족` : null);
   const jarPeriod = Math.max(1, Math.ceil(Math.max(1, state.round) / def.jar.periodRounds));
+  const nextJar = `다음 단지 ${jarPeriod * def.jar.periodRounds + 1}라운드부터`;
   const jarLines = m.jar.left === 0
-    ? [`다음 단지는 ${jarPeriod * def.jar.periodRounds + 1}라운드부터`]
+    ? [`단지는 ${def.jar.periodRounds}라운드마다 ${def.jar.perPeriod}번`]
     : m.jar.missed
       ? ['이번엔 묵 확정']
       : [`묵 ${pct(m.jar.chance)} · 재료 ${pct(1 - m.jar.chance)}`, '이번에 재료가 나오면 다음 묵 확정'];
@@ -56,7 +51,9 @@ export function marketModel(econ: EconMine, state: GameState): MarketModel | nul
       },
       {
         item: 'jar', name: '묵장수 단지', price: m.jar.price, left: `남은 ${m.jar.left}/${def.jar.perPeriod}번`,
-        lines: jarLines, blocked: m.why.jar ? BUY_BLOCK[m.why.jar] ?? '살 수 없음' : null, short: short(m.shortAfter?.jar),
+        // the jar has its own period, so its sold-out text names the next jar rather than the next market day
+        lines: jarLines, blocked: m.why.jar === 'soldOut' ? nextJar : m.why.jar ? BUY_BLOCK[m.why.jar] ?? '살 수 없음' : null,
+        short: short(m.shortAfter?.jar),
       },
     ],
   };
@@ -83,7 +80,7 @@ export function shipModel(econ: EconMine, state: GameState, view: ClientView | n
     if (t.offer.from === me) {
       return { ...empty, reward, cancel: true, lines: [`${nameOf(state.data, t.offer.defId)} → ${t.offer.to} ${seatName(t.offer.to)} · ${left}초`, '받을지 기다리는 중 · 그동안 잠김'] };
     }
-    return { ...empty, reward, lines: [`${seatName(t.offer.from)}${josa(seatName(t.offer.from), '이', '가')} 보낸 짐을 받을지 고르세요`] };
+    return { ...empty, reward, lines: [`${withJosa(seatName(t.offer.from), '이/가')} 보낸 짐을 받을지 고르세요`] };
   }
   if (t.ready > state.round) return { ...empty, reward, lines: [`다음 배달 ${t.ready}라운드부터 (${t.ready - state.round}라운드 남음)`] };
   const unit = selected === null ? null : state.slots[selected] ?? null;
@@ -102,7 +99,7 @@ export function shipModel(econ: EconMine, state: GameState, view: ClientView | n
     });
   return {
     ...empty, reward, unit: { slot: selected!, unitId: unit.id }, targets,
-    lines: [targets.length ? `${unitDef!.name}(${unitDef!.grade}등급)을 누구에게?` : '받을 수 있는 고개가 없습니다'],
+    lines: [targets.length ? `${withJosa(`${unitDef!.name}(${unitDef!.grade}등급)`, '을/를')} 누구에게?` : '받을 수 있는 고개가 없습니다'],
   };
 }
 
@@ -120,7 +117,7 @@ export function incomingModel(econ: EconMine, state: GameState, view: ClientView
   const span = toTicks(def.offerSeconds);
   const left = Math.max(0, offer.deadlineTick - state.tick);
   return {
-    text: `${from}${josa(from, '이', '가')} ${unit}${josa(unit, '을', '를')} 보냅니다`,
+    text: `${withJosa(from, '이/가')} ${withJosa(unit, '을/를')} 보냅니다`,
     reward: econ.transfer && !econ.transfer.rewarded && econ.transfer.rewardsLeft > 0 ? `받으면 묵 +${def.reward}` : null,
     slot, secondsLeft: secondsOf(state.data, left), frac: Math.min(1, left / span),
   };
@@ -215,7 +212,7 @@ export function questChips(econ: EconMine, state: GameState, view: ClientView | 
   if (team && econ.team && view && !econ.team.paid && round >= team.fromRound && round <= team.toRound) {
     const alive = view.rows.filter(r => r.status === 'alive');
     const sum = alive.reduce((a, r) => a + r.count, 0);
-    out.push({ title: '서낭당 정성', text: `여섯 고개 잡귀 ${sum}/${alive.length * team.perSurvivor} · ${econ.team.streak}/${team.nights}밤` });
+    out.push({ title: '서낭당 정성', text: `살아 있는 고개 잡귀 ${sum}/${alive.length * team.perSurvivor} · ${econ.team.streak}/${team.nights}밤` });
   }
 
   for (const rec of econ.events) {
@@ -259,7 +256,7 @@ export function storyModel(econ: EconMine, state: GameState): StoryModel | null 
   const matLine = recipe && v ? recipe.materials.map((id, i) => `${nameOf(data, id)}${NBSP}${v.have[i] ? '✓' : '부족'}`).join(' · ') : null;
   const ledger = v ? [`완성${NBSP}${v.total} · 내 재료${NBSP}${v.paid} · 지원${NBSP}+${v.support}`, `이번 판 지원 ${v.cap} 중 ${v.used} 사용`] : [];
   const shortfalls: string[] = [];
-  if (v && v.short > 0) shortfalls.push(`유닛 값 ${v.short} 부족`);
+  if (v && v.short > 0) shortfalls.push(`유닛 값 ${v.short} 더 필요`);
   if (s.awarded) {
     return { title: '설화 의뢰', lines: ['이번 판 설화 완성품을 받았습니다.'], shortfalls: [], offer: false, target: s.target, canClear: false, done: true };
   }
@@ -273,7 +270,7 @@ export function storyModel(econ: EconMine, state: GameState): StoryModel | null 
       title: `설화 의뢰 · ${s.active.round}라운드`, offer: true, target: s.active.target, canClear: false, done: false, shortfalls,
       lines: [
         target, matLine ?? '', `우리 고개 잡귀 ${Math.min(econ.roundKills, def.kills)}/${def.kills}`,
-        `${s.active.round}라운드가 끝나면 ${heldText}${josa(heldText, '과', '와')} ${def.fee.coins}냥·묵 ${def.fee.buckwheat}개를 내고 ${target}${josa(target, '을', '를')} 받습니다`,
+        `${s.active.round}라운드가 끝나면 ${withJosa(heldText, '과/와')} ${def.fee.coins}냥·묵 ${def.fee.buckwheat}개를 내고 ${withJosa(target, '을/를')} 받습니다`,
         ...ledger,
       ],
     };
@@ -310,7 +307,29 @@ export function noteText(ev: EconNote, data: GameData): string | null {
     }
     case 'storyOffer': return `설화 의뢰: ${nameOf(data, ev.target)} · ${nameOf(data, ev.missing)} 자리`;
     case 'storyEnd': return END_TEXT[ev.reason] ?? null;
-    case 'tame': return `길들이기 성공 · ${nameOf(data, ev.defId)}${josa(nameOf(data, ev.defId), '이', '가')} 진영에 들어왔습니다`;
+    case 'tame': return `길들이기 성공 · ${withJosa(nameOf(data, ev.defId), '이/가')} 우리 편이 됐습니다`;
+  }
+}
+
+/**
+ * How a delivery ended, from the seat `me`'s side, as the server decided it. Nothing when the match ended with the offer
+ * open: the server sends no end then, and the result screen takes over.
+ */
+export function transferEndText(end: TransferEndView, me: number, data: GameData): string {
+  const unit = nameOf(data, end.defId);
+  const sender = me === end.from;
+  const mine = end.by === me;
+  switch (end.outcome) {
+    case 'accepted': return sender ? (unit ? `${unit} 배달을 마쳤습니다` : '배달을 마쳤습니다') : unit ? `${withJosa(unit, '을/를')} 받았습니다` : '배달을 받았습니다';
+    case 'declined':
+      if (mine) return sender ? '보내기를 취소했습니다' : '배달을 사양했습니다';
+      return sender ? '상대가 배달을 사양했습니다' : '보내는 쪽이 배달을 취소했습니다';
+    case 'expired': return '시간이 지나 배달이 끝났습니다';
+    case 'invalid':
+      if (end.cause === 'eliminated') return mine ? '고개가 뚫려 배달이 취소됐습니다' : '상대 고개가 뚫려 배달이 취소됐습니다';
+      if (end.cause === 'disconnected') return mine ? '연결이 끊겨 배달이 취소됐습니다' : '상대 연결이 끊겨 배달이 취소됐습니다';
+      if (end.cause === 'unitGone') return '보낼 유닛이 없어져 배달이 취소됐습니다';
+      return '배달이 취소됐습니다';
   }
 }
 
@@ -321,8 +340,10 @@ const button = (action: string, arg: string, label: string, disabled = false, cl
 
 export type EconTab = 'market' | 'story';
 
-export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: ShipModel | null, story: StoryModel | null, opts: { storyAcked: boolean }): string {
-  const tabs = `<div class="econ-head">${button('econTab', 'market', '장터', false, tab === 'market' ? 'on' : '')}${story ? button('econTab', 'story', story.offer ? '의뢰 !' : '의뢰', false, tab === 'story' ? 'on' : '') : ''}${button('toggleMarket', '', 'B 닫기', false, 'econ-close')}</div>`;
+/** `unread`: a story request came while the market was open; its tab is marked until it is looked at. */
+export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: ShipModel | null, story: StoryModel | null, unread = false): string {
+  const storyTab = story ? button('econTab', 'story', story.offer ? '의뢰 !' : '의뢰', false, [tab === 'story' ? 'on' : '', unread ? 'unread' : ''].filter(Boolean).join(' ')) : '';
+  const tabs = `<div class="econ-head">${button('econTab', 'market', '장터', false, tab === 'market' ? 'on' : '')}${storyTab}${button('toggleMarket', '', 'B 닫기', false, 'econ-close')}</div>`;
   let body = '';
   if (tab === 'market' && market) {
     const shops = market.shops.map(s => `<section class="shop">
@@ -338,20 +359,21 @@ export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: Sh
     const lines = story.lines.filter(Boolean).map((l, i) => `<div class="${i === 0 && story.offer ? 'story-target' : 'shop-line'}">${esc(l)}</div>`).join('');
     const shorts = story.shortfalls.map(l => `<div class="shop-short">${esc(l)}</div>`).join('');
     const actions = story.offer
-      ? `<div class="story-actions">${opts.storyAcked ? '' : button('storyAccept', '', '받기')}${button('storyDecline', '', '의뢰 거절')}</div>`
+      ? `<div class="story-actions">${button('econClose', '', '닫기')}${button('storyDecline', '', '의뢰 거절')}</div>`
       : story.done ? '' : `<div class="story-actions">${button('openDex', '', story.target ? '목표 바꾸기' : '도감에서 목표 고르기')}${story.canClear ? button('storyTarget', '', '목표 해제') : ''}</div>`;
     body = `<div class="econ-sub">${esc(story.title)}</div><section class="shop">${lines}${shorts}${actions}</section>`;
   }
   return `<div class="econ-panel">${tabs}<div class="econ-body">${body}</div></div>`;
 }
 
-/** Prompts over the top of the lane: an incoming delivery, the own offer waiting, a tame chance. */
+/** Prompts over the top of the lane, one row each: an incoming delivery or the own offer waiting, and a tame chance. */
 export function econTopHtml(incoming: IncomingModel | null, outgoing: string | null, tame: TameModel | null): string {
   const parts: string[] = [];
   if (incoming) {
     const take = incoming.slot === null ? button('receive', '', '빈칸 없음', true) : button('receive', String(incoming.slot), `받기 · ${incoming.slot + 1}번 칸`);
-    parts.push(`<div class="prompt incoming"><div class="prompt-line"><b>${esc(incoming.text)}</b>${incoming.reward ? `<span class="prompt-gain">${esc(incoming.reward)}</span>` : ''}<span class="prompt-time">${incoming.secondsLeft}초</span></div>
-      <div class="prompt-line">${take}${button('refuse', '', '사양')}<span class="prompt-hint">${incoming.slot === null ? '칸을 비우면 받을 수 있습니다' : '빈칸을 누르면 받을 칸이 바뀝니다'}</span></div>
+    // one row, so two prompts still end above the top lane; the hint rides on the row's tooltip
+    const hint = incoming.slot === null ? '칸을 비우면 받을 수 있습니다' : '빈칸을 누르면 받을 칸이 바뀝니다';
+    parts.push(`<div class="prompt incoming" title="${esc(hint)}"><div class="prompt-line"><b>${esc(incoming.text)}</b>${incoming.reward ? `<span class="prompt-gain">${esc(incoming.reward)}</span>` : ''}<span class="prompt-time">${incoming.secondsLeft}초</span>${take}${button('refuse', '', '사양')}</div>
       <i class="prompt-bar"><i style="width:${Math.round(incoming.frac * 100)}%"></i></i></div>`);
   } else if (outgoing) {
     parts.push(`<div class="prompt"><div class="prompt-line"><span>${esc(outgoing)}</span>${button('shipCancel', '', '취소')}</div></div>`);

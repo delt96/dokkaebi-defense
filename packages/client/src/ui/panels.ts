@@ -3,8 +3,8 @@ import { GRADE_COLOR } from '../layout';
 import { combineNoteLines, combineOptions, rightModel, unitCard, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
 
-/** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. */
-export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean }
+/** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `badge`: a story request not yet looked at. */
+export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; badge?: boolean }
 
 export function renderRight(state: GameState, opts: RightOpts = {}): void {
   const m = rightModel(state);
@@ -19,7 +19,7 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     ${m.pending ? `<div class="res pending"><b>보관 중</b><span>${m.pending}</span></div>` : ''}
     <button data-action="convert" ${m.canConvert ? '' : 'disabled'}>불 바꾸기 (+${state.data.balance.tokens.toCoins}냥)</button>
     <button data-action="openUpgrades">강화</button>
-    ${opts.market === undefined ? '' : `<button data-action="toggleMarket" class="market-btn" aria-pressed="${opts.market}">장터 (B)</button>`}
+    ${opts.market === undefined ? '' : `<button data-action="toggleMarket" class="market-btn" aria-pressed="${opts.market}">장터 (B)${opts.badge ? '<span class="badge">의뢰</span>' : ''}</button>`}
     ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}`);
 }
 

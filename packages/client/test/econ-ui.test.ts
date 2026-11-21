@@ -4,11 +4,11 @@ import { createGame, econView, loadGameData, step, type ClientView, type EconMin
 import { forceRound, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import {
-  incomingModel, josa, marketModel, noteText, questChips, shipModel, storyModel, tameModel, tameRejectText,
+  incomingModel, marketModel, noteText, questChips, shipModel, storyModel, tameModel, tameRejectText, transferEndText,
 } from '../src/ui/econ';
 import { rejectText } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
-import { STAGE_HTML } from './fixtures/net';
+import { press, STAGE_HTML } from './fixtures/net';
 
 const d3 = loadGameData('stage3');
 const eco = d3.economy!;
@@ -66,6 +66,17 @@ describe('market text', () => {
     const m = marketModel(econOf(s), s)!;
     expect(m.shops[0]).toMatchObject({ left: `남은 0/${market.bundle.perDay}번`, blocked: '이번 장날 다 삼', lines: [`다음 장날 ${2 * market.dayRounds + 1}라운드부터`] });
   });
+
+  test('a sold-out jar names the next jar by its own period, not the market day', () => {
+    const jar = market.jar;
+    const s = lane(jar.periodRounds + 3);
+    s.econ!.jar = { period: 2, done: jar.perPeriod, missed: false };
+    const m = marketModel(econOf(s), s)!;
+    expect(m.shops[1]).toMatchObject({
+      left: `남은 0/${jar.perPeriod}번`, blocked: `다음 단지 ${2 * jar.periodRounds + 1}라운드부터`,
+      lines: [`단지는 ${jar.periodRounds}라운드마다 ${jar.perPeriod}번`],
+    });
+  });
 });
 
 describe('quest tracker text', () => {
@@ -107,7 +118,8 @@ describe('quest tracker text', () => {
     const q = lane(team.fromRound);
     const v = view(1, [{ seat: 1, name: '가', count: 10 }, { seat: 2, name: '나', count: 4 }, { seat: 3, name: '다', alive: false }]);
     const chips = questChips(econOf(q, { team: { streak: 2, paid: false } }), q, v);
-    expect(chips).toContainEqual({ title: '서낭당 정성', text: `여섯 고개 잡귀 14/${2 * team.perSurvivor} · 2/${team.nights}밤` });
+    // two seats alive here: the line names the living lanes, never a fixed count
+    expect(chips).toContainEqual({ title: '서낭당 정성', text: `살아 있는 고개 잡귀 14/${2 * team.perSurvivor} · 2/${team.nights}밤` });
   });
 });
 
@@ -144,6 +156,9 @@ describe('delivery prompt and countdown', () => {
     expect(m.targets).toEqual([{ seat: 2, label: '2 다라 · 쉬는 중', disabled: true }, { seat: 3, label: '3 마바 · 단절', disabled: true }]);
     expect(shipModel(econOf(s, { transfer: transfer() }), s, me, 1)!.lines[0]).toBe('강철이 · 히든은 보낼 수 없습니다');
     expect(shipModel(econOf(s, { transfer: transfer({ delivered: [unit.id] }) }), s, me, 0)!.lines[0]).toMatch(/받은 유닛은 다시 보낼 수 없습니다$/);
+    const sut = placeUnitForTest(s, 'sutdarimi', 2);
+    const two = view(1, [{ seat: 1, name: '가나' }, { seat: 2, name: '다라' }]);
+    expect(shipModel(econOf(s, { transfer: transfer() }), s, two, 2)!).toMatchObject({ lines: ['숯다리미(3등급)를 누구에게?'], unit: { slot: 2, unitId: sut.id } });
     m = shipModel(econOf(s, { transfer: transfer({ ready: 25 }) }), s, me, 0)!;
     expect(m.lines).toEqual(['다음 배달 25라운드부터 (3라운드 남음)']);
     expect(m.targets).toEqual([]);
@@ -188,26 +203,47 @@ describe('story request page', () => {
     ]);
     expect(m.shortfalls).toContain(`엽전 ${fee.coins - 40}냥 부족`);
     expect(m.shortfalls).toContain(`메밀묵 ${fee.buckwheat}개 부족`);
-    expect(m.shortfalls.some(x => /^유닛 값 \d+ 부족$/.test(x))).toBe(true);
+    expect(m.shortfalls.some(x => /^유닛 값 \d+ 더 필요$/.test(x))).toBe(true);
   });
 });
 
 describe('refusals', () => {
   test('every economy refusal has a line', () => {
-    for (const r of ['marketClosed', 'soldOut', 'badTarget', 'notOffered', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'locked', 'busy', 'cooldown', 'noJige', 'noOffer']) {
+    for (const r of ['marketClosed', 'soldOut', 'badTarget', 'notOffered', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'locked', 'busy', 'targetBusy', 'targetAway', 'cooldown', 'noJige', 'noOffer']) {
       expect(rejectText(r), r).toBeTruthy();
     }
+  });
+
+  test('a delivery refusal says whether the target is gone, away, or busy, and whether the busy one is me', () => {
+    expect(rejectText('targetNotAlive')).toBe('그 고개는 이미 뚫렸습니다');
+    expect(rejectText('targetAway')).toBe('그 고개는 연결이 끊겼습니다');
+    expect(rejectText('busy')).toBe('이미 배달을 주고받는 중입니다');
+    expect(rejectText('targetBusy')).toBe('상대가 다른 배달을 주고받는 중입니다');
+  });
+});
+
+describe('delivery end lines', () => {
+  const end = (outcome: 'accepted' | 'declined' | 'expired' | 'invalid', by: number | null = null, cause: 'eliminated' | 'disconnected' | 'unitGone' | null = null) =>
+    ({ from: 1, to: 2, defId: 'sutdarimi', outcome, by, cause });
+  test('each side reads the server reason from its own seat', () => {
+    const say = (e: ReturnType<typeof end>, me: number) => transferEndText(e, me, d3);
+    expect([say(end('accepted'), 1), say(end('accepted'), 2)]).toEqual(['숯다리미 배달을 마쳤습니다', '숯다리미를 받았습니다']);
+    expect([say(end('declined', 1), 1), say(end('declined', 1), 2)]).toEqual(['보내기를 취소했습니다', '보내는 쪽이 배달을 취소했습니다']);
+    expect([say(end('declined', 2), 1), say(end('declined', 2), 2)]).toEqual(['상대가 배달을 사양했습니다', '배달을 사양했습니다']);
+    expect(say(end('expired'), 1)).toBe('시간이 지나 배달이 끝났습니다');
+    expect([say(end('invalid', 2, 'disconnected'), 1), say(end('invalid', 2, 'eliminated'), 1)])
+      .toEqual(['상대 연결이 끊겨 배달이 취소됐습니다', '상대 고개가 뚫려 배달이 취소됐습니다']);
+    expect([say(end('invalid', 1, 'eliminated'), 1), say(end('invalid', 1, 'unitGone'), 2)])
+      .toEqual(['고개가 뚫려 배달이 취소됐습니다', '보낼 유닛이 없어져 배달이 취소됐습니다']);
   });
 });
 
 describe('notes and particles', () => {
   test('purchase, reward and taming lines', () => {
-    expect(josa('모루', '을', '를')).toBe('를');
-    expect(josa('천년 징', '을', '를')).toBe('을');
     expect(noteText({ type: 'buy', item: 'jar', defId: null, buckwheat: 1, jige: false }, d3)).toBe('단지에서 메밀묵 1개');
     expect(noteText({ type: 'buy', item: 'bundle', defId: 'moru', buckwheat: 0, jige: true }, d3)).toMatch(/^보따리에서 모루 \(\d등급\) · 지게 도깨비가 왔습니다!$/);
     expect(noteText({ type: 'questReward', quest: 'mission', coins: 30, buckwheat: 1, tokens: 0 }, d3)).toBe('쇠밥 한 끼 성공 · +30냥 · 묵 +1');
-    expect(noteText({ type: 'tame', enemyId: 1, defId: 'gangcheori', unitId: 2, slot: 0 }, d3)).toBe('길들이기 성공 · 강철이가 진영에 들어왔습니다');
+    expect(noteText({ type: 'tame', enemyId: 1, defId: 'gangcheori', unitId: 2, slot: 0 }, d3)).toBe('길들이기 성공 · 강철이가 우리 편이 됐습니다');
   });
 });
 
@@ -245,6 +281,42 @@ describe('market hotkey', () => {
     expect(panel()).toContain('헌 살림 보따리');
     keydown(window, { code: 'KeyB' });
     expect(panel()).toBe('');
+  });
+
+  test('a story request opens its page only over an idle left column; otherwise the 장터 button and the tab are marked', () => {
+    let clock = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    const scene = new FakeScene();
+    const driver = new GameDriver(createGame(d3, 1));
+    mountUi(driver, scene as never);
+    const s = driver.state;
+    forceRound(s, 31);
+    s.enemies = [];
+    placeUnitForTest(s, 'janggu', 0);
+    placeUnitForTest(s, 'moru', 1);
+    step(s, [{ type: 'storyTarget', id: 'cheonnyeonjing' }]);
+    const frame = () => { clock += 150; scene.onFrame?.(); };
+    press(document.querySelector('[data-action="toggleHelper"]'));
+    s.econ!.story.active = { target: 'cheonnyeonjing', missing: 1, round: 31 };
+    frame();
+    // the open helper stays; the request waits behind a mark
+    expect(panel()).toBe('');
+    expect(document.getElementById('left')!.textContent).toContain('조합 도우미 ▾');
+    expect(document.querySelector('.market-btn .badge')?.textContent).toBe('의뢰');
+    press(document.querySelector('.market-btn'));
+    expect(document.querySelector('.econ-head .unread')?.textContent).toBe('의뢰 !');
+    press(document.querySelector('.econ-head .unread'));
+    expect(panel()).toContain('설화 의뢰 · 31라운드');
+    expect(document.querySelector('.econ-head .unread')).toBeNull();
+    expect(document.querySelector('.market-btn .badge')).toBeNull();
+    // the page closes with 닫기; there is no 받기 that sends nothing
+    expect(Array.from(document.querySelectorAll('#econ-panel .story-actions button')).map(b => b.textContent)).toEqual(['닫기', '의뢰 거절']);
+    press(document.querySelector('[data-action="econClose"]'));
+    expect(panel()).toBe('');
+    // the next request comes over an idle left column and opens its page
+    s.econ!.story.active = { target: 'cheonnyeonjing', missing: 1, round: 46 };
+    frame();
+    expect(panel()).toContain('설화 의뢰 · 46라운드');
   });
 
   test('B does nothing while typing in a text box or during IME composition', () => {
@@ -301,7 +373,8 @@ describe('online: delivery prompt on the receiver', () => {
   });
 
   /** Seat 2 with a delivery from seat 1 on screen; `send` streams the next mine and draws a frame. */
-  async function mountReceiver() {
+  /** `tame`: a tame target at its tame HP is on seat 2's lane too, so a second prompt row shows. */
+  async function mountReceiver(opts: { tame?: boolean } = {}) {
     const { buildFull, createMatch, roundStartTick } = await import('@dorandi/logic');
     const { jumpToTick } = await import('@dorandi/logic/testing');
     const { NetClient } = await import('../src/net/NetClient');
@@ -312,6 +385,11 @@ describe('online: delivery prompt on the receiver', () => {
     vi.spyOn(performance, 'now').mockImplementation(() => clock);
     const match = createMatch(d3, 2, [1, 2]);
     jumpToTick(match, roundStartTick(d3, 22) + 1);
+    if (opts.tame) {
+      const foe = spawnEnemyForTest(match.lanes[2]!, 'gangcheori', 3, 20000);
+      foe.maxHp = 100000;
+      foe.hp = Math.floor(foe.maxHp * eco.tame!.hpPct);
+    }
     const full = buildFull(match, 2, { watching: 2, names: { 1: '가나', 2: '다라' }, key: 'k', n: 0 });
     const room = new FakeRoom();
     const net = new NetClient(room, full.dataVersion);
@@ -327,6 +405,7 @@ describe('online: delivery prompt on the receiver', () => {
       const m = structuredClone(net.view!.mine);
       m.tick = ++tick;
       m.acks = [];
+      delete m.transferEnds;
       edit(m);
       room.emit('mine', m);
       // the notice line is drawn before the economy part decides what ended, so it shows a frame later
@@ -338,6 +417,8 @@ describe('online: delivery prompt on the receiver', () => {
       send, top,
       receive: () => press(top().querySelector('[data-action="receive"]')),
       banner: () => document.getElementById('round-banner')!.textContent ?? '',
+      bannerLow: () => document.getElementById('round-banner')!.classList.contains('low'),
+      right: () => document.getElementById('right')!.textContent ?? '',
       refusal: (m: typeof full.mine, reason: 'noOffer' | 'noSlot') => { m.acks = [{ seat: 2, seq: 1, tick: m.tick, ok: false, reason }]; },
     };
   }
@@ -352,7 +433,7 @@ describe('online: delivery prompt on the receiver', () => {
     expect(r.banner()).toBe('받을 배달이 없습니다');
   });
 
-  test('a delivery that lands is reported by the delivered unit on the board', async () => {
+  test('a delivery that lands is reported from the server end reason', async () => {
     const r = await mountReceiver();
     r.receive();
     r.send(m => {
@@ -360,8 +441,55 @@ describe('online: delivery prompt on the receiver', () => {
       m.units[0] = { id: 500, defId: 'moru' };
       m.econ!.transfer!.delivered = [500];
       m.acks = [{ seat: 2, seq: 1, tick: m.tick, ok: true }];
+      m.transferEnds = [{ from: 1, to: 2, defId: 'moru', outcome: 'accepted', by: null, cause: null }];
     });
     expect(r.banner()).toBe('모루를 받았습니다');
+  });
+
+  test('the sender dropping out is told as such, not as a cancel', async () => {
+    for (const [cause, text] of [['disconnected', '상대 연결이 끊겨 배달이 취소됐습니다'], ['eliminated', '상대 고개가 뚫려 배달이 취소됐습니다']] as const) {
+      const r = await mountReceiver();
+      r.send(m => {
+        m.econ!.transfer!.offer = null;
+        m.transferEnds = [{ from: 1, to: 2, defId: 'moru', outcome: 'invalid', by: 1, cause }];
+      });
+      expect(r.banner()).toBe(text);
+    }
+  });
+
+  test('my own elimination ends the delivery with its own line', async () => {
+    const r = await mountReceiver();
+    r.send(m => {
+      m.econ!.transfer!.offer = null;
+      m.transferEnds = [{ from: 1, to: 2, defId: 'moru', outcome: 'invalid', by: 2, cause: 'eliminated' }];
+    });
+    expect(r.banner()).toBe('고개가 뚫려 배달이 취소됐습니다');
+  });
+
+  test('with one prompt row the notice takes the second row on one line; with two it moves to the right column', async () => {
+    const one = await mountReceiver();
+    expect(one.top().querySelectorAll('.prompt').length).toBe(1);
+    one.receive();
+    one.send(m => { m.units[0] = { id: 400, defId: 'jipsin' }; one.refusal(m, 'noSlot'); });
+    expect(one.bannerLow()).toBe(true);
+    expect(one.banner()).toBe('그 칸이 막 찼습니다 · 다시 받아 주세요');
+    vi.restoreAllMocks();
+    const two = await mountReceiver({ tame: true });
+    expect(two.top().querySelectorAll('.prompt').length).toBe(2);
+    two.receive();
+    two.send(m => { m.units[0] = { id: 400, defId: 'jipsin' }; two.refusal(m, 'noSlot'); });
+    expect(two.banner()).toBe('');
+    expect(two.right()).toContain('그 칸이 막 찼습니다 · 다시 받아 주세요');
+    // the offer gone, one row is left and the line comes back over the lane
+    two.send(m => { m.econ!.transfer!.offer = null; m.transferEnds = [{ from: 1, to: 2, defId: 'moru', outcome: 'expired', by: null, cause: null }]; });
+    expect(two.top().querySelectorAll('.prompt').length).toBe(1);
+    expect(two.banner()).toBe('시간이 지나 배달이 끝났습니다');
+  });
+
+  test('an offer that leaves without a server reason (the match ended) says nothing', async () => {
+    const r = await mountReceiver();
+    r.send(m => { m.econ!.transfer!.offer = null; });
+    expect(r.banner()).toBe('');
   });
 
   test('a 받기 whose cell was just taken says so, offers the next free cell and is not reported as received', async () => {

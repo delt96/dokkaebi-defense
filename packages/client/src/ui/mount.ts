@@ -1,4 +1,6 @@
-import { unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type UpgradeId } from '@dorandi/logic';
+import {
+  unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type TransferEndView, type UpgradeId,
+} from '@dorandi/logic';
 import type { Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
 import { rightNotices } from '../online/models';
@@ -8,8 +10,8 @@ import type { LaneScene } from '../LaneScene';
 import { playSfx } from '../sfx';
 import { dexHtml } from './dex';
 import {
-  econBottomHtml, econPanelHtml, econTopHtml, incomingModel, josa, marketModel, noteText, questChips, shipModel, storyModel, tameModel,
-  tameRejectText, type EconTab,
+  econBottomHtml, econPanelHtml, econTopHtml, incomingModel, marketModel, noteText, questChips, shipModel, storyModel, tameModel,
+  tameRejectText, transferEndText, type EconTab,
 } from './econ';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
@@ -49,16 +51,14 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | null = null;
   let best: { id: string; grade: number } | null = null;
   let notice: Notice | null = null;
-  // stage 3 economy: the B panel (null = closed), the story request already shown/accepted, the slot a delivery lands in
+  // stage 3 economy: the B panel (null = closed), the story request already seen, a new one not yet looked at (the left
+  // panel was busy when it came), the slot a delivery lands in and the offer on screen
   let econTab: EconTab | null = null;
   let storySeen = '';
-  let storyAcked = '';
+  let storyUnread = false;
   let receiveSlot: number | null = null;
   let incomingShown = false;
-  let lastOffer: { from: number; to: number; defId: string; slot: number; unitId: number; deadlineTick: number } | null = null;
-  let offerChoice: 'refuse' | 'cancel' | null = null;
-  // ids of my delivered units while the offer was open; a new one when it ends means it landed here
-  let deliveredBefore: number[] = [];
+  let lastOffer: { from: number; unitId: number } | null = null;
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
   for (const id of ['econ-panel', 'econ-top', 'econ-bottom']) {
@@ -100,6 +100,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         if (econTab) helperOpen = false;
         break;
       case 'econTab': econTab = arg === 'story' ? 'story' : 'market'; helperOpen = false; break;
+      case 'econClose': econTab = null; break;
       case 'buy': driver.queue({ type: 'buy', item: arg as EconItem }); break;
       case 'missionEnter': driver.queue({ type: 'missionEnter' }); break;
       case 'tame': {
@@ -113,15 +114,14 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       }
       case 'storyTarget': driver.queue({ type: 'storyTarget', id: arg || null }); break;
       case 'storyDecline': driver.queue({ type: 'storyDecline' }); econTab = null; break;
-      case 'storyAccept': storyAcked = storySeen; econTab = null; break;
       case 'ship': {
         const e = econ();
         const m = e ? shipModel(e, driver.state, opts.view?.() ?? null, selectedSlot(driver.state, scene.selectedId)) : null;
         if (m?.unit) opts.actions?.transfer?.({ type: 'transferOffer', target: Number(arg), slot: m.unit.slot, unitId: m.unit.unitId });
         break;
       }
-      case 'shipCancel': offerChoice = 'cancel'; opts.actions?.transfer?.({ type: 'transferDecline' }); break;
-      case 'refuse': offerChoice = 'refuse'; opts.actions?.transfer?.({ type: 'transferDecline' }); break;
+      case 'shipCancel':
+      case 'refuse': opts.actions?.transfer?.({ type: 'transferDecline' }); break;
       case 'receive': opts.actions?.transfer?.({ type: 'transferAccept', slot: Number(arg) }); break;
       case 'toggleHelper':
         if (modal === 'menu' && helperOpen) { modal = null; break; }
@@ -178,20 +178,28 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (text) say(text, NOTE_MS);
     }
     for (const r of rejected) {
-      // a refused 받기/거절 decided nothing; the end of the offer is told by what the server did
+      // a refused 받기/거절 decided nothing; the end of the offer is told by the server's transferEnd
       // (delivery commands come back from the server only, so they are outside the lane's Command type)
       const kind: string = r.command.type;
-      if (kind === 'transferAccept' || kind === 'transferDecline') offerChoice = null;
       if (kind === 'transferAccept' && r.reason === 'noSlot' && freeSlot()) {
         notice = { text: '그 칸이 막 찼습니다 · 다시 받아 주세요', until: performance.now() + NOTICE_MS };
         continue;
       }
       const fullBoard = r.command.type === 'summon' && !freeSlot();
       const tame = r.command.type === 'tame' ? tameRejectText(econ(), r.command.enemyId, r.reason, driver.state.data) : null;
-      const text = tame ?? rejectText(fullBoard ? 'noSlot' : r.reason);
+      // the jar runs on its own period, not the market day the shared soldOut line names
+      const jar = r.command.type === 'buy' && r.command.item === 'jar' && r.reason === 'soldOut' ? '이번 단지는 다 샀습니다' : null;
+      const text = tame ?? jar ?? rejectText(fullBoard ? 'noSlot' : r.reason);
       if (text) notice = { text, until: performance.now() + NOTICE_MS };
     }
     if (scene.selectedId !== priorSelection) render();
+  });
+  // how a delivery ended, as the server decided it; it comes even when this seat was just eliminated
+  driver.onTransferEnd?.((ends: TransferEndView[]) => {
+    const me = opts.view?.()?.me.seat;
+    if (me === undefined) return;
+    for (const end of ends) say(transferEndText(end, me, driver.state.data));
+    render();
   });
   scene.onEvents(events => {
     for (const e of events) {
@@ -253,17 +261,29 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderHud(s, driver.paused, activeNotice(notice, now));
       renderHelper(s, helperOpen, scene.reduceEffects);
     }
-    el('round-banner').textContent = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? (view ? activeNotice(notice, now) ?? '' : '');
+    // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
+    // lane is full, so the line goes to the notices in the right column instead
+    const prompts = renderEcon(view, selected);
+    const bannerText = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? (view ? activeNotice(notice, now) ?? '' : '');
+    const bannerEl = el('round-banner');
+    bannerEl.classList.toggle('low', prompts === 1);
+    const oneLine = bannerText.replace(/\n/g, ' · ');
+    bannerEl.textContent = prompts >= 2 ? '' : prompts === 1 ? oneLine : bannerText;
+    const moved = prompts >= 2 && bannerText ? [oneLine] : [];
     if (view && driver.readOnly) {
       setHtml(el('right'), '<b class="watch-heading">고개 관전</b><p class="watch-hint">왼쪽에서 살아 있는 고개를 고르세요. 아래 카드로 엽전을 보낼 수 있습니다.</p>');
-    } else renderRight(s, { ...(view ? { online: true, notices: rightNotices(now) } : {}), ...(s.data.economy?.market ? { market: econTab !== null } : {}) });
+    } else {
+      renderRight(s, {
+        ...(view ? { online: true, notices: [...moved, ...rightNotices(now)] } : {}),
+        ...(s.data.economy?.market ? { market: econTab !== null, badge: storyUnread } : {}),
+      });
+    }
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');
     const spiritCard = view && opts.data ? spiritCardHtml(view, opts.data) : null;
     if (spiritCard) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), spiritCard);
     } else displayedCard = renderBottom(s, selected, online, s.data.economy?.market ? 'B 장터' : undefined);
-    renderEcon(view, selected);
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
@@ -283,50 +303,40 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     return story ? { target: story.target, canSet: !driver.readOnly } : undefined;
   }
 
-  /** What became of the delivery that just left the screen, for the notice line. */
-  function offerEndText(offer: NonNullable<typeof lastOffer>, me: number | undefined, delivered: readonly number[]): string {
-    const unit = unitName(driver, offer.defId);
-    const late = driver.state.tick >= offer.deadlineTick - 1;
-    if (me === offer.from) {
-      if (driver.state.slots[offer.slot]?.id !== offer.unitId) return `${unit} 배달을 마쳤습니다`;
-      if (offerChoice === 'cancel') return '보내기를 취소했습니다';
-      return late ? '시간이 지나 배달이 끝났습니다' : '상대가 받지 않았습니다';
-    }
-    if (delivered.some(id => !deliveredBefore.includes(id))) return `${unit}${josa(unit, '을', '를')} 받았습니다`;
-    if (offerChoice === 'refuse') return '배달을 사양했습니다';
-    return late ? '시간이 지나 배달이 끝났습니다' : '보내는 쪽이 취소했습니다';
-  }
-
-  /** Stage 3 economy: the B panel over the left column, prompts over the top of the lane, the tracker under it. */
-  function renderEcon(view: ClientView | null, selected: number | null): void {
+  /**
+   * Stage 3 economy: the B panel over the left column, prompts over the top of the lane, the tracker under it.
+   * Returns how many prompt rows sit over the top of the lane.
+   */
+  function renderEcon(view: ClientView | null, selected: number | null): number {
     const s = driver.state;
     const e = s.phase === 'ended' ? null : econ();
     const story = e?.story?.active ?? null;
     if (story) {
       const key = `${story.target}@${story.round}`;
-      // a new request opens its page once; the page sits over the left column, never over the lane
-      if (key !== storySeen) { storySeen = key; econTab = 'story'; helperOpen = false; }
+      // a new request opens its page once, but only over an idle left column: an open helper or market stays, and
+      // the 장터 button and the 의뢰 tab carry a mark until the page is looked at
+      if (key !== storySeen) {
+        storySeen = key;
+        if (!helperOpen && econTab === null) econTab = 'story';
+        else storyUnread = true;
+      }
     }
+    if (!story || econTab === 'story') storyUnread = false;
+    // the end of an offer is told by the server's transferEnd (see onTransferEnd); here only its leftovers go
     const offer = e?.transfer?.offer ?? null;
-    if (lastOffer && !offer) {
-      say(offerEndText(lastOffer, view?.me.seat, e?.transfer?.delivered ?? []));
-      offerChoice = null;
-      receiveSlot = null;
-    }
-    if (offer && (!lastOffer || offer.unitId !== lastOffer.unitId || offer.from !== lastOffer.from)) { offerChoice = null; receiveSlot = null; }
-    if (offer) deliveredBefore = e?.transfer?.delivered ?? [];
-    lastOffer = offer;
+    if (!offer || !lastOffer || offer.unitId !== lastOffer.unitId || offer.from !== lastOffer.from) receiveSlot = null;
+    lastOffer = offer && { from: offer.from, unitId: offer.unitId };
     const incoming = e ? incomingModel(e, s, view, receiveSlot) : null;
     incomingShown = incoming !== null;
     const outgoing = e && offer && view && offer.from === view.me.seat
       ? `${unitName(driver, offer.defId)} → ${offer.to} ${view.rows.find(r => r.seat === offer.to)?.name ?? ''} · 기다리는 중 ${Math.max(0, Math.ceil((offer.deadlineTick - s.tick) * s.data.balance.tickMs / 1000))}초`
       : null;
-    const top = e ? econTopHtml(incoming, outgoing, tameModel(e, s)) : '';
-    setHtml(el('econ-top'), top);
-    el('round-banner').classList.toggle('low', top !== '');
+    const tame = e ? tameModel(e, s) : null;
+    setHtml(el('econ-top'), e ? econTopHtml(incoming, outgoing, tame) : '');
     setHtml(el('econ-bottom'), e ? econBottomHtml(questChips(e, s, view)) : '');
-    if (!e || !econTab) { setHtml(el('econ-panel'), ''); return; }
-    setHtml(el('econ-panel'), econPanelHtml(econTab, marketModel(e, s), shipModel(e, s, view, selected), storyModel(e, s), { storyAcked: storyAcked === storySeen }));
+    if (!e || !econTab) setHtml(el('econ-panel'), '');
+    else setHtml(el('econ-panel'), econPanelHtml(econTab, marketModel(e, s), shipModel(e, s, view, selected), storyModel(e, s), storyUnread));
+    return (incoming || outgoing ? 1 : 0) + (tame ? 1 : 0);
   }
 
   let pressedUntil = 0;
@@ -353,11 +363,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     best = null;
     notice = null;
     econTab = null;
-    storySeen = storyAcked = '';
+    storySeen = '';
+    storyUnread = false;
     receiveSlot = null;
     lastOffer = null;
-    offerChoice = null;
-    deliveredBefore = [];
     render();
   }
   return { resetUi };
