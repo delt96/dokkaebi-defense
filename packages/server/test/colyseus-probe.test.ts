@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from 'vitest';
-import { boot, type ColyseusTestServer } from '@colyseus/testing';
+import { ColyseusTestServer } from '@colyseus/testing';
 import { Room, ServerError, defineRoom, defineServer, type Client } from 'colyseus';
 
 const disposed: string[] = [];
@@ -44,7 +44,10 @@ async function waitFor(fn: () => unknown, ms = 2000): Promise<void> {
 let colyseus: ColyseusTestServer;
 
 beforeAll(async () => {
-  colyseus = await boot(defineServer({ rooms: { probe: defineRoom(ProbeRoom) } }), 2601);
+  // boot() ignores its port for a Server instance (defineServer returns one) and always uses 2568, so listen here.
+  const server = defineServer({ rooms: { probe: defineRoom(ProbeRoom) } });
+  await server.listen(2601);
+  colyseus = new ColyseusTestServer(server);
 });
 
 afterEach(async () => {

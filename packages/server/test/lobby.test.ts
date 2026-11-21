@@ -63,4 +63,38 @@ describe('lobby', () => {
     core.join(a, { name: '가' }); core.join(b, { name: '나', hostToken: 'tok' });
     expect(a.last('lobby')!.hostSeat).toBe(2);
   });
+  test('a rematch lobby stays open while empty until the old room drops its result, then closes (final review 2)', () => {
+    const { core, deps } = room({}, { hostToken: 'tok', keepOpenMs: 5000 });
+    expect(deps.autoDispose).toBe(false);
+    const a = new FakeLink('a');
+    core.join(a, { name: '가', hostToken: 'tok' }); core.leave('a', true);
+    expect(deps.disposed).toBe(false);
+    deps.clock.t += 4999; core.advance();
+    expect(deps.disposed).toBe(false);
+    // a later presser still finds the room, and the first presser can come back as host
+    const b = new FakeLink('b'); core.join(b, { name: '나' });
+    const a2 = new FakeLink('a2'); core.join(a2, { name: '가', hostToken: 'tok' });
+    expect(b.last('lobby')).toMatchObject({ hostSeat: 2, seats: [{ seat: 1, name: '나' }, { seat: 2, name: '가' }] });
+    core.leave('b', true); core.leave('a2', true);
+    expect(deps.disposed).toBe(false);
+    deps.clock.t += 1; core.advance();
+    expect(deps.disposed).toBe(true);
+  });
+  test('after the hold a rematch lobby with people in it closes like any lobby when the last one leaves (final review 2)', () => {
+    const { core, deps } = room({}, { keepOpenMs: 5000 });
+    const a = new FakeLink('a'); core.join(a, { name: '가' });
+    deps.clock.t += 5000; core.advance();
+    expect(deps.disposed).toBe(false);
+    expect(deps.autoDispose).toBe(true);
+    core.leave('a', true);
+    expect(deps.disposed).toBe(true);
+  });
+  test('the keep-open time is capped at the result hold', () => {
+    const { core, deps } = room({}, { keepOpenMs: 10 ** 9 });
+    core.join(new FakeLink('a'), { name: '가' }); core.leave('a', true);
+    deps.clock.t += 120_000 - 1; core.advance();
+    expect(deps.disposed).toBe(false);
+    deps.clock.t += 1; core.advance();
+    expect(deps.disposed).toBe(true);
+  });
 });

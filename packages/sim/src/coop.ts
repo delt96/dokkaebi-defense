@@ -72,6 +72,30 @@ export interface CoopRun {
   firstEnter: Record<number, number | null>; killTick: Record<number, number | null>; hpAtGate: Record<number, number | null>;
   entries: { stage: number; seat: number }[];
   snaps: Record<number, Map<number, Snap>>;
+  /** Ticks a live lane boss (10/20-round boss) was on a survivor's lane, summed over lanes and bosses (decision 7). */
+  bossTicks: number;
+  /** Of those, ticks where the boss had stunTicks > 0 after the step. */
+  stunnedTicks: number;
+}
+
+export interface BossStun { bossTicks: number; stunnedTicks: number }
+
+/** Adds this tick's live lane bosses on survivors' lanes to `acc`; a boss counts as stunned when stunTicks > 0. */
+export function countBossStun(match: MatchState, acc: BossStun): void {
+  for (const seat of match.ring) {
+    if (!match.seats[seat]!.alive) continue;
+    for (const e of match.lanes[seat]!.enemies) {
+      if (!e.boss || e.hp <= 0) continue;
+      acc.bossTicks++;
+      if (e.stunTicks > 0) acc.stunnedTicks++;
+    }
+  }
+}
+
+/** Share of boss ticks spent stunned across runs, or null when no boss was ever on a lane. */
+export function bossStunRatio(runs: BossStun[]): number | null {
+  const total = runs.reduce((a, r) => a + r.bossTicks, 0);
+  return total === 0 ? null : runs.reduce((a, r) => a + r.stunnedTicks, 0) / total;
 }
 
 function snapshot(lane: GameState, earned: number): Snap {
@@ -92,6 +116,7 @@ export function runMatch(data: GameData, seed: number, kinds: BotKind[], options
   const entries: { stage: number; seat: number }[] = [];
   const snaps: Record<number, Map<number, Snap>> = {};
   const earned: Record<number, number> = {};
+  const stun: BossStun = { bossTicks: 0, stunnedTicks: 0 };
   const last: Record<number, Snap> = {};
   for (const s of seats) { snaps[s] = new Map(); earned[s] = 0; last[s] = snapshot(match.lanes[s]!, 0); }
   const gateTicks = (data.coop?.yeoksin ?? []).map(y => ({ stage: y.stage, tick: roundStartTick(data, y.deadlineRound + 1) - 1 }));
@@ -106,6 +131,7 @@ export function runMatch(data: GameData, seed: number, kinds: BotKind[], options
       if (match.tick % DECIDE_EVERY === 0) last[s] = snapshot(match.lanes[s]!, earned[s]!);
     }
     const r = stepMatch(match, inputs);
+    countBossStun(match, stun);
     for (const s of aliveBefore) {
       const gained = match.lanes[s]!.coins - coinsBefore[s]!;
       if (gained > 0) earned[s]! += gained;
@@ -128,7 +154,7 @@ export function runMatch(data: GameData, seed: number, kinds: BotKind[], options
   if (match.result) {
     for (const s of seats) if (match.seats[s]!.alive) snaps[s]!.set(match.result.round, snapshot(match.lanes[s]!, earned[s]!));
   }
-  return { match, log, hashes, firstEnter, killTick, hpAtGate, entries, snaps };
+  return { match, log, hashes, firstEnter, killTick, hpAtGate, entries, snaps, ...stun };
 }
 
 const ROW_COLUMNS = [
@@ -287,4 +313,7 @@ export function coopCli(arg: (name: string, fallback: string) => string): void {
   const left = new Map<string, number>();
   for (const r of runs) for (const [id, n] of leftoverGrade1(r.match)) left.set(id, (left.get(id) ?? 0) + n);
   console.log(`leftover grade 1 by id: ${show(left)}`);
+  const stunRatio = bossStunRatio(runs);
+  const stunTotals = `${runs.reduce((a, r) => a + r.stunnedTicks, 0)}/${runs.reduce((a, r) => a + r.bossTicks, 0)} boss ticks`;
+  console.log(`boss stun ratio (stunTicks > 0): ${stunRatio === null ? '-' : `${(stunRatio * 100).toFixed(1)}%`} (${stunTotals})`);
 }

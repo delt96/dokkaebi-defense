@@ -60,7 +60,11 @@ describe('online app: leaving and coming back (spec 6)', () => {
     expect(band().textContent).toBe(TEXT.disconnected);
   });
 
-  for (const [label, code] of [['the room is gone (522)', 522], ['the key is refused (badKey)', JOIN_ERROR_CODES.badKey]] as const) {
+  for (const [label, code, text] of [
+    ['the room is gone (522)', 522, TEXT.noRoom],
+    // the room is still there, only the seat is lost (final review 1)
+    ['the key is refused (badKey)', JOIN_ERROR_CODES.badKey, TEXT.badKey],
+  ] as const) {
     test(`reconnect stops when ${label} and offers only a new-room link, never a second entry form (checkpoint 17-19, finding 4)`, async () => {
       const { room } = await inBattle();
       room.close(1006);
@@ -69,7 +73,8 @@ describe('online app: leaving and coming back (spec 6)', () => {
       expect(join).toHaveBeenCalledTimes(2);
       expect(band().textContent).toBe('');
       expect(screen().querySelector('form')).toBeNull();
-      expect(screen().textContent).toContain(TEXT.noRoom);
+      expect(screen().textContent).toContain(text);
+      if (code !== 522) expect(screen().textContent).not.toContain(TEXT.noRoom);
       const link = screen().querySelector('a[href="/"]');
       expect(link?.textContent).toBe(TEXT.newRoom);
       await vi.advanceTimersByTimeAsync(10_000);
@@ -78,6 +83,51 @@ describe('online app: leaving and coming back (spec 6)', () => {
       expect(battle).toHaveBeenCalledTimes(1);
     });
   }
+
+  test('a reconnected link that drops before its snapshot keeps retrying instead of leaving the band up forever (final review 1)', async () => {
+    const { room } = await inBattle();
+    room.close(1006);
+    const fresh = new FakeRoom('r1');
+    join.mockResolvedValueOnce(fresh);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(join).toHaveBeenCalledTimes(2);
+    fresh.close(1006);
+    const again = new FakeRoom('r1');
+    join.mockResolvedValueOnce(again);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(join).toHaveBeenCalledTimes(3);
+    expect(join).toHaveBeenLastCalledWith('r1', { name: '하나', rejoinKey: 'k1' });
+    expect(band().textContent).toBe(TEXT.disconnected);
+    // the next snapshot reloads the page as before
+    const reload = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign, reload, href: 'http://localhost/room/r1', search: '', origin: 'http://localhost' });
+    again.emit('full', fixtureFull());
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  test('a reconnected link taken over by another tab stops with the replaced notice', async () => {
+    const { room } = await inBattle();
+    room.close(1006);
+    const fresh = new FakeRoom('r1');
+    join.mockResolvedValueOnce(fresh);
+    await vi.advanceTimersByTimeAsync(2000);
+    fresh.emit('notice', { kind: 'replaced' });
+    fresh.close(4001);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(join).toHaveBeenCalledTimes(2);
+    expect(screen().textContent).toBe(TEXT.replaced);
+    expect(band().textContent).toBe('');
+  });
+
+  test('a page load whose stored key is refused says the seat is lost and offers a new room, not a nickname form that cannot get in (final review 1)', async () => {
+    saveSession('r1', { key: 'stale', name: '하나' });
+    join.mockRejectedValueOnce(fail(JOIN_ERROR_CODES.badKey));
+    startOnline({ roomId: 'r1' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(screen().querySelector('form')).toBeNull();
+    expect(screen().textContent).toContain(TEXT.badKey);
+    expect(screen().querySelector('a[href="/"]')?.textContent).toBe(TEXT.newRoom);
+  });
 
   test('opening an expired invite offers only a new room link', async () => {
     join.mockRejectedValueOnce(fail(522));

@@ -27,7 +27,7 @@ export const TEXT = {
   dupName: '방에 같은 닉네임이 있습니다',
   roomFull: '가득 찬 방입니다',
   alreadyStarted: '이미 시작한 방입니다',
-  badKey: '자리를 되찾지 못했습니다. 닉네임을 다시 입력해 주세요',
+  badKey: '자리를 되찾지 못했습니다',
   noRoom: '없거나 끝난 방입니다',
   roomClosed: '방이 닫혔습니다',
   replaced: '다른 창에서 접속했습니다',
