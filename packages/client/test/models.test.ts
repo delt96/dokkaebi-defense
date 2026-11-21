@@ -262,6 +262,9 @@ describe('final review fixes: right panel and reject notices', () => {
       expect(panel.innerHTML).toContain('1등급 77% · 2등급 20% · 3등급 3%');
       expect(panel.innerHTML).not.toContain('보너스까지');
       expect(panel.innerHTML).not.toContain('보관 중');
+      expect(panel.innerHTML).not.toContain('data-action="speed"');
+      renderRight(s, { speed: 2 });
+      expect(panel.innerHTML).toContain('<button data-action="speed" class="speed-btn" aria-pressed="true">배속 2×</button>');
     } finally {
       vi.unstubAllGlobals();
     }
