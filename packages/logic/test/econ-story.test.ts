@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import {
-  createGame, loadGameData, nonQuestValue, startRound, step, storySlots, storyView, type GameEvent, type GameState,
+  createGame, createMatch, loadGameData, roundStartTick, stepMatch, nonQuestValue, startRound, step, storySlots, storyView, type GameEvent, type GameState,
 } from '../src/index';
-import { placeUnitForTest, spawnEnemyForTest } from '../src/testing';
+import { jumpToTick, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
 
 const d3 = loadGameData('stage3');
 const T = 'cheonnyeonjing';
@@ -158,6 +158,28 @@ describe('story request', () => {
     expect(ends(step(s, []).events)).toEqual(['gotMaterial']);
     expect(step(s, [{ type: 'combine', result: T }]).rejected).toEqual([]);
     expect(ids(s)).toContain(T);
+  });
+
+  test('crafting and selling the last material in one tick ends the story', () => {
+    const s = setup();
+    toOffer(s);
+    placeUnitForTest(s, 'moru', 2);
+    placeUnitForTest(s, 'soemangchi', 3);
+    const r = step(s, [{ type: 'combine', result: 'kkwaenggwari', slot: 2 }, { type: 'sell', slot: 2 }]);
+    expect(r.rejected).toEqual([]);
+    expect(ends(r.events)).toEqual(['gotMaterial']);
+    expect(s.econ!.story.active).toBeNull();
+  });
+
+  test('forfeiting ends an active story on the eliminated lane', () => {
+    const m = createMatch(d3, 1, [1, 2]);
+    jumpToTick(m, roundStartTick(d3, 31) + 1);
+    const lane = m.lanes[1]!;
+    placeUnitForTest(lane, 'janggu', 0);
+    placeUnitForTest(lane, 'moru', 1);
+    lane.econ!.story.active = { target: T, missing: 1, round: 31 };
+    stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'forfeit' } }]);
+    expect(lane.econ!.story.active).toBeNull();
   });
 
   test('selling moru ends with lostMaterial; decline ends with declined and costs nothing', () => {

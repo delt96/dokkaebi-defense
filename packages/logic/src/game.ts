@@ -2,7 +2,8 @@ import type { Command, GameData, GameEvent, GameState, RejectReason, StepResult 
 import { createRng, deriveSeed } from './rng';
 import { createEcon } from './econ/ledger';
 import { eventsTick } from './econ/events';
-import { econRoundEnd, econTick } from './econ/hooks';
+import { storyTick } from './econ/story';
+import { econRoundEnd } from './econ/hooks';
 import { checkEnd, moveEnemies, spawnTick } from './flow';
 import { resolveKills } from './combat';
 import { afterCommandHooks, handlers, phases, type PhaseName } from './registry';
@@ -53,7 +54,9 @@ function isEnded(state: GameState): boolean {
 
 export function applyCommand(state: GameState, cmd: Command, events: GameEvent[]): RejectReason | null {
   const handler = typeof cmd?.type === 'string' ? handlers.get(cmd.type) : undefined;
-  return handler ? handler(state, cmd, events) : 'unknown';
+  const reason = handler ? handler(state, cmd, events) : 'unknown';
+  if (state.econ?.story.active) storyTick(state, events);
+  return reason;
 }
 
 export function runAfterCommandHooks(state: GameState, events: GameEvent[]): void {
@@ -61,12 +64,12 @@ export function runAfterCommandHooks(state: GameState, events: GameEvent[]): voi
 }
 
 export function runCombat(state: GameState, events: GameEvent[], opts: { finalClear: boolean; afterMove?: () => void }): void {
-  if (state.econ) econTick(state, events);
   moveEnemies(state, events);
   opts.afterMove?.();
   runPhase('tickStatuses', state, events);
   runPhase('unitAttacks', state, events);
   resolveKills(state, events, { finalClear: opts.finalClear });
+  if (state.econ?.story.active) storyTick(state, events);
 }
 
 export function step(state: GameState, commands: Command[]): StepResult {

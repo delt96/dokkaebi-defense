@@ -3,7 +3,7 @@ import { isEvent } from '../stats';
 import { bossDrop } from './market';
 import { eventKill, eventsRoundEnd, eventsRoundStart } from './events';
 import { missionRoundEnd } from './quests';
-import { storyRoundEnd, storyRoundStart, storyTick } from './story';
+import { storyRoundEnd, storyRoundStart } from './story';
 
 /** Lane economy hooks. Callers invoke them only when `state.econ` exists. */
 
@@ -11,10 +11,6 @@ export function econRoundStart(state: GameState, events: GameEvent[]): void {
   state.econ!.roundKills = 0;
   eventsRoundStart(state, events);
   storyRoundStart(state, events);
-}
-
-export function econTick(state: GameState, events: GameEvent[]): void {
-  storyTick(state, events);
 }
 
 /** Runs on the last tick of a round, after the survival checks and before the round-end coins. */
