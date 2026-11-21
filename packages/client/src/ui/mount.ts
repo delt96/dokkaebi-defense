@@ -56,7 +56,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let receiveSlot: number | null = null;
   let incomingShown = false;
   let lastOffer: { from: number; to: number; defId: string; slot: number; unitId: number; deadlineTick: number } | null = null;
-  let offerChoice: 'receive' | 'refuse' | 'cancel' | null = null;
+  let offerChoice: 'refuse' | 'cancel' | null = null;
+  // ids of my delivered units while the offer was open; a new one when it ends means it landed here
+  let deliveredBefore: number[] = [];
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
   for (const id of ['econ-panel', 'econ-top', 'econ-bottom']) {
@@ -120,7 +122,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       }
       case 'shipCancel': offerChoice = 'cancel'; opts.actions?.transfer?.({ type: 'transferDecline' }); break;
       case 'refuse': offerChoice = 'refuse'; opts.actions?.transfer?.({ type: 'transferDecline' }); break;
-      case 'receive': offerChoice = 'receive'; opts.actions?.transfer?.({ type: 'transferAccept', slot: Number(arg) }); break;
+      case 'receive': opts.actions?.transfer?.({ type: 'transferAccept', slot: Number(arg) }); break;
       case 'toggleHelper':
         if (modal === 'menu' && helperOpen) { modal = null; break; }
         helperOpen = !helperOpen;
@@ -176,7 +178,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (text) say(text, NOTE_MS);
     }
     for (const r of rejected) {
-      const fullBoard = r.command.type === 'summon' && !driver.state.slots.some((u, i) => !u && driver.state.open[i]);
+      // a refused 받기/거절 decided nothing; the end of the offer is told by what the server did
+      // (delivery commands come back from the server only, so they are outside the lane's Command type)
+      const kind: string = r.command.type;
+      if (kind === 'transferAccept' || kind === 'transferDecline') offerChoice = null;
+      if (kind === 'transferAccept' && r.reason === 'noSlot' && freeSlot()) {
+        notice = { text: '그 칸이 막 찼습니다 · 다시 받아 주세요', until: performance.now() + NOTICE_MS };
+        continue;
+      }
+      const fullBoard = r.command.type === 'summon' && !freeSlot();
       const tame = r.command.type === 'tame' ? tameRejectText(econ(), r.command.enemyId, r.reason, driver.state.data) : null;
       const text = tame ?? rejectText(fullBoard ? 'noSlot' : r.reason);
       if (text) notice = { text, until: performance.now() + NOTICE_MS };
@@ -263,6 +273,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     hooks.onRender?.();
   }
 
+  function freeSlot(): boolean {
+    return driver.state.slots.some((u, i) => !u && driver.state.open[i]);
+  }
+
   /** The dex's 목표 buttons: only on data with a story request, and only for the own living lane. */
   function dexStory(): { target: string | null; canSet: boolean } | undefined {
     const story = econ()?.story;
@@ -270,7 +284,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   }
 
   /** What became of the delivery that just left the screen, for the notice line. */
-  function offerEndText(offer: NonNullable<typeof lastOffer>, me: number | undefined): string {
+  function offerEndText(offer: NonNullable<typeof lastOffer>, me: number | undefined, delivered: readonly number[]): string {
     const unit = unitName(driver, offer.defId);
     const late = driver.state.tick >= offer.deadlineTick - 1;
     if (me === offer.from) {
@@ -278,7 +292,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (offerChoice === 'cancel') return '보내기를 취소했습니다';
       return late ? '시간이 지나 배달이 끝났습니다' : '상대가 받지 않았습니다';
     }
-    if (offerChoice === 'receive') return `${unit}${josa(unit, '을', '를')} 받았습니다`;
+    if (delivered.some(id => !deliveredBefore.includes(id))) return `${unit}${josa(unit, '을', '를')} 받았습니다`;
     if (offerChoice === 'refuse') return '배달을 사양했습니다';
     return late ? '시간이 지나 배달이 끝났습니다' : '보내는 쪽이 취소했습니다';
   }
@@ -295,11 +309,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     }
     const offer = e?.transfer?.offer ?? null;
     if (lastOffer && !offer) {
-      say(offerEndText(lastOffer, view?.me.seat));
+      say(offerEndText(lastOffer, view?.me.seat, e?.transfer?.delivered ?? []));
       offerChoice = null;
       receiveSlot = null;
     }
     if (offer && (!lastOffer || offer.unitId !== lastOffer.unitId || offer.from !== lastOffer.from)) { offerChoice = null; receiveSlot = null; }
+    if (offer) deliveredBefore = e?.transfer?.delivered ?? [];
     lastOffer = offer;
     const incoming = e ? incomingModel(e, s, view, receiveSlot) : null;
     incomingShown = incoming !== null;
@@ -341,6 +356,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     storySeen = storyAcked = '';
     receiveSlot = null;
     lastOffer = null;
+    offerChoice = null;
+    deliveredBefore = [];
     render();
   }
   return { resetUi };

@@ -299,4 +299,79 @@ describe('online: delivery prompt on the receiver', () => {
     press(top.querySelector('[data-action="refuse"]'));
     expect(room.cmds('transferDecline').length).toBe(1);
   });
+
+  /** Seat 2 with a delivery from seat 1 on screen; `send` streams the next mine and draws a frame. */
+  async function mountReceiver() {
+    const { buildFull, createMatch, roundStartTick } = await import('@dorandi/logic');
+    const { jumpToTick } = await import('@dorandi/logic/testing');
+    const { NetClient } = await import('../src/net/NetClient');
+    const { NetDriver } = await import('../src/net/NetDriver');
+    const { FakeRoom, press } = await import('./fixtures/net');
+    document.body.innerHTML = STAGE_HTML;
+    let clock = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    const match = createMatch(d3, 2, [1, 2]);
+    jumpToTick(match, roundStartTick(d3, 22) + 1);
+    const full = buildFull(match, 2, { watching: 2, names: { 1: '가나', 2: '다라' }, key: 'k', n: 0 });
+    const room = new FakeRoom();
+    const net = new NetClient(room, full.dataVersion);
+    room.emit('full', full);
+    const driver = new NetDriver(net, d3, () => clock);
+    const scene = { selectedId: null, onFrame: undefined as (() => void) | undefined, onSelect() {}, onEvents() {} };
+    mountUi(driver, scene as never, {}, {
+      online: true, view: () => net.view, data: d3,
+      actions: { support() {}, watch() {}, forfeit() {}, transfer: cmd => { net.send(cmd); } },
+    });
+    let tick = full.clock.tick;
+    const send = (edit: (m: typeof full.mine) => void) => {
+      const m = structuredClone(net.view!.mine);
+      m.tick = ++tick;
+      m.acks = [];
+      edit(m);
+      room.emit('mine', m);
+      // the notice line is drawn before the economy part decides what ended, so it shows a frame later
+      for (let i = 0; i < 2; i++) { clock += 150; driver.update(16); scene.onFrame?.(); }
+    };
+    send(m => { m.econ!.transfer!.offer = { from: 1, to: 2, defId: 'moru', slot: 0, unitId: 77, deadlineTick: full.clock.tick + 100 }; });
+    const top = () => document.getElementById('econ-top')!;
+    return {
+      send, top,
+      receive: () => press(top().querySelector('[data-action="receive"]')),
+      banner: () => document.getElementById('round-banner')!.textContent ?? '',
+      refusal: (m: typeof full.mine, reason: 'noOffer' | 'noSlot') => { m.acks = [{ seat: 2, seq: 1, tick: m.tick, ok: false, reason }]; },
+    };
+  }
+
+  test('a 받기 the server turned down is not reported as received', async () => {
+    const r = await mountReceiver();
+    r.receive();
+    // the offer ran out on the server just before the press got there
+    r.send(m => { m.econ!.transfer!.offer = null; });
+    expect(r.banner()).not.toContain('받았습니다');
+    r.send(m => r.refusal(m, 'noOffer'));
+    expect(r.banner()).toBe('받을 배달이 없습니다');
+  });
+
+  test('a delivery that lands is reported by the delivered unit on the board', async () => {
+    const r = await mountReceiver();
+    r.receive();
+    r.send(m => {
+      m.econ!.transfer!.offer = null;
+      m.units[0] = { id: 500, defId: 'moru' };
+      m.econ!.transfer!.delivered = [500];
+      m.acks = [{ seat: 2, seq: 1, tick: m.tick, ok: true }];
+    });
+    expect(r.banner()).toBe('모루를 받았습니다');
+  });
+
+  test('a 받기 whose cell was just taken says so, offers the next free cell and is not reported as received', async () => {
+    const r = await mountReceiver();
+    r.receive();
+    // a summon sent just before took cell 1 first
+    r.send(m => { m.units[0] = { id: 400, defId: 'jipsin' }; r.refusal(m, 'noSlot'); });
+    expect(r.banner()).toBe('그 칸이 막 찼습니다 · 다시 받아 주세요');
+    expect(r.top().querySelector('[data-action="receive"]')?.getAttribute('data-arg')).toBe('1');
+    r.send(m => { m.econ!.transfer!.offer = null; });
+    expect(r.banner()).not.toContain('받았습니다');
+  });
 });
