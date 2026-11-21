@@ -85,6 +85,20 @@ describe('econ in the mine stream', () => {
     expect(out.mine[2]!.econ!.transfer).toMatchObject({ offer: null, ready: m.round + 5, rewarded: true, rewardsLeft: 4 });
     expect(out.mine[1]!.econ!.transfer!.readyRounds).toEqual({ 1: m.round + 5, 2: m.round + 5 });
   });
+
+  test('an ended delivery reaches both seats\' mine once, with the server\'s reason; a full never carries it', () => {
+    const { m, streamer } = start();
+    m.lanes[1]!.econ!.jige = true;
+    const unit = placeUnitForTest(m.lanes[1]!, 'moru', 5);
+    streamer.afterStep(stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'transferOffer', target: 2, slot: 5, unitId: unit.id } }]));
+    const out = streamer.afterStep(stepMatch(m, [{ seat: 2, seq: 1, cmd: { type: 'disconnect' } }]));
+    const end = { from: 1, to: 2, defId: 'moru', outcome: 'invalid', by: 2, cause: 'disconnected' };
+    expect(out.mine[1]!.transferEnds).toEqual([end]);
+    expect(out.mine[2]!.transferEnds).toEqual([end]);
+    const next = streamer.afterStep(stepMatch(m, []));
+    expect(next.mine[1]?.transferEnds).toBeUndefined();
+    expect('transferEnds' in buildFull(m, 1, { watching: 1, names, key: 'k', n: 0 }).mine).toBe(false);
+  });
 });
 
 describe('event enemies in the lane stream', () => {

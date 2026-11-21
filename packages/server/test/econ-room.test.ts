@@ -50,6 +50,20 @@ describe('stage 3 economy commands through the room', () => {
     expect(r.links[0]!.last('mine').units[4]).toBeNull();
   });
 
+  test('a declined delivery reaches the sender\'s mine with who declined it', () => {
+    const r = room60(3);
+    const match = r.core.match!;
+    match.lanes[1]!.econ!.jige = true;
+    const unit = placeUnitForTest(match.lanes[1]!, 'jipsin', 4);
+    send(r.core, 'a', 1, 'transferOffer', { target: 2, slot: 4, unitId: unit.id });
+    tickOnce(r.core, r.deps);
+    send(r.core, 'b', 1, 'transferDecline', {});
+    tickOnce(r.core, r.deps);
+    const end = { from: 1, to: 2, defId: 'jipsin', outcome: 'declined', by: 2, cause: null };
+    expect(r.links[0]!.last('mine').transferEnds).toEqual([end]);
+    expect(r.links[1]!.last('mine').transferEnds).toEqual([end]);
+  });
+
   test('a 20-round room refuses the economy commands without a crash', () => {
     const r = started(['가', '나']);
     send(r.core, 'a', 1, 'buy', { item: 'jar' });

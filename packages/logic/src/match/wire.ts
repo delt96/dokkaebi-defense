@@ -1,6 +1,6 @@
 import type { GameEvent, HitEffect, UpgradeId } from '../types';
 import type { EconView } from '../econ/view';
-import type { Ack, EliminationCause, MatchResult } from './types';
+import type { Ack, EliminationCause, MatchEvent, MatchResult } from './types';
 
 // Server -> browser message names: 'lobby', 'full', 'tick', 'lane', 'mine', 'result' and the room notice 'notice'.
 // Browser -> server: 'cmd' (WireCommand), 'ready' { ready }, 'start', 'watch' { seat }, 'rematch', 'resync'.
@@ -36,7 +36,11 @@ export interface MineView {
   open: boolean[]; units: (UnitView | null)[]; acks: Ack[]; supportIn: { from: number; coins: number }[];
   /** Left out entirely on rule data without an economy, so 20-round messages stay as they were. */
   econ?: EconMine;
+  /** Stage 3: deliveries this seat took part in that ended on this tick, with the server's reason (only when there are some). */
+  transferEnds?: TransferEndView[];
 }
+/** How a delivery ended, as the logic decided it (see MatchEvent 'transferEnd'). */
+export type TransferEndView = Omit<Extract<MatchEvent, { type: 'transferEnd' }>, 'type'>;
 export interface ClientView {
   n: number; dataVersion: string; clock: ClockView; rows: RowView[]; gate: GateView; yeoksin: YeoksinView | null;
   me: { seat: number; key: string }; mine: MineView; watching: number; lane: LaneView; result: MatchResult | null;

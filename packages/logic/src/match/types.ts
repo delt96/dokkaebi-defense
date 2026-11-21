@@ -49,7 +49,13 @@ export type MatchEvent =
   | { type: 'bossSpawn'; seat: number; round: number; enemyId: number } | { type: 'bossKilled'; seat: number; round: number }
   | { type: 'ssireumDraw'; seat: number }
   | { type: 'transferOffer'; from: number; to: number; defId: string; tick: number }
-  | { type: 'transferEnd'; from: number; to: number; outcome: 'accepted' | 'declined' | 'expired' | 'invalid' }
+  | {
+    type: 'transferEnd'; from: number; to: number; defId: string; outcome: 'accepted' | 'declined' | 'expired' | 'invalid';
+    /** The seat that declined or dropped out; null when the offer was taken or ran out. */
+    by: number | null;
+    /** Why an invalid offer ended: a seat was eliminated or lost its connection, or the unit was gone. */
+    cause: 'eliminated' | 'disconnected' | 'unitGone' | null;
+  }
   | { type: 'yeoksinSpawn'; stage: number; maxHp: number }
   | { type: 'yeoksinEnter'; stage: number; seat: number; from: number | null; enterTick: number; hp: number; maxHp: number }
   | { type: 'yeoksinLeave'; stage: number; seat: number }
