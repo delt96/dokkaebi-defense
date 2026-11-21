@@ -22,9 +22,12 @@ describe('sim', () => {
     const csv = toCsv(rows);
     expect(csv.split('\n')[0]).toBe('seed,bot,round,nominalMultiplier,realMultiplier,killRatio,endEnemies,maxEnemies,boardDps,coins,coinsEarned,tokens,g1,g2,g3,g4,bossKillSeconds,outcome,endRound');
   });
-  test('econ table reproduces spec section 11', () => {
+  test('econ table values tokens at their summon round', () => {
     const t = econTable(data);
-    expect(t).toContain('44'); expect(t).toContain('124'); expect(t).toMatch(/1\.4/);
+    expect(t).toContain('1라운드부터 1.25');
+    expect(t).toContain('5라운드부터 1.34');
+    expect(t).toContain('10라운드부터 1.40');
+    expect(t).toContain('| 20R | 44 | 47 | 40 |');
   });
   test('normal bot spends tokens instead of stalling on a full board', () => {
     for (const seed of [5, 6, 7]) {
