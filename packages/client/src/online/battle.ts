@@ -49,6 +49,7 @@ export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: 
       support: () => { if (net.view) net.send({ type: 'support', target: net.view.watching }); },
       watch: seat => net.watch(seat),
       forfeit: () => { net.send({ type: 'forfeit' }); },
+      transfer: cmd => { net.send(cmd); },
     },
   });
 

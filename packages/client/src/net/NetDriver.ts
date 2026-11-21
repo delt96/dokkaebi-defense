@@ -1,4 +1,4 @@
-import type { ClientView, Command, GameData, GameEvent, GameState, LaneBatch, LaneEvent, RejectReason, StepResult } from '@dorandi/logic';
+import type { ClientView, Command, EconMine, GameData, GameEvent, GameState, LaneBatch, LaneEvent, RejectReason, StepResult } from '@dorandi/logic';
 import { enemyDistanceAt } from '@dorandi/logic';
 import type { Driver } from '../driver';
 import type { NetClient } from './NetClient';
@@ -94,6 +94,12 @@ export class NetDriver implements Driver {
     this.renderTick = renderTickAt(this.now(), this.latestTick, this.receivedAt, this.renderTick, this.data.balance.tickMs);
     this.refresh();
     this.flushLane();
+  }
+
+  /** The own economy from the latest `mine`; null while only watching (spirit or another lane). */
+  econ(): EconMine | null {
+    if (this.readOnly) return null;
+    return (this.net.view ?? this.view).mine.econ ?? null;
   }
 
   laneEliminated(): boolean {
@@ -210,6 +216,9 @@ function toGameEvent(ev: LaneEvent, before: (number | null)[]): GameEvent | null
       ? { type: 'damage', enemyId: ev.id, amount: ev.amount, source: ev.source, effect: ev.effect }
       : { type: 'damage', enemyId: ev.id, amount: ev.amount, source: ev.source };
     case 'kill': return { type: 'kill', enemyId: ev.id };
+    case 'flee': return { type: 'flee', enemyId: ev.id };
+    case 'grow': return { type: 'grow', enemyId: ev.id, hp: ev.hp };
+    case 'note': return ev.ev;
     case 'speed': return { type: 'speedChange', enemyId: ev.id, d: ev.d, speed: ev.speed };
     case 'summon': return { type: 'summon', unitId: ev.unitId, defId: ev.defId, grade: ev.grade, slot: ev.slot };
     case 'combine': {
