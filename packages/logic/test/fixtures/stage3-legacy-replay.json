@@ -1,0 +1,252 @@
+{
+  "seed": 5,
+  "seats": [
+    1,
+    2
+  ],
+  "stage": "stage3",
+  "options": {},
+  "log": [
+    {
+      "tick": 601,
+      "inputs": [
+        {
+          "seat": 1,
+          "cmd": {
+            "type": "convertToken"
+          },
+          "seq": 1
+        },
+        {
+          "seat": 1,
+          "cmd": {
+            "type": "convertToken"
+          },
+          "seq": 2
+        },
+        {
+          "seat": 1,
+          "cmd": {
+            "type": "convertToken"
+          },
+          "seq": 3
+        },
+        {
+          "seat": 1,
+          "cmd": {
+            "type": "storyTarget",
+            "id": "cheonnyeonjing"
+          },
+          "seq": 4
+        }
+      ]
+    },
+    {
+      "tick": 602,
+      "inputs": [
+        {
+          "seat": 1,
+          "cmd": {
+            "type": "buy",
+            "item": "bundle"
+          },
+          "seq": 5
+        }
+      ]
+    },
+    {
+      "tick": 603,
+      "inputs": [
+        {
+          "seat": 1,
+          "cmd": {
+            "type": "transferOffer",
+            "target": 2,
+            "slot": 0,
+            "unitId": 2
+          },
+          "seq": 6
+        }
+      ]
+    },
+    {
+      "tick": 604,
+      "inputs": [
+        {
+          "seat": 2,
+          "cmd": {
+            "type": "transferAccept",
+            "offerId": 1,
+            "slot": 0
+          },
+          "seq": 1
+        }
+      ]
+    },
+    {
+      "tick": 605,
+      "inputs": [
+        {
+          "seat": 1,
+          "cmd": {
+            "type": "forfeit"
+          },
+          "seq": 7
+        },
+        {
+          "seat": 2,
+          "cmd": {
+            "type": "forfeit"
+          },
+          "seq": 2
+        }
+      ]
+    }
+  ],
+  "dataVersion": "b273b25e",
+  "rulesRevision": "01495bda82eb6eda90d3de250a642e32936240f8",
+  "checkpoint": {
+    "tick": 604,
+    "hash": "7daa1728",
+    "mine": {
+      "market": {
+        "bundle": {
+          "price": 55,
+          "left": 2,
+          "odds": {
+            "2": 0.5,
+            "3": 0.5
+          }
+        },
+        "jar": {
+          "price": 35,
+          "left": 1,
+          "chance": 0.5,
+          "missed": false
+        },
+        "shortAfter": {
+          "bundle": 95,
+          "jar": 75
+        },
+        "day": 1,
+        "deck": [
+          {
+            "grade": 3,
+            "left": 1
+          },
+          {
+            "grade": 2,
+            "left": 1
+          }
+        ],
+        "why": {
+          "bundle": "noCoins",
+          "jar": "noCoins"
+        }
+      },
+      "jige": true,
+      "roundKills": 0,
+      "questTokens": 0,
+      "mission": {
+        "phase": "idle",
+        "beastId": null,
+        "beastDown": false
+      },
+      "collection": {
+        "done": [],
+        "paid": false
+      },
+      "events": [],
+      "story": {
+        "target": "cheonnyeonjing",
+        "active": null,
+        "offers": 0,
+        "awarded": false,
+        "view": {
+          "target": "cheonnyeonjing",
+          "have": [
+            false,
+            false,
+            false
+          ],
+          "kills": 0,
+          "need": 20,
+          "total": 40,
+          "paid": 0,
+          "support": 40,
+          "used": 0,
+          "cap": 20,
+          "short": 116
+        }
+      },
+      "tame": [],
+      "transfer": {
+        "ready": 0,
+        "readyRounds": {
+          "1": 0,
+          "2": 0
+        },
+        "busy": [
+          1,
+          2
+        ],
+        "offer": {
+          "offerId": 1,
+          "from": 1,
+          "to": 2,
+          "slot": 0,
+          "unitId": 2,
+          "defId": "saekkijul",
+          "deadlineTick": 803
+        },
+        "rewarded": false,
+        "rewardsLeft": 6,
+        "delivered": []
+      },
+      "team": {
+        "streak": 0,
+        "paid": false
+      }
+    }
+  },
+  "delivered": {
+    "id": 2,
+    "defId": "saekkijul",
+    "cooldown": 16,
+    "attackCount": 1,
+    "periodic": [],
+    "cost": 4,
+    "delivered": true
+  },
+  "buckwheat": 1,
+  "hashes": [
+    [
+      100,
+      "16316f16"
+    ],
+    [
+      200,
+      "9d4b477b"
+    ],
+    [
+      300,
+      "c726f594"
+    ],
+    [
+      400,
+      "683190f9"
+    ],
+    [
+      500,
+      "00cfb182"
+    ],
+    [
+      600,
+      "0543a327"
+    ],
+    [
+      606,
+      "71b4cfdf"
+    ]
+  ]
+}

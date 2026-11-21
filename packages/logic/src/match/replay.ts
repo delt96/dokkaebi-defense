@@ -5,6 +5,16 @@ import { stepMatch } from './step';
 
 export interface InputLogEntry { tick: number; inputs: MatchInput[] }
 
+export interface RecordedMatch {
+  rulesRevision: string;
+  dataVersion: string;
+  stage: 'stage2' | 'stage3';
+  seed: number;
+  seats: number[];
+  options: MatchOptions;
+  log: unknown[];
+}
+
 const MAX_TICKS = 200_000;
 
 /**

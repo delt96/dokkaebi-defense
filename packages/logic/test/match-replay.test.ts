@@ -12,3 +12,12 @@ describe('replayMatch', () => {
     expect(replayMatch(data, 3, [1], log)).toEqual([[m.tick, matchHash(m)]]);
   });
 });
+
+test('legacy recording settles its story and delivery under the recorded revision', async () => {
+  const { replayRecorded } = await import('../../sim/scripts/replay-version');
+  const { default: fixture } = await import('./fixtures/stage3-legacy-replay.json');
+  expect(await replayRecorded({ ...fixture, stage: 'stage3' })).toEqual(fixture.hashes);
+  expect(fixture.checkpoint.mine.story.target).toBe('cheonnyeonjing');
+  expect(fixture.checkpoint.mine.transfer.offer.to).toBe(2);
+  expect(fixture.buckwheat).toBe(1);
+});

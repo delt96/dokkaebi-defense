@@ -210,3 +210,13 @@ describe('rejoin and result', () => {
     expect(a!.last('notice')).toBeUndefined();
   });
 });
+
+test('recordings pin rules and keep a detached input log', () => {
+  const { core, deps } = started(['가'], {}, { stage: 'stage3' });
+  send(core, 'a', 1, 'forfeit');
+  tickOnce(core, deps);
+  const record = core.recording();
+  expect(record).toMatchObject({ rulesRevision: expect.stringMatching(/^[a-f0-9]{40}$/),
+    stage: 'stage3', dataVersion: core.match!.dataVersion, seats: [1], log: core.log });
+  expect(record.log).not.toBe(core.log);
+});

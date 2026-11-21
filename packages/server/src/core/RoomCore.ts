@@ -1,8 +1,15 @@
+import { execFileSync } from 'node:child_process';
 import {
   buildFull, buildTick, createMatch, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
   MATCH_STAGES, type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchStage, type MatchState, type NoticeMsg,
-  type ResultMsg,
+  type RecordedMatch, type ResultMsg,
 } from '@dorandi/logic';
+
+// Resolve once at process start so an existing room keeps its release identity.
+const rulesRevision = process.env.DORANDI_RULES_REVISION ?? execFileSync('git', ['rev-parse', 'HEAD'], {
+  encoding: 'utf8', cwd: new URL('.', import.meta.url),
+}).trim();
+if (!/^[0-9a-f]{40}$/.test(rulesRevision)) throw new Error('빌드 버전을 확인해 주세요.');
 
 const MAX_SEATS = 6;
 const TICK_MS = 50;
@@ -160,6 +167,14 @@ export class RoomCore {
       this.phase = 'closed';
       this.deps.dispose();
     }
+  }
+
+  recording(): RecordedMatch {
+    const match = this.match;
+    if (!match) throw new Error('아직 시작하지 않은 판입니다.');
+    if (this.deps.dev && this.options.devJumpTick !== undefined) throw new Error('라운드를 건너뛴 연습판입니다.');
+    return structuredClone({ rulesRevision, dataVersion: match.dataVersion, stage: this.stage,
+      seed: match.seed, seats: match.ring, options: match.options, log: this.log });
   }
 
   private onCommand(seat: number, payload: unknown): void {
