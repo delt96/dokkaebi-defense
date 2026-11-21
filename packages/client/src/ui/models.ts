@@ -1,5 +1,5 @@
 import {
-  attackIntervalTicks, damageBonus, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, unitDefFast, upgradeCost,
+  attackIntervalTicks, damageBonus, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, unitDefFast, upgradeCost, summonOddsForRound,
   type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 
@@ -239,13 +239,18 @@ export function activeNotice(notice: Notice | null, now: number): string | null 
   return notice && now < notice.until ? notice.text : null;
 }
 
-export function rightModel(state: GameState): { canSummon: boolean; canConvert: boolean; pending: number; bonusIn: number } {
+export function summonOddsText(data: GameData, round: number): string {
+  const odds = summonOddsForRound(data.balance, round);
+  const rates = odds.map((p, i) => `${i + 1}등급 ${pct(p)}`).join(' · ');
+  const opens = data.balance.summonOddsByRound?.find(b => (b.odds[2] ?? 0) > 0)?.fromRound;
+  return `소환 확률 · ${rates}${opens && opens > 1 ? ` (3등급은 ${opens}라운드부터)` : ''}`;
+}
+
+export function rightModel(state: GameState): { canSummon: boolean; canConvert: boolean; pending: number } {
   const live = state.phase !== 'ended' && state.tokens > 0;
   const freeCell = state.slots.some((u, i) => !u && state.open[i]);
-  const { pityEvery } = state.data.balance;
   return {
     canSummon: live && freeCell, canConvert: live, pending: state.pendingPity.length,
-    bonusIn: pityEvery - (state.grade1Summons % pityEvery),
   };
 }
 

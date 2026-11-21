@@ -1,10 +1,10 @@
 import type { GameData } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { dexEntries } from './models';
+import { dexEntries, summonOddsText } from './models';
 import { esc } from './dom';
 
 /** `story`: stage 3 lets a normal grade-6 row be picked as the story request's target. */
-export function dexHtml(data: GameData, story?: { target: string | null; canSet: boolean }, filter = 'all', query = ''): string {
+export function dexHtml(data: GameData, story?: { target: string | null; canSet: boolean }, filter = 'all', query = '', round = 1): string {
   const entries = dexEntries(data);
   const browsable = !!data.balance.extendedCombat;
   const needle = query.replace(/\s+/g, '');
@@ -29,6 +29,7 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
     return `<button data-action="dexFilter" data-arg="${key}" aria-pressed="${key === filter}">${label}</button>`;
   }).join('');
   return `<div class="modal${browsable ? ' dex-browser' : ''}"><div class="modal-head">도감${browsable ? ` · ${visible.length}종` : ''} <button data-action="closeModal">닫기</button></div>
+    <div>${esc(summonOddsText(data, round))}</div>
     ${browsable ? `<form class="dex-search"><input type="search" name="query" aria-label="이름·재료 검색" placeholder="이름·재료 검색" value="${esc(query)}"><button>검색</button></form><div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div><div class="dex-scroll">` : ''}<table class="dex"><thead><tr><th>등급</th><th>이름</th><th>재료</th></tr></thead><tbody>${rows || '<tr><td colspan="3">찾는 유닛이 없습니다.</td></tr>'}</tbody></table>${browsable ? '</div>' : ''}</div>`;
 }
 

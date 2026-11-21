@@ -247,15 +247,7 @@ describe('final review fixes: right panel and reject notices', () => {
     s.pendingPity.push('bitjaru', 'japgwi' as never);
     expect(rightModel(s).pending).toBe(2);
   });
-  test('the bonus countdown starts over at each grade-one summon threshold', () => {
-    const s = createGame(data, 1);
-    const interval = data.balance.pityEvery;
-    for (const [summons, remaining] of [[0, interval], [interval - 1, 1], [interval, interval], [interval + 3, interval - 3]]) {
-      s.grade1Summons = summons!;
-      expect(rightModel(s).bonusIn).toBe(remaining);
-    }
-  });
-  test('the right panel shows the remaining summons and the bonus countdown', () => {
+  test('the summon tooltip follows the lane round and explains when grade 3 opens', () => {
     const s = createGame(data, 1);
     s.tokens = 3;
     s.grade1Summons = 3;
@@ -265,7 +257,11 @@ describe('final review fixes: right panel and reject notices', () => {
       renderRight(s);
       expect(panel.innerHTML).toContain('도깨비불 (뽑기)');
       expect(panel.innerHTML).toContain('>뚝딱! (3번)</button>');
-      expect(panel.innerHTML).toContain('보너스까지 1등급 4번');
+      expect(panel.innerHTML).toContain('1등급 75% · 2등급 25% · 3등급 0% (3등급은 5라운드부터)');
+      s.round = 5;
+      renderRight(s);
+      expect(panel.innerHTML).toContain('1등급 72% · 2등급 25% · 3등급 3%');
+      expect(panel.innerHTML).not.toContain('보너스까지');
     } finally {
       vi.unstubAllGlobals();
     }

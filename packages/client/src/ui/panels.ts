@@ -1,6 +1,6 @@
 import type { GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { combineNoteLines, combineOptions, rightModel, unitCard, upgradeRows, type CombineOption } from './models';
+import { combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `badge`: a story request not yet looked at. */
@@ -13,9 +13,8 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     <div class="res"><b>도깨비불 (뽑기)</b><span>${state.tokens}</span></div>
     <div class="res"><b>엽전</b><span>${state.coins}</span></div>
     <div class="res"><b>메밀묵</b><span>${state.buckwheat}</span></div>
-    <button class="big" data-action="summon" ${m.canSummon ? '' : 'disabled'}>뚝딱! (${state.tokens}번)</button>
+    <button class="big" data-action="summon" title="${esc(summonOddsText(state.data, state.round))}" ${m.canSummon ? '' : 'disabled'}>뚝딱! (${state.tokens}번)</button>
     ${needSlot ? '<div class="need-slot">빈칸 필요</div>' : ''}
-    <div>보너스까지 1등급 ${m.bonusIn}번</div>
     ${m.pending ? `<div class="res pending"><b>보관 중</b><span>${m.pending}</span></div>` : ''}
     <button data-action="convert" ${m.canConvert ? '' : 'disabled'}>불 바꾸기 (+${state.data.balance.tokens.toCoins}냥)</button>
     <button data-action="openUpgrades">강화</button>
