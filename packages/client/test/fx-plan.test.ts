@@ -2,8 +2,8 @@ import { createGame, laneOf, loadGameData, type GameEvent, type GameState, type 
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { describe, expect, test } from 'vitest';
 import {
-  FX_FLAGS, FxBudget, PRIORITY, REDUCE_FX_KEY, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState,
-  readReduceFx, shotStyle, writeReduceFx, type FxCmd, type PlanCtx,
+  FROST_ALPHA, FX_FLAGS, FxBudget, PRIORITY, REDUCE_FX_KEY, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState,
+  readReduceFx, shotStyle, slowLook, writeReduceFx, type FxCmd, type PlanCtx,
 } from '../src/fx/plan';
 
 const data = loadGameData('stage2');
@@ -271,9 +271,18 @@ describe('budget', () => {
     expect(FxBudget.CAPS.reduced[PRIORITY.mid]).toBeLessThan(FxBudget.CAPS.normal[PRIORITY.mid]);
   });
 
-  test('reduced mode drops shake, edge glow, trails and mist but keeps status marks', () => {
-    expect(FX_FLAGS(false)).toEqual({ shake: true, edgeGlow: true, trails: true, mist: true, statuses: true, rays: true });
-    expect(FX_FLAGS(true)).toEqual({ shake: false, edgeGlow: false, trails: false, mist: false, statuses: true, rays: false });
+  test('reduced mode drops shake, edge glow, trails, mist and the frost cover but keeps status marks', () => {
+    expect(FX_FLAGS(false)).toEqual({ shake: true, edgeGlow: true, trails: true, mist: true, statuses: true, rays: true, frost: true });
+    expect(FX_FLAGS(true)).toEqual({ shake: false, edgeGlow: false, trails: false, mist: false, statuses: true, rays: false, frost: false });
+  });
+
+  test('a slowed enemy keeps its blue body tint; the frost cover is a see-through extra', () => {
+    expect(slowLook(true, FX_FLAGS(false))).toEqual({ tint: true, frost: true });
+    expect(slowLook(true, FX_FLAGS(true))).toEqual({ tint: true, frost: false });
+    expect(slowLook(false, FX_FLAGS(false))).toEqual({ tint: false, frost: false });
+    // faint: a column of slowed enemies must not turn into a wall of ice
+    expect(FROST_ALPHA).toBeGreaterThan(0);
+    expect(FROST_ALPHA).toBeLessThanOrEqual(0.6);
   });
 });
 

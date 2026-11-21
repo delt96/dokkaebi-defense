@@ -128,12 +128,46 @@ const JOBS = [
   ...[...radii.pierce].sort().map(r => ({ key: `pierce-${px(r)}`, src: 'melee/thrust', opts: { reach: px(r) }, until: 0.45, fps: 24, actor: emptyActor(), pivot: 'thrust' })),
   ...enemyIds.flatMap(id => [
     { key: `stun-${id}`, src: 'status/stunned', fps: 12, actor: spriteActor(join(spriteDir, `${id}.png`)) },
-    { key: `frozen-${id}`, src: 'status/frozen', fps: 12, actor: spriteActor(join(spriteDir, `${id}.png`)) },
+    { key: `frozen-${id}`, src: 'status/frozen', fps: 12, actor: spriteActor(join(spriteDir, `${id}.png`)), bodyless: true },
   ]),
 ];
 
+/**
+ * status/frozen repaints the whole body in ice, which hides what the enemy is once a crowd is slowed. This keeps
+ * only what lies outside the body or on its outline (frosted rim, snow on the head, icicles, frost underfoot) and
+ * drops the big cold glows and the breath over the face; in game the enemy's own sprite shows through, tinted blue.
+ */
+function bodyless(fx, actor) {
+  const { w, h, data } = actor.mask;
+  const on = (x, y) => x >= 0 && y >= 0 && x < w && y < h && data[y * w + x] > 0;
+  const inside = (x, y) => on(x, y) && on(x - 1, y) && on(x + 1, y) && on(x, y - 1);
+  // frozen.js shivers the body one pixel sideways for 0.22 s every second
+  const shiver = t => (t % 1 < 0.22 ? (Math.floor(t * 50) % 2 ? 1 : -1) : 0);
+  const draw = (p, t, o) => {
+    const dx = shiver(t);
+    const hidden = (x, y) => inside(Math.floor(x) - actor.x - dx, Math.floor(y) - actor.y);
+    const q = new Proxy(p, {
+      get(target, prop) {
+        if (prop === 'px') return (x, y, c) => { if (!hidden(x, y)) target.px(x, y, c); };
+        if (prop === 'dot') return (x, y, c, a) => { if (!hidden(x, y)) target.dot(x, y, c, a); };
+        // breath puffs that would sit on the face go too
+        if (prop === 'disc') return (x, y, r, c, a) => { if (!hidden(x, y)) target.disc(x, y, r, c, a); };
+        if (prop === 'glow') return (x, y, r, c, k) => { if (r < 8) target.glow(x, y, r, c, k); };
+        const v = Reflect.get(target, prop);
+        return typeof v === 'function' ? v.bind(target) : v;
+      },
+      set(target, prop, v) { return Reflect.set(target, prop, v); },
+    });
+    fx.mod.draw(q, t, o);
+  };
+  return { ...fx, mod: { ...fx.mod, draw } };
+}
+
 async function effectFor(job) {
-  if (job.src) return loadEffect(job.src, join(PIXELFX, 'src', 'fx'));
+  if (job.src) {
+    const fx = await loadEffect(job.src, join(PIXELFX, 'src', 'fx'));
+    return job.bodyless ? bodyless(fx, job.actor) : fx;
+  }
   const file = join(HERE, 'fx-src', `${job.local}.js`);
   const mod = await import(pathToFileURL(file).href);
   const pad = 14, side = job.size * 2 + pad * 2;

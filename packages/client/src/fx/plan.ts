@@ -287,11 +287,22 @@ export class FxBudget {
   }
 }
 
-export interface FxFlags { shake: boolean; edgeGlow: boolean; trails: boolean; mist: boolean; statuses: boolean; rays: boolean }
+export interface FxFlags { shake: boolean; edgeGlow: boolean; trails: boolean; mist: boolean; statuses: boolean; rays: boolean; frost: boolean }
 
-/** What 'reduce effects' turns off. Status marks stay: they tell the player what the enemy is doing. */
+/**
+ * What 'reduce effects' turns off. Status marks stay: they tell the player what the enemy is doing.
+ * A slow still shows as the blue body tint; only the animated frost cover goes.
+ */
 export function FX_FLAGS(reduced: boolean): FxFlags {
-  return { shake: !reduced, edgeGlow: !reduced, trails: !reduced, mist: !reduced, statuses: true, rays: !reduced };
+  return { shake: !reduced, edgeGlow: !reduced, trails: !reduced, mist: !reduced, statuses: true, rays: !reduced, frost: !reduced };
+}
+
+/** The frost cover (rim, snow, icicles, frost underfoot) is kept faint so a crowd of slowed enemies stays calm. */
+export const FROST_ALPHA = 0.6;
+
+/** How a slowed enemy is drawn: always the blue body tint, plus the see-through frost cover when effects allow it. */
+export function slowLook(slowed: boolean, flags: FxFlags): { tint: boolean; frost: boolean } {
+  return { tint: slowed, frost: slowed && flags.frost };
 }
 
 export const REDUCE_FX_KEY = 'dorandi.reduceFx';

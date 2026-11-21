@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { FX_KEYS, areaSheet, hitKey, pierceSheet, quarterTurn, statusKey, textureKey } from './atlas';
 import { FX_SHEETS, type FxKey } from './manifest';
-import { FX_FLAGS, FxBudget, PRIORITY, gradeHex, type EnemyStatus, type FxCmd, type FxFlags, type Priority, type ShotStyle } from './plan';
+import { FROST_ALPHA, FX_FLAGS, FxBudget, PRIORITY, gradeHex, slowLook, type EnemyStatus, type FxCmd, type FxFlags, type Priority, type ShotStyle } from './plan';
 import { Pool } from './pool';
 
 type Pt = { x: number; y: number };
@@ -385,7 +385,7 @@ export class FxLayer {
         const key = statusKey('stun', v.defId);
         if (key) stun.set(v.id, { key, x: v.x, y: v.feet, scale: v.scale, depth: FX_DEPTH.status + 0.05 });
       }
-      if (slowed) {
+      if (slowLook(slowed, this.flags).frost) {
         const key = statusKey('frozen', v.defId);
         if (key) frost.set(v.id, { key, x: v.x, y: v.feet, scale: v.scale, depth: FX_DEPTH.status });
       }
@@ -400,12 +400,8 @@ export class FxLayer {
     }
     this.syncLoop(this.stunOn, stun);
     this.syncLoop(this.frostOn, frost);
-  }
-
-  /** Whether an enemy has a frost overlay (the scene tints the ones that cannot have one). */
-  hasFrost(defId: string): boolean {
-    const key = statusKey('frozen', defId);
-    return !!key && this.ready.has(key);
+    // the sheet leaves the body clear (it shows tinted blue underneath); the frost around it stays faint
+    for (const spr of this.frostOn.values()) spr.setAlpha(FROST_ALPHA);
   }
 
   private drawText(now: number): void {

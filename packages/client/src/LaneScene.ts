@@ -5,7 +5,7 @@ import type { Driver } from './driver';
 import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasToCell, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_KEYS, textureKey } from './fx/atlas';
-import { auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, writeReduceFx, type FxCmd } from './fx/plan';
+import { FX_FLAGS, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, writeReduceFx, type FxCmd } from './fx/plan';
 
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
 const hex = (c: string) => Number.parseInt(c.slice(1), 16);
@@ -438,7 +438,7 @@ export class LaneScene extends Phaser.Scene {
       if (shared) yeoksin = { x: view.x, y: view.y };
       const status = enemyStatus(enemy, marked.has(enemy.id), shared);
       this.clearFlash(view);
-      this.tintSlow(view, status.slowed && !this.fx?.hasFrost(enemy.defId));
+      this.tintSlow(view, slowLook(status.slowed, this.fx?.flags ?? FX_FLAGS(false)).tint);
       if (status.stunned || status.slowed || status.marked) {
         const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
         const scale = body instanceof Phaser.GameObjects.Image ? body.scaleY : 0.75;
