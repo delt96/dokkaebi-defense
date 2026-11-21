@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { loadGameData, unitDef, enemyDef, gradeDps, unitAttack, enemyHp } from '../src/data';
+import { dataSources, buildGameData, summonOddsForRound, loadGameData, unitDef, enemyDef, gradeDps, unitAttack, enemyHp } from '../src/data';
 import { validateData as v } from '../src/validate';
 
 const data = loadGameData();
@@ -39,6 +39,18 @@ describe('data', () => {
     const bad = structuredClone(data);
     bad.balance.summonOddsByRound = bands.map(b => ({ ...b, odds: [...b.odds] }));
     expect(v(bad).errors.join(' ')).toContain(error);
+  });
+  test('older data sources use flat odds throughout the game', () => {
+    const src = dataSources();
+    delete src.stage1.balance.summonOddsByRound;
+    delete src.stage3.balance.summonOddsByRound;
+    for (const stage of ['stage1', 'stage2', 'stage3'] as const) {
+      const legacy = buildGameData(stage, src);
+      expect(v(legacy).errors).toEqual([]);
+      for (const round of [0, 5, 60]) {
+        expect(summonOddsForRound(legacy.balance, round)).toBe(legacy.balance.summonOdds);
+      }
+    }
   });
   test('validator catches broken data', () => {
     const bad = structuredClone(data);

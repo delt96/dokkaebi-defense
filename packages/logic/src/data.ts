@@ -28,7 +28,12 @@ const SOURCES = {
   },
 };
 
-export type DataSources = typeof SOURCES;
+type Sources = typeof SOURCES;
+export type DataSources = {
+  [S in keyof Sources]: Omit<Sources[S], 'balance'> & {
+    balance: Omit<Sources[S]['balance'], 'summonOddsByRound'> & Pick<BalanceDef, 'summonOddsByRound'>;
+  };
+};
 export type DataStage = 'stage1' | 'stage2' | 'stage3';
 
 /** A fresh copy of the raw per-stage JSON that loadGameData builds from. */
