@@ -65,6 +65,19 @@ describe('stage 3 match schedule', () => {
     expect(g.result?.outcome).toBe('gate');
   });
 
+  test('a new yeoksin visit resets the previous visit\'s target streak', () => {
+    const m = createMatch(d3, 1, [1]);
+    jumpToTick(m, rst(6));
+    stepMatch(m, []);
+    const enemy = m.yeoksin!.enemy;
+    const unit = placeUnitForTest(m.lanes[1]!, 'oedaridokkaebi', 0);
+    unit.streak = { enemyId: enemy.id, count: 2 };
+    m.tick = rst(6) + 240;
+    const r = stepMatch(m, []);
+    expect(r.events.some(e => e.type === 'yeoksinEnter')).toBe(true);
+    expect(unit.streak).toEqual({ enemyId: enemy.id, count: 1 });
+  });
+
   test('noGate keeps the match going past a failed gate', () => {
     const m = createMatch(d3, 1, SIX, { noGate: true });
     jumpToTick(m, gateDeadlineTick(d3, 3));

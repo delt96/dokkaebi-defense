@@ -45,12 +45,14 @@ function moveTo(match: MatchState, to: number | null, ctx: StepMatchResult): voi
   const from = y.seat;
   if (from !== null) {
     const old = match.lanes[from]!;
+    for (const unit of old.slots) if (unit?.streak?.enemyId === e.id) delete unit.streak;
     const i = old.enemies.indexOf(e);
     if (i >= 0) {
       old.enemies.splice(i, 1);
       ctx.events.push({ type: 'yeoksinLeave', stage: y.stage, seat: from });
     }
   }
+  delete e.vulnCaster;
   e.vulns = {};
   e.dots = {};
   e.fireHit = {};
