@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { createGame, step, loadGameData } from '../src/index';
+import { createGame, jigeCandidates, step, loadGameData } from '../src/index';
+import { unitAttack } from '../src/data';
+import { familyMedian, roleDps, type Role } from './role-power';
 import { computeHitDamage, attackIntervalTicks, damageBonus, pickTarget } from '../src/combat';
 import { upgradeCost } from '../src/upgrades';
 import { forceRound, spawnEnemyForTest, placeUnitForTest } from '../src/testing';
@@ -65,5 +67,34 @@ describe('combat', () => {
     expect(s.coins).toBe(950); expect(s.open[18]).toBe(true); expect(s.open[19]).toBe(true); expect(s.open[20]).toBe(false);
     s.upgrades.physical = 10;
     expect(step(s, [{ type: 'upgrade', id: 'physical' }]).rejected[0]!.reason).toBe('maxed');
+  });
+});
+
+describe('recruited hidden units fight like an ordinary grade 4', () => {
+  const d3r = loadGameData('stage3');
+  const ROLE: Record<string, Role> = { jinegaksi: 'group', gangcheori: 'group', bulgasari: 'single', ssireumdokkaebi: 'single', eoduksini: 'group' };
+
+  test('grade 4, hidden, own damage type; basic attack is 1/2.6² of the grade 6 one', () => {
+    for (const id of Object.keys(ROLE)) {
+      const def = d3r.units.find(u => u.id === id)!;
+      expect([id, def.grade, def.hidden]).toEqual([id, 4, true]);
+      const as6 = unitAttack({ ...def, grade: 6 }, d3r.balance);
+      expect(unitAttack(def, d3r.balance) / as6).toBeCloseTo(1 / 2.6 ** 2, 9);
+    }
+    expect(d3r.units.find(u => u.id === 'gangcheori')!.damageType).toBe('magical');
+    expect(d3r.units.find(u => u.id === 'jinegaksi')!.damageType).toBe('physical');
+  });
+
+  test('skill-inclusive damage on its role is 90-110% of the same-family normal grade 4 median', () => {
+    for (const [id, role] of Object.entries(ROLE)) {
+      const ratio = roleDps(d3r, id, role) / familyMedian(d3r, id, 4, role);
+      expect([id, ratio >= 0.9 && ratio <= 1.1], `${id} ${ratio.toFixed(3)}`).toEqual([id, true]);
+    }
+  });
+
+  test('recruits are never offered or taken by a jige swap', () => {
+    for (const id of Object.keys(ROLE)) expect(jigeCandidates(d3r, id)).toEqual([]);
+    const g4 = d3r.units.find(u => !u.hidden && u.grade === 4)!;
+    expect(jigeCandidates(d3r, g4.id).some(u => u.hidden)).toBe(false);
   });
 });

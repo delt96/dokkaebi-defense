@@ -18,7 +18,8 @@ export function readV5(): { units: V5Unit[]; recipes: V5Recipe[] } {
   for (const line of lines) {
     const g = /^### ([1-6])등급\s*$/.exec(line);
     if (g) { grade = Number(g[1]); hidden = false; continue; }
-    if (/^## 5\. 히든 유닛/.test(line)) { grade = 6; hidden = true; continue; }
+    // the tamed recruits are grade 4 hidden units
+    if (/^## 5\. 히든 유닛/.test(line)) { grade = 4; hidden = true; continue; }
     if (/^#{2,3} /.test(line)) { grade = 0; hidden = false; continue; }
     if (!grade || !line.startsWith('|')) continue;
     const cols = cells(line);

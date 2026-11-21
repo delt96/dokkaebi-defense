@@ -17,7 +17,7 @@ describe('stage 3 data, grades 1-4', () => {
   test('every v5 row of grade <= 4 matches stats, name and recipe', () => {
     for (const v of v5.units.filter(u => u.grade <= 4)) {
       expect(unitDef(d3, v.id)).toMatchObject({ name: v.name, grade: v.grade, damageType: v.damageType, range: v.range, interval: v.interval, factor: v.factor });
-      if (v.grade === 1) continue;
+      if (v.grade === 1 || v.hidden) continue;
       const recipe = d3.recipes.find(r => r.result === v.id);
       const want = v5.recipes.find(r => r.result === v.id)!;
       expect([v.id, sorted(recipe?.materials ?? [])]).toEqual([v.id, sorted(want.materials)]);
