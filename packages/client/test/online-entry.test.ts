@@ -30,4 +30,17 @@ describe('entry and lobby', () => {
     root.querySelector('button')!.click();
     expect(calls).toBe(1); release();
   });
+  test('Enter that only commits an IME composition does not submit; a plain Enter still does', () => {
+    const root = document.createElement('div');
+    renderEntry(root, { onSubmit: () => Promise.resolve() });
+    const input = root.querySelector('input')!;
+    const enter = (init: KeyboardEventInit) => {
+      const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...init });
+      input.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    expect(enter({ isComposing: true })).toBe(true);
+    expect(enter({ keyCode: 229 })).toBe(true);
+    expect(enter({})).toBe(false);
+  });
 });
