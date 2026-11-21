@@ -7,6 +7,7 @@ import { jumpToTick } from '@dorandi/logic/testing';
 
 const MAX_SEATS = 6;
 const TICK_MS = 50;
+const LOBBY_REFRESH_GRACE_MS = 15_000;
 
 export interface ClientLink { id: string; send(type: string, msg: unknown): void; close(code?: number): void }
 export interface RoomDeps {
@@ -60,7 +61,7 @@ export class RoomCore {
    * `full` (the browser stores the new key only on that `full`, so a drop before it must not lose the seat).
    */
   private readonly prevKeys = new Map<number, { key: string; linkId: string }>();
-  /** A rematch lobby does not close when empty before this time (it must still be there for later pressers). */
+  /** Deadline for an empty lobby to accept returning players or later rematch pressers. */
   private keepOpenUntil: number | null = null;
 
   constructor(readonly roomId: string, readonly deps: RoomDeps, readonly options: RoomOptions = {}) {
@@ -91,7 +92,7 @@ export class RoomCore {
     this.broadcastLobby();
   }
 
-  leave(linkId: string, _consented: boolean): void {
+  leave(linkId: string, consented: boolean): void {
     const entry = this.links.get(linkId);
     if (!entry) return;
     this.links.delete(linkId);
@@ -102,7 +103,11 @@ export class RoomCore {
     this.seats.delete(entry.seat);
     if (this.seats.size === 0) {
       this.hostSeat = null;
-      if (this.keepOpenUntil === null) this.deps.dispose();
+      if (!consented) {
+        const graceMs = Math.min(LOBBY_REFRESH_GRACE_MS, loadGameData('stage2').coop!.disconnectSeconds * 1000);
+        this.keepOpenUntil = Math.max(this.keepOpenUntil ?? 0, this.deps.now() + graceMs);
+        this.deps.setAutoDispose(false);
+      } else if (this.keepOpenUntil === null) this.deps.dispose();
       return;
     }
     if (this.hostSeat === entry.seat) this.hostSeat = Math.min(...this.seats.keys());

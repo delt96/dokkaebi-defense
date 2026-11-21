@@ -22,6 +22,7 @@ export class MatchRoom extends Room {
 
   onCreate(options: unknown): void {
     this.maxClients = 12;
+    this.maxMessagesPerSecond = 120;
     this.core = new RoomCore(this.roomId, {
       now: () => performance.now(),
       random128: () => randomBytes(16).toString('hex'),

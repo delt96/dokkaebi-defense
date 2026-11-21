@@ -48,6 +48,25 @@ test('a rejoin that drops before its snapshot is answered can come back with the
   expect(full.me.key).not.toBe(keyA);
 });
 
+test('a flooded connection is dropped while the remaining player can use the room', async () => {
+  const { a, b } = await startedPair();
+  const dropped = new Promise<number>(resolve => a.onLeave(resolve));
+  for (let i = 0; i < 250; i++) a.send('watch', { seat: 2 });
+  expect(await dropped).toBe(4002);
+  const full = next<{ me: { seat: number } }>(b, 'full');
+  b.send('resync', {});
+  expect((await full).me.seat).toBe(2);
+});
+
+test('an invite still works after the sole lobby player disconnects unexpectedly', async () => {
+  const a = quiet(await colyseus.sdk.create('match', { name: '가' }));
+  const lobby = next(a, 'lobby');
+  await lobby;
+  await a.leave(false);
+  const b = await colyseus.sdk.joinById(a.roomId, { name: '가' });
+  expect(await next(b, 'lobby')).toMatchObject({ roomId: a.roomId, you: 1, hostSeat: 1 });
+});
+
 test('the rematch room still takes later pressers after the first presser left it empty (final review 2)', async () => {
   const { a, b } = await startedPair();
   const resultA = next(a, 'result'); const resultB = next(b, 'result');
