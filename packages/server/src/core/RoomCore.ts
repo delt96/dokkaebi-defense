@@ -1,12 +1,12 @@
 import {
-  buildFull, buildTick, createMatch, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
+  buildFull, buildTick, createMatch, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
   type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchState, type NoticeMsg,
   type ResultMsg,
 } from '@dorandi/logic';
-import { jumpToTick } from '@dorandi/logic/testing';
 
 const MAX_SEATS = 6;
 const TICK_MS = 50;
+const LOBBY_REFRESH_GRACE_MS = 15_000;
 
 export interface ClientLink { id: string; send(type: string, msg: unknown): void; close(code?: number): void }
 export interface RoomDeps {
@@ -53,6 +53,7 @@ export class RoomCore {
   private resultAt = 0;
   /** Link ids that get a `full` at the end of the next tick (rejoins during play); they get no stream messages before it. */
   private awaitingFull = new Set<string>();
+  private readonly rematchReady = new Set<number>();
   /** The one rematch room, created on the first press. */
   private rematch: { hostSeat: number; hostToken: string; roomId: Promise<string> } | null = null;
   /**
@@ -60,7 +61,7 @@ export class RoomCore {
    * `full` (the browser stores the new key only on that `full`, so a drop before it must not lose the seat).
    */
   private readonly prevKeys = new Map<number, { key: string; linkId: string }>();
-  /** A rematch lobby does not close when empty before this time (it must still be there for later pressers). */
+  /** Deadline for an empty lobby to accept returning players or later rematch pressers. */
   private keepOpenUntil: number | null = null;
 
   constructor(readonly roomId: string, readonly deps: RoomDeps, readonly options: RoomOptions = {}) {
@@ -91,7 +92,7 @@ export class RoomCore {
     this.broadcastLobby();
   }
 
-  leave(linkId: string, _consented: boolean): void {
+  leave(linkId: string, consented: boolean): void {
     const entry = this.links.get(linkId);
     if (!entry) return;
     this.links.delete(linkId);
@@ -102,7 +103,11 @@ export class RoomCore {
     this.seats.delete(entry.seat);
     if (this.seats.size === 0) {
       this.hostSeat = null;
-      if (this.keepOpenUntil === null) this.deps.dispose();
+      if (!consented) {
+        const graceMs = Math.min(LOBBY_REFRESH_GRACE_MS, loadGameData('stage2').coop!.disconnectSeconds * 1000);
+        this.keepOpenUntil = Math.max(this.keepOpenUntil ?? 0, this.deps.now() + graceMs);
+        this.deps.setAutoDispose(false);
+      } else if (this.keepOpenUntil === null) this.deps.dispose();
       return;
     }
     if (this.hostSeat === entry.seat) this.hostSeat = Math.min(...this.seats.keys());
@@ -182,7 +187,12 @@ export class RoomCore {
     }
     this.links.set(link.id, { link, seat });
     this.seats.get(seat)!.linkId = link.id;
-    if (this.phase === 'result') return this.sendFull(link, seat);
+    if (this.phase === 'result') {
+      this.sendFull(link, seat);
+      this.notice(link, { kind: 'rematchReady', seats: [...this.rematchReady] });
+      if (this.rematchReady.has(seat)) this.onRematch(link, seat);
+      return;
+    }
     if (!wasLinked) this.queue.push({ seat, seq: 0, cmd: { type: 'reconnect' } });
     // Inputs already received are stepped first; the snapshot follows at the end of the next tick.
     this.awaitingFull.add(link.id);
@@ -201,7 +211,13 @@ export class RoomCore {
     }
     const { hostSeat, hostToken, roomId: pending } = this.rematch;
     pending.then(roomId => {
+      if (this.phase !== 'result') return;
       if (this.links.get(link.id)?.link !== link) return;
+      if (!this.rematchReady.has(seat)) {
+        this.rematchReady.add(seat);
+        const status: NoticeMsg = { kind: 'rematchReady', seats: [...this.rematchReady] };
+        for (const { link: peer } of this.links.values()) this.notice(peer, status);
+      }
       this.notice(link, seat === hostSeat ? { kind: 'rematch', roomId, hostToken } : { kind: 'rematch', roomId });
     }, () => {});
   }

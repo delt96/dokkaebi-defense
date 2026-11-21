@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
-  boardDps, countNormalEnemies, createMatch, laneSeed, loadGameData, matchHash, roundStartTick, stepMatch, unitDefFast,
+  boardDps, countNormalEnemies, createMatch, gateDeadlineTick, laneSeed, loadGameData, matchHash, roundStartTick, stepMatch, unitDefFast,
   type GameData, type GameState, type InputLogEntry, type MatchCommand, type MatchInput, type MatchOptions, type MatchState,
 } from '@dorandi/logic';
 import { clumsyBot, normalBot, type Bot } from './bots';
@@ -235,7 +235,12 @@ const median = (xs: number[]): number | null => {
   return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2;
 };
 
-const GATE_TICKS: Record<number, number> = { 1: 3200, 2: 4000 };
+/** Ticks a stage's yeoksin has from its spawn (start of its first round) until the gate is judged (end of its deadline round). */
+export function gateTicks(data: GameData, stage: number): number {
+  const def = data.coop?.yeoksin.find(y => y.stage === stage);
+  if (!def) throw new Error(`no yeoksin stage ${stage}`);
+  return gateDeadlineTick(data, stage) + 1 - roundStartTick(data, def.startRound);
+}
 
 function expandKinds(spec: string, players: number): BotKind[] {
   const parts = spec.split(',').map(x => x.trim());
@@ -292,7 +297,8 @@ export function coopCli(arg: (name: string, fallback: string) => string): void {
       .filter(r => r.killTick[stage] != null && r.firstEnter[stage] != null)
       .map(r => r.killTick[stage]! - r.firstEnter[stage]!);
     const med = median(spans);
-    const ratio = med === null ? '' : ` (${((med / GATE_TICKS[stage]!) * 100).toFixed(0)}% of ${GATE_TICKS[stage]})`;
+    const gate = gateTicks(data, stage);
+    const ratio = med === null ? '' : ` (${((med / gate) * 100).toFixed(0)}% of ${gate})`;
     console.log(`stage ${stage} kill: ${spans.length}/${seeds} killed, median ticks since spawn ${med ?? '-'}${ratio}`);
   }
   for (const stage of [1, 2]) {

@@ -169,9 +169,9 @@ describe('online app: leaving and coming back (spec 6)', () => {
     expect(screen().querySelector('a[href="/"]')).not.toBeNull();
   });
 
-  test('a rematch notice stores the host token, leaves, and the new page joins with it (checkpoint 17-19, finding 7)', async () => {
+  test('entering a rematch stores the host token, leaves, and the new page joins with it', async () => {
     const { room } = await inBattle();
-    room.emit('notice', { kind: 'rematch', roomId: 'r2', hostToken: 'h2' });
+    battle.mock.calls[0]![2]('r2', 'h2');
     await vi.advanceTimersByTimeAsync(0);
     expect(room.left).toBe(1);
     expect(assign).toHaveBeenCalledWith('/room/r2');

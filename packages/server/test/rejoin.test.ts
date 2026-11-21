@@ -185,7 +185,8 @@ describe('rejoin and result', () => {
     expect(deps.createRematchRoom).toHaveBeenCalledTimes(1);
     // the new lobby stays open, even empty, for the rest of this room's result hold (final review 2)
     expect(deps.createRematchRoom).toHaveBeenCalledWith({ hostToken: expect.any(String), keepOpenMs: 110_000 });
-    expect(b!.last('notice')).toEqual({ kind: 'rematch', roomId: 'room-2', hostToken: expect.any(String) });
+    expect(b!.all('notice')).toContainEqual({ kind: 'rematch', roomId: 'room-2', hostToken: expect.any(String) });
+    expect(b!.last('notice')).toEqual({ kind: 'rematchReady', seats: [2, 1] });
     expect(a!.last('notice')).toEqual({ kind: 'rematch', roomId: 'room-2' });
     core.message('a', 'rematch', {}); await settle();
     expect(deps.createRematchRoom).toHaveBeenCalledTimes(1);

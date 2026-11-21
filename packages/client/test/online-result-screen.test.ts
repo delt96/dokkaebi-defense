@@ -50,10 +50,11 @@ function resultOnScreen() {
   room.emit('full', full);
   const root = document.createElement('div');
   const go = vi.fn();
-  mountResult(net, root, data, go);
+  const goRematch = vi.fn();
+  mountResult(net, root, data, go, goRematch);
   room.emit('result', { result });
   const again = (): HTMLButtonElement => Array.from(root.querySelectorAll<HTMLButtonElement>('button.big')).find(b => b.textContent !== '나가기')!;
-  return { room, net, root, go, again };
+  return { room, net, root, go, goRematch, again };
 }
 
 describe('result screen connection (checkpoint 17-19, finding 5)', () => {
@@ -74,6 +75,28 @@ describe('result screen connection (checkpoint 17-19, finding 5)', () => {
     press(Array.from(root.querySelectorAll('button.big')).find(b => b.textContent === '나가기')!);
     expect(root.textContent).not.toContain('방이 닫혔습니다');
     return Promise.resolve().then(() => Promise.resolve()).then(() => expect(go).toHaveBeenCalledWith('/'));
+  });
+
+  test('rematch shows who is ready and waits for the rest before moving', () => {
+    const { room, root, again, goRematch } = resultOnScreen();
+    press(again());
+    room.emit('notice', { kind: 'rematchReady', seats: [1] });
+    room.emit('notice', { kind: 'rematch', roomId: 'r2', hostToken: 'host' });
+    expect(root.querySelector('[role="status"]')?.textContent).toContain('재경기 준비 1/6명');
+    expect(root.textContent).toContain('응답 대기');
+    expect(Array.from(root.querySelectorAll('button')).find(b => b.textContent === '준비 완료')?.disabled).toBe(true);
+    expect(goRematch).not.toHaveBeenCalled();
+    room.emit('notice', { kind: 'rematchReady', seats: [1, 2] });
+    expect(goRematch).toHaveBeenCalledWith('r2', 'host');
+  });
+
+  test('a ready player can enter the new lobby while others are deciding', () => {
+    const { room, root, again, goRematch } = resultOnScreen();
+    press(again());
+    room.emit('notice', { kind: 'rematchReady', seats: [1] });
+    room.emit('notice', { kind: 'rematch', roomId: 'r2' });
+    press(Array.from(root.querySelectorAll('button')).find(b => b.textContent === '새 대기실로 이동')!);
+    expect(goRematch).toHaveBeenCalledWith('r2', undefined);
   });
 
   test('rematch can be pressed again when no rematch notice comes within 5 seconds', () => {

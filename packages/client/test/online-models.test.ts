@@ -46,6 +46,11 @@ describe('online rows', () => {
     expect(r[1]).toMatchObject({ mark: 'current' }); expect(r[1]!.progress).toBeCloseTo(120 / 240, 9);
     expect(rowsModel(viewWith({ ...o, tick: 5011 }), data)[4]!.status).toBe('탈락·넋');
   });
+  test('the lone survivor is the current lane, without the next-lane label', () => {
+    const view = viewWith({ me: 1, rows: [row({}), row({ seat: 2, status: 'spirit' })],
+      yeoksin: { stage: 1, hp: 80, maxHp: 100, seat: 1, enterTick: 0, nextSeat: 1 } });
+    expect(rowsModel(view, data)[0]).toMatchObject({ status: '생존', mark: 'current' });
+  });
   test('my row shows the arrival countdown alongside the danger warning', () => {
     document.body.innerHTML = '<div id="left"></div>';
     const v = viewWith({ me: 1, rows: [row({ count: 49 }), row({ seat: 2 })],

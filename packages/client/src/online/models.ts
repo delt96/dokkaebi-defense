@@ -29,7 +29,7 @@ function statusOf(view: ClientView, data: GameData, r: RowView): string {
   if (r.count > limit) return `초과 ${secondsOf(limitTicks(data) - r.overLimitTicks)}초`;
   if (!r.connected && r.reconnectTicksLeft !== null) return `재접속 ${secondsOf(r.reconnectTicksLeft)}초`;
   if (r.count >= data.coop!.danger) return '위험';
-  if (view.yeoksin?.nextSeat === r.seat) return '다음';
+  if (view.yeoksin?.nextSeat === r.seat && view.yeoksin.seat !== r.seat) return '다음';
   return '생존';
 }
 

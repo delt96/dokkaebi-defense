@@ -54,8 +54,21 @@ describe('lobby', () => {
     dev.core.join(b, { name: '가' }); dev.core.message('b', 'ready', { ready: true }); dev.core.message('b', 'start', {});
     expect(dev.core.match!.seed).toBe(7);
     const empty = room(); const c = new FakeLink('c');
-    empty.core.join(c, { name: '가' }); empty.core.leave('c', false);
+    empty.core.join(c, { name: '가' }); empty.core.leave('c', true);
     expect(empty.deps.disposed).toBe(true);
+  });
+  test('an unexpected last leave holds the invite until the reconnect grace expires', () => {
+    const { core, deps } = room();
+    core.join(new FakeLink('a'), { name: '가' });
+    core.leave('a', false);
+    expect(deps.autoDispose).toBe(false);
+    expect(deps.disposed).toBe(false);
+    deps.clock.t += 14_999;
+    core.advance();
+    expect(deps.disposed).toBe(false);
+    deps.clock.t += 1;
+    core.advance();
+    expect(deps.disposed).toBe(true);
   });
   test('rematch host token outranks earlier joiners', () => {
     const { core } = room({}, { hostToken: 'tok' });

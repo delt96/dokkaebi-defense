@@ -30,6 +30,7 @@ export { createMatch, laneSeed, matchHash } from './match/create';
 export { bossRounds, allBossesKilled } from './match/seats';
 export { createMatchEcon, matchEconRoundStart, matchEconRoundEnd } from './match/econ';
 export { stepMatch } from './match/step';
+export { jumpToTick } from './match/jump';
 export { replayMatch, type InputLogEntry } from './match/replay';
 export { gateDeadlineTick, nextAliveSeat } from './match/yeoksin';
 export * from './match/wire';

@@ -42,6 +42,7 @@ export interface ResultMsg { result: MatchResult }
 export interface LobbyMsg { roomId: string; you: number; hostSeat: number | null; seats: { seat: number; name: string; ready: boolean }[] }
 export type NoticeMsg =
   | { kind: 'replaced' } | { kind: 'rematch'; roomId: string; hostToken?: string }
+  | { kind: 'rematchReady'; seats: number[] }
   | { kind: 'roomError'; reason: 'notHost' | 'notReady' | 'notInLobby' };
 export interface WireCommand { seq: number; type: string; args?: Record<string, unknown> }
 export type JoinErrorName = 'badName' | 'dupName' | 'roomFull' | 'alreadyStarted' | 'badKey';
