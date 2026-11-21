@@ -29,7 +29,7 @@ describe('stage 3 match schedule', () => {
     expect(m.econ!.rng.s).toBe(createRng(deriveSeed(3, 'econ')).s);
     expect(m.econ).toMatchObject({ team: { streak: 0, paid: false }, ssireumSeat: null, offers: [], readyRound: {}, rewarded: [] });
     expect(d3.coop!.yeoksin.map(y => [y.stage, y.startRound, y.deadlineRound, y.baseHp, y.startIndex])).toEqual([
-      [1, 6, 9, 8000, 0], [2, 15, 19, 30000, 1], [3, 35, 39, 90000, 2], [4, 55, 59, 210000, 3],
+      [1, 6, 9, 8000, 0], [2, 15, 19, 30000, 1], [3, 35, 39, 99000, 2], [4, 55, 59, 210000, 3],
     ]);
   });
 
@@ -51,11 +51,11 @@ describe('stage 3 match schedule', () => {
     expect(allBossesKilled(m, 2)).toBe(true);
   });
 
-  test('third yeoksin spawns at round 35 with 135000 hp for six starters at ring index 2; missing it fails the gate at the end of 39', () => {
+  test('third yeoksin spawns at round 35 with 148500 hp for six starters at ring index 2; missing it fails the gate at the end of 39', () => {
     const m = createMatch(d3, 1, SIX);
     jumpToTick(m, rst(35));
     const r = stepMatch(m, []);
-    expect(r.events).toContainEqual({ type: 'yeoksinSpawn', stage: 3, maxHp: 135000 });
+    expect(r.events).toContainEqual({ type: 'yeoksinSpawn', stage: 3, maxHp: 148500 });
     expect(r.events.find(e => e.type === 'yeoksinEnter')).toMatchObject({ stage: 3, seat: 3 });
 
     const g = createMatch(d3, 1, SIX);

@@ -24,7 +24,7 @@ function fillOpen(s: GameState, except: number[] = []): void {
 function pullBundle(s: GameState): number {
   for (let i = 0; i < s.slots.length; i++) s.slots[i] = null;
   const before = s.econ!.bundle.bought;
-  if (before >= 2) { s.econ!.bundle.bought = 0; }
+  if (before >= s.data.economy!.market!.bundle.perDay) { s.econ!.bundle.bought = 0; }
   const r = step(s, [{ type: 'buy', item: 'bundle' }]);
   expect(r.rejected).toEqual([]);
   const u = units(s);
@@ -33,16 +33,17 @@ function pullBundle(s: GameState): number {
 }
 
 describe('bundle', () => {
-  test('bundle: closed in prep, 55 coins per pull, two per market day, resets on day 2', () => {
+  test('bundle: closed in prep, 55 coins per pull, three per market day, resets on day 2', () => {
     const s = lane(0);
     expect(step(s, [{ type: 'buy', item: 'bundle' }]).rejected[0]!.reason).toBe('marketClosed');
     forceRound(s, 1);
     expect(marketDay(s)).toBe(1);
-    const r = step(s, [{ type: 'buy', item: 'bundle' }, { type: 'buy', item: 'bundle' }, { type: 'buy', item: 'bundle' }]);
+    const r = step(s, Array.from({ length: 4 }, () => ({ type: 'buy', item: 'bundle' }) as const));
     expect(r.rejected.map(x => x.reason)).toEqual(['soldOut']);
-    expect(s.coins).toBe(1000 - 110 + 0);
-    expect(r.events.filter(e => e.type === 'buy').length).toBe(2);
-    expect(r.events.filter(e => e.type === 'summon').length).toBe(2);
+    const kills = r.events.filter(e => e.type === 'kill').length;
+    expect(s.coins).toBe(1000 - 3 * 55 + kills * s.data.balance.coins.perKill);
+    expect(r.events.filter(e => e.type === 'buy').length).toBe(3);
+    expect(r.events.filter(e => e.type === 'summon').length).toBe(3);
     forceRound(s, 10);
     expect(step(s, [{ type: 'buy', item: 'bundle' }]).rejected[0]!.reason).toBe('soldOut');
     forceRound(s, 11);
@@ -244,7 +245,7 @@ describe('market in a match and boss drops', () => {
 
   test('marketView shows real remaining odds and the 60-coin shortfall for a story target', () => {
     const s = lane(1, 100);
-    expect(marketView(s)).toMatchObject({ bundle: { price: 55, left: 2, odds: { 3: 2 / 3, 2: 1 / 3 } }, jar: { price: 35, left: 1, chance: 0.5 }, shortAfter: null });
+    expect(marketView(s)).toMatchObject({ bundle: { price: 55, left: 3, odds: { 3: 2 / 3, 2: 1 / 3 } }, jar: { price: 35, left: 1, chance: 0.5 }, shortAfter: null });
     s.econ!.bundle.left = [3, 3];
     expect(marketView(s)!.bundle.odds).toEqual({ 3: 1, 2: 0 });
     s.econ!.story.target = 'cheonnyeonjing';

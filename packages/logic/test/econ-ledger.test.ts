@@ -52,7 +52,7 @@ describe('economy ledger', () => {
 
     const p = createGame(makeData(d => { d.balance.summonOdds = [1]; }, 'stage3'), 3);
     jumpLaneToRound(p, 1);
-    p.tokens = 1; p.grade1Summons = 6;
+    p.tokens = 1; p.grade1Summons = d3.balance.pityEvery - 1;
     step(p, [{ type: 'summon' }]);
     expect(units(p).map(u => u.cost)).toEqual([1, 1]);
   });
@@ -60,7 +60,7 @@ describe('economy ledger', () => {
   test('a quest token summon and the pity it triggers cost 0 and spend the quest token first', () => {
     const s = createGame(makeData(d => { d.balance.summonOdds = [1]; }, 'stage3'), 3);
     jumpLaneToRound(s, 1);
-    s.tokens = 2; s.econ!.questTokens = 1; s.grade1Summons = 6;
+    s.tokens = 2; s.econ!.questTokens = 1; s.grade1Summons = d3.balance.pityEvery - 1;
     step(s, [{ type: 'summon' }]);
     expect(units(s).map(u => u.cost)).toEqual([0, 0]);
     expect([s.econ!.questTokens, s.tokens]).toEqual([0, 1]);
@@ -72,7 +72,7 @@ describe('economy ledger', () => {
     const s = createGame(makeData(d => { d.balance.summonOdds = [1]; }, 'stage3'), 3);
     jumpLaneToRound(s, 1);
     for (let i = 0; i < s.slots.length; i++) if (s.open[i] && i !== 0) placeUnitForTest(s, 'jipsin', i);
-    s.tokens = 1; s.econ!.questTokens = 1; s.grade1Summons = 6;
+    s.tokens = 1; s.econ!.questTokens = 1; s.grade1Summons = d3.balance.pityEvery - 1;
     step(s, [{ type: 'summon' }]);
     expect(s.pendingPity.length).toBe(1);
     expect(s.econ!.pityQuest).toEqual([true]);

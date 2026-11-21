@@ -1,7 +1,7 @@
 {
   "prepSeconds": 30, "rounds": 60,
   "sellPrice": [5, 10, 20, 40, 80, 180],
-  "onBasicHitRadius": 3,
+  "onBasicHitRadius": 3, "pityEvery": 5,
   "auraCaps": { "attackSpeed": 0.5, "attackPower": 0.4 },
   "inheritUpgrades": true, "periodicReady": true, "extendedCombat": true,
   "bossControl": { "windowTicks": 200, "stunTicks": 60, "pushDistance": 3, "maxStoppedShare": 0.3 }

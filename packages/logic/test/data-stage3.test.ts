@@ -25,6 +25,12 @@ describe('stage 3 data, grades 1-4', () => {
     }
   });
 
+  test('stage 3 adds a pity unit every 5 grade-1 summons; stages 1 and 2 keep 7', () => {
+    expect(d3.balance.pityEvery).toBe(5);
+    expect(loadGameData().balance.pityEvery).toBe(7);
+    expect(loadGameData('stage2').balance.pityEvery).toBe(7);
+  });
+
   test('stage 1 and stage 2 untouched', () => {
     expect(loadGameData().units.length).toBe(22);
     expect(loadGameData('stage2').units.length).toBe(40);
