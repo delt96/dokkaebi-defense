@@ -76,7 +76,7 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
     if (open) {
       const detail = div('result-detail');
       const plot = graph(r.series, data.balance.limit);
-      const scale = '<div class="graph-scale"><span>1라운드</span><span>${data.balance.rounds}라운드</span></div>';
+      const scale = `<div class="graph-scale"><span>1라운드</span><span>${data.balance.rounds}라운드</span></div>`;
       detail.innerHTML = `<p><b>${esc(r.name)}</b> · 라운드 끝 잡귀 · 한도 ${data.balance.limit}마리</p>${plot ? plot + scale : '<p>아직 라운드 기록이 없습니다.</p>'}<p>${esc(r.helperText)}</p>`;
       box.append(detail);
     }
