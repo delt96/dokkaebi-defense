@@ -1,9 +1,10 @@
 import type { Enemy, GameEvent, GameState } from '../types';
 import type { Ack, MatchState, StepMatchResult } from './types';
 import type {
-  ClientView, ClockView, EnemyView, FullMsg, GateView, LaneEvent, LaneMsg, LaneView, MineMsg, MineView, RowView,
-  TickMsg, UnitView, YeoksinView,
+  ClientView, ClockView, EconMine, EnemyView, FullMsg, GateView, LaneEvent, LaneMsg, LaneView, MineMsg, MineView, RowView,
+  TickMsg, TransferMine, UnitView, YeoksinView,
 } from './wire';
+import { econView } from '../econ/view';
 import { enemyHp } from '../data';
 import { enemyDefFast, enemySpeed, TICKS_PER_SECOND, toTicks } from '../flow';
 import { laneOf } from '../lane';
@@ -67,7 +68,36 @@ function yeoksinOf(match: MatchState): YeoksinView | null {
   };
 }
 
-function mineOf(match: MatchState, seat: number, tick: number, acks: Ack[], supportIn: { from: number; coins: number }[]): MineView {
+function transferOf(match: MatchState, seat: number): TransferMine | null {
+  const def = match.data.economy?.transfer;
+  const econ = match.econ;
+  if (!def || !econ) return null;
+  const mine = econ.offers.find(o => o.from === seat || o.to === seat);
+  const readyRounds: Record<number, number> = {};
+  for (const s of match.ring) readyRounds[s] = econ.readyRound[s] ?? 0;
+  return {
+    ready: econ.readyRound[seat] ?? 0, readyRounds,
+    busy: [...new Set(econ.offers.flatMap(o => [o.from, o.to]))].sort((a, b) => a - b),
+    offer: mine
+      ? {
+        from: mine.from, to: mine.to, slot: mine.slot, unitId: mine.unitId,
+        defId: match.lanes[mine.from]?.slots[mine.slot]?.defId ?? '',
+        deadlineTick: mine.tick + toTicks(def.offerSeconds),
+      }
+      : null,
+    rewarded: econ.rewarded.includes(seat), rewardsLeft: Math.max(0, def.rewardCap - econ.rewarded.length),
+  };
+}
+
+/** Stage 3 economy for one seat, or undefined on data without an economy. */
+function econMineOf(match: MatchState, seat: number): EconMine | undefined {
+  const lane = econView(match.lanes[seat]!);
+  if (!lane) return undefined;
+  const team = match.econ && match.data.economy?.team ? { ...match.econ.team } : null;
+  return { ...lane, transfer: transferOf(match, seat), team };
+}
+
+function mineOf(match: MatchState, seat: number, tick: number, acks: Ack[], supportIn: { from: number; coins: number }[], econ = econMineOf(match, seat)): MineView {
   const lane = match.lanes[seat]!;
   const st = match.seats[seat]!;
   return {
@@ -75,6 +105,7 @@ function mineOf(match: MatchState, seat: number, tick: number, acks: Ack[], supp
     pendingPity: [...lane.pendingPity], grade1Summons: lane.grade1Summons, helperOpens: lane.helperOpens,
     supportTokens: st.supportTokens, received: st.receivedThisRound, lastSeq: st.lastSeq,
     open: [...lane.open], units: unitsOf(lane), acks, supportIn,
+    ...(econ && { econ }),
   };
 }
 
@@ -127,13 +158,13 @@ function boardKey(lane: GameState): string {
   return key;
 }
 
-function mineKey(match: MatchState, seat: number): string {
+function mineKey(match: MatchState, seat: number, econ: EconMine | undefined): string {
   const lane = match.lanes[seat]!;
   const st = match.seats[seat]!;
   return JSON.stringify([
     lane.tokens, lane.coins, lane.buckwheat, lane.upgrades, lane.pendingPity, lane.grade1Summons, lane.helperOpens,
     st.supportTokens, st.receivedThisRound, st.lastSeq,
-  ]) + boardKey(lane);
+  ]) + boardKey(lane) + (econ ? JSON.stringify(econ) : '');
 }
 
 function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {
@@ -162,7 +193,7 @@ export class MatchStreamer {
   constructor(private readonly match: MatchState) {
     for (const seat of match.ring) {
       this.boards.set(seat, boardKey(match.lanes[seat]!));
-      this.mines.set(seat, mineKey(match, seat));
+      this.mines.set(seat, mineKey(match, seat, econMineOf(match, seat)));
     }
   }
 
@@ -206,10 +237,11 @@ export class MatchStreamer {
       const acks = step.acks.filter(a => a.seat === seat);
       const supportIn: { from: number; coins: number }[] = [];
       for (const ev of step.events) if (ev.type === 'support' && ev.to === seat) supportIn.push({ from: ev.from, coins: ev.coins });
-      const key = mineKey(match, seat);
+      const econ = econMineOf(match, seat);
+      const key = mineKey(match, seat, econ);
       const changed = key !== this.mines.get(seat);
       this.mines.set(seat, key);
-      mine[seat] = acks.length > 0 || supportIn.length > 0 || changed ? mineOf(match, seat, step.tick, acks, supportIn) : null;
+      mine[seat] = acks.length > 0 || supportIn.length > 0 || changed ? mineOf(match, seat, step.tick, acks, supportIn, econ) : null;
     }
     return { lanes, mine };
   }

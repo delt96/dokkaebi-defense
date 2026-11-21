@@ -1,4 +1,4 @@
-import type { EconomyDef, GameEvent, GameState, RngState } from '../types';
+import type { EconItem, EconomyDef, GameEvent, GameState, RngState } from '../types';
 import { gradeValue } from '../data';
 import { nextFloat, nextInt } from '../rng';
 import { registerAfterCommands, registerCommand } from '../registry';
@@ -35,12 +35,28 @@ function pickNormal(state: GameState, grade: number, rng: RngState): string {
   return pool[nextInt(rng, pool.length)]!.id;
 }
 
+/** Why buying `item` now would be refused (checked in the same order as the purchase), or null when it would go through. */
+export function buyCheck(state: GameState, item: EconItem): 'marketClosed' | 'soldOut' | 'noCoins' | 'noSlot' | null {
+  const m = state.data.economy?.market;
+  if (!state.econ || !m || state.phase !== 'round' || state.round < 1) return 'marketClosed';
+  if (item === 'bundle') {
+    if (bundleBought(state) >= m.bundle.perDay) return 'soldOut';
+    if (state.coins < m.bundle.price) return 'noCoins';
+    if (!hasFreeSlot(state)) return 'noSlot';
+    return null;
+  }
+  const { done, missed } = jarProgress(state, m);
+  if (done >= m.jar.perPeriod) return 'soldOut';
+  if (state.coins < m.jar.price) return 'noCoins';
+  if (!missed && !hasFreeSlot(state)) return 'noSlot';
+  return null;
+}
+
 function buyBundle(state: GameState, m: MarketDef, events: GameEvent[]) {
   const econ = state.econ!;
   const day = marketDay(state);
-  if (bundleBought(state) >= m.bundle.perDay) return 'soldOut' as const;
-  if (state.coins < m.bundle.price) return 'noCoins' as const;
-  if (!hasFreeSlot(state)) return 'noSlot' as const;
+  const reason = buyCheck(state, 'bundle');
+  if (reason) return reason;
   if (econ.bundle.day !== day) { econ.bundle.day = day; econ.bundle.bought = 0; }
   state.coins -= m.bundle.price;
   econ.bundle.bought++;
@@ -56,10 +72,9 @@ function buyBundle(state: GameState, m: MarketDef, events: GameEvent[]) {
 
 function buyJar(state: GameState, m: MarketDef, events: GameEvent[]) {
   const econ = state.econ!;
-  const { done, missed } = jarProgress(state, m);
-  if (done >= m.jar.perPeriod) return 'soldOut' as const;
-  if (state.coins < m.jar.price) return 'noCoins' as const;
-  if (!missed && !hasFreeSlot(state)) return 'noSlot' as const;
+  const { missed } = jarProgress(state, m);
+  const reason = buyCheck(state, 'jar');
+  if (reason) return reason;
   const period = jarPeriod(state, m);
   if (econ.jar.period !== period) econ.jar = { period, done: 0, missed: false };
   state.coins -= m.jar.price;
@@ -110,7 +125,8 @@ registerAfterCommands(placePendingDrops);
 
 export interface MarketView {
   bundle: { price: number; left: number; odds: Record<number, number> };
-  jar: { price: number; left: number; chance: number };
+  /** `missed`: the first draw this period gave a material, so the next jar is a sure buckwheat. */
+  jar: { price: number; left: number; chance: number; missed: boolean };
   shortAfter: { bundle: number; jar: number } | null;
 }
 
@@ -131,7 +147,7 @@ export function marketView(state: GameState): MarketView | null {
   }
   return {
     bundle: { price: m.bundle.price, left: Math.max(0, m.bundle.perDay - bundleBought(state)), odds },
-    jar: { price: m.jar.price, left: Math.max(0, m.jar.perPeriod - jar.done), chance: jar.missed ? 1 : m.jar.firstChance },
+    jar: { price: m.jar.price, left: Math.max(0, m.jar.perPeriod - jar.done), chance: jar.missed ? 1 : m.jar.firstChance, missed: jar.missed },
     shortAfter,
   };
 }

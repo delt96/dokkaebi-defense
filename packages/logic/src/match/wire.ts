@@ -1,4 +1,5 @@
 import type { HitEffect, UpgradeId } from '../types';
+import type { EconView } from '../econ/view';
 import type { Ack, EliminationCause, MatchResult } from './types';
 
 // Server -> browser message names: 'lobby', 'full', 'tick', 'lane', 'mine', 'result' and the room notice 'notice'.
@@ -16,10 +17,23 @@ export interface YeoksinView { stage: number; hp: number; maxHp: number; seat: n
 /** stage 3 = both gates cleared. */
 export interface GateView { stage: number; kills: number; deadlineTick: number | null }
 export interface ClockView { tick: number; phase: 'prep' | 'round' | 'ended'; round: number; roundStartTick: number; roundEndTick: number }
+/** The jige delivery as one seat sees it: its own and everyone's next allowed round, seats tied up in an offer, and its offer. */
+export interface TransferMine {
+  ready: number; readyRounds: Record<number, number>; busy: number[];
+  offer: { from: number; to: number; defId: string; slot: number; unitId: number; deadlineTick: number } | null;
+  rewarded: boolean; rewardsLeft: number;
+}
+/** Stage 3 only: the lane economy plus the match parts one seat needs (delivery, team request night count). */
+export interface EconMine extends EconView {
+  transfer: TransferMine | null;
+  team: { streak: number; paid: boolean } | null;
+}
 export interface MineView {
   tick: number; tokens: number; coins: number; buckwheat: number; upgrades: Record<UpgradeId, number>; pendingPity: string[];
   grade1Summons: number; helperOpens: number; supportTokens: number; received: boolean; lastSeq: number;
   open: boolean[]; units: (UnitView | null)[]; acks: Ack[]; supportIn: { from: number; coins: number }[];
+  /** Left out entirely on rule data without an economy, so 20-round messages stay as they were. */
+  econ?: EconMine;
 }
 export interface ClientView {
   n: number; dataVersion: string; clock: ClockView; rows: RowView[]; gate: GateView; yeoksin: YeoksinView | null;
