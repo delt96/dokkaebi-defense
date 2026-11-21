@@ -26,7 +26,7 @@ export function graph(series: (number | null)[], limit: number): string {
   const marks = runs.map(r => r.length === 1
     ? `<circle cx="${r[0]![0].toFixed(1)}" cy="${r[0]![1].toFixed(1)}" r="1.5" fill="#ffe08a"/>`
     : `<polyline points="${r.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(' ')}" fill="none" stroke="#ffe08a" stroke-width="1.5"/>`).join('');
-  return `<svg class="graph" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  return `<svg class="graph" preserveAspectRatio="none" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
     <line x1="0" x2="${W}" y1="${y(limit)}" y2="${y(limit)}" stroke="#ff3b2f" stroke-dasharray="3 3" stroke-width="1"/>
     ${marks}
   </svg>`;

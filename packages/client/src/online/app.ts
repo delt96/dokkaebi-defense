@@ -40,14 +40,13 @@ export function startOnline(opts: { roomId?: string }): void {
   let notice = '';
   let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const showEntry = (error?: string, name?: string, newRoomButton = false): void => {
+  const showEntry = (error?: string, name?: string): void => {
     screen = 'entry';
     net = null;
     renderEntry(root, {
       roomId: opts.roomId,
       name: name ?? lastName() ?? '',
       error,
-      newRoomButton,
       onSubmit: submit,
     });
   };
@@ -56,7 +55,7 @@ export function startOnline(opts: { roomId?: string }): void {
     screen = 'connecting';
     root.replaceChildren();
     const box = document.createElement('div');
-    box.className = 'screen-box';
+    box.className = 'screen-box message';
     box.textContent = TEXT.connecting;
     root.append(box);
   };
@@ -103,7 +102,7 @@ export function startOnline(opts: { roomId?: string }): void {
     band.textContent = '';
     root.replaceChildren();
     const box = document.createElement('div');
-    box.className = 'screen-box';
+    box.className = 'screen-box message';
     box.textContent = text;
     if (newRoomLink) {
       const link = document.createElement('a');
@@ -184,13 +183,18 @@ export function startOnline(opts: { roomId?: string }): void {
     client.on(onEvent);
   };
 
+  function showJoinError(code: number, name: string): void {
+    if (code === NO_ROOM_CODE) showMessage(TEXT.noRoom, true);
+    else showEntry(joinErrorText(code), name);
+  }
+
   async function submit(name: string): Promise<void> {
     showConnecting();
     try {
       attach(opts.roomId ? await connectJoin(opts.roomId, { name }) : await connectCreate(name, devCreateOptions(location.search, import.meta.env.DEV)));
     } catch (err) {
       const code = errorCode(err);
-      showEntry(joinErrorText(code), name, code === NO_ROOM_CODE);
+      showJoinError(code, name);
     }
   }
 
@@ -202,7 +206,7 @@ export function startOnline(opts: { roomId?: string }): void {
     showConnecting();
     connectJoin(roomId, { name, ...(rematch.hostToken ? { hostToken: rematch.hostToken } : {}) }).then(attach, (err: unknown) => {
       const code = errorCode(err);
-      showEntry(joinErrorText(code), name, code === NO_ROOM_CODE);
+      showJoinError(code, name);
     });
   } else if (opts.roomId && stored?.key) {
     // a reload or a duplicated tab: take the seat back with the stored key, no nickname prompt
@@ -211,7 +215,7 @@ export function startOnline(opts: { roomId?: string }): void {
     connectJoin(roomId, { name: stored.name, rejoinKey: stored.key }).then(attach, (err: unknown) => {
       const code = errorCode(err);
       if (code === JOIN_ERROR_CODES.badKey) clearSession(roomId);
-      showEntry(joinErrorText(code), stored.name, code === NO_ROOM_CODE);
+      showJoinError(code, stored.name);
     });
   } else {
     showEntry(undefined, stored?.name);

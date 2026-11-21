@@ -1,21 +1,24 @@
 import type { ClientView, GameData } from '@dorandi/logic';
 import { el, esc, setHtml } from '../ui/dom';
-import { rowsModel, topModel } from './models';
+import { myTurnText, rowsModel, topModel } from './models';
 import { spiritModel } from './spirit';
 
 /** Left panel: a 28px title and six 44px rows, one per seat. */
 export function renderRows(view: ClientView, data: GameData, overlay = ''): void {
   const spirit = spiritModel(view) !== null;
+  const turn = myTurnText(view, data);
   const rows = rowsModel(view, data).map(r => {
     if (r.empty) return `<div class="lane-row empty"><div class="line1"><span class="title">${esc(r.title)}</span></div></div>`;
-    const alive = view.rows.find(x => x.seat === r.seat)?.status === 'alive';
-    const pick = spirit && alive;
+    const seat = view.rows.find(x => x.seat === r.seat)!;
+    const pick = spirit && seat.status === 'alive';
     const classes = ['lane-row', r.me ? 'me' : '', r.danger ? 'danger' : '', r.mark ?? '', r.seat === view.watching ? 'watching' : '', pick ? 'pickable' : ''].filter(Boolean).join(' ');
     const mark = r.mark ? `<span class="mask" title="역신">탈</span><i class="bar"><i style="width:${Math.round((r.progress ?? 0) * 100)}%"></i></i>` : '';
-    return `<div class="${classes}"${pick ? ` data-action="watch" data-arg="${r.seat}"` : ''}>
-      <div class="line1"><span class="title">${esc(r.title)}</span><b class="count">${esc(r.count)}</b></div>
+    const tag = pick ? 'button' : 'div';
+    return `<${tag} class="${classes}" title="${esc(r.title)}"${pick ? ` data-action="watch" data-arg="${r.seat}"` : ''}>
+      <div class="line1"><span class="title">${r.seat} ${esc(seat.name)}</span>${r.me ? '<b class="self">나</b>' : ''}<b class="count">${esc(r.count)}</b></div>
       <div class="line2"><span class="status">${esc(r.status)}</span>${mark}</div>
-    </div>`;
+      ${r.me && turn ? `<div class="arrival">${esc(turn)}</div>` : ''}
+    </${tag}>`;
   }).join('');
   setHtml(el('left'), `<div class="rows-title">고개 현황</div>${rows}${overlay}`);
 }

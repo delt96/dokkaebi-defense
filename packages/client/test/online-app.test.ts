@@ -79,6 +79,18 @@ describe('online app: leaving and coming back (spec 6)', () => {
     });
   }
 
+  test('opening an expired invite offers only a new room link', async () => {
+    join.mockRejectedValueOnce(fail(522));
+    startOnline({ roomId: 'expired' });
+    screen().querySelector('input')!.value = '달빛';
+    screen().querySelector('form')!.dispatchEvent(new Event('submit'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(screen().textContent).toContain(TEXT.noRoom);
+    expect(screen().querySelector('form')).toBeNull();
+    expect(screen().querySelectorAll('a')).toHaveLength(1);
+    expect(screen().querySelector('a')?.getAttribute('href')).toBe('/');
+  });
+
   test('a replaced tab shows the notice and does not reconnect (checkpoint 17-19, finding 7)', async () => {
     const { room } = await inBattle();
     room.emit('notice', { kind: 'replaced' });
