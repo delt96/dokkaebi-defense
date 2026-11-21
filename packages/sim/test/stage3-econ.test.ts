@@ -227,13 +227,13 @@ describe('six-seat grade 6 measurement', () => {
 function econMatchRunStub(): EconRow[] {
   return [{
     seed: 1, config: 'target-full', bot: 'target', seat: 2, finished: true, teamOutcome: 'clear', endRound: 60,
-    grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, firstGrade6Round: 33, firstSource: 'story', storyOffers: 1, storyAward: 1,
+    grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, coinsAtFinal: 412, buckwheatAtFinal: 2, firstGrade6Round: 33, firstSource: 'story', storyOffers: 1, storyAward: 1,
     buckwheat9Round: 30, buckwheat12Round: null, coins180Round: 6, coins240Round: 8,
     bundles: 12, jars: 6, questWins: 'mission+team', tames: 1, transfersSent: 1, transfersReceived: 0, sold: 30,
     missingAtEnd: 'moru', yeoksinKills: 4,
   }, {
     seed: 1, config: 'target-full', bot: 'target', seat: 3, finished: false, teamOutcome: 'clear', endRound: 41,
-    grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
+    grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
     buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
     bundles: 0, jars: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
   }];

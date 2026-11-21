@@ -13,7 +13,7 @@ export interface EconConfig {
 }
 export interface EconRow {
   seed: number; config: string; bot: string; seat: number; finished: boolean; teamOutcome: string; endRound: number;
-  grade6AtFinal: number; grade6AtEnd: number; hidden: number;
+  grade6AtFinal: number; grade6AtEnd: number; hidden: number; coinsAtFinal: number; buckwheatAtFinal: number;
   firstGrade6Round: number | null; firstSource: 'combine' | 'story' | null;
   storyOffers: number; storyAward: number;
   buckwheat9Round: number | null; buckwheat12Round: number | null; coins180Round: number | null; coins240Round: number | null;
@@ -82,7 +82,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
   for (const s of SEATS) {
     rows.set(s, {
       seed, config: c.name, bot: c.bot, seat: s, finished: false, teamOutcome: '', endRound: 0,
-      grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
+      grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
       buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
       bundles: 0, jars: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
     });
@@ -95,7 +95,15 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
 
   while (match.result === null && match.tick < MAX_TICKS) {
     if (c.noDefeat) dropTimedOutBosses(match);
-    if (match.tick === finalTick) for (const s of SEATS) rows.get(s)!.grade6AtFinal = count6(match.lanes[s]!);
+    if (match.tick === finalTick) {
+      for (const s of SEATS) {
+        const row = rows.get(s)!;
+        const lane = match.lanes[s]!;
+        row.grade6AtFinal = count6(lane);
+        row.coinsAtFinal = lane.coins;
+        row.buckwheatAtFinal = lane.buckwheat;
+      }
+    }
     const inputs = driver.inputs();
     const cmdBySeq = new Map<string, MatchCommand>(inputs.map(i => [`${i.seat}:${i.seq}`, i.cmd]));
     const r = stepMatch(match, inputs);
@@ -234,7 +242,7 @@ export const STANDARD_CONFIGS: EconConfig[] = (['target', 'switch'] as const).fl
 ]);
 
 const NUMBER_COLS = new Set([
-  'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'firstGrade6Round', 'storyOffers', 'storyAward',
+  'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 'storyOffers', 'storyAward',
   'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'bundles', 'jars', 'tames', 'transfersSent',
   'transfersReceived', 'sold', 'yeoksinKills',
 ]);
