@@ -10,6 +10,7 @@ import './combine';
 import './combat';
 import './effects';
 import './upgrades';
+import './econ/market';
 
 export { laneOf } from './lane';
 export { registerAfterCommands, registerCommand, registerPhase } from './registry';

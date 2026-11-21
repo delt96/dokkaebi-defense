@@ -7,6 +7,7 @@ export * from './stats';
 export {
   createEcon, unitValue, nonQuestValue, questLoad, fitsCaps, takeToken, grantQuestTokens, economyVariant, stripEconomy,
 } from './econ/ledger';
+export { marketDay, marketView, placePendingDrops, type MarketView } from './econ/market';
 export { createGame, step, laneOf, applyCommand, runAfterCommandHooks, runCombat } from './game';
 export {
   spawnDue, payRoundEnd, trackLimit, startRound, spawnEnemy, moveEnemies, finishGame,

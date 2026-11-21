@@ -1,5 +1,6 @@
 import type { Enemy, GameEvent, GameState } from '../types';
 import { isEvent } from '../stats';
+import { bossDrop } from './market';
 
 /** Lane economy hooks. Callers invoke them only when `state.econ` exists. */
 
@@ -15,4 +16,6 @@ export function econEventKill(state: GameState, enemy: Enemy, _events: GameEvent
   return isEvent(state.data, enemy);
 }
 
-export function econBossKill(_state: GameState, _events: GameEvent[]): void {}
+export function econBossKill(state: GameState, events: GameEvent[]): void {
+  bossDrop(state, events);
+}
