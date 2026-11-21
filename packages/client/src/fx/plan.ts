@@ -1,4 +1,4 @@
-import { dist, laneOf, loopPos, unitDefFast, type Effect, type Enemy, type EnemyDef, type GameEvent, type GameState, type UnitDef } from '@dorandi/logic';
+import { cellDistance, dist, laneOf, loopPos, unitDefFast, type Effect, type Enemy, type EnemyDef, type GameEvent, type GameState, type UnitDef } from '@dorandi/logic';
 
 /**
  * What to show for game events and state, with no Phaser in it: the effect layer draws what this
@@ -241,7 +241,7 @@ export function auraBuffedSlots(state: GameState): Set<number> {
     if (!auras.length) return;
     state.slots.forEach((v, slot) => {
       if (!v || slot === src || out.has(slot)) return;
-      if (dist(lane.cells[src]!, lane.cells[slot]!) > radius + 1e-9) return;
+      if (cellDistance(lane, src, slot) > radius + 1e-9) return;
       const type = unitDefFast(state.data, v.defId).damageType;
       if (auras.some(e => e.kind === 'auraAttackSpeed' || (e.kind === 'auraAttackPower' && (e.damageType === 'all' || e.damageType === type)))) out.add(slot);
     });

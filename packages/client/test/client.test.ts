@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { GRADE_COLOR, computeZoom, laneToStage, stageToCell } from '../src/layout';
-import { createGame, loadGameData } from '@dorandi/logic';
+import { GRADE_COLOR, STORAGE_BOX, cellCorner, cellPx, computeZoom, laneToStage, stageToCell } from '../src/layout';
+import { createGame, createLane, laneOf, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver, ticksToRun } from '../src/driver';
 
@@ -11,9 +11,20 @@ describe('client helpers', () => {
   });
   test('lane to stage and back', () => {
     expect(laneToStage({ x: 0.5, y: 0.5 })).toEqual({ x: 248, y: 130 });
-    expect(stageToCell(248, 130)).toBe(0);
-    expect(stageToCell(232 + 32 * 5 + 1, 114 + 32 * 3 + 1)).toBe(23);
-    expect(stageToCell(10, 10)).toBeNull();
+    const six = createLane(6, 4);
+    expect(stageToCell(six, 248, 130)).toBe(0);
+    expect(stageToCell(six, 232 + 32 * 5 + 1, 114 + 32 * 3 + 1)).toBe(23);
+    expect(stageToCell(six, 10, 10)).toBeNull();
+  });
+  test('stage 3 draws the same 6 x 4 board of 32px cells as stage 1, clear of the storage column', () => {
+    const lane = laneOf({ data: loadGameData('stage3') });
+    expect([lane.cols, lane.rows, cellPx(lane)]).toEqual([6, 4, 32]);
+    expect(cellCorner(lane, 0)).toEqual({ x: 232 - 128, y: 114 - 24 });
+    expect(cellCorner(lane, 23)).toEqual({ x: 232 + 5 * 32 - 128, y: 114 + 3 * 32 - 24 });
+    expect(stageToCell(lane, 232 + 32 * 3 + 1, 114 + 32 + 1)).toBe(9);
+    expect(stageToCell(lane, 232 + 32 * 6 + 1, 130)).toBeNull();
+    expect(STORAGE_BOX.x + STORAGE_BOX.w).toBeLessThanOrEqual(232 - 32 / 2);
+    expect(laneToStage(lane.pointAt(0))).toEqual(laneToStage(createLane(6, 4).pointAt(0)));
   });
   test('grade colours cover grades 1 to 6, matching the sprite flames', () => {
     expect(GRADE_COLOR[5]).toBe('#ff4a3a');

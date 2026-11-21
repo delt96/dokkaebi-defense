@@ -95,10 +95,10 @@ describe('bundle', () => {
 
   test('buying never touches the summon or combat streams or the pity counters', () => {
     const s = lane(1);
-    const before = canonicalJson({ r: s.rng, g: s.grade1Summons, c: s.summonCounts, p: s.pendingPity });
+    const before = canonicalJson({ r: s.rng, g: s.grade1Summons, c: s.summonCounts });
     for (const item of ['bundle', 'jar', 'jar', 'bundle'] as const) applyCommand(s, { type: 'buy', item }, []);
     expect(units(s).length).toBeGreaterThan(1);
-    expect(canonicalJson({ r: s.rng, g: s.grade1Summons, c: s.summonCounts, p: s.pendingPity })).toBe(before);
+    expect(canonicalJson({ r: s.rng, g: s.grade1Summons, c: s.summonCounts })).toBe(before);
   });
 });
 
@@ -236,7 +236,7 @@ describe('market in a match and boss drops', () => {
     expect(gradeOf(d3, full.slots[0]!.defId)).toBe(3);
   });
 
-  test('a round 20 boss killed after the shared clock enters 21 still drops its material', () => {
+  test('a round 20 boss killed after the shared clock enters 21 drops its material and records time in round 20', () => {
     const m = createMatch(d3, 1, [1, 2]);
     jumpToTick(m, roundStartTick(d3, 20));
     stepMatch(m, []);
@@ -249,6 +249,8 @@ describe('market in a match and boss drops', () => {
     const r = stepMatch(m, []);
     expect(m.round).toBe(21);
     expect(r.events).toContainEqual({ type: 'bossKilled', seat: 1, round: 20 });
+    expect(lane.stats.find(s => s.round === 20)?.bossKillSeconds).toBe(d3.balance.bossRoundSeconds);
+    expect(lane.stats.find(s => s.round === 21)?.bossKillSeconds).toBeNull();
     expect(units(lane).map(u => gradeOf(d3, u.defId))).toEqual([3]);
   });
 

@@ -3,7 +3,7 @@ import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { makeData, placeUnitForTest } from '@dorandi/logic/testing';
 import { grade6Run, grade6Summary } from '../src/stage3/grade6';
 import { expandTree, targetBot } from '../src/stage3/targetBot';
-import { combineGainCase, parseCombinePlacement, prepareRound } from '../src/stage3/combineGain';
+import { combineGainCase, parseCombinePlacement, parseUpgradeLevels, prepareRound } from '../src/stage3/combineGain';
 import { laneOf } from '@dorandi/logic';
 import { controlTrial } from '../src/stage3/control';
 
@@ -14,6 +14,15 @@ describe('stage 3 sim checks', () => {
     const row = combineGainCase(d3, d3.recipes.find(r => r.result === 'hwaetbul')!, 'flow128', { seeds: 1, steps: 10 });
     expect(row.aMean).toBeGreaterThanOrEqual(5); expect(row.aMean).toBeLessThanOrEqual(25);
     expect(row.pass).toBe(row.worstDelta <= 0);
+  }, 60_000);
+
+  test('skewed upgrades: both sides play at the given levels and the row says which', () => {
+    expect(parseUpgradeLevels('10/0')).toEqual({ physical: 10, magical: 0 });
+    expect(() => parseUpgradeLevels('ten')).toThrow();
+    const recipe = d3.recipes.find(r => r.result === 'hwaetbul')!;
+    expect(prepareRound(d3, recipe.materials, 1, recipe.result, 'fit', { physical: 0, magical: 10 }).upgrades).toMatchObject({ physical: 0, magical: 10 });
+    const row = combineGainCase(d3, recipe, 'flow128', { seeds: 1, steps: 10, upgrades: { physical: 10, magical: 0 } });
+    expect(row.upgrades).toBe('10/0');
   }, 60_000);
 
   test('a deliberately bad recipe fails', () => {

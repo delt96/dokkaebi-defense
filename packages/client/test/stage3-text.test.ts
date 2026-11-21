@@ -5,7 +5,7 @@ import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { spriteKey, tameArt } from '../src/sprites';
 import { dexHtml } from '../src/ui/dex';
-import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitSkillText } from '../src/ui/models';
+import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitNotes, unitSkillText, upgradeRows } from '../src/ui/models';
 
 const d3 = loadGameData('stage3');
 const text = (id: string) => unitSkillText(d3, unitDefFast(d3, id));
@@ -17,7 +17,7 @@ describe('stage 3 skill text', () => {
       + ' / 오라: 주변 마딜 아군 공격력 +13% (갓의 효과와 겹치지 않음)',
     );
     expect(combineNoteLines(d3, 'cheonnyeonsangmo')).toEqual([
-      '계열 물딜·마딜 (강화는 높은 쪽) · 사거리 2.5칸',
+      '사거리 2.5칸',
       '이어받는 지원 효과: 망건의 받는 마딜 +15% 3초 / 갓의 주변 마딜 아군 공격력 +13%',
       '조합하면 사라지는 제어: 스턴 (가위)',
     ]);
@@ -135,7 +135,7 @@ describe('review fixes: aura for all, lockouts, cooldowns, slow radii, tamed uni
     const entries = dexEntries(d3);
     expect(entries.filter(e => e.hidden).map(e => e.id).sort()).toEqual(['bulgasari', 'eoduksini', 'gangcheori', 'jinegaksi', 'ssireumdokkaebi']);
     expect(dexEntries(loadGameData('stage2')).some(e => e.hidden)).toBe(false);
-    const row = (html: string, name: string) => html.split('<tr').find(r => r.includes(`<td>${name}</td>`)) ?? '';
+    const row = (html: string, name: string) => html.split('<tr').find(r => r.includes(`<div class="dex-name">${name}</div>`)) ?? '';
     expect(row(dexHtml(d3), '강철이')).toContain('<td>길들이기');
     expect(row(dexHtml(d3), '짚신')).toContain('<td>소환');
   });
@@ -150,7 +150,7 @@ test('dex filters retain the selected grade, hidden units and story actions', ()
   const hidden = dexHtml(d3, story, 'hidden');
   expect(hidden.match(/>길들이기/g)).toHaveLength(d3.units.filter(u => u.hidden).length);
   expect(hidden).not.toContain('data-action="storyTarget"');
-  expect(dexHtml(d3)).toContain(`도감 · ${d3.units.length}종`);
+  expect(dexHtml(d3)).toContain(`<span>${d3.units.length}종</span>`);
   for (const stage of ['stage1', 'stage2'] as const) {
     expect(dexHtml(loadGameData(stage))).not.toContain('dex-filters');
   }
@@ -158,8 +158,27 @@ test('dex filters retain the selected grade, hidden units and story actions', ()
 
 test('dex search combines grade with a unit or material name and handles no matches', () => {
   const byName = dexHtml(d3, undefined, '6', '천년상모');
-  expect(byName).toContain('>천년 상모</td>');
+  expect(byName).toContain('>천년 상모</div>');
   const byMaterial = dexHtml(d3, undefined, '5', '지게');
-  expect(byMaterial).toContain('>톱</td>');
+  expect(byMaterial).toContain('>톱</div>');
   expect(dexHtml(d3, undefined, '1', '천년상모')).toContain('찾는 유닛이 없습니다');
+});
+
+test('the slots upgrade says how many cells its next level opens: 2 on the 6 x 4 board of every stage', () => {
+  for (const data of [d3, loadGameData()]) {
+    const s = createGame(data, 1);
+    const row = () => upgradeRows(s).find(r => r.id === 'slots')!;
+    expect([row().effectText, row().max, row().cost]).toEqual(['칸 2개 열기', 3, 50]);
+    s.upgrades.slots = 3;
+    expect([row().effectText, row().cost]).toEqual(['칸 2개 열기', null]);
+  }
+});
+
+test('a stage 3 card says which upgrade the unit gets: its own type, never the higher of its materials', () => {
+  expect(unitNotes(d3, unitDefFast(d3, 'jangdok'))[0]).toBe('물딜 강화를 받음');
+  expect(unitNotes(d3, unitDefFast(d3, 'bihyeongrang'))[0]).toBe('마딜 강화를 받음');
+  expect(combineNoteLines(d3, 'jangdok')[0]).toMatch(/^사거리 /);
+  expect(JSON.stringify(dexEntries(d3))).not.toContain('높은 쪽');
+  const d1 = loadGameData();
+  expect(unitNotes(d1, unitDefFast(d1, 'sotlid'))).toEqual([]);
 });

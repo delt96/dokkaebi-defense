@@ -1,6 +1,6 @@
 import {
   availableRecipes, createRng, deriveSeed, nextInt, unitAttack, unitDefFast,
-  type Command, type GameData, type GameState,
+  type Command, type DamageType, type GameData, type GameState,
 } from '@dorandi/logic';
 import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
 import {
@@ -79,20 +79,24 @@ function bestSynergyTarget(state: GameState, done: ReadonlySet<string>, current:
 
 /**
  * Sell candidate when the board is full: the lowest-grade unit outside the target tree, else the lowest-grade held unit
- * the target no longer needs. `protect` slots are never offered.
+ * the target no longer needs. `protect` slots are never offered. With `main`, a unit of the other damage type goes
+ * before one of the main type of the same grade.
  */
-function sellCandidate(state: GameState, tree: Map<string, number>, kept: Map<string, number>, protect: Set<number> = new Set()): number | null {
+function sellCandidate(
+  state: GameState, tree: Map<string, number>, kept: Map<string, number>, protect: Set<number> = new Set(), main: DamageType | null = null,
+): number | null {
   const lowest = (pick: (id: string, seen: number) => boolean): number | null => {
     let best: number | null = null;
-    let bestGrade = Infinity;
+    let bestKey = Infinity;
     const seen = new Map<string, number>();
     state.slots.forEach((u, i) => {
       if (!u) return;
       const n = (seen.get(u.defId) ?? 0) + 1;
       seen.set(u.defId, n);
-      const g = unitDefFast(state.data, u.defId).grade;
-      if (g >= 6 || protect.has(i) || !pick(u.defId, n)) return;
-      if (g < bestGrade) { best = i; bestGrade = g; }
+      const def = unitDefFast(state.data, u.defId);
+      if (def.grade >= 6 || protect.has(i) || !pick(u.defId, n)) return;
+      const key = def.grade * 2 + (main !== null && def.damageType === main ? 1 : 0);
+      if (key < bestKey) { best = i; bestKey = key; }
     });
     return best;
   };
@@ -166,7 +170,7 @@ export function targetBot(
       if (main) for (const i of supportSlots(state, tree, main, SUPPORT_GUARD)) protect.add(i);
       let sold = false;
       if (emptyOpenSlots(state).length === 0 && state.tokens > 0 && !recipe) {
-        const sell = sellCandidate(state, tree, kept, protect);
+        const sell = sellCandidate(state, tree, kept, protect, main);
         if (sell !== null) { cmds.push({ type: 'sell', slot: sell }, { type: 'summon' }); sold = true; }
         else cmds.push({ type: 'convertToken' });
       }
@@ -179,7 +183,7 @@ export function targetBot(
           const free = Math.max(0, emptyOpenSlots(state).length - cmds.filter(c => c.type === 'summon').length);
           let buys = marketCommands(state, target, free);
           if (buys.length === 0 && free === 0 && !sold && !recipe) {
-            const sell = sellCandidate(state, tree, kept, protect);
+            const sell = sellCandidate(state, tree, kept, protect, main);
             if (sell !== null) {
               buys = marketCommands(state, target, 1).filter(c => c.type === 'buy' && c.item === 'bundle').slice(0, 1);
               if (buys.length) cmds.push({ type: 'sell', slot: sell });

@@ -66,23 +66,55 @@ describe('units', () => {
     expect(step(s, [{ type: 'summon' }]).rejected[0]!.reason).toBe('noToken');
     expect(s.rng.summon.s).toBe(before);
   });
-  test('7th grade-1 summon onto the last free slot queues the pity unit', () => {
+  test('the 7th grade-1 summon becomes the least-summoned grade 1 instead of adding one', () => {
+    const g1 = makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1, 0, 0]; });
+    const s = createGame(g1, 1);
+    s.summonCounts = { bitjaru: 2, jipsin: 2, sotlid: 2, dadeumi: 2, horong: 2, bujigaengi: 2, buchae: 2, ki: 0 };
+    s.tokens = 1; s.grade1Summons = 6;
+    const drawn = { s: s.rng.summon.s };
+    nextFloat(drawn);
+    const r = step(s, [{ type: 'summon' }]);
+    expect(r.events.filter(e => e.type === 'summon').map(e => (e as { defId: string }).defId)).toEqual(['ki']);
+    expect(s.slots.filter(Boolean).map(u => u!.defId)).toEqual(['ki']);
+    expect(s.grade1Summons).toBe(7);
+    expect(s.summonCounts.ki).toBe(1);
+    expect(s.rng.summon.s).toBe(drawn.s);
+  });
+  test('the pity summon fills the last free slot and nothing waits', () => {
     const g1 = makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1, 0, 0]; });
     const s = createGame(g1, 1);
     for (let i = 0; i < 17; i++) placeUnitForTest(s, 'sotlid', i);
-    s.tokens = 1; s.grade1Summons = 6;
+    s.tokens = 2; s.grade1Summons = 6;
     step(s, [{ type: 'summon' }]);
     expect(s.slots.filter(Boolean).length).toBe(18);
-    expect(s.pendingPity.length).toBe(1);
-    expect(s.grade1Summons).toBe(7);
+    expect(step(s, [{ type: 'summon' }]).rejected[0]!.reason).toBe('noSlot');
+    expect(s.tokens).toBe(1);
   });
-  test('queued pity takes a freed slot before a new summon in the same tick', () => {
-    const s = createGame(data, 1);
-    for (let i = 0; i < 18; i++) placeUnitForTest(s, 'sotlid', i);
-    s.pendingPity.push('jipsin');
-    const r = step(s, [{ type: 'sell', slot: 3 }, { type: 'summon' }]);
-    expect(s.slots[3]!.defId).toBe('jipsin');
-    expect(r.rejected.map(x => x.reason)).toEqual(['noSlot']);
+  test('pity ties go to the grade-1 list order', () => {
+    const g1 = makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1, 0, 0]; });
+    const s = createGame(g1, 1);
+    s.summonCounts = { bitjaru: 3, jipsin: 1, sotlid: 3, dadeumi: 1, horong: 3, bujigaengi: 3, buchae: 3, ki: 3 };
+    s.tokens = 1; s.grade1Summons = 13;
+    step(s, [{ type: 'summon' }]);
+    expect(s.slots.filter(Boolean).map(u => u!.defId)).toEqual(['jipsin']);
+  });
+  test('stage 3 swaps on every 5th grade-1 summon', () => {
+    const g1 = makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1, 0, 0]; }, 'stage3');
+    const s = createGame(g1, 1);
+    const grade1 = g1.units.filter(u => u.grade === 1 && !u.hidden).map(u => u.id);
+    s.summonCounts = Object.fromEntries(grade1.map((id, i) => [id, i === 5 ? 0 : 4]));
+    s.tokens = 1; s.grade1Summons = 4;
+    step(s, [{ type: 'summon' }]);
+    expect(s.grade1Summons).toBe(5);
+    expect(s.slots.filter(Boolean).map(u => u!.defId)).toEqual([grade1[5]]);
+  });
+  test('grade 2 and 3 rolls do not count toward the pity and are never replaced', () => {
+    const g2 = makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [0, 1, 0]; });
+    const s = createGame(g2, 1);
+    s.tokens = 1; s.grade1Summons = 6;
+    step(s, [{ type: 'summon' }]);
+    expect(s.grade1Summons).toBe(6);
+    expect(unitDef(g2, s.slots.find(Boolean)!.defId).grade).toBe(2);
   });
   test('placement: melee to edge, ranged to inner', () => {
     const s = createGame(data, 1);
@@ -96,20 +128,16 @@ describe('units', () => {
     s.summonCounts = { bitjaru: 2, jipsin: 1, sotlid: 1, dadeumi: 2, horong: 2, bujigaengi: 2, buchae: 2, ki: 2 };
     expect(pityPick(s)).toBe('jipsin');
   });
-  test('every 7th grade-1 summon gives an extra unit', () => {
-    const s = createGame(data, 3); s.tokens = 100;
-    let summons = 0;
-    while (s.grade1Summons < 7) { step(s, [{ type: 'summon' }]); summons++; }
-    expect(s.slots.filter(Boolean).length + s.pendingPity.length).toBe(summons + 1);
-  });
-  test('full board: summon rejected, pity queued then placed after a sale', () => {
-    const s = createGame(data, 1);
-    for (let i = 0; i < 18; i++) placeUnitForTest(s, 'sotlid', i);
-    s.tokens = 2;
-    expect(step(s, [{ type: 'summon' }]).rejected[0]!.reason).toBe('noSlot'); expect(s.tokens).toBe(2);
-    s.pendingPity.push('jipsin');
-    step(s, [{ type: 'sell', slot: 3 }]);
-    expect(s.pendingPity).toEqual([]); expect(s.slots[3]!.defId).toBe('jipsin');
+  test('every summon places exactly one unit, pity summons included', () => {
+    const s = createGame(data, 3); s.tokens = 200;
+    for (let i = 0; i < 120; i++) {
+      const r = step(s, [{ type: 'summon' }]);
+      const placed = r.events.filter(e => e.type === 'summon');
+      expect(placed.length).toBe(1);
+      step(s, [{ type: 'sell', slot: (placed[0] as { slot: number }).slot }]);
+    }
+    expect(s.grade1Summons).toBeGreaterThanOrEqual(70);
+    expect(Object.values(s.summonCounts).reduce((a, b) => a + b, 0)).toBe(120);
   });
   test('move and swap, rejections', () => {
     const s = createGame(data, 1);

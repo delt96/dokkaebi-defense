@@ -1,5 +1,5 @@
 import type { BossControlLog, Enemy, GameEvent, GameState } from './types';
-import { enemySpeed } from './flow';
+import { enemySpeed, TICKS_PER_SECOND } from './flow';
 
 function controlLog(state: GameState, e: Enemy): BossControlLog {
   if (!e.ctl) {
@@ -32,7 +32,8 @@ export function bossStunGate(state: GameState, e: Enemy, events: GameEvent[]): v
   ctl.stunClipped += e.stunTicks;
   e.stunTicks = 0;
   if (state.data.balance.extendedCombat) e.stunEndTick = state.tick;
-  events.push({ type: 'speedChange', enemyId: e.id, d: e.d, speed: enemySpeed(state, e) });
+  const speed = enemySpeed(state, e);
+  events.push({ type: 'speedChange', enemyId: e.id, d: e.d + speed / TICKS_PER_SECOND, speed });
 }
 
 /** Pushes a lane boss back by at most what is left of the window budget and never past the entrance; returns the distance moved. */

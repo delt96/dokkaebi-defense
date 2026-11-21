@@ -209,7 +209,7 @@ class FakeScene {
 }
 
 describe('dex links in the mounted ui', () => {
-  beforeEach(() => { document.body.innerHTML = STAGE_HTML; });
+  beforeEach(() => { document.body.innerHTML = STAGE_HTML; localStorage.clear(); });
   afterEach(() => { vi.restoreAllMocks(); });
 
   test('a link switches the filter, the back button returns, and the tree marks the board', () => {

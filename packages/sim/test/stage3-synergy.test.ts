@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createGame, dist, laneOf, loadGameData, type GameState, type UnitDef } from '@dorandi/logic';
+import { cellDistance, createGame, laneOf, loadGameData, unitAttack, type GameState, type UnitDef } from '@dorandi/logic';
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
 import { auraPlacement, mainType, supportFor, synergyScore, synergyUpgrade } from '../src/stage3/synergy';
 import { STANDARD_CONFIGS } from '../src/stage3/econRun';
@@ -35,6 +35,19 @@ describe('synergy helpers', () => {
     expect(mainType(s, phys6.id)).toBe('physical');
   });
 
+  test('mainType weighs each type by the upgrade it already has, since a unit reads only its own type', () => {
+    const s = lane();
+    const mag = find(u => u.grade === 3 && u.damageType === 'magical');
+    const close = (u: UnitDef) => Math.abs(unitAttack(u, d3.balance) / unitAttack(mag, d3.balance) - 1) < 0.08;
+    const phys = find(u => u.grade === 3 && u.damageType === 'physical' && close(u));
+    placeUnitForTest(s, mag.id, 0);
+    placeUnitForTest(s, phys.id, 1);
+    s.upgrades.physical = 0; s.upgrades.magical = 0;
+    const plain = mainType(s, null);
+    s.upgrades[plain === 'physical' ? 'magical' : 'physical'] = 10;
+    expect(mainType(s, null)).not.toBe(plain);
+  });
+
   test('synergyScore subtracts the type and support bonuses from the missing value', () => {
     const plainPhys = find(u => u.grade === 6 && u.damageType === 'physical' && supportFor(u, 'physical') === 0);
     expect(synergyScore(plainPhys, 30, 'physical')).toBeLessThan(synergyScore(plainPhys, 30, 'magical'));
@@ -64,8 +77,8 @@ describe('synergy helpers', () => {
     let placed = false;
     for (const a of open) {
       for (const b of open) {
-        if (b.index === a.index || b.isEdge !== a.isEdge || dist(a, b) <= 2 * r + 1e-9) continue;
-        const near = open.filter(c => c.index !== b.index && c.index !== a.index && dist(c, b) <= r + 1e-9 && dist(c, a) > r + 1e-9);
+        if (b.index === a.index || b.isEdge !== a.isEdge || cellDistance(geo, a.index, b.index) <= 2 * r + 1e-9) continue;
+        const near = open.filter(c => c.index !== b.index && c.index !== a.index && cellDistance(geo, c.index, b.index) <= r + 1e-9 && cellDistance(geo, c.index, a.index) > r + 1e-9);
         if (near.length < 2) continue;
         placeUnitForTest(s, aura.id, a.index);
         for (const c of near.slice(0, 2)) placeUnitForTest(s, dps.id, c.index);
@@ -73,7 +86,7 @@ describe('synergy helpers', () => {
         expect(cmd).toMatchObject({ type: 'move', from: a.index });
         const to = (cmd as { to: number }).to;
         expect(geo.cells[to]!.isEdge).toBe(a.isEdge);
-        expect(near.slice(0, 2).every(c => dist(geo.cells[to]!, c) <= r + 1e-9)).toBe(true);
+        expect(near.slice(0, 2).every(c => cellDistance(geo, to, c.index) <= r + 1e-9)).toBe(true);
         placed = true;
         break;
       }

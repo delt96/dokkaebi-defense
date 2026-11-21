@@ -5,6 +5,7 @@ import { registerPhase } from './registry';
 import { laneOf } from './lane';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
 import { currentStats, isEvent, isShared, statsForRound } from './stats';
+import { roundStartTick } from './match/schedule';
 import { econBossKill, econEventKill } from './econ/hooks';
 import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnKillExplosions, vulnOf } from './effects';
@@ -30,10 +31,8 @@ export function damageBonus(state: GameState, slot: number): number {
   if (!unit) return 0;
   const def = unitDefFast(state.data, unit.defId);
   const polish = def.grade <= 4 ? upgradePct(state, 'polish') : 0;
-  const line = state.data.balance.inheritUpgrades && def.lineage
-    ? Math.max(...def.lineage.map(t => upgradePct(state, t)))
-    : upgradePct(state, def.damageType);
-  return line + polish + auraAttackPower(state, slot);
+  // a unit gets only its own damage type's upgrade, whatever its materials were
+  return upgradePct(state, def.damageType) + polish + auraAttackPower(state, slot);
 }
 
 export function enemyResist(state: GameState, enemy: Enemy, damageType: DamageType): number {
@@ -116,8 +115,11 @@ export function resolveKills(state: GameState, events: GameEvent[], opts: { fina
     if (e.boss) {
       state.coins += b.coins.boss;
       state.buckwheat += b.bossBuckwheat;
-      const st = statsForRound(state, state.round);
-      if (st) st.bossKillSeconds = (state.tick - state.roundStartTick) / TICKS_PER_SECOND;
+      const st = statsForRound(state, e.round);
+      if (st) {
+        const start = e.round === state.round ? state.roundStartTick : roundStartTick(state.data, e.round);
+        st.bossKillSeconds = (state.tick - start) / TICKS_PER_SECOND;
+      }
       if (finalClear && state.round >= b.rounds) finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
       if (state.econ) econBossKill(state, e.round, events);
     } else {

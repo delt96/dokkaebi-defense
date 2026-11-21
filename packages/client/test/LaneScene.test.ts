@@ -5,6 +5,7 @@ import { placeUnitForTest } from '@dorandi/logic/testing';
 import { expect, test, vi } from 'vitest';
 import { GameDriver } from '../src/driver';
 import { LaneScene } from '../src/LaneScene';
+import { FX_DEPTH } from '../src/fx/FxLayer';
 
 vi.mock('phaser', () => ({ default: { Scene: class {} } }));
 
@@ -29,6 +30,26 @@ function setupScene() {
   });
   return { state, driver, scene, circle, tweens, container };
 }
+
+test('the unit grade dot is drawn above attack effects and follows the visible unit', () => {
+  const { scene, state, container } = setupScene();
+  placeUnitForTest(state, 'sotlid', 0);
+  scene['placeUnits']();
+  const view = container.mock.results[0]!.value;
+  view.visible = true;
+  view.scaleY = 1;
+  view.setPosition(80, 90);
+  const overlay = { clear: vi.fn(), fillStyle: vi.fn(), fillCircle: vi.fn() };
+  Object.assign(scene, { overlay, coverage: { clear: vi.fn() } });
+  expect(FX_DEPTH.unitOverlay).toBeGreaterThan(FX_DEPTH.air);
+
+  scene['drawSelection']();
+  expect(overlay.fillCircle).toHaveBeenCalledWith(80, 76, 2);
+  overlay.fillCircle.mockClear();
+  view.visible = false;
+  scene['drawSelection']();
+  expect(overlay.fillCircle).not.toHaveBeenCalled();
+});
 
 test('drop moves the dragged unit after a pending swap', () => {
   const { scene, driver, state, container } = setupScene();

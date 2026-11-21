@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { availableRecipes, createGame, damageBonus, loadGameData, speedBonus, step } from '../src/index';
+import { availableRecipes, createGame, damageBonus, loadGameData, speedBonus, step, unitDef } from '../src/index';
 import { auraAttackPower } from '../src/effects';
 import { placeUnitForTest } from '../src/testing';
 
@@ -29,12 +29,16 @@ describe('stage 3 board rules', () => {
     expect([s.coins, s.buckwheat, ids(s)]).toEqual([0, 0, ['bihyeongrang']]);
   });
 
-  test('upgrade inheritance reads the highest line in the lineage', () => {
-    for (const [data, want] of [[d3, 0.7], [loadGameData('stage2'), 0.2]] as const) {
+  test('a unit gets only its own damage type upgrade, whatever its materials were', () => {
+    for (const data of [d3, loadGameData('stage2')]) {
       const s = createGame(data, 1); s.upgrades.physical = 2; s.upgrades.magical = 7;
-      placeUnitForTest(s, 'jangdok', 7); // physical; lineage magical+physical in stage 3; polish level 0
-      expect(damageBonus(s, 7)).toBeCloseTo(want);
+      placeUnitForTest(s, 'jangdok', 9); // physical, made from a magical material in stage 3; polish level 0
+      expect(damageBonus(s, 9)).toBeCloseTo(0.2);
     }
+    const t = createGame(d3, 1); t.upgrades.physical = 10;
+    placeUnitForTest(t, 'bihyeongrang', 9);
+    expect(unitDef(d3, 'bihyeongrang').damageType).toBe('magical');
+    expect(damageBonus(t, 9)).toBeCloseTo(0);
   });
 
   test('aura caps: attack speed 0.5, attack power 0.4', () => {

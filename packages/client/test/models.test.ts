@@ -80,7 +80,10 @@ function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void) {
   let select: (slot: number) => void = () => {};
   const scene = { onFrame: () => {}, onSelect: (cb: typeof select) => { select = cb; }, onEvents: () => {} };
   const press = (code: string, modifiers: Partial<KeyboardEvent> = {}) => {
-    events.dispatchEvent(Object.assign(new Event('keydown'), { code, key: 'Process', ...modifiers }));
+    const { target, ...rest } = modifiers;
+    const ev = Object.assign(new Event('keydown'), { code, key: 'Process', ...rest });
+    if (target) Object.defineProperty(ev, 'target', { value: target });
+    events.dispatchEvent(ev);
   };
   const click = (panel: string, dataArg: string, action = 'combine', keyboard = false) => {
     const button = { dataset: { action, arg: dataArg }, hasAttribute: () => false };
@@ -92,7 +95,7 @@ function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void) {
   vi.stubGlobal('document', {
     getElementById: (id: string) => {
       if (!panels.has(id)) panels.set(id, Object.assign(new EventTarget(), {
-        innerHTML: '', querySelector: () => null, classList: { toggle: () => {} }, contains: () => true,
+        innerHTML: '', querySelector: () => null, querySelectorAll: () => [], classList: { toggle: () => {} }, contains: () => true,
       }));
       return panels.get(id);
     },
@@ -114,8 +117,9 @@ test('the card and physical keys combine at the selected slot while the helper u
   const { driver, queue, press, click, panels, select, scene } = mountTestUi(s);
   select(3);
   const card = panels.get('bottom')!;
-  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}">[Z] 가마솥</button>`);
-  expect(card.innerHTML).toContain('화로 (모자람: 호롱)');
+  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}">[Z] 가마솥 <span class="type-badge`);
+  expect(card.innerHTML).toContain('화로 <span class="type-badge');
+  expect(card.innerHTML).toContain('(모자람: 호롱)');
   expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
   click('bottom', `gamasot@${chosen.id}`);
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
@@ -229,7 +233,7 @@ test('ready recipes precede missing materials on the card', () => {
   select(0);
   const html = panels.get('bottom')!.innerHTML;
   expect(html).toContain('[Z] 풀무');
-  expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('절구 (모자람'));
+  expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('combine-missing">절구'));
 });
 
 import { activeNotice, nextUnitId, selectedSlot, rightModel, rejectText } from '../src/ui/models';
@@ -238,20 +242,15 @@ describe('final review fixes: right panel and reject notices', () => {
   const unit = (id: number) => ({ id, defId: 'sotlid', cooldown: 0, attackCount: 0, periodic: [] });
   test('summon is disabled when no open cell is free, convert is not', () => {
     const s = createGame(data, 1);
-    expect(rightModel(s)).toMatchObject({ canSummon: true, canConvert: true, pending: 0 });
+    expect(rightModel(s)).toEqual({ canSummon: true, canConvert: true });
     s.open.forEach((o, i) => { if (o) s.slots[i] = unit(i + 1); });
     expect(rightModel(s)).toMatchObject({ canSummon: false, canConvert: true });
-  });
-  test('stored pity units are counted', () => {
-    const s = createGame(data, 1);
-    s.pendingPity.push('bitjaru', 'japgwi' as never);
-    expect(rightModel(s).pending).toBe(2);
   });
   test('the summon tooltip follows the lane round and explains when grade 3 opens', () => {
     const s = createGame(data, 1);
     s.tokens = 3;
     s.grade1Summons = 3;
-    const panel = { innerHTML: '' };
+    const panel = { innerHTML: '', querySelectorAll: () => [] };
     vi.stubGlobal('document', { getElementById: () => panel });
     try {
       renderRight(s);
@@ -262,6 +261,7 @@ describe('final review fixes: right panel and reject notices', () => {
       renderRight(s);
       expect(panel.innerHTML).toContain('1등급 77% · 2등급 20% · 3등급 3%');
       expect(panel.innerHTML).not.toContain('보너스까지');
+      expect(panel.innerHTML).not.toContain('보관 중');
     } finally {
       vi.unstubAllGlobals();
     }
@@ -319,4 +319,90 @@ test('the crash banner offers an in-game restart', () => {
   expect(errorMarkup).toContain('data-action="restart"');
   click('error', '', 'restart');
   expect(restart).toHaveBeenCalledOnce();
+});
+
+describe('upgrade window keys', () => {
+  const buys = (q: { mock: { calls: unknown[][] } }) => q.mock.calls.filter(c => (c[0] as { type: string }).type === 'upgrade');
+
+  test('E opens and closes the window, Esc closes it, and nothing pauses', () => {
+    const { press, panels, driver } = mountTestUi(createGame(data, 1));
+    const modal = () => panels.get('modal')!.innerHTML;
+    expect(modal()).toBe('');
+    press('KeyE');
+    expect(modal()).toContain('class="upgrades"');
+    expect(modal()).toContain('E·Esc 닫기');
+    press('KeyE');
+    expect(modal()).toBe('');
+    press('KeyE');
+    press('Escape');
+    expect(modal()).toBe('');
+    expect(driver.paused).toBe(false);
+  });
+
+  test('digits buy only while the window is open', () => {
+    const s = createGame(data, 1); s.coins = 1000;
+    const { press, queue, driver } = mountTestUi(s);
+    for (const key of ['Digit1', 'Digit2', 'Digit3', 'Digit4']) press(key);
+    expect(buys(queue)).toHaveLength(0);
+    press('KeyE');
+    press('Digit1'); press('Digit2'); press('Digit3'); press('Digit4');
+    expect(buys(queue).map(c => (c[0] as { id: string }).id)).toEqual(['physical', 'magical', 'polish', 'slots']);
+    press('KeyE');
+    queue.mockClear();
+    press('Digit1');
+    expect(buys(queue)).toHaveLength(0);
+    expect(driver.paused).toBe(false);
+  });
+
+  test('E and digits are ignored while typing or composing', () => {
+    const s = createGame(data, 1); s.coins = 1000;
+    const { press, queue, panels } = mountTestUi(s);
+    const input = { tagName: 'INPUT', isContentEditable: false, closest: (sel: string) => (sel.includes('input') ? input : null) };
+    press('KeyE', { target: input as never });
+    expect(panels.get('modal')!.innerHTML).toBe('');
+    press('KeyE', { isComposing: true });
+    expect(panels.get('modal')!.innerHTML).toBe('');
+    press('KeyE');
+    press('Digit1', { target: input as never });
+    press('Digit1', { isComposing: true });
+    expect(buys(queue)).toHaveLength(0);
+  });
+
+  test('labels show the key', () => {
+    const { panels } = mountTestUi(createGame(data, 1));
+    expect(panels.get('right')!.innerHTML).toContain('강화 (E)');
+    expect(panels.get('bottom')!.innerHTML).toContain('E 강화');
+  });
+});
+
+describe('dex hotkey', () => {
+  test('D opens and closes the dex, Esc closes it', () => {
+    const { press, panels, driver } = mountTestUi(createGame(data, 1));
+    const modal = () => panels.get('modal')!.innerHTML;
+    press('KeyD');
+    expect(modal()).toContain('class="dex"');
+    press('KeyD');
+    expect(modal()).toBe('');
+    press('KeyD');
+    press('Escape');
+    expect(modal()).toBe('');
+    expect(driver.paused).toBe(false);
+  });
+
+  test('D does not replace another window and is ignored while typing or composing', () => {
+    const { press, panels } = mountTestUi(createGame(data, 1));
+    const input = { tagName: 'INPUT', isContentEditable: false, closest: (sel: string) => (sel.includes('input') ? input : null) };
+    press('KeyD', { target: input as never });
+    press('KeyD', { isComposing: true });
+    expect(panels.get('modal')!.innerHTML).toBe('');
+    press('KeyE');
+    press('KeyD');
+    expect(panels.get('modal')!.innerHTML).toContain('class="upgrades"');
+  });
+
+  test('labels show the key', () => {
+    const { panels } = mountTestUi(createGame(data, 1));
+    expect(panels.get('left')!.innerHTML).toContain('도감 (D)');
+    expect(panels.get('bottom')!.innerHTML).toContain('D 도감');
+  });
 });

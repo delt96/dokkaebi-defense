@@ -4,11 +4,11 @@ import { nextFloat } from './rng';
 import { unitAttack } from './data';
 import { dist, loopPos } from './lane';
 import { registerPhase } from './registry';
-import { laneOf } from './lane';
+import { cellDistance, laneOf } from './lane';
 import { enemySpeed, toTicks } from './flow';
 import { computeHitDamage, damageBonus, dealDamage, enemyResist, hitDamage, inRange, pickTarget } from './combat';
 import { unitDefFast } from './units';
-import { isShared } from './stats';
+import { isEvent, isShared } from './stats';
 import { payFirstHit } from './income';
 import { applyBossKnockback } from './bosscontrol';
 
@@ -20,13 +20,12 @@ function auraKey(defId: string, e: Effect): string {
 function auraSum(state: GameState, slot: number, pick: (e: Effect) => number): number {
   const lane = laneOf(state);
   const radius = state.data.balance.auraRadius;
-  const me = lane.cells[slot]!;
   const seen = new Set<string>();
   let total = 0;
   for (let i = 0; i < state.slots.length; i++) {
     const u = state.slots[i];
     if (!u || i === slot) continue;
-    if (dist(me, lane.cells[i]!) > radius + 1e-9) continue;
+    if (cellDistance(lane, slot, i) > radius + 1e-9) continue;
     const def = unitDefFast(state.data, u.defId);
     for (const s of def.skills) {
       if (s.trigger.kind !== 'aura') continue;
@@ -166,7 +165,7 @@ function countNeighborHit(state: GameState, slot: number, target: Enemy, events:
   const radius = state.data.balance.auraRadius;
   for (let i = 0; i < state.slots.length; i++) {
     const u = state.slots[i];
-    if (!u || i === slot || dist(lane.cells[slot]!, lane.cells[i]!) > radius + 1e-9) continue;
+    if (!u || i === slot || cellDistance(lane, slot, i) > radius + 1e-9) continue;
     for (const skill of unitDefFast(state.data, u.defId).skills) {
       const t = skill.trigger;
       if (t.kind !== 'neighborHits') continue;
@@ -222,7 +221,7 @@ function chainHits(state: GameState, first: Enemy, e: Extract<Effect, { kind: 'c
     let bestRank = 3;
     for (const o of state.enemies) {
       if (o.hp <= 0 || done.has(o) || dist(lane.pointAt(o.d), at) > e.range + 1e-9) continue;
-      const rank = o.boss ? 0 : isShared(state.data, o) ? 1 : 2;
+      const rank = o.boss || isEvent(state.data, o) ? 0 : isShared(state.data, o) ? 1 : 2;
       if (!best || rank < bestRank || (rank === bestRank && o.id < best.id)) { best = o; bestRank = rank; }
     }
     if (!best) return;

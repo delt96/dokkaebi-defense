@@ -4,7 +4,7 @@ import { createGame, econView, loadGameData, step, type ClientView, type EconMin
 import { forceRound, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import {
-  incomingModel, marketModel, noteText, questChips, shipModel, storyModel, tameModel, tameRejectText, transferEndText,
+  econPanelHtml, incomingModel, marketModel, noteText, questChips, shipModel, storyModel, tameModel, tameRejectText, transferEndText,
 } from '../src/ui/econ';
 import { rejectText } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
@@ -187,7 +187,7 @@ describe('tame prompt', () => {
 });
 
 describe('story request page', () => {
-  test('what is paid, what is received and what is short', () => {
+  test('the offer separates kill progress, settlement costs and support usage', () => {
     const s = lane(31, 40);
     placeUnitForTest(s, 'janggu', 0);
     placeUnitForTest(s, 'moru', 1);
@@ -197,9 +197,13 @@ describe('story request page', () => {
     const m = storyModel(econOf(s), s)!;
     const fee = eco.story!.fee;
     expect(m.title).toBe('설화 의뢰 · 31라운드');
-    expect(m.lines.slice(0, 4)).toEqual([
-      '천년 징', '장구 ✓ · 꽹과리 부족 · 모루 ✓', `우리 고개 잡귀 17/${eco.story!.kills}`,
-      `31라운드가 끝나면 장구·모루와 ${fee.coins}냥·묵 ${fee.buckwheat}개를 내고 천년 징을 받습니다`,
+    const panel = document.createElement('div');
+    panel.innerHTML = econPanelHtml('story', null, null, m);
+    const terms = Array.from(panel.querySelectorAll('.story-terms dt, .story-terms dd'), el => el.textContent);
+    expect(terms).toEqual([
+      '잡귀 처치', '17/' + eco.story!.kills,
+      '라운드 종료 시 지불', '장구·모루 · ' + fee.coins + '냥 · 묵 ' + fee.buckwheat + '개',
+      '이번 판 지원 사용', econOf(s).story!.view!.used + '/' + econOf(s).story!.view!.cap,
     ]);
     expect(m.shortfalls).toContain(`엽전 ${fee.coins - 40}냥 부족`);
     expect(m.shortfalls).toContain(`메밀묵 ${fee.buckwheat}개 부족`);
@@ -271,7 +275,7 @@ describe('market hotkey', () => {
     keydown(window, { code: 'KeyB' });
     expect(panel()).toBe('');
     expect(document.querySelector('[data-action="toggleMarket"]')).toBeNull();
-    expect(document.getElementById('bottom')!.textContent).toBe('유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · G 1·2등급 보관 · Esc 선택 해제');
+    expect(document.getElementById('bottom')!.textContent).toBe('유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · E 강화 · D 도감 · G 1·2등급 보관 · Esc 선택 해제');
   });
 
   test('B opens and closes the market; the help line names it', () => {

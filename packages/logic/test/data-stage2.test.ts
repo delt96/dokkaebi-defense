@@ -75,19 +75,12 @@ describe('stage 2 data', () => {
     expect(r.errors.some(e => e.includes('duplicate') && e.includes('bitjaru'))).toBe(true);
     expect(r.errors.some(e => e.includes('horong') && e.includes('9'))).toBe(true);
   });
-  test('dadeumitdol needs two dadeumi; result goes to the chosen slot; pity is placed when the combine frees a cell', () => {
+  test('dadeumitdol needs two dadeumi; result goes to the chosen slot', () => {
     const s = createGame(d2, 1);
     placeUnitForTest(s, 'dadeumi', 4);
     expect(step(s, [{ type: 'combine', result: 'dadeumitdol', slot: 4 }]).rejected[0]!.reason).toBe('missingMaterials');
     placeUnitForTest(s, 'dadeumi', 9);
     expect(step(s, [{ type: 'combine', result: 'dadeumitdol', slot: 9 }]).rejected).toEqual([]);
     expect(s.slots[9]!.defId).toBe('dadeumitdol'); expect(s.slots[4]).toBeNull();
-    const t = createGame(d2, 1);
-    placeUnitForTest(t, 'bitjaru', 0);
-    for (let i = 1; i < 18; i++) placeUnitForTest(t, 'ki', i);
-    t.pendingPity.push('jipsin');
-    step(t, [{ type: 'combine', result: 'sseurebatgi', slot: 0 }]);
-    expect(t.slots[0]!.defId).toBe('sseurebatgi');
-    expect(t.pendingPity).toEqual([]); expect(t.slots[17]!.defId).toBe('jipsin');
   });
 });
