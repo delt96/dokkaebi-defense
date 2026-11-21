@@ -45,6 +45,14 @@ export function recipesUsing(state: GameState, slot: number): { result: string; 
     .map(recipe => ({ result: recipe.result, missing: missingFrom(state, recipe.materials) }));
 }
 
+/** Where a combine result lands: the first of `slots` holding the highest grade. */
+export function pickResultSlot(state: GameState, slots: number[]): number {
+  const gradeOf = (slot: number) => unitDefFast(state.data, state.slots[slot]!.defId).grade;
+  let best = slots[0]!;
+  for (const i of slots) if (gradeOf(i) > gradeOf(best)) best = i;
+  return best;
+}
+
 registerCommand('combine', (state, cmd, events) => {
   if (cmd.type !== 'combine') return 'unknown';
   const chosen = cmd.slot === undefined ? null : state.slots[cmd.slot];
@@ -59,12 +67,10 @@ registerCommand('combine', (state, cmd, events) => {
 
   let resultSlot = cmd.slot;
   if (resultSlot === undefined) {
-    const gradeOf = (slot: number) => unitDefFast(state.data, state.slots[slot]!.defId).grade;
     const materialSlots = state.slots
       .map((u, i) => (u && recipe.materials.includes(u.defId) ? i : -1))
       .filter(i => i >= 0);
-    resultSlot = materialSlots[0]!;
-    for (const i of materialSlots) if (gradeOf(i) > gradeOf(resultSlot)) resultSlot = i;
+    resultSlot = pickResultSlot(state, materialSlots);
   }
 
   const used = new Set<number>();

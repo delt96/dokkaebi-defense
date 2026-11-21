@@ -10,6 +10,8 @@ export {
 export { marketDay, marketView, placePendingDrops, type MarketView } from './econ/market';
 export { spawnEventEnemy, type EventKind } from './econ/events';
 export { onCollectionCombine } from './econ/quests';
+export { storySlots, storyView, type StoryView } from './econ/story';
+export { pickResultSlot } from './combine';
 export { createGame, step, laneOf, applyCommand, runAfterCommandHooks, runCombat } from './game';
 export {
   spawnDue, payRoundEnd, trackLimit, startRound, spawnEnemy, moveEnemies, finishGame,

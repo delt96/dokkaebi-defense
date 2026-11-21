@@ -12,6 +12,7 @@ import './effects';
 import './upgrades';
 import './econ/market';
 import './econ/quests';
+import './econ/story';
 
 export { laneOf } from './lane';
 export { registerAfterCommands, registerCommand, registerPhase } from './registry';
