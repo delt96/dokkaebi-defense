@@ -10,6 +10,19 @@
 
 * { box-sizing: border-box; }
 
+/* The stage is zoomed with a CSS transform, which doubles or triples the browser's default
+   scrollbar; keep every scrollbar a thin dark line instead. Chromium ignores the ::-webkit
+   rules once scrollbar-width is set, so the standard properties only apply where those
+   pseudo-elements are unsupported (Firefox). */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: #4a3f5c; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-dim); }
+::-webkit-scrollbar-button { display: none; }
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: #4a3f5c transparent; }
+}
+
 html, body {
   margin: 0;
   height: 100%;
@@ -79,7 +92,7 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 #bottom .unit-info { display: grid; flex: none; line-height: 12px; }
 #bottom .unit-info > :last-child { color: #bfbbca; font-variant-numeric: tabular-nums; }
 #bottom .skill { min-width: 0; max-width: 115px; overflow: hidden; text-overflow: ellipsis; color: var(--ink-dim); }
-#bottom .combine-options { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+#bottom .combine-options { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; }
 #bottom .combine-options > *, #bottom [data-action="sell"] { flex-shrink: 0; }
 #bottom .combine-missing { color: var(--ink-dim); }
 #bottom [data-action="sell"] { margin-left: auto; }
@@ -240,7 +253,7 @@ body.online #econ-panel { height: 292px; }
 .econ-head button { min-height: 18px; padding: 0 4px; }
 .econ-head button.on { border-color: var(--accent); color: var(--accent); }
 .econ-head .econ-close { margin-left: auto; color: var(--ink-dim); }
-.econ-body { flex: 1; min-height: 0; overflow-y: auto; padding: 3px; display: flex; flex-direction: column; gap: 3px; scrollbar-width: thin; }
+.econ-body { flex: 1; min-height: 0; overflow-y: auto; padding: 3px; display: flex; flex-direction: column; gap: 3px; }
 .econ-sub { color: var(--ink-dim); }
 .shop { display: flex; flex-direction: column; gap: 1px; padding: 3px; background: #1f1829; border: 1px solid var(--panel-edge); }
 .shop-title { display: flex; justify-content: space-between; gap: 4px; }
