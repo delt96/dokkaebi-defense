@@ -18,13 +18,16 @@ function triggerText(t: Trigger): string {
     case 'streak': return `같은 적을 ${t.n}번 연달아 치면 `;
     case 'targetHpBelow': return `체력 ${pct(t.pct)} 이하 대상에게 `;
     case 'targetSlowed': return '둔화된 대상에게 ';
-    case 'neighborHits': return `이웃의 기본 공격 ${t.count}번마다 `;
+    case 'neighborHits': return `이웃의 기본 공격 ${t.count}번마다${t.lockoutSeconds ? ` (발동 뒤 ${t.lockoutSeconds}초 쉼)` : ''} `;
     default: return '';
   }
 }
 
-/** `nameOf` turns a source id into a unit name for the "does not stack with" notes. */
-export interface SkillCtx { interval: number; pulseSeconds: number; nameOf?: (id: string) => string }
+/**
+ * `nameOf` turns a source id into a unit name for the "does not stack with" notes; `extended` is the stage 3 data's
+ * extendedCombat, which spells out the radius of area slows (stage 1-2 text stays as it was).
+ */
+export interface SkillCtx { interval: number; pulseSeconds: number; nameOf?: (id: string) => string; extended?: boolean }
 
 /** Who a status lands on (stage 3 `radius` / `area`); empty for the plain target. */
 function areaText(a: StatusArea): string {
@@ -76,19 +79,19 @@ function effectText(e: Effect, trigger: Trigger, ctx?: SkillCtx): string {
     case 'allInRange': return `사거리 안 모두에게 공격력 ${pct(e.mult)}`;
     case 'stun': return `${areaText(e)}스턴 ${e.seconds}초`;
     // stage 1-2 slows with a radius keep their old wording
-    case 'slow': return `${e.radius ? '주변 ' : areaText(e)}둔화 ${pct(e.pct)} ${e.seconds}초`;
+    case 'slow': return `${e.radius ? (ctx?.extended ? areaText(e) : '주변 ') : areaText(e)}둔화 ${pct(e.pct)} ${e.seconds}초`;
     case 'knockback': return `${areaText(e)}${e.distance}칸 밀어냄`;
     case 'vuln': return `${areaText(e)}받는 ${typeName(e.damageType)} +${pct(e.pct)} ${e.seconds}초${paren(e.maxStacks && `최대 ${e.maxStacks}중첩`, sourceNote(e.source, ctx))}`;
     case 'dot': return areaText(e) + dotText(e, trigger, ctx);
     case 'groundFire': return fireText(e);
     case 'onKillExplode': return `${e.requireExecute ? '처형으로 ' : ''}처치하면 주변 폭발 ${pct(e.mult)}`;
     case 'auraAttackSpeed': return `주변 ${e.damageType ? `${typeName(e.damageType)} ` : ''}아군 공격 속도 +${pct(e.pct)}`;
-    case 'auraAttackPower': return `주변 ${typeName(e.damageType)} 아군 공격력 +${pct(e.pct)}${paren(sourceNote(e.source, ctx))}`;
+    case 'auraAttackPower': return `주변 ${e.damageType === 'all' ? '' : `${typeName(e.damageType)} `}아군 공격력 +${pct(e.pct)}${paren(sourceNote(e.source, ctx))}`;
     case 'auraEnemyVuln': return `사거리 안 적이 받는 ${e.damageType ? typeName(e.damageType) : '피해'} +${pct(e.pct)}${paren(sourceNote(e.source, ctx))}`;
     case 'strike': return `대상에게 공격력 ${pct(e.mult)} 추가 피해`;
     case 'chain': return `${e.range}칸 안의 다음 적에게 차례로 ${pct(e.mult)} (최대 ${e.maxBounces}번)`;
     case 'rampCrit': return `같은 적을 연달아 치면 피해가 ${e.step}배씩 올라 최대 ${e.max}배`;
-    case 'onVulnKillExplode': return `약화된 적이 쓰러지면 주변 ${e.radius}칸 폭발 ${pct(e.mult)}`;
+    case 'onVulnKillExplode': return `약화된 적이 쓰러지면 주변 ${e.radius}칸 폭발 ${pct(e.mult)}${e.cooldownSeconds ? ` (${e.cooldownSeconds}초에 한 번)` : ''}`;
     case 'coinOnFirstHit': return `라운드 첫 명중에 엽전 ${e.coins}냥`;
     case 'coinTimer': return `전투 ${e.everySeconds}초마다 엽전 ${e.coins}냥 (라운드당 최대 ${e.maxPerRound}냥)`;
   }
@@ -101,7 +104,7 @@ export function skillText(skills: SkillDef[], ctx?: SkillCtx): string {
 const nameIn = (data: GameData) => (id: string): string => data.units.find(u => u.id === id)?.name ?? id;
 
 function ctxOf(data: GameData, def: UnitDef): SkillCtx {
-  return { interval: def.interval, pulseSeconds: data.balance.pulseSeconds, nameOf: nameIn(data) };
+  return { interval: def.interval, pulseSeconds: data.balance.pulseSeconds, nameOf: nameIn(data), extended: data.balance.extendedCombat === true };
 }
 
 /** Stage 3 extra damage on every basic attack, shown as its own line (v5 6장 "도감 도움말"). */
@@ -177,7 +180,7 @@ export function combineNotes(data: GameData, result: string): CombineNotes | nul
   for (const s of def.skills) {
     for (const e of s.effects) {
       const source = 'source' in e ? e.source : undefined;
-      if (source && source !== def.id) inherited.push(`${name(source)}의 ${effectText({ ...e, source: undefined } as Effect, s.trigger)}`);
+      if (source && source !== def.id) inherited.push(`${name(source)}의 ${effectText({ ...e, source: undefined } as Effect, s.trigger, INHERIT_CTX(data))}`);
     }
   }
   const lineage = def.lineage && def.lineage.length > 1 ? '물딜·마딜 (강화는 높은 쪽)' : def.lineage?.[0] ? typeName(def.lineage[0]) : null;
@@ -186,6 +189,9 @@ export function combineNotes(data: GameData, result: string): CombineNotes | nul
     lostControls: [...controls].map(([c, who]) => `${c} (${who.join(', ')})`),
   };
 }
+
+/** Inherited lines read like the material's own effect: no source note, no re-applied dot note, stage 3 radii. */
+const INHERIT_CTX = (data: GameData): SkillCtx => ({ interval: Number.POSITIVE_INFINITY, pulseSeconds: data.balance.pulseSeconds, extended: true });
 
 /** The combine notes as card lines; empty for stage 1-2. */
 export function combineNoteLines(data: GameData, result: string): string[] {
@@ -354,8 +360,9 @@ export function unitCard(state: GameState, slot: number): { name: string; grade:
   };
 }
 
+/** `hidden`: a stage 3 hidden unit, which is tamed from a boss instead of summoned. */
 export interface DexEntry {
-  id: string; name: string; grade: number; recipe: string[];
+  id: string; name: string; grade: number; recipe: string[]; hidden: boolean;
   typeText: string; range: number; skillText: string; cost: string | null; notes: string[];
 }
 
@@ -364,7 +371,7 @@ export function dexEntries(data: GameData): DexEntry[] {
   return data.units.map(u => {
     const recipe = data.recipes.find(r => r.result === u.id);
     return {
-      id: u.id, name: u.name, grade: u.grade,
+      id: u.id, name: u.name, grade: u.grade, hidden: u.hidden === true,
       recipe: (recipe?.materials ?? []).map(name),
       typeText: typeName(u.damageType), range: u.range, skillText: unitSkillText(data, u), cost: costText(recipe),
       // the combine card's first line (lines and range) is already in the row

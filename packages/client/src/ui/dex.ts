@@ -5,7 +5,7 @@ import { esc } from './dom';
 
 export function dexHtml(data: GameData): string {
   const rows = dexEntries(data).map(d => {
-    const recipe = d.recipe.length ? d.recipe.map(esc).join(' + ') : '소환';
+    const recipe = d.recipe.length ? d.recipe.map(esc).join(' + ') : d.hidden ? '길들이기' : '소환';
     const notes = d.notes.length ? `<ul class="card-notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
     // one row per unit: the skill line sits under the recipe
     return `

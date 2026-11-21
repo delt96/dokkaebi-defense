@@ -4,6 +4,7 @@ import { describe, expect, test } from 'vitest';
 import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { spriteKey } from '../src/sprites';
+import { dexHtml } from '../src/ui/dex';
 import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitSkillText } from '../src/ui/models';
 
 const d3 = loadGameData('stage3');
@@ -107,5 +108,31 @@ describe('sprites', () => {
     expect(spriteKey('gangcheori6', files)).toBe('gangcheori');
     expect(spriteKey('nosuchunit', files)).toBeNull();
     expect(spriteKey('yeoksin1', files)).toBeNull();
+  });
+});
+
+describe('review fixes: aura for all, lockouts, cooldowns, slow radii, tamed units', () => {
+  test('an aura for every damage type reads without a type; lockout and cooldown are shown', () => {
+    expect(text('bihyeongrang')).toContain('오라: 주변 아군 공격력 +10%');
+    expect(text('bihyeongrang')).toContain('이웃의 기본 공격 8번마다 (발동 뒤 2초 쉼) ');
+    expect(text('duduri')).toContain('약화된 적이 쓰러지면 주변 1.5칸 폭발 80% (1.1초에 한 번)');
+  });
+
+  test('stage 3 area slows give their radius; stage 1-2 slows keep the old words', () => {
+    expect(text('samtaegi')).toContain('주변 1칸 둔화 20% 1.5초');
+    expect(text('eomang')).toContain('주변 1.5칸 둔화 42% 3초');
+    const d2 = loadGameData('stage2');
+    const old = d2.units.filter(u => u.skills.some(s => s.effects.some(e => e.kind === 'slow' && e.radius)));
+    expect(old.length).toBeGreaterThan(0);
+    for (const u of old) expect(unitSkillText(d2, u)).toMatch(/주변 둔화/);
+  });
+
+  test('the dex says 길들이기 for the five hidden units and 소환 for grade 1', () => {
+    const entries = dexEntries(d3);
+    expect(entries.filter(e => e.hidden).map(e => e.id).sort()).toEqual(['bulgasari', 'eoduksini', 'gangcheori', 'jinegaksi', 'ssireumdokkaebi']);
+    expect(dexEntries(loadGameData('stage2')).some(e => e.hidden)).toBe(false);
+    const row = (html: string, name: string) => html.split('<tr>').find(r => r.includes(`<td>${name}</td>`)) ?? '';
+    expect(row(dexHtml(d3), '강철이')).toContain('<td>길들이기');
+    expect(row(dexHtml(d3), '짚신')).toContain('<td>소환');
   });
 });
