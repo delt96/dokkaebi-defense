@@ -8,8 +8,8 @@ export function upgradeCost(def: UpgradeDef, nextLevel: number): number {
 /** The cells the slots upgrade opens when it goes from `level` to `level + 1` (fewer on the last level, at the board's end). */
 export function slotsOpenedAt(data: GameData, level: number): number[] {
   const def = data.upgrades.find(u => u.id === 'slots');
-  const { cols, rows, initialOpenRows, openPerLevel } = data.balance.grid;
-  const count = openPerLevel ?? def?.openCount ?? 0;
+  const { cols, rows, initialOpenRows } = data.balance.grid;
+  const count = def?.openCount ?? 0;
   const first = initialOpenRows * cols + level * count;
   const out: number[] = [];
   for (let i = first; i < first + count && i < cols * rows; i++) out.push(i);

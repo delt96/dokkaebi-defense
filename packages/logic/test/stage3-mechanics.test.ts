@@ -193,9 +193,8 @@ describe('stage 3 hit packages and target mechanics', () => {
 
 describe('stage 3 neighbor hits, weakened-kill explosions and coins', () => {
   test('neighborHits: 8th neighbor basic hit fires a 935 pierce, then 40-tick lockout', () => {
-    // slot 1 sits 0.375 path units left of where it was on the 6 x 4 board, so the enemies move with it
-    const s = quiet3(); const g = placeUnitForTest(s, 'bihyeongrang', 9); const n = placeUnitForTest(s, 'dadeumitdol', 1);
-    const t = spawnEnemyForTest(s, 'japgwi', 2.625, 1e8); const f = spawnEnemyForTest(s, 'japgwi', 0.625, 1e8);
+    const s = quiet3(); const g = placeUnitForTest(s, 'bihyeongrang', 7); const n = placeUnitForTest(s, 'dadeumitdol', 1);
+    const t = spawnEnemyForTest(s, 'japgwi', 3, 1e8); const f = spawnEnemyForTest(s, 'japgwi', 1, 1e8);
     const pierce = Math.round(G6 * 1.2 * 0.82 * 0.8);
     let attacks = 0; let fired = 0; let lockAt = -1;
     for (let i = 0; i < 400 && attacks < 8; i++) {
@@ -220,13 +219,12 @@ describe('stage 3 neighbor hits, weakened-kill explosions and coins', () => {
   });
 
   test('duduri explosion on an ally kill, once per 1.1 s, no chain', () => {
-    // slot 2 sits 0.625 path units left of where it was on the 6 x 4 board, so the enemies move with it
     const s = quiet3(); const u = placeUnitForTest(s, 'duduri', 2);
-    const a = spawnEnemyForTest(s, 'japgwi', 2.375, 1e8);
+    const a = spawnEnemyForTest(s, 'japgwi', 3, 1e8);
     run(s, 1, [a]);
     expect(a.vulnCaster).toMatchObject({ unitId: u.id, key: 'duduri' });
-    const b = spawnEnemyForTest(s, 'japgwi', 1.175, 1e8); // out of duduri's reach, 1.2 from a
-    const c = spawnEnemyForTest(s, 'japgwi', 1.075, 1);
+    const b = spawnEnemyForTest(s, 'japgwi', 1.8, 1e8); // out of duduri's reach, 1.2 from a
+    const c = spawnEnemyForTest(s, 'japgwi', 1.7, 1);
     c.vulns.duduri = { ...a.vulns.duduri! }; c.vulnCaster = { ...a.vulnCaster! };
     a.hp = 0;
     const tick = s.tick;

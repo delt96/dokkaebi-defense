@@ -164,16 +164,14 @@ test('dex search combines grade with a unit or material name and handles no matc
   expect(dexHtml(d3, undefined, '1', '천년상모')).toContain('찾는 유닛이 없습니다');
 });
 
-test('the slots upgrade says how many cells its next level opens: 3, 3, 2 on the 8 x 5 board, 2 on 6 x 4', () => {
-  const s = createGame(d3, 1);
-  const slots = () => upgradeRows(s).find(r => r.id === 'slots')!.effectText;
-  expect(slots()).toBe('칸 3개 열기');
-  s.upgrades.slots = 2;
-  expect(slots()).toBe('칸 2개 열기');
-  s.upgrades.slots = 3;
-  expect(slots()).toBe('칸 2개 열기');
-  const one = createGame(loadGameData(), 1);
-  expect(upgradeRows(one).find(r => r.id === 'slots')!.effectText).toBe('칸 2개 열기');
+test('the slots upgrade says how many cells its next level opens: 2 on the 6 x 4 board of every stage', () => {
+  for (const data of [d3, loadGameData()]) {
+    const s = createGame(data, 1);
+    const row = () => upgradeRows(s).find(r => r.id === 'slots')!;
+    expect([row().effectText, row().max, row().cost]).toEqual(['칸 2개 열기', 3, 50]);
+    s.upgrades.slots = 3;
+    expect([row().effectText, row().cost]).toEqual(['칸 2개 열기', null]);
+  }
 });
 
 test('a stage 3 card says which upgrade the unit gets: its own type, never the higher of its materials', () => {

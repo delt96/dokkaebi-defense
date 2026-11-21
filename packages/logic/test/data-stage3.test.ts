@@ -134,7 +134,7 @@ describe('stage 3 balance stands on its own', () => {
         { fromRound: 10, odds: [0.7, 0.25, 0.05] },
       ],
       summonOdds: [0.7, 0.25, 0.05], pityEvery: 5,
-      grid: { cols: 8, rows: 5, initialOpenRows: 4, frame: { cols: 6, rows: 4 }, openPerLevel: 3 },
+      grid: { cols: 6, rows: 4, initialOpenRows: 3 },
       bossCcFactor: 0.5, vulnCap: 0.5, auraRadius: 1.5, pulseSeconds: 0.5,
       onBasicHitRadius: 3,
       auraCaps: { attackSpeed: 0.5, attackPower: 0.4 },

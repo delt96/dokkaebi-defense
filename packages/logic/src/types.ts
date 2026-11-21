@@ -43,12 +43,12 @@ export interface BossControlLog {
 export interface EnemyDef { id: string; name: string; boss: boolean; shared?: boolean; event?: true; hpMult: number; hp?: number; speed: number; resist: { physical: number; magical: number } }
 export type WaveDef = { round: number; type: 'normal'; pattern: string[] } | { round: number; type: 'boss'; boss: string };
 /**
- * `frame`: the area the enemy path runs around (defaults to cols x rows); `openPerLevel`: cells each slots upgrade
- * level opens (defaults to the upgrade's openCount), the last level stopping at the board's end.
+ * `frame`: the area the enemy path runs around (defaults to cols x rows, which every stage uses today). The slots
+ * upgrade opens its openCount cells per level after the initial rows, the last level stopping at the board's end.
  */
 export interface GridDef {
   cols: number; rows: number; initialOpenRows: number;
-  frame?: { cols: number; rows: number }; openPerLevel?: number;
+  frame?: { cols: number; rows: number };
 }
 export interface BalanceDef {
   tickMs: number; prepSeconds: number; roundSeconds: number; bossRoundSeconds: number;

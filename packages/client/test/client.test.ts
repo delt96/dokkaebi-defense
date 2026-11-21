@@ -16,17 +16,13 @@ describe('client helpers', () => {
     expect(stageToCell(six, 244 + 28 * 5 + 1, 133 + 28 * 3 + 1)).toBe(23);
     expect(stageToCell(six, 10, 10)).toBeNull();
   });
-  test('stage 3 draws 8 x 5 cells of 21px in the 6 x 4 board area, below the storage strip', () => {
+  test('stage 3 draws the same 6 x 4 board of 28px cells as stage 1, below the storage strip', () => {
     const lane = laneOf({ data: loadGameData('stage3') });
-    expect(cellPx(lane)).toBe(21);
-    // the board spans 244..412 x 136.5..241.5 on the stage; corners are rounded to whole pixels
-    expect(cellCorner(lane, 0)).toEqual({ x: 244 - 128, y: 137 - 24 });
-    expect(cellCorner(lane, 39)).toEqual({ x: 244 + 7 * 21 - 128, y: 137 + 4 * 21 - 24 });
-    expect(stageToCell(lane, 245, 138)).toBe(0);
-    expect(stageToCell(lane, 244 + 21 * 7 + 20, 136.5 + 21 * 4 + 20)).toBe(39);
-    expect(stageToCell(lane, 244 + 21 + 1, 136.5 + 21 + 1)).toBe(9);
-    expect(stageToCell(lane, 250, 135)).toBeNull();
-    expect(stageToCell(lane, 244 + 21 * 8 + 1, 150)).toBeNull();
+    expect([lane.cols, lane.rows, cellPx(lane)]).toEqual([6, 4, 28]);
+    expect(cellCorner(lane, 0)).toEqual({ x: 244 - 128, y: 133 - 24 });
+    expect(cellCorner(lane, 23)).toEqual({ x: 244 + 5 * 28 - 128, y: 133 + 3 * 28 - 24 });
+    expect(stageToCell(lane, 244 + 28 * 3 + 1, 133 + 28 + 1)).toBe(9);
+    expect(stageToCell(lane, 244 + 28 * 6 + 1, 140)).toBeNull();
     expect(STORAGE_BOX.y + STORAGE_BOX.h).toBeLessThanOrEqual(133 - 14 - 28 - 2);
     expect(laneToStage(lane.pointAt(0))).toEqual(laneToStage(createLane(6, 4).pointAt(0)));
   });
