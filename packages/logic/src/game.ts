@@ -1,6 +1,7 @@
 import type { Command, GameData, GameEvent, GameState, RejectReason, StepResult } from './types';
 import { createRng, deriveSeed } from './rng';
 import { createEcon } from './econ/ledger';
+import { eventsTick } from './econ/events';
 import { econRoundEnd, econTick } from './econ/hooks';
 import { checkEnd, moveEnemies, spawnTick } from './flow';
 import { resolveKills } from './combat';
@@ -75,6 +76,7 @@ export function step(state: GameState, commands: Command[]): StepResult {
     for (const command of commands) rejected.push({ command, reason: 'ended' });
     return { events, rejected };
   }
+  if (state.econ) eventsTick(state, events);
   for (const command of commands) {
     const reason = applyCommand(state, command, events);
     if (reason) rejected.push({ command, reason });

@@ -123,6 +123,20 @@ describe('taming', () => {
     expect(step(t, [{ type: 'tame', enemyId: sh2.id }]).rejected[0]!.reason).toBe('noToken');
   });
 
+  test('event deadlines apply before tame commands on the boundary tick', () => {
+    for (const kind of ['ssireum', 'shadow'] as const) {
+      const s = lane(kind === 'ssireum' ? 32 : 43);
+      const enemy = kind === 'ssireum' ? spawnEventEnemy(s, kind, []) : s.enemies[0]!;
+      s.tick += kind === 'ssireum' ? 400 : 200;
+      enemy.hp = 1;
+      s.buckwheat = 1;
+      const r = step(s, [{ type: 'tame', enemyId: enemy.id }]);
+      expect(r.rejected[0]?.reason).toBe(kind === 'ssireum' ? 'noTarget' : 'tameHp');
+      expect(s.econ!.tamed).toEqual([]);
+      expect(r.events.some(e => e.type === (kind === 'ssireum' ? 'flee' : 'grow'))).toBe(true);
+    }
+  });
+
   test('jinegaksi3 and a yeoksin are not tameable', () => {
     const s = lane(30);
     const j = spawnEnemyForTest(s, 'jinegaksi3', 2);

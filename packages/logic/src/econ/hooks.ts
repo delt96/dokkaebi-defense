@@ -1,7 +1,7 @@
 import type { Enemy, GameEvent, GameState } from '../types';
 import { isEvent } from '../stats';
 import { bossDrop } from './market';
-import { eventKill, eventsRoundEnd, eventsRoundStart, eventsTick } from './events';
+import { eventKill, eventsRoundEnd, eventsRoundStart } from './events';
 import { missionRoundEnd } from './quests';
 import { storyRoundEnd, storyRoundStart, storyTick } from './story';
 
@@ -14,7 +14,6 @@ export function econRoundStart(state: GameState, events: GameEvent[]): void {
 }
 
 export function econTick(state: GameState, events: GameEvent[]): void {
-  eventsTick(state, events);
   storyTick(state, events);
 }
 

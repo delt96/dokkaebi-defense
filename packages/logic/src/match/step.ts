@@ -10,6 +10,7 @@ import {
 } from './seats';
 import { expireMissedYeoksin, yeoksinAfterLane, yeoksinPosition, yeoksinStep2 } from './yeoksin';
 import { applyTransferCommand, matchEconRoundEnd, matchEconRoundStart, TRANSFER_COMMANDS, transferStep } from './econ';
+import { eventsTick } from '../econ/events';
 import { econRoundEnd } from '../econ/hooks';
 
 const SEAT_COMMANDS: ReadonlySet<string> = new Set(['support', 'forfeit', 'disconnect', 'reconnect']);
@@ -87,7 +88,9 @@ export function stepMatch(match: MatchState, inputs: MatchInput[]): StepMatchRes
   // 1. clocks, connection changes and player commands
   for (const seat of aliveSeats(match)) {
     syncLaneClock(match, match.lanes[seat]!);
-    laneStep(ctx, seat);
+    const lane = match.lanes[seat]!;
+    const step = laneStep(ctx, seat);
+    if (lane.econ) eventsTick(lane, step.events);
   }
   expireDisconnects(match, ctx);
   if (match.econ) transferStep(match, ctx);
