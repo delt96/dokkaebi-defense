@@ -10,24 +10,24 @@ describe('client helpers', () => {
     expect(computeZoom(1000, 700)).toBe(1.5); expect(computeZoom(900, 500)).toBe(1); expect(computeZoom(300, 200)).toBe(1);
   });
   test('lane to stage and back', () => {
-    expect(laneToStage({ x: 0.5, y: 0.5 })).toEqual({ x: 248, y: 130 });
+    expect(laneToStage({ x: 0.5, y: 0.5 })).toEqual({ x: 258, y: 147 });
     const six = createLane(6, 4);
-    expect(stageToCell(six, 248, 130)).toBe(0);
-    expect(stageToCell(six, 232 + 32 * 5 + 1, 114 + 32 * 3 + 1)).toBe(23);
+    expect(stageToCell(six, 258, 147)).toBe(0);
+    expect(stageToCell(six, 244 + 28 * 5 + 1, 133 + 28 * 3 + 1)).toBe(23);
     expect(stageToCell(six, 10, 10)).toBeNull();
   });
-  test('stage 3 draws 8 x 5 cells of 24px in the 6 x 4 board area, clear of the storage column', () => {
+  test('stage 3 draws 8 x 5 cells of 21px in the 6 x 4 board area, below the storage strip', () => {
     const lane = laneOf({ data: loadGameData('stage3') });
-    expect(cellPx(lane)).toBe(24);
-    // canvas corners of the first and last cell: the board spans 232..424 x 118..238 on the stage
-    expect(cellCorner(lane, 0)).toEqual({ x: 232 - 128, y: 118 - 24 });
-    expect(cellCorner(lane, 39)).toEqual({ x: 232 + 7 * 24 - 128, y: 118 + 4 * 24 - 24 });
-    expect(stageToCell(lane, 233, 119)).toBe(0);
-    expect(stageToCell(lane, 232 + 24 * 7 + 23, 118 + 24 * 4 + 23)).toBe(39);
-    expect(stageToCell(lane, 232 + 24 + 1, 118 + 24 + 1)).toBe(9);
-    expect(stageToCell(lane, 240, 116)).toBeNull();
-    expect(stageToCell(lane, 232 + 24 * 8 + 1, 130)).toBeNull();
-    expect(STORAGE_BOX.x + STORAGE_BOX.w).toBeLessThanOrEqual(232 - 32 / 2);
+    expect(cellPx(lane)).toBe(21);
+    // the board spans 244..412 x 136.5..241.5 on the stage; corners are rounded to whole pixels
+    expect(cellCorner(lane, 0)).toEqual({ x: 244 - 128, y: 137 - 24 });
+    expect(cellCorner(lane, 39)).toEqual({ x: 244 + 7 * 21 - 128, y: 137 + 4 * 21 - 24 });
+    expect(stageToCell(lane, 245, 138)).toBe(0);
+    expect(stageToCell(lane, 244 + 21 * 7 + 20, 136.5 + 21 * 4 + 20)).toBe(39);
+    expect(stageToCell(lane, 244 + 21 + 1, 136.5 + 21 + 1)).toBe(9);
+    expect(stageToCell(lane, 250, 135)).toBeNull();
+    expect(stageToCell(lane, 244 + 21 * 8 + 1, 150)).toBeNull();
+    expect(STORAGE_BOX.y + STORAGE_BOX.h).toBeLessThanOrEqual(133 - 14 - 28 - 2);
     expect(laneToStage(lane.pointAt(0))).toEqual(laneToStage(createLane(6, 4).pointAt(0)));
   });
   test('grade colours cover grades 1 to 6, matching the sprite flames', () => {

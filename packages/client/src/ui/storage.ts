@@ -9,7 +9,7 @@ const SPRITE_IDS: ReadonlySet<string> = new Set(
   Object.keys(import.meta.glob('../../public/sprites/*.png')).map(p => p.slice(p.lastIndexOf('/') + 1, -'.png'.length)),
 );
 
-/** Two big columns hold this many stacks; more switch to three small ones. */
+/** The strip holds this many 24px stacks; more switch to 16px ones, so all twenty grade 1-2 kinds stay on one row. */
 const ROOMY_STACKS = 12;
 export const STORE_ALL_KEY = 'G';
 
@@ -18,7 +18,7 @@ function iconHtml(defId: string, name: string, grade: number): string {
   return `<span class="stack-disc" style="background:${GRADE_COLOR[grade]}">${esc(name.slice(0, 1))}</span>`;
 }
 
-/** The storage column: a 모두 보관 button and one stack per kind (sprite, grade colour, ×N, a small sell button). */
+/** The storage strip: a 모두 보관 button at its left end, then one stack per kind (sprite, grade colour, ×N, a small sell button). */
 export function storageHtml(state: GameState): string {
   const stacks = storageStacks(state);
   const total = stacks.reduce((n, s) => n + s.count, 0);
@@ -26,8 +26,7 @@ export function storageHtml(state: GameState): string {
       <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(s.name)} ×${s.count} · 누르면 꺼내기, 끌어서 칸에 놓기"><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span></button>
       <button class="stack-sell" data-action="sellStored" data-arg="${esc(s.defId)}" title="${esc(s.name)} 1개 판매 +${s.sellPrice}냥" aria-label="${esc(s.name)} 1개 판매 +${s.sellPrice}냥">냥</button>
     </div>`).join('');
-  return `<div class="storage-head"><b>보관함</b>${total ? `<span>${total}</span>` : ''}</div>
-    <button class="storage-all" data-action="storeAll" title="판 위의 1·2등급을 모두 보관 (${STORE_ALL_KEY})">1·2등급<br>모두 보관</button>
+  return `<button class="storage-all" data-action="storeAll" title="판 위의 1·2등급을 모두 보관 (${STORE_ALL_KEY})${total ? ` · 지금 ${total}기` : ''}">1·2등급<br>모두 보관</button>
     ${list ? `<div class="stacks${stacks.length > ROOMY_STACKS ? ' dense' : ''}">${list}</div>` : '<p class="storage-empty">1·2등급 유닛을 여기로 끌어 놓으세요</p>'}`;
 }
 

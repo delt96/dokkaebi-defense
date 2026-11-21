@@ -4,7 +4,7 @@ import {
 } from '@dorandi/logic';
 import { selectedSlot } from './ui/models';
 import type { Driver } from './driver';
-import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
+import { ART_PX, CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_KEYS, textureKey } from './fx/atlas';
 import { spriteKey, tameArt } from './sprites';
@@ -291,7 +291,7 @@ export class LaneScene extends Phaser.Scene {
     view.unitId = unitId;
     view.defId = defId;
     // a board with more cells than its path frame (stage 3, 8 x 5) draws the art smaller and keeps the marks at its rim
-    const k = this.lane.pitch;
+    const k = cellPx(this.lane) / ART_PX;
     if (this.hasTexture(defId)) {
       const art = this.add.image(0, 0, defId);
       if (k !== 1) art.setScale(k);

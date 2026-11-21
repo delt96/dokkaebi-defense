@@ -1,4 +1,4 @@
-import { CELL } from '../layout';
+import { ART_PX, CELL } from '../layout';
 import { FX_SHEETS, type FxKey } from './manifest';
 import { BIG_GRADE, type ShotStyle } from './plan';
 
@@ -22,20 +22,22 @@ export function hitKey(style: Pick<ShotStyle, 'magical' | 'grade'>): FxKey {
 export type AreaKind = 'ring' | 'frost' | 'blast' | 'pierce';
 
 /**
- * The sheet for an area of `radius` cells, and how much to scale it: each radius the data uses has its own
- * sheet drawn at its real size (scale 1); any other radius takes the nearest sheet scaled to fit.
+ * The sheet for an area of `radius` path units, and how much to scale it. The sheets were baked at ART_PX per unit:
+ * each radius the data uses has its own sheet, drawn at the lane's CELL / ART_PX; any other radius takes the nearest
+ * sheet scaled to fit.
  */
 export function areaSheet(kind: AreaKind, radius: number): { key: FxKey; scale: number } | null {
-  const px = Math.round(radius * CELL);
+  const px = Math.round(radius * ART_PX);
+  const lane = CELL / ART_PX;
   const exact = `${kind}-${px}`;
-  if (isKey(exact)) return { key: exact, scale: 1 };
+  if (isKey(exact)) return { key: exact, scale: lane };
   let best: { key: FxKey; px: number } | null = null;
   for (const k of FX_KEYS) {
     if (!k.startsWith(`${kind}-`)) continue;
     const kp = Number(k.slice(kind.length + 1));
     if (!best || Math.abs(kp - px) < Math.abs(best.px - px)) best = { key: k, px: kp };
   }
-  return best ? { key: best.key, scale: px / best.px } : null;
+  return best ? { key: best.key, scale: (px / best.px) * lane } : null;
 }
 
 /** The thrust that runs through pierced enemies; its reach is the skill's length. */
