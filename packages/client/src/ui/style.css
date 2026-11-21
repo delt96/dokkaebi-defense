@@ -442,8 +442,8 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 .jige-filters { display: flex; gap: 2px; padding: 2px 4px; align-items: center; }
 .jige-filters button.on { border-color: var(--accent); color: var(--accent); }
 .jige-search input { width: 90px; }
-.jige-rows { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px 4px; }
-.jige-rows button { text-align: left; min-height: 22px; padding: 1px 3px; }
+.jige-rows { flex: 1; overflow-y: auto; overflow-x: hidden; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 2px 4px; }
+.jige-rows button { text-align: left; min-height: 22px; padding: 1px 3px; min-width: 0; overflow: hidden; }
 .jige-rows button span { display: block; color: var(--ink-dim); font-size: 9px; line-height: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jige-empty { color: var(--ink-dim); padding: 4px; }
 
@@ -453,3 +453,25 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 #tame-anchor.floating { transform: translateX(-50%); }
 #tame-anchor button { min-height: 14px; padding: 0 3px; font-size: 9px; line-height: 12px; }
 #tame-anchor .tame-hp { color: var(--ink-dim); text-shadow: 0 0 2px #000; }
+
+/* J 퀘스트: the box between Q and D, its folded line, and the list window */
+.quest-box { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--panel-edge); padding: 2px; }
+.quest-box .panel-title { text-align: left; }
+.quest-box .quest-line { display: flex; justify-content: space-between; gap: 4px; min-height: 14px; padding: 0 2px; border: 0; background: none; text-align: left; }
+.quest-box .quest-line b { color: var(--accent); }
+.quest-next { color: var(--ink-dim); line-height: 12px; padding: 0 2px; }
+.quest-box.folded { border: 0; padding: 0; }
+.quest-box.folded button { width: 100%; text-align: left; }
+.rows-title .quest-box.folded { display: inline-block; float: right; }
+.rows-title .quest-box.folded button { min-height: 14px; padding: 0 3px; font-size: 9px; }
+.quest-modal { display: flex; flex-direction: column; max-height: 100%; }
+.quest-scroll { flex: 1; overflow-y: auto; padding: 2px 4px; }
+.quest-group h3 { margin: 4px 0 2px; font-size: 10px; color: var(--accent); }
+.quest-row { padding: 2px 4px; border: 1px solid var(--panel-edge); margin-bottom: 2px; }
+.quest-row.focus { border-color: var(--accent); }
+.quest-row-head { display: flex; gap: 6px; align-items: baseline; }
+.quest-row-head span { color: var(--ink-dim); }
+.quest-row-head em { margin-left: auto; font-style: normal; color: #ffb396; }
+.quest-row-line { color: #c9c0d6; }
+.quest-row-reward { color: var(--accent); }
+#econ-bottom .q-title { padding: 0; border: 0; background: none; font-weight: bold; color: inherit; text-decoration: underline dotted; }

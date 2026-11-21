@@ -1,5 +1,5 @@
 import {
-  laneOf, unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type UpgradeId,
+  laneOf, unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type QuestId, type UpgradeId,
 } from '@dorandi/logic';
 import type { Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
@@ -12,7 +12,7 @@ import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, tameButtonHtml, marketModel, noteText, questChips, tameModel,
-  tameRejectText, type TameModel, jigeListHtml, jigeRowsHtml, type DrawReceipt, type JigeList,
+  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, jigeRowsHtml, type DrawReceipt, type JigeList,
 } from './econ';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
@@ -59,7 +59,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // the list the dex scroll position belongs to: a new filter or search starts at the top
   let dexListKey = '';
   let helperOpen = false;
-  let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | 'jige' | null = null;
+  let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | 'jige' | 'quests' | null = null;
+  // the J list row to bring into view (a chip or a box line opened it)
+  let questFocus: QuestId | null = null;
+  let shownModal: string | null = null;
   // the open R list (modal 'jige'); see jigeStale for when a pick is dropped
   let jigeList: JigeList | null = null;
   let best: { id: string; grade: number } | null = null;
@@ -173,6 +176,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'dexTree': dex = dexToggle(dex, arg); break;
       case 'dexFold': dex = dexFold(dex, arg); break;
       case 'openUpgrades': modal = 'upgrades'; break;
+      case 'openQuests':
+        if (!econ()) break;
+        questFocus = (arg || null) as QuestId | null;
+        modal = 'quests';
+        break;
       case 'jigeOpen': {
         const e = econ();
         const [zone, ref = ''] = arg.split(':');
@@ -307,6 +315,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     hooks.onEvents?.(events);
   });
 
+  /** The left-panel quest box (folded to one J line while Q is open, and always online); empty without an economy. */
+  function questBox(folded: boolean): string {
+    const e = driver.state.phase === 'ended' ? null : econ();
+    return e ? questBoxHtml(questBoxModel(e, driver.state, online), folded) : '';
+  }
+
   function jigeStale(list: JigeList): boolean {
     const s = driver.state;
     const unit = (list.source.zone === 'board' ? s.slots : s.storage ?? [])[list.source.index];
@@ -343,6 +357,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       return;
     }
     if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }
+    // J opens the quest list from preparation on and closes it again; the clock never stops for it
+    if (ev.code === 'KeyJ' && driver.state.data.economy && driver.state.phase !== 'ended' && (modal === null || modal === 'quests')) {
+      act(modal === 'quests' ? 'closeModal' : 'openQuests', '');
+      return;
+    }
     if (modal || driver.state.phase === 'ended') return;
     if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button')) return;
     const card = displayedCard;
@@ -378,11 +397,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const view = online && opts.data ? opts.view?.() ?? null : null;
     if (view && opts.data) {
       renderTop(view, opts.data);
-      renderRows(view, opts.data, helperOpen ? helperPopHtml(s) : '');
+      renderRows(view, opts.data, helperOpen ? helperPopHtml(s) : '', questBox(true));
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      renderHelper(s, helperOpen, scene.reduceEffects);
+      renderHelper(s, helperOpen, scene.reduceEffects, questBox(helperOpen));
     }
     // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
     // lane is full, so the line goes to the notices in the right column instead
@@ -422,11 +441,15 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
     }
+    if (modal === 'quests' && questFocus && modal !== shownModal) {
+      el('modal').querySelector<HTMLElement>(`.quest-row[data-quest="${questFocus}"]`)?.scrollIntoView?.({ block: 'nearest' });
+    }
+    shownModal = modal;
     dexListKey = dexShown ? listKey : '';
     hooks.onRender?.();
   }

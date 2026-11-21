@@ -101,7 +101,7 @@ describe('quest tracker text', () => {
     const t = lane(c.fromRound);
     t.econ!.collection.done = [c.items[0]!];
     const names = c.items.map(id => d3.units.find(u => u.id === id)!.name);
-    expect(questChips(econOf(t), t, null)).toEqual([{ title: '살림 한 벌', text: `${names[0]} ✓ ${names[1]} □ ${names[2]} □` }]);
+    expect(questChips(econOf(t), t, null)).toEqual([{ title: '살림 한 벌', quest: 'collection', text: `${names[0]} ✓ ${names[1]} □ ${names[2]} □` }]);
   });
 
   test('event enemies show time left; the team night count reads the six rows', () => {
@@ -112,7 +112,7 @@ describe('quest tracker text', () => {
     const e = spawnEnemyForTest(s, sh.enemy, 3);
     e.maxHp = 4000; e.hp = 1000;
     s.econ!.events.push({ id: e.id, kind: 'shadow', spawnTick: s.tick - 80, grown: false });
-    expect(questChips(econOf(s), s, null)).toContainEqual({ title: '그늘손', text: `${sh.growSeconds - 4}초 뒤 커짐 · 체력 25%`, tone: 'hot' });
+    expect(questChips(econOf(s), s, null)).toContainEqual({ title: '그늘손', quest: 'shadow', text: `${sh.growSeconds - 4}초 뒤 커짐 · 체력 25%`, tone: 'hot' });
     s.econ!.events[0]!.grown = true;
     expect(questChips(econOf(s), s, null)[0]!.text).toBe('커졌음 · 라운드 끝에 도주 · 체력 25%');
     const ss = eco.ssireum!;
@@ -126,7 +126,7 @@ describe('quest tracker text', () => {
     const v = view(1, [{ seat: 1, name: '가', count: 10 }, { seat: 2, name: '나', count: 4 }, { seat: 3, name: '다', alive: false }]);
     const chips = questChips(econOf(q, { team: { streak: 2, paid: false } }), q, v);
     // two seats alive here: the line names the living lanes, never a fixed count
-    expect(chips).toContainEqual({ title: '서낭당 정성', text: `살아 있는 고개 잡귀 14/${2 * team.perSurvivor} · 2/${team.nights}밤` });
+    expect(chips).toContainEqual({ title: '서낭당 정성', quest: 'team', text: `살아 있는 고개 잡귀 14/${2 * team.perSurvivor} · 2/${team.nights}밤` });
   });
 });
 

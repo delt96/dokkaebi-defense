@@ -10,7 +10,7 @@ export function esc(s: string | number): string {
 
 const last = new WeakMap<HTMLElement, string>();
 /** Lists that keep their scroll position when the panel around them is redrawn. */
-const KEEP_SCROLL = '.helper';
+const KEEP_SCROLL = '.helper, .quest-scroll';
 
 export function setHtml(node: HTMLElement, html: string): void {
   if (last.get(node) === html) return;
