@@ -1,8 +1,9 @@
 import {
-  availableRecipes, createRng, deriveSeed, nextInt, unitDefFast,
+  availableRecipes, createRng, deriveSeed, nextInt, unitAttack, unitDefFast,
   type Command, type GameData, type GameState,
 } from '@dorandi/logic';
-import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll, type Bot } from '../bots';
+import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
+import { betterTarget, marketCommands, questCommands, tameCommands, type EconPolicy, type TargetBot } from './econBot';
 
 const FINAL_COMBINE_COINS = 60;
 
@@ -49,8 +50,22 @@ export function remainingNeed(state: GameState, target: string): { missing: Map<
   return { missing, kept };
 }
 
-/** Sell candidate when the board is full: the lowest-grade unit outside the target tree, else the lowest-grade held unit the target no longer needs. */
-function sellCandidate(state: GameState, tree: Map<string, number>, kept: Map<string, number>): number | null {
+/** Slots of the `n` strongest units outside the target tree (kept for boss fights). */
+function strongestOutside(state: GameState, tree: Map<string, number>, n: number): Set<number> {
+  const out = state.slots
+    .map((u, i) => (u && !tree.has(u.defId) ? { i, a: unitAttack(unitDefFast(state.data, u.defId), state.data.balance) } : null))
+    .filter((x): x is { i: number; a: number } => x !== null)
+    .sort((x, y) => y.a - x.a || x.i - y.i);
+  return new Set(out.slice(0, n).map(x => x.i));
+}
+
+const BOSS_GUARD = 4;
+
+/**
+ * Sell candidate when the board is full: the lowest-grade unit outside the target tree, else the lowest-grade held unit
+ * the target no longer needs. `protect` slots are never offered.
+ */
+function sellCandidate(state: GameState, tree: Map<string, number>, kept: Map<string, number>, protect: Set<number> = new Set()): number | null {
   const lowest = (pick: (id: string, seen: number) => boolean): number | null => {
     let best: number | null = null;
     let bestGrade = Infinity;
@@ -60,7 +75,7 @@ function sellCandidate(state: GameState, tree: Map<string, number>, kept: Map<st
       const n = (seen.get(u.defId) ?? 0) + 1;
       seen.set(u.defId, n);
       const g = unitDefFast(state.data, u.defId).grade;
-      if (g >= 6 || !pick(u.defId, n)) return;
+      if (g >= 6 || protect.has(i) || !pick(u.defId, n)) return;
       if (g < bestGrade) { best = i; bestGrade = g; }
     });
     return best;
@@ -73,13 +88,17 @@ function sellCandidate(state: GameState, tree: Map<string, number>, kept: Map<st
  * target still lacks once holdings are counted, sells outside the tree for room, and keeps 60 coins for the final
  * combine once it owns a grade 5 of the tree. Never sells grade 6.
  */
-export function targetBot(seed: number, opts: { targets?: string[] } = {}): Bot {
+export function targetBot(
+  seed: number, opts: { targets?: string[]; policy?: EconPolicy; switchTargets?: boolean } = {},
+): TargetBot {
   const rng = createRng(deriveSeed(seed, 'target'));
   const done = new Set<string>();
   const queue = [...(opts.targets ?? [])];
   let target: string | null = null;
   let tree = new Map<string, number>();
   let decisions = 0;
+  let lastRound = -1;
+  const policy = opts.policy;
 
   const nextTarget = (state: GameState): void => {
     if (opts.targets) {
@@ -91,8 +110,14 @@ export function targetBot(seed: number, opts: { targets?: string[] } = {}): Bot 
     tree = target ? expandTree(state.data, target) : new Map();
   };
 
+  const setTarget = (state: GameState, id: string): void => {
+    target = id;
+    tree = expandTree(state.data, id);
+  };
+
   return {
-    name: 'target',
+    name: opts.switchTargets ? 'switch' : 'target',
+    currentTarget: () => target,
     decide(state) {
       decisions++;
       if (target === null && decisions === 1) nextTarget(state);
@@ -100,6 +125,11 @@ export function targetBot(seed: number, opts: { targets?: string[] } = {}): Bot 
         done.add(target);
         nextTarget(state);
       }
+      if (opts.switchTargets && target !== null && state.round !== lastRound && decisions > 1) {
+        const better = betterTarget(state, target, done);
+        if (better) setTarget(state, better);
+      }
+      lastRound = state.round;
       const cmds: Command[] = summonAll(state);
       const { missing, kept } = target ? remainingNeed(state, target) : { missing: new Map<string, number>(), kept: new Map<string, number>() };
       let recipe: string | null = null;
@@ -110,14 +140,37 @@ export function targetBot(seed: number, opts: { targets?: string[] } = {}): Bot 
       }
       if (recipe) cmds.push({ type: 'combine', result: recipe });
 
+      const protect = policy ? strongestOutside(state, tree, BOSS_GUARD) : new Set<number>();
+      let sold = false;
       if (emptyOpenSlots(state).length === 0 && state.tokens > 0 && !recipe) {
-        const sell = sellCandidate(state, tree, kept);
-        if (sell !== null) cmds.push({ type: 'sell', slot: sell }, { type: 'summon' });
+        const sell = sellCandidate(state, tree, kept, protect);
+        if (sell !== null) { cmds.push({ type: 'sell', slot: sell }, { type: 'summon' }); sold = true; }
         else cmds.push({ type: 'convertToken' });
       }
 
+      let spent = 0;
+      if (policy) {
+        if (policy.quests) cmds.push(...questCommands(state, target));
+        if (policy.tame) cmds.push(...tameCommands(state, target));
+        if (policy.market) {
+          const free = Math.max(0, emptyOpenSlots(state).length - cmds.filter(c => c.type === 'summon').length);
+          let buys = marketCommands(state, target, free);
+          if (buys.length === 0 && free === 0 && !sold && !recipe) {
+            const sell = sellCandidate(state, tree, kept, protect);
+            if (sell !== null) {
+              buys = marketCommands(state, target, 1).filter(c => c.type === 'buy' && c.item === 'bundle').slice(0, 1);
+              if (buys.length) cmds.push({ type: 'sell', slot: sell });
+            }
+          }
+          const view = state.econ && state.data.economy?.market;
+          for (const b of buys) if (b.type === 'buy' && view) spent += b.item === 'bundle' ? view.bundle.price : view.jar.price;
+          cmds.push(...buys);
+        }
+      }
+
       const holdsTree5 = state.slots.some(u => u && tree.has(u.defId) && unitDefFast(state.data, u.defId).grade === 5);
-      const up = cheapestUpgrade(holdsTree5 ? { ...state, coins: state.coins - FINAL_COMBINE_COINS } : state);
+      const keep = spent + (holdsTree5 ? FINAL_COMBINE_COINS : 0);
+      const up = cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
       if (up) cmds.push({ type: 'upgrade', id: up });
       const fix = placementFix(state);
       if (fix) cmds.push(fix);
