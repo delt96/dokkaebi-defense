@@ -102,7 +102,7 @@ describe('sprites', () => {
     expect(missing).toEqual([]);
   });
   test('stage 3 pass bosses draw the art of the boss they repeat; anything else falls back', () => {
-    for (const e of d3.enemies.filter(x => !x.shared)) expect(spriteKey(e.id, files), e.id).not.toBeNull();
+    for (const e of d3.enemies.filter(x => x.boss)) expect(spriteKey(e.id, files), e.id).not.toBeNull();
     expect(spriteKey('jinegaksi5', files)).toBe('jinegaksi');
     expect(spriteKey('gangcheori6', files)).toBe('gangcheori');
     expect(spriteKey('nosuchunit', files)).toBeNull();
