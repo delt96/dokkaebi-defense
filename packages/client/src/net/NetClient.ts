@@ -29,6 +29,7 @@ export class NetClient {
   leaving = false;
   private nextSeq = 1;
   private awaitingFull = false;
+  private keySaved = false;
   private readonly listeners: ((e: NetEvent) => void)[] = [];
 
   constructor(private readonly room: RoomLike, private readonly dataVersion: string) {
@@ -128,6 +129,11 @@ export class NetClient {
     // so the reload that the notice asks for can still take the seat back.
     const name = msg.rows.find(r => r.seat === msg.me.seat)?.name || loadSession(this.roomId)?.name || lastName() || '';
     saveSession(this.roomId, { key: msg.me.key, name });
+    // Until the server hears from this connection it still takes the key this tab came with.
+    if (!this.keySaved) {
+      this.keySaved = true;
+      this.room.send('keySaved', {});
+    }
     if (msg.dataVersion !== this.dataVersion) {
       this.emit({ kind: 'versionMismatch' });
       return;

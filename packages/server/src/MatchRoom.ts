@@ -12,6 +12,7 @@ function roomOptions(raw: unknown): RoomOptions {
   if (typeof o.hostToken === 'string') out.hostToken = o.hostToken;
   if (typeof o.devJumpTick === 'number' && Number.isInteger(o.devJumpTick)) out.devJumpTick = o.devJumpTick;
   if (o.devNoElimination === true) out.devNoElimination = true;
+  if (typeof o.keepOpenMs === 'number' && Number.isFinite(o.keepOpenMs) && o.keepOpenMs > 0) out.keepOpenMs = o.keepOpenMs;
   return out;
 }
 

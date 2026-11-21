@@ -127,10 +127,18 @@ export function startOnline(opts: { roomId?: string }): void {
       connectJoin(roomId, { name: stored.name, rejoinKey: stored.key }).then(room => {
         // the new client saves the reissued key on its first snapshot; a reload then takes the seat again
         const fresh = new NetClient(room, stage2DataVersion());
-        fresh.on(ev => { if (ev.kind === 'view') location.reload(); });
+        let done = false;
+        fresh.on(ev => {
+          if (done) return;
+          if (ev.kind === 'view') { done = true; location.reload(); return; }
+          if (ev.kind === 'notice' && ev.msg.kind === 'replaced') { done = true; showMessage(TEXT.replaced); return; }
+          // dropped before the snapshot: the server still takes the stored key, so try again
+          if (ev.kind === 'left') { done = true; setTimeout(attempt, RETRY_MS); }
+        });
       }, (err: unknown) => {
         const code = errorCode(err);
-        if (code === JOIN_ERROR_CODES.badKey || code === NO_ROOM_CODE) { showMessage(TEXT.noRoom, true); return; }
+        if (code === JOIN_ERROR_CODES.badKey) { showMessage(TEXT.badKey, true); return; }
+        if (code === NO_ROOM_CODE) { showMessage(TEXT.noRoom, true); return; }
         setTimeout(attempt, RETRY_MS);
       });
     };
@@ -214,7 +222,8 @@ export function startOnline(opts: { roomId?: string }): void {
     showConnecting();
     connectJoin(roomId, { name: stored.name, rejoinKey: stored.key }).then(attach, (err: unknown) => {
       const code = errorCode(err);
-      if (code === JOIN_ERROR_CODES.badKey) clearSession(roomId);
+      // a started room takes no nickname, so a refused key means the seat is gone for good
+      if (code === JOIN_ERROR_CODES.badKey) { clearSession(roomId); showMessage(TEXT.badKey, true); return; }
       showJoinError(code, stored.name);
     });
   } else {

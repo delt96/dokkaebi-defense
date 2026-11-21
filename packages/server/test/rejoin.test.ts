@@ -84,9 +84,49 @@ describe('rejoin and result', () => {
     expect(a!.last('notice')).toEqual({ kind: 'replaced' }); expect(a!.closed).toBe(4001);
     send(core, 'a', 1, 'summon'); tickOnce(core, deps);
     expect(core.match!.lanes[1]!.tokens).toBe(4);
+    // the new tab has its snapshot and says so; only then is the old key gone (final review 1)
+    core.message('b', 'keySaved', {});
     expect(() => core.join(new FakeLink('c'), { rejoinKey: key })).toThrow();
     const newKey = b.last('full').me.key;
     expect(() => core.join(new FakeLink('d'), { rejoinKey: newKey })).not.toThrow();
+  });
+
+  test('a link that drops before it answers its snapshot leaves the old key working (final review 1)', () => {
+    const { core, deps, links: [a] } = started(['가', '나']);
+    const key = a!.last('full').me.key;
+    // dropped before the snapshot went out
+    const a2 = new FakeLink('a2'); core.join(a2, { rejoinKey: key });
+    core.leave('a2', false);
+    const a3 = new FakeLink('a3');
+    expect(() => core.join(a3, { rejoinKey: key })).not.toThrow();
+    // a message before its snapshot does not retire the old key
+    core.message('a3', 'keySaved', {});
+    tickOnce(core, deps);
+    expect(a3.last('full').me).toMatchObject({ seat: 1 });
+    // got the snapshot, said nothing, dropped: the tab may not have stored the new key, so the old one still works
+    core.leave('a3', false);
+    const a4 = new FakeLink('a4');
+    expect(() => core.join(a4, { rejoinKey: key })).not.toThrow();
+    tickOnce(core, deps);
+    expect(core.match!.seats[1]!.connected).toBe(true);
+    const fresh = a4.last('full').me.key;
+    expect(fresh).not.toBe(key);
+    core.message('a4', 'keySaved', {});
+    expect(() => core.join(new FakeLink('x'), { rejoinKey: key })).toThrow('badKey');
+    const a5 = new FakeLink('a5');
+    expect(() => core.join(a5, { rejoinKey: fresh })).not.toThrow();
+    expect(a4.closed).toBe(4001);
+  });
+
+  test('in the result hold a rejoin that drops before answering keeps the old key too (final review 1)', () => {
+    const { core, deps, links: [a] } = started(['가']);
+    const key = a!.last('full').me.key;
+    send(core, 'a', 1, 'forfeit'); tickOnce(core, deps);
+    expect(core.phase).toBe('result');
+    const a2 = new FakeLink('a2'); core.join(a2, { rejoinKey: key });
+    expect(a2.last('full').me.key).not.toBe(key);
+    core.leave('a2', false);
+    expect(() => core.join(new FakeLink('a3'), { rejoinKey: key })).not.toThrow();
   });
 
   test('a nickname alone cannot take a seat back', () => {
@@ -139,9 +179,12 @@ describe('rejoin and result', () => {
     send(core, 'a', 1, 'forfeit'); send(core, 'b', 1, 'forfeit'); tickOnce(core, deps);
     expect(core.phase).toBe('result');
     expect(a!.last('result')).toEqual(b!.last('result'));
+    deps.clock.t += 10_000;
     core.message('b', 'rematch', {}); core.message('a', 'rematch', {});
     await settle();
     expect(deps.createRematchRoom).toHaveBeenCalledTimes(1);
+    // the new lobby stays open, even empty, for the rest of this room's result hold (final review 2)
+    expect(deps.createRematchRoom).toHaveBeenCalledWith({ hostToken: expect.any(String), keepOpenMs: 110_000 });
     expect(b!.last('notice')).toEqual({ kind: 'rematch', roomId: 'room-2', hostToken: expect.any(String) });
     expect(a!.last('notice')).toEqual({ kind: 'rematch', roomId: 'room-2' });
     core.message('a', 'rematch', {}); await settle();
@@ -152,7 +195,7 @@ describe('rejoin and result', () => {
     expect(a2.last('full')).toMatchObject({ me: { seat: 1 }, result: a!.last('result').result });
     expect(a!.closed).toBe(4001);
 
-    deps.clock.t += 120_000 - 1; core.advance();
+    deps.clock.t += 110_000 - 1; core.advance();
     expect(deps.disposed).toBe(false);
     deps.clock.t += 1; core.advance();
     expect(deps.disposed).toBe(true); expect(core.phase).toBe('closed');
