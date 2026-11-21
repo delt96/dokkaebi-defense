@@ -381,9 +381,9 @@ export function unitCard(state: GameState, slot: number): { name: string; grade:
   };
 }
 
-/** `hidden`: a stage 3 hidden unit, which is tamed from a boss instead of summoned. */
+/** `hidden`: a stage 3 hidden unit, which is tamed from a boss instead of summoned. `recipeIds` are the material ids. */
 export interface DexEntry {
-  id: string; name: string; grade: number; recipe: string[]; hidden: boolean;
+  id: string; name: string; grade: number; recipe: string[]; recipeIds: string[]; hidden: boolean;
   typeText: string; range: number; skillText: string; cost: string | null; notes: string[];
 }
 
@@ -393,7 +393,7 @@ export function dexEntries(data: GameData): DexEntry[] {
     const recipe = data.recipes.find(r => r.result === u.id);
     return {
       id: u.id, name: u.name, grade: u.grade, hidden: u.hidden === true,
-      recipe: (recipe?.materials ?? []).map(name),
+      recipe: (recipe?.materials ?? []).map(name), recipeIds: [...(recipe?.materials ?? [])],
       typeText: typeName(u.damageType), range: u.range, skillText: unitSkillText(data, u), cost: costText(recipe),
       // the combine card's first line (lines and range) is already in the row
       notes: [...combineNoteLines(data, u.id).slice(1), ...unitNotes(data, u)],
@@ -419,4 +419,107 @@ export function resultModel(state: GameState, bestUnitId: string | null): {
     bestUnit: best ? { name: best.name, grade: best.grade } : null,
     helperText: `도우미 ${state.helperOpens}회`,
   };
+}
+
+/**
+ * One material in a dex recipe tree. `mark`: `have` when a board unit is set aside for it, `missing` when not,
+ * `covered` when an ancestor is already on the board (so it is not needed). `cost` is this node's own combine cost.
+ */
+export interface RecipeNode {
+  id: string; name: string; grade: number; hidden: boolean; cost: string | null;
+  mark: 'have' | 'missing' | 'covered'; children: RecipeNode[];
+}
+
+/** Recipe trees stop here even if the data ever loops; the real trees are at most 5 deep. */
+const TREE_DEPTH = 8;
+
+/**
+ * The full material tree of a combinable unit, down to units without a recipe; null when the unit has none (grade 1,
+ * hidden units). `board` lists the def ids on the player's board, one entry per unit: each one is set aside for one node
+ * only, the higher nodes first (owning a grade 4 material saves its whole branch), left to right within a level.
+ */
+export function recipeTree(data: GameData, id: string, board: readonly string[] = []): RecipeNode[] | null {
+  const recipeOf = (unit: string) => data.recipes.find(r => r.result === unit);
+  const root = recipeOf(id);
+  if (!root) return null;
+  const pool = new Map<string, number>();
+  for (const unit of board) pool.set(unit, (pool.get(unit) ?? 0) + 1);
+  const build = (unit: string, depth: number): RecipeNode => {
+    const def = unitDefFast(data, unit);
+    const recipe = recipeOf(unit);
+    return {
+      id: unit, name: def.name, grade: def.grade, hidden: def.hidden === true, cost: costText(recipe), mark: 'missing',
+      children: recipe && depth < TREE_DEPTH ? recipe.materials.map(m => build(m, depth + 1)) : [],
+    };
+  };
+  const top = root.materials.map(m => build(m, 1));
+  const cover = (node: RecipeNode) => { node.mark = 'covered'; node.children.forEach(cover); };
+  let level = top;
+  while (level.length) {
+    const next: RecipeNode[] = [];
+    for (const node of level) {
+      const left = pool.get(node.id) ?? 0;
+      if (left > 0) {
+        pool.set(node.id, left - 1);
+        node.mark = 'have';
+        node.children.forEach(cover);
+      } else next.push(...node.children);
+    }
+    level = next;
+  }
+  return top;
+}
+
+/** Def ids of the board units a combine can use (a unit out on a delivery is locked). */
+export function boardUnits(state: GameState): string[] {
+  return state.slots.flatMap(u => (u && !u.locked ? [u.defId] : []));
+}
+
+/** Where a material link came from, to go back to it with the list as it was. */
+export interface DexStep { id: string; filter: string; query: string }
+
+/**
+ * The dex's browsing state: grade/hidden filter, search, the units followed through material links (newest last),
+ * the entry to scroll to and flash after the next draw, and the entries whose material tree is open.
+ */
+export interface DexNav { filter: string; query: string; back: DexStep[]; focus: string | null; open: string[] }
+
+const DEX_BACK_MAX = 10;
+
+export function dexNavStart(filter = 'all'): DexNav {
+  return { filter, query: '', back: [], focus: null, open: [] };
+}
+
+/** Whether a dex entry shows under a filter and search (stage 1-2 data has neither, so everything shows). */
+export function dexShows(data: GameData, entry: Pick<DexEntry, 'grade' | 'hidden' | 'name' | 'recipe'>, filter: string, query: string): boolean {
+  if (!data.balance.extendedCombat) return true;
+  if (filter === 'hidden' && !entry.hidden) return false;
+  if (filter !== 'all' && filter !== 'hidden' && String(entry.grade) !== filter) return false;
+  const needle = query.replace(/\s+/g, '');
+  return !needle || [entry.name, ...entry.recipe].some(name => name.replace(/\s+/g, '').includes(needle));
+}
+
+/**
+ * Follows a material link from `from` to `target`. When the filter or search would hide the target, the search is
+ * dropped first, then the filter goes back to 전체, keeping whichever of the two still lets it show.
+ */
+export function dexGo(data: GameData, nav: DexNav, target: string, from: string): DexNav {
+  const entry = dexEntries(data).find(e => e.id === target);
+  if (!entry) return nav;
+  const back = [...nav.back, { id: from, filter: nav.filter, query: nav.query }].slice(-DEX_BACK_MAX);
+  const tries: [string, string][] = [[nav.filter, nav.query], [nav.filter, ''], ['all', nav.query], ['all', '']];
+  const [filter, query] = tries.find(([f, q]) => dexShows(data, entry, f, q)) ?? ['all', ''];
+  return { ...nav, filter, query, back, focus: target };
+}
+
+/** Goes back to the entry the last material link was followed from, with its filter and search. */
+export function dexBack(nav: DexNav): DexNav {
+  const step = nav.back[nav.back.length - 1];
+  if (!step) return nav;
+  return { ...nav, filter: step.filter, query: step.query, back: nav.back.slice(0, -1), focus: step.id };
+}
+
+/** Opens or closes an entry's material tree. */
+export function dexToggle(nav: DexNav, id: string): DexNav {
+  return { ...nav, open: nav.open.includes(id) ? nav.open.filter(x => x !== id) : [...nav.open, id] };
 }

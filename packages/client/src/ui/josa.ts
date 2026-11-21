@@ -28,3 +28,11 @@ export function withJosa(word: string, pair: JosaPair): string {
   const [withFinal, withoutFinal] = pair.split('/') as [string, string];
   return word + josa(word, withFinal, withoutFinal);
 }
+
+/** `word` followed by 으로/로: 로 after a vowel or a final ㄹ, 으로 after any other final consonant. */
+export function withRo(word: string): string {
+  const spoken = word.replace(/(\s*\([^()]*\))+\s*$/, '').trimEnd();
+  const last = spoken.charCodeAt(spoken.length - 1);
+  if (last >= 0xac00 && last <= 0xd7a3 && (last - 0xac00) % 28 === 8) return `${word}로`;
+  return word + josa(word, '으로', '로');
+}
