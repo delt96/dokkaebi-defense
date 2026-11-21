@@ -179,7 +179,7 @@ describe('상세검색 in the mounted ui', () => {
 
     press(modal.querySelector('[data-action="dexAdv"]'));
     expect(modal.querySelector('.dex-adv')).not.toBeNull();
-    expect(modal.textContent).toContain('모두 가진 유닛');
+    expect(modal.textContent).toContain('역할 모두 포함');
     press(modal.querySelector('[data-action="dexRole"][data-arg="physVuln"]'));
     expect([role('physVuln'), role('stun')]).toEqual(['true', 'true']);
     const both = ids(modal.innerHTML);
@@ -250,5 +250,23 @@ describe('상세검색 in the mounted ui', () => {
     key('KeyD');
     expect(modal.querySelector('.dex-modal')).not.toBeNull();
     key('KeyD');
+  });
+});
+
+describe('dex two-column layout', () => {
+  test('filters sit in the side column, the count and reset above the scrolling list, in both dexes', () => {
+    for (const data of [d2, d3]) {
+      const html = dexHtml(data, undefined, 'all', '', 1, { adv: true }, { skill: '폭발' });
+      const side = html.slice(html.indexOf('class="dex-side"'), html.indexOf('class="dex-main"'));
+      const main = html.slice(html.indexOf('class="dex-main"'));
+      expect(side).toContain('data-action="dexKind"');
+      expect(side).toContain('data-action="dexRole"');
+      expect(side).toContain('data-action="dexAdv"');
+      expect(side).not.toContain('<table');
+      expect(main.indexOf('dex-summary')).toBeLessThan(main.indexOf('dex-scroll'));
+      expect(main).toContain('data-action="dexReset"');
+      expect(main.indexOf('dex-scroll')).toBeLessThan(main.indexOf('<table'));
+    }
+    expect(dexHtml(d3).slice(dexHtml(d3).indexOf('class="dex-side"'), dexHtml(d3).indexOf('class="dex-main"'))).toContain('dex-search');
   });
 });

@@ -52,16 +52,19 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
     .map(([key, label]) => `<button data-action="dexRole" data-arg="${key}" aria-pressed="${key === 'all' ? picked.size === 0 : picked.has(key as never)}">${label}</button>`).join('');
   // 상세검색: the criteria hidden behind the toggle still count while it is closed, so the toggle says how many are on
   const advOn = (skill !== '' ? 1 : 0) + mine.length + (picked.size > 1 ? 1 : 0);
-  const advBar = `<div class="dex-advbar"><button data-action="dexAdv" aria-expanded="${adv}">상세검색 ${adv ? '▾' : '▸'}${advOn ? ` (${advOn})` : ''}</button>${adv ? '<span class="dex-mode">역할은 여러 개를 고르면 모두 가진 유닛</span>' : ''}</div>`;
+  const advBar = `<div class="dex-advbar"><button data-action="dexAdv" aria-expanded="${adv}">상세검색 ${adv ? '▾' : '▸'}${advOn ? ` (${advOn})` : ''}</button>${adv ? '<span class="dex-mode">역할 모두 포함</span>' : ''}</div>`;
   const advPanel = adv ? `<div class="dex-adv"><form class="dex-skillsearch"><input type="search" name="skill" aria-label="기술로 찾기" placeholder="기술로 찾기 (기절, 폭발, 불길…)" value="${esc(skill)}"><button>찾기</button></form>${
     extra.state ? `<div class="dex-chips" role="group" aria-label="내 판 기준"><span class="dex-filter-label">내 판</span>${MINE_KEYS.map(k => `<button data-action="dexMine" data-arg="${k}" aria-pressed="${mine.includes(k)}">${MINE_LABEL[k]}</button>`).join('')}</div>` : ''}</div>` : '';
   const summary = `<div class="dex-summary"><span>${visible.length}종</span>${narrowed ? '<button data-action="dexReset">필터 초기화</button>' : ''}</div>`;
   const last = extra.back?.[extra.back.length - 1];
   const backName = last ? nameOf.get(last.id) : undefined;
   const back = backName ? `<button class="dex-back" data-action="dexBack">← ${esc(withRo(backName))}</button>` : '';
-  return `<div class="modal dex-modal${adv ? ' dex-advanced' : ''}${browsable ? ' dex-browser' : ''}"><div class="modal-head">도감 <span class="dex-head-actions">${back}<button data-action="closeModal">닫기</button></span></div>
-    <div class="dex-odds">${esc(summonOddsText(data, round))}</div>
-    <div class="dex-searchbox"><div class="dex-top">${browsable ? `<form class="dex-search"><input type="search" name="query" aria-label="이름·재료 검색" placeholder="이름·재료 검색" value="${esc(query)}"><button>검색</button></form>` : ''}${summary}</div>${browsable ? recentHtml(extra.recent ?? [], query) : ''}</div>${browsable ? `<div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div>` : ''}<div class="dex-chips" role="group" aria-label="도감 계열"><span class="dex-filter-label">계열</span>${kindRow}</div><div class="dex-chips" role="group" aria-label="도감 역할"><span class="dex-filter-label">역할</span>${roleRow}</div>${advBar}${advPanel}${browsable ? '<div class="dex-scroll">' : ''}<table class="dex"><thead><tr><th>등급</th><th>이름</th><th>재료</th></tr></thead><tbody>${rows || '<tr><td colspan="3">찾는 유닛이 없습니다.</td></tr>'}</tbody></table>${browsable ? '</div>' : ''}</div>`;
+  const searchForm = browsable ? `<form class="dex-search"><input type="search" name="query" aria-label="이름·재료 검색" placeholder="이름·재료 검색" value="${esc(query)}"><button>검색</button></form>` : '';
+  const odds = summonOddsText(data, round);
+  // two columns: the filters on the left, the list (with its count and 필터 초기화) on the right, each scrolling on its own
+  return `<div class="modal dex-modal dex-browser${adv ? ' dex-advanced' : ''}"><div class="modal-head"><span class="dex-title">도감</span><span class="dex-odds" title="${esc(odds)}">${esc(odds)}</span><span class="dex-head-actions">${back}<button data-action="closeModal">닫기</button></span></div>
+    <div class="dex-body"><div class="dex-side">${searchForm ? `<div class="dex-searchbox">${searchForm}${recentHtml(extra.recent ?? [], query)}</div>` : ''}${browsable ? `<div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div>` : ''}<div class="dex-chips" role="group" aria-label="도감 계열"><span class="dex-filter-label">계열</span>${kindRow}</div><div class="dex-chips dex-roles-row" role="group" aria-label="도감 역할"><span class="dex-filter-label">역할</span>${roleRow}</div>${advBar}${advPanel}</div>
+    <div class="dex-main">${summary}<div class="dex-scroll"><table class="dex"><thead><tr><th>등급</th><th>이름</th><th>재료</th></tr></thead><tbody>${rows || '<tr><td colspan="3">찾는 유닛이 없습니다.</td></tr>'}</tbody></table></div></div></div></div>`;
 }
 
 /** The recent searches under the search box: a chip runs its search, its × removes it. Hidden by CSS while a search shows and the box is not focused. */

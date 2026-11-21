@@ -391,7 +391,29 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .dex-skillsearch input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid #55485f; color: var(--ink); font: inherit; padding: 2px 5px; }
 .dex-skillsearch input::placeholder { color: #b4aabe; }
 .dex-skillsearch button { min-height: 17px; padding: 0 6px; }
-.dex-advanced .dex-odds, .dex-advanced .dex-recent { display: none; }
-/* open 상세검색 adds two rows: the window grows upward so the list keeps some room */
-#modal .dex-advanced { top: 28px; max-height: 300px; }
-.dex-advanced .dex-advbar, .dex-advanced .dex-adv, .dex-advanced .dex-filters, .dex-advanced .dex-chips, .dex-advanced .dex-top { padding-bottom: 2px; margin-bottom: 0; }
+
+/* 도감 in two columns: it takes the stage from the left edge to the right panel, between the top bar and the help line */
+#modal .dex-browser, body.online #modal .dex-browser { left: 0; top: 24px; transform: none; width: 528px; height: 308px; max-height: none; padding: 4px 6px; font-size: 10px; display: flex; flex-direction: column; overflow: hidden; }
+body.online #modal .dex-browser { height: 292px; }
+body.online #modal .dex-browser .modal-head { position: static; padding: 0; }
+.dex-browser .modal-head { flex: none; gap: 8px; margin-bottom: 3px; }
+.dex-browser .dex-odds { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-dim); font-weight: normal; }
+.dex-body { flex: 1; min-height: 0; display: flex; gap: 6px; }
+.dex-side { flex: none; width: 40%; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; padding-right: 2px; }
+.dex-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dex-main .dex-summary { flex: none; justify-content: space-between; padding-bottom: 2px; }
+.dex-browser .dex-scroll { flex: 1; min-height: 0; overflow: auto; }
+.dex-side .dex-filters, .dex-side .dex-chips { flex-wrap: wrap; padding-bottom: 0; }
+.dex-side .dex-filters button { flex: 1 0 20%; }
+.dex-side .dex-chips button { flex: 1 0 auto; }
+.dex-side .dex-searchbox, .dex-side .dex-adv, .dex-side .dex-advbar { padding: 0; margin: 0; }
+.dex-side .dex-recent { margin: 3px 0 0; flex-wrap: wrap; white-space: normal; }
+.dex-side .dex-adv { gap: 3px; }
+.dex-side .dex-skillsearch, .dex-side .dex-search { width: 100%; }
+.dex-side .dex-advbar { flex-wrap: wrap; row-gap: 1px; }
+.dex-side { width: 36%; }
+.dex-browser .dex td { padding-block: 2px; }
+.dex-browser .dex .dex-skill { line-height: 1.3; }
+.dex-browser .dex .card-notes { display: flex; flex-wrap: wrap; gap: 0 8px; margin: 1px 0 0; padding: 0; list-style: none; font-size: 9px; line-height: 1.3; color: var(--ink-dim); }
+.dex-browser .dex .card-notes li { margin: 0; }
+.dex-side .dex-filters button { white-space: nowrap; padding: 0 1px; flex-basis: 18%; }
