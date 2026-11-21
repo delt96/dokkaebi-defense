@@ -150,4 +150,16 @@ describe('online mountUi', () => {
     mountOnline(fixtureFull([1, 2, 3]));
     expect(document.querySelectorAll('#left [data-action="watch"]')).toHaveLength(0);
   });
+
+  test('the menu holds the reduce-effects switch and pressing it flips the scene setting', () => {
+    const { scene } = mountOnline();
+    const fx = Object.assign(scene, { reduceEffects: false, setReduceEffects(on: boolean) { this.reduceEffects = on; } });
+    press(document.querySelector('#top [data-action="openMenu"]'));
+    const toggle = () => document.querySelector<HTMLButtonElement>('#modal [data-action="toggleFx"]')!;
+    expect(toggle().getAttribute('aria-pressed')).toBe('false');
+    press(toggle());
+    expect(fx.reduceEffects).toBe(true);
+    expect(toggle().getAttribute('aria-pressed')).toBe('true');
+    expect(toggle().textContent).toContain('켬');
+  });
 });

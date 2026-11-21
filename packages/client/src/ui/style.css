@@ -67,6 +67,8 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .helper li { display: flex; align-items: center; gap: 3px; padding: 2px 0; }
 .helper li button { margin-left: auto; min-height: 18px; }
 .helper .empty { color: var(--ink-dim); }
+.fx-toggle { font-size: 9px; color: var(--ink-dim); }
+.fx-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 3px; }
 
 #right { padding: 6px; display: flex; flex-direction: column; gap: 4px; }

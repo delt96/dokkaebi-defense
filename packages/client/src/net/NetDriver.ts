@@ -96,6 +96,11 @@ export class NetDriver implements Driver {
     this.flushLane();
   }
 
+  laneEliminated(): boolean {
+    const view = this.net.view ?? this.view;
+    return view.rows.find(r => r.seat === view.watching)?.status === 'spirit';
+  }
+
   enemyDistance(id: number, d: number): number {
     const e = this.net.view?.lane.enemies.find(x => x.id === id);
     return e ? enemyDistanceAt(e, Math.max(this.renderTick, e.t)) : d;

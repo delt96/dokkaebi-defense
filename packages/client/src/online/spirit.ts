@@ -1,5 +1,6 @@
 import type { ClientView, GameData } from '@dorandi/logic';
 import { esc } from '../ui/dom';
+import { fxToggleHtml } from '../ui/helper';
 
 export interface SpiritModel { title: string; tokens: number; canSend: boolean; reason: string | null }
 
@@ -29,7 +30,7 @@ export function spiritCardHtml(view: ClientView, data: GameData): string | null 
 export const FORFEIT_TEXT = '포기하면 넋이 되어 관전과 지원만 할 수 있습니다. 포기할까요?';
 
 /** Menu and forfeit confirmation windows (shown in #modal). */
-export function menuHtml(kind: 'menu' | 'forfeit', spirit: boolean): string {
+export function menuHtml(kind: 'menu' | 'forfeit', spirit: boolean, reducedFx = false): string {
   if (kind === 'forfeit') {
     return `<div class="modal" role="alertdialog"><div class="modal-head">포기하고 나가기</div>
       <p class="modal-text">${esc(FORFEIT_TEXT)}</p>
@@ -37,5 +38,6 @@ export function menuHtml(kind: 'menu' | 'forfeit', spirit: boolean): string {
   }
   return `<div class="modal"><div class="modal-head">메뉴 <button data-action="closeModal">닫기</button></div>
     <div class="modal-actions"><button data-action="openDex">도감</button><button data-action="toggleHelper">조합 도우미</button>
+    ${fxToggleHtml(reducedFx)}
     <button data-action="askForfeit" ${spirit ? 'disabled' : ''}>포기하고 나가기</button></div></div>`;
 }

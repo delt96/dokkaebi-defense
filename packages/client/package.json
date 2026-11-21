@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "bake:fx": "node scripts/bake-fx.mjs"
   },
   "dependencies": {
     "@colyseus/sdk": "0.18.10",
     "@dorandi/logic": "*",
-    "phaser": "3.90.0"
+    "phaser": "3.90.0",
+    "pixelfx": "github:patch-gg/pixelfx#5294518ce7c72e48b6100a744596e0acf57f2826"
   },
   "devDependencies": {
     "vite": "^6.3.0"

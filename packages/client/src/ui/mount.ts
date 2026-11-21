@@ -82,6 +82,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'openDex': modal = 'dex'; break;
       case 'openUpgrades': modal = 'upgrades'; break;
       case 'closeModal': modal = null; break;
+      case 'toggleFx': scene.setReduceEffects(!scene.reduceEffects); break;
       case 'restart': hooks.onRestart?.(); break;
     }
     render();
@@ -175,7 +176,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      renderHelper(s, helperOpen);
+      renderHelper(s, helperOpen, scene.reduceEffects);
     }
     el('round-banner').textContent = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? (view ? activeNotice(notice, now) ?? '' : '');
     if (view && driver.readOnly) {
@@ -192,7 +193,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const soloResult = !online && s.phase === 'ended';
     const dialogOpen = modal !== null || soloResult;
     for (const id of ['top', 'left', 'right', 'bottom', 'lane']) el(id).inert = dialogOpen;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
     hooks.onRender?.();
   }
 
