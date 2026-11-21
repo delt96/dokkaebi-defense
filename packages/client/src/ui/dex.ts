@@ -25,11 +25,11 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
       ? ` <button class="dex-tree-toggle" data-action="dexTree" data-arg="${esc(d.id)}" aria-expanded="${isOpen}">${isOpen ? '재료 접기 ▴' : '재료 펼치기 ▾'}</button>`
       : '';
     const tree = isOpen ? recipeTree(data, d.id, extra.board ?? []) : null;
-    // one row per unit: the skill line sits under the recipe; an open tree takes a full-width row below
+    // one row per unit: an open tree sits right under the recipe line (where it was opened), then the skill line
     return `
     <tr data-dex-id="${esc(d.id)}"><td><span class="dot" style="background:${GRADE_COLOR[d.grade]}"></span>${d.grade}</td>
-    <td>${esc(d.name)}${story && d.grade === 6 && !d.hidden && d.recipe.length ? targetButton(d.id, story) : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}
-    <div class="dex-skill">${d.typeText} · 사거리 ${d.range}칸${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>${tree ? treeRow(d.id, tree) : ''}`;
+    <td>${esc(d.name)}${story && d.grade === 6 && !d.hidden && d.recipe.length ? targetButton(d.id, story) : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${tree ? treeBox(d.id, tree) : ''}
+    <div class="dex-skill">${d.typeText} · 사거리 ${d.range}칸${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>`;
   }).join('');
   const grades = [...new Set(entries.map(d => d.grade))].sort((a, b) => a - b);
   const filters = ['all', ...grades.map(String), 'hidden'].map(key => {
@@ -39,7 +39,7 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
   const last = extra.back?.[extra.back.length - 1];
   const backName = last ? nameOf.get(last.id) : undefined;
   const back = backName ? `<button class="dex-back" data-action="dexBack">← ${esc(withRo(backName))}</button>` : '';
-  return `<div class="modal${browsable ? ' dex-browser' : ''}"><div class="modal-head">도감${browsable ? ` · ${visible.length}종` : ''} <span class="dex-head-actions">${back}<button data-action="closeModal">닫기</button></span></div>
+  return `<div class="modal dex-modal${browsable ? ' dex-browser' : ''}"><div class="modal-head">도감${browsable ? ` · ${visible.length}종` : ''} <span class="dex-head-actions">${back}<button data-action="closeModal">닫기</button></span></div>
     <div>${esc(summonOddsText(data, round))}</div>
     ${browsable ? `<form class="dex-search"><input type="search" name="query" aria-label="이름·재료 검색" placeholder="이름·재료 검색" value="${esc(query)}"><button>검색</button></form><div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div><div class="dex-scroll">` : ''}<table class="dex"><thead><tr><th>등급</th><th>이름</th><th>재료</th></tr></thead><tbody>${rows || '<tr><td colspan="3">찾는 유닛이 없습니다.</td></tr>'}</tbody></table>${browsable ? '</div>' : ''}</div>`;
 }
@@ -55,8 +55,8 @@ const MARK: Record<RecipeNode['mark'], string> = {
   covered: '<span class="mark covered" title="윗재료가 보드에 있어 필요 없음">·</span>',
 };
 
-function treeRow(from: string, nodes: RecipeNode[]): string {
-  return `<tr class="dex-tree-row"><td colspan="3"><div class="dex-tree-legend">✓ 보드에 있음 · ✗ 없음 · 흐린 줄은 윗재료가 있어 필요 없음</div>${treeList(from, nodes)}</td></tr>`;
+function treeBox(from: string, nodes: RecipeNode[]): string {
+  return `<div class="dex-tree-box"><div class="dex-tree-legend">✓ 보드에 있음 · ✗ 없음 · 흐린 줄은 필요 없음</div>${treeList(from, nodes)}</div>`;
 }
 
 function treeList(from: string, nodes: RecipeNode[]): string {

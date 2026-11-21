@@ -162,4 +162,22 @@ describe('online mountUi', () => {
     expect(toggle().getAttribute('aria-pressed')).toBe('true');
     expect(toggle().textContent).toContain('켬');
   });
+
+  test('20-round online dex: a material link jumps to its entry, opens its tree, and the back button returns', () => {
+    mountOnline();
+    press(document.querySelector('#top [data-action="openMenu"]'));
+    const modal = document.getElementById('modal')!;
+    press(modal.querySelector('[data-action="openDex"]'));
+    const link = modal.querySelector<HTMLElement>('table.dex [data-action="dexGo"]')!;
+    const [target, from] = link.dataset.arg!.split('@') as [string, string];
+    const fromName = data.units.find(u => u.id === from)!.name;
+    press(link);
+    expect(modal.querySelector(`tr[data-dex-id="${target}"]`)!.classList.contains('dex-flash')).toBe(true);
+    expect(modal.querySelector('.dex-back')!.textContent).toContain(`← ${fromName}`);
+    press(modal.querySelector(`[data-action="dexTree"][data-arg="${from}"]`));
+    expect(modal.querySelector(`tr[data-dex-id="${from}"] .dex-tree li`)).not.toBeNull();
+    press(modal.querySelector('.dex-back'));
+    expect(modal.querySelector('.dex-back')).toBeNull();
+    expect(modal.querySelectorAll('table.dex tbody tr')).toHaveLength(40);
+  });
 });

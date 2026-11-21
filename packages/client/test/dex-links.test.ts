@@ -164,7 +164,7 @@ describe('dex html', () => {
     const html = dexHtml(d3, undefined, 'all', '', 1, {
       open: ['bihyeongrang'], board: ['kkeul'], back: [{ id: 'bihyeongrang', filter: '6', query: '' }],
     });
-    const tree = html.slice(html.indexOf('dex-tree-row'), html.indexOf('</tr>', html.indexOf('dex-tree-row')));
+    const tree = html.slice(html.indexOf('dex-tree-box'), html.indexOf('dex-skill', html.indexOf('dex-tree-box')));
     expect(tree).toContain('<li class="missing"><div class="node"><span class="mark missing"');
     expect(tree).toContain('<li class="have">');
     expect(tree).toContain('<li class="covered">');
@@ -196,9 +196,9 @@ describe('dex links in the mounted ui', () => {
     press(document.querySelector('[data-action="openDex"]'));
     press(modal.querySelector('[data-action="dexFilter"][data-arg="6"]'));
     press(modal.querySelector('[data-action="dexTree"][data-arg="bihyeongrang"]'));
-    const treeRow = modal.querySelector('tr[data-dex-id="bihyeongrang"] + tr.dex-tree-row')!;
+    const treeRow = modal.querySelector('tr[data-dex-id="bihyeongrang"] .dex-tree-box')!;
     expect(Array.from(treeRow.querySelector('.dex-tree')!.children).map(li => li.className)).toEqual(['missing', 'missing', 'have']);
-    press(modal.querySelector('tr[data-dex-id="bihyeongrang"] [data-action="dexGo"][data-arg="top@bihyeongrang"]'));
+    press(modal.querySelector('tr[data-dex-id="bihyeongrang"] .dex-tree [data-action="dexGo"][data-arg="top@bihyeongrang"]'));
     expect(modal.querySelector('[data-action="dexFilter"][aria-pressed="true"]')!.getAttribute('data-arg')).toBe('all');
     expect(modal.querySelector('tr[data-dex-id="top"]')!.classList.contains('dex-flash')).toBe(true);
     expect(modal.querySelector('.dex-back')!.textContent).toBe('← 귀교 목수로');
@@ -207,6 +207,6 @@ describe('dex links in the mounted ui', () => {
     expect(modal.querySelector('[data-action="dexFilter"][aria-pressed="true"]')!.getAttribute('data-arg')).toBe('6');
     expect(modal.querySelector('.dex-back')).toBeNull();
     // the tree is still open where it was left
-    expect(modal.querySelector('tr[data-dex-id="bihyeongrang"] + tr.dex-tree-row')).not.toBeNull();
+    expect(modal.querySelector('tr[data-dex-id="bihyeongrang"] .dex-tree-box')).not.toBeNull();
   });
 });
