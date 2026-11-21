@@ -30,7 +30,8 @@ export class MatchRoom extends Room {
       dispose: () => { void this.disconnect(); },
       dev: process.env.DORANDI_DEV === '1',
     }, roomOptions(options));
-    this.clock.setInterval(() => this.core.advance(), 10);
+    // Its own 10 ms loop: without one, Colyseus only ticks the clock inside the 50 ms patch.
+    this.setTimestep(() => this.core.advance(), 10);
     this.onMessage('*', (client: Client, type: string | number, msg: unknown) => {
       this.core.message(client.sessionId, String(type), msg);
     });

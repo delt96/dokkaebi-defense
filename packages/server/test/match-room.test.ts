@@ -6,7 +6,30 @@ import {
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { normalBot, type Bot } from '@dorandi/sim/src/bots';
 import { spiritSupport } from '@dorandi/sim/src/coop';
-import { FakeLink, send, started, tickOnce } from './helpers';
+import { FakeLink, send, started, tickOnce, ticks, type Started } from './helpers';
+
+/** A client view built only from what the link received, brought up to date on each call. */
+function viewer(l: FakeLink): () => ClientView {
+  let view = applyFull(l.last('full'));
+  let seen = l.sent.length;
+  return () => {
+    for (const { type, msg } of l.sent.slice(seen)) {
+      if (type === 'full') view = applyFull(msg);
+      else if (type === 'tick') expect(applyTick(view, msg)).toBe('ok');
+      else if (type === 'lane') expect(applyLane(view, msg)).not.toBe('gap');
+      else if (type === 'mine') applyMine(view, msg);
+      else if (type === 'result') view.result = structuredClone(msg.result);
+    }
+    seen = l.sent.length;
+    return view;
+  };
+}
+
+/** What a fresh full for this seat would look like right now. */
+function serverView(r: Started, seat: number): ClientView {
+  const { core } = r;
+  return applyFull(buildFull(core.match!, seat, { watching: core.watching[seat]!, names: core.names, key: core.keys[seat]!, n: core.n }));
+}
 
 describe('match room', () => {
   test('commands go to the next tick and the mine ack arrives right after that tick', () => {
@@ -76,6 +99,79 @@ describe('match room', () => {
     tickOnce(core, deps); tickOnce(core, deps);
     expect(applyTick(view, a!.last('tick'))).toBe('gap');
   });
+  for (const parity of ['even', 'odd'] as const) {
+    test(`a match that ends on an ${parity} tick still sends the last tick and lane before the result`, () => {
+      const r = started(['가', '나']);
+      const { core, deps, links } = r;
+      const views = links.map(viewer);
+      const off = parity === 'even' ? 0 : 1;
+      ticks(r, 4 + off);
+      send(core, 'a', 1, 'forfeit'); tickOnce(core, deps);
+      expect(core.match!.seats[1]!.alive).toBe(false);
+      tickOnce(core, deps);
+      const endTick = core.match!.tick;
+      expect(endTick % 2).toBe(off);
+      send(core, 'b', 1, 'forfeit'); tickOnce(core, deps);
+      expect(core.phase).toBe('result');
+      for (const [i, l] of links.entries()) {
+        expect(l.sent.at(-1)!.type).toBe('result');
+        const view = views[i]!();
+        expect(view.clock.phase).toBe('ended');
+        expect(view.clock.tick).toBe(endTick);
+        expect(diffViews(view, serverView(r, i + 1))).toEqual([]);
+      }
+    });
+  }
+  test('watch: ignored for the living and for bad targets; spirits follow the lowest living seat when theirs falls', () => {
+    const r = started(['가', '나', '다']);
+    const { core, deps, links: [a, , c] } = r;
+    const fulls = (l: FakeLink) => l.all('full').length;
+
+    // (1) a living seat cannot watch another lane
+    ticks(r, 3);
+    const aFulls = fulls(a!);
+    core.message('a', 'watch', { seat: 2 });
+    expect(fulls(a!)).toBe(aFulls);
+    expect(core.watching[1]).toBe(1);
+
+    // (2) c forfeits and is moved to the lowest living seat in that same tick
+    const cFulls = fulls(c!);
+    send(core, 'c', 1, 'forfeit'); tickOnce(core, deps);
+    expect(core.match!.seats[3]!.alive).toBe(false);
+    expect(fulls(c!)).toBe(cFulls + 1);
+    expect(c!.last('full')).toMatchObject({ watching: 1 });
+    const view = viewer(c!);
+
+    // (3) a spirit picks another living seat: a full right away, then the stream keeps it exact
+    core.message('c', 'watch', { seat: 2 });
+    expect(fulls(c!)).toBe(cFulls + 2);
+    expect(c!.last('full')).toMatchObject({ watching: 2 });
+    expect(core.watching[3]).toBe(2);
+    ticks(r, 30 + (core.match!.tick % 2));
+    expect(core.match!.tick % 2).toBe(0);
+    expect(view().watching).toBe(2);
+    expect(diffViews(view(), serverView(r, 3))).toEqual([]);
+
+    // (4) a fallen seat (itself), a missing seat, a string seat and null are all ignored
+    for (const payload of [{ seat: 3 }, { seat: 9 }, { seat: '1' }, null]) {
+      const before = fulls(c!);
+      core.message('c', 'watch', payload);
+      expect(fulls(c!), JSON.stringify(payload)).toBe(before);
+      expect(core.watching[3]).toBe(2);
+    }
+
+    // (5) the watched seat falls: c is moved to seat 1 with a full, and the stream after it stays exact
+    const before = fulls(c!);
+    send(core, 'b', 1, 'forfeit'); tickOnce(core, deps);
+    expect(core.match!.seats[2]!.alive).toBe(false);
+    expect(fulls(c!)).toBe(before + 1);
+    expect(c!.last('full')).toMatchObject({ watching: 1 });
+    expect(core.watching[3]).toBe(1);
+    ticks(r, 30 + (core.match!.tick % 2));
+    expect(core.match!.tick % 2).toBe(0);
+    expect(view().watching).toBe(1);
+    expect(diffViews(view(), serverView(r, 3))).toEqual([]);
+  });
   test('whole game: 6 normal bots through the room; clients match the server full every 100 ticks; replay matches', () => {
     const names = ['가', '나', '다', '라', '마', '바'];
     const { core, deps, links } = started(names);
@@ -143,6 +239,11 @@ describe('match room', () => {
     if (match.tick % 100 !== 0) hashes.push([match.tick, matchHash(match)]);
 
     expect(core.phase).toBe('result');
+    for (const l of links) {
+      const view = views.get(l)!;
+      expect(view.clock.phase).toBe('ended');
+      expect(diffViews(view, serverView({ core, deps, links }, view.me.seat))).toEqual([]);
+    }
     expect(match.seats[6]!.alive).toBe(false);
     expect(watchChanges).toBeGreaterThan(0);
     for (const l of links) expect(l.last('result')).toEqual({ result: match.result });

@@ -167,8 +167,8 @@ export class RoomCore {
       }
     }
 
-    // 5. every second tick: one numbered update to everyone
-    if (step.tick % 2 === 1) {
+    // 5. every second tick, and on the tick the match ends: one numbered update to everyone
+    if (step.tick % 2 === 1 || (match.result && this.phase === 'playing')) {
       this.n += 1;
       const tick = buildTick(match, this.names, this.n);
       for (const { link, seat } of this.links.values()) {
