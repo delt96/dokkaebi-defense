@@ -188,3 +188,12 @@ describe('shadow and ssireum', () => {
     expect(k.econ!.events).toEqual([]);
   });
 });
+
+test('former story nights leave no request state', () => {
+  for (const round of [28, 29, 31, 44, 45, 46]) {
+    const s = lane(round);
+    const result = step(s, []);
+    expect(s.econ).not.toHaveProperty('story');
+    expect(result.events.filter(e => e.type.startsWith('story'))).toEqual([]);
+  }
+});

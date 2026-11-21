@@ -2,7 +2,6 @@ import type { Command, GameData, GameEvent, GameState, RejectReason, StepResult 
 import { createRng, deriveSeed } from './rng';
 import { createEcon } from './econ/ledger';
 import { eventsTick } from './econ/events';
-import { storyTick } from './econ/story';
 import { econRoundEnd } from './econ/hooks';
 import { checkEnd, moveEnemies, spawnTick } from './flow';
 import { resolveKills } from './combat';
@@ -16,7 +15,6 @@ import './upgrades';
 import './econ/market';
 import './econ/jige';
 import './econ/quests';
-import './econ/story';
 import './econ/tame';
 
 export { laneOf } from './lane';
@@ -73,7 +71,6 @@ export function applyCommand(state: GameState, cmd: Command, events: GameEvent[]
   if (cmd && staleUnit(state, cmd)) return 'staleUnit';
   const handler = typeof cmd?.type === 'string' ? handlers.get(cmd.type) : undefined;
   const reason = handler ? handler(state, cmd, events) : 'unknown';
-  if (state.econ?.story.active) storyTick(state, events);
   return reason;
 }
 
@@ -87,7 +84,6 @@ export function runCombat(state: GameState, events: GameEvent[], opts: { finalCl
   runPhase('tickStatuses', state, events);
   runPhase('unitAttacks', state, events);
   resolveKills(state, events, { finalClear: opts.finalClear });
-  if (state.econ?.story.active) storyTick(state, events);
 }
 
 export function step(state: GameState, commands: Command[]): StepResult {

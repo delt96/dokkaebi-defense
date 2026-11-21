@@ -11,7 +11,7 @@ import { playSfx } from '../sfx';
 import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
-  econBottomHtml, econPanelHtml, econTopHtml, incomingModel, marketModel, noteText, questChips, shipModel, storyModel, tameModel,
+  econBottomHtml, econPanelHtml, econTopHtml, incomingModel, marketModel, noteText, questChips, shipModel, tameModel,
   tameRejectText, transferEndText, type EconTab,
 } from './econ';
 import { el, onAction, setHtml } from './dom';
@@ -31,13 +31,13 @@ const RENDER_MS = 100;
 const NOTICE_MS = 1500;
 /** Economy results (a purchase, a reward, a tame) stay a little longer than a refusal. */
 const NOTE_MS = 2500;
-const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'questReward', 'storyOffer', 'storyEnd', 'tame']);
+const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'questReward', 'tame']);
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void }
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
-  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'missionEnter', 'tame', 'storyTarget', 'storyDecline', 'ship', 'shipCancel', 'receive', 'refuse',
+  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'missionEnter', 'tame', 'ship', 'shipCancel', 'receive', 'refuse',
   'storeAll', 'retrieve', 'sellStored',
 ]);
 const PRESS_MS = 120;
@@ -66,8 +66,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // stage 3 economy: the B panel (null = closed), the story request already seen, a new one not yet looked at (the left
   // panel was busy when it came), the slot a delivery lands in and the offer on screen
   let econTab: EconTab | null = null;
-  let storySeen = '';
-  let storyUnread = false;
   let receiveSlot: number | null = null;
   let incomingShown = false;
   let lastOffer: number | null = null;
@@ -118,7 +116,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         econTab = econTab ? null : 'market';
         if (econTab) helperOpen = false;
         break;
-      case 'econTab': econTab = arg === 'story' ? 'story' : 'market'; helperOpen = false; break;
+      case 'econTab': econTab = 'market'; helperOpen = false; break;
       case 'econClose': econTab = null; break;
       case 'buy': driver.queue({ type: 'buy', item: arg as EconItem }); break;
       case 'missionEnter': driver.queue({ type: 'missionEnter' }); break;
@@ -131,8 +129,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         driver.queue({ type: 'tame', enemyId: t.enemyId });
         break;
       }
-      case 'storyTarget': driver.queue({ type: 'storyTarget', id: arg || null }); break;
-      case 'storyDecline': driver.queue({ type: 'storyDecline' }); econTab = null; break;
       case 'ship': {
         const e = econ();
         const m = e ? shipModel(e, driver.state, opts.view?.() ?? null, selectedSlot(driver.state, scene.selectedId)) : null;
@@ -159,7 +155,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'askForfeit': modal = 'forfeit'; break;
       case 'forfeit': opts.actions?.forfeit(); modal = null; break;
       case 'unitDetails': modal = 'unitDetails'; break;
-      case 'openDex': dex = arg === 'story' ? dexNavStart('6') : { ...dex, back: [], focus: null, open: [], unfold: [] }; modal = 'dex'; break;
+      case 'openDex': dex = { ...dex, back: [], focus: null, open: [], unfold: [] }; modal = 'dex'; break;
       case 'dexFilter':
         dex = { ...dex, filter: arg, ...typedNow() };
         break;
@@ -384,7 +380,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else {
       renderRight(s, {
         ...(view ? { online: true, notices: [...moved, ...rightNotices(now)] } : {}),
-        ...(s.data.economy?.market ? { market: econTab !== null, badge: storyUnread } : {}),
+        ...(s.data.economy?.market ? { market: econTab !== null } : {}),
       });
     }
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');
@@ -408,7 +404,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data, dexStory(), dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
@@ -450,12 +446,6 @@ ${dex.mine.join()}`;
     return driver.state.slots.some((u, i) => !u && driver.state.open[i]);
   }
 
-  /** The dex's 목표 buttons: only on data with a story request, and only for the own living lane. */
-  function dexStory(): { target: string | null; canSet: boolean } | undefined {
-    const story = econ()?.story;
-    return story ? { target: story.target, canSet: !driver.readOnly } : undefined;
-  }
-
   /**
    * Stage 3 economy: the B panel over the left column, prompts over the top of the lane, the tracker under it.
    * Returns how many prompt rows sit over the top of the lane.
@@ -463,18 +453,6 @@ ${dex.mine.join()}`;
   function renderEcon(view: ClientView | null, selected: number | null): number {
     const s = driver.state;
     const e = s.phase === 'ended' ? null : econ();
-    const story = e?.story?.active ?? null;
-    if (story) {
-      const key = `${story.target}@${story.round}`;
-      // a new request opens its page once, but only over an idle left column: an open helper or market stays, and
-      // the 장터 button and the 의뢰 tab carry a mark until the page is looked at
-      if (key !== storySeen) {
-        storySeen = key;
-        if (!helperOpen && econTab === null) econTab = 'story';
-        else storyUnread = true;
-      }
-    }
-    if (!story || econTab === 'story') storyUnread = false;
     // the end of an offer is told by the server's transferEnd (see onTransferEnd); here only its leftovers go
     const offer = e?.transfer?.offer ?? null;
     if (!offer || offer.offerId !== lastOffer) receiveSlot = null;
@@ -488,7 +466,7 @@ ${dex.mine.join()}`;
     setHtml(el('econ-top'), e ? econTopHtml(incoming, outgoing, tame) : '');
     setHtml(el('econ-bottom'), e ? econBottomHtml(questChips(e, s, view)) : '');
     if (!e || !econTab) setHtml(el('econ-panel'), '');
-    else setHtml(el('econ-panel'), econPanelHtml(econTab, marketModel(e, s), shipModel(e, s, view, selected), storyModel(e, s), storyUnread));
+    else setHtml(el('econ-panel'), econPanelHtml(econTab, marketModel(e, s), shipModel(e, s, view, selected)));
     return (incoming || outgoing ? 1 : 0) + (tame ? 1 : 0);
   }
 
@@ -516,8 +494,6 @@ ${dex.mine.join()}`;
     best = null;
     notice = null;
     econTab = null;
-    storySeen = '';
-    storyUnread = false;
     receiveSlot = null;
     lastOffer = null;
     render();

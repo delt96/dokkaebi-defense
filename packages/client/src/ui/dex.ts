@@ -12,8 +12,7 @@ import { withRo } from './josa';
  */
 export interface DexExtra { recent?: readonly string[]; back?: readonly DexStep[]; open?: readonly string[]; board?: readonly string[]; unfold?: readonly string[]; /** 상세검색 is open */ adv?: boolean; /** the game, for the 내 판 기준 chips */ state?: GameState }
 
-/** `story`: stage 3 lets a normal grade-6 row be picked as the story request's target. */
-export function dexHtml(data: GameData, story?: { target: string | null; canSet: boolean }, filter = 'all', query = '', round = 1, extra: DexExtra = {}, more: { kind?: string; role?: string; skill?: string; mine?: readonly string[] } = {}): string {
+export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, extra: DexExtra = {}, more: { kind?: string; role?: string; skill?: string; mine?: readonly string[] } = {}): string {
   const entries = dexEntries(data);
   const browsable = !!data.balance.extendedCombat;
   const visible = entries.filter(d => dexShows(data, d, filter, query, { ...more, state: extra.state }));
@@ -37,7 +36,7 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
     // one row per unit: an open tree sits right under the recipe line (where it was opened), then the skill line
     return `
     <tr data-dex-id="${esc(d.id)}"><td><span class="dot" style="background:${GRADE_COLOR[d.grade]}"></span>${d.grade}</td>
-    <td><div class="dex-name">${esc(d.name)}${story && d.grade === 6 && !d.hidden && d.recipe.length ? targetButton(d.id, story) : ''}</div>${d.roles.length ? `<div class="dex-roles">${d.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
+    <td><div class="dex-name">${esc(d.name)}</div>${d.roles.length ? `<div class="dex-roles">${d.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
     <div class="dex-skill">${d.typeText} · 사거리 ${d.range}칸${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>`;
   }).join('');
   const grades = [...new Set(entries.map(d => d.grade))].sort((a, b) => a - b);
@@ -100,10 +99,4 @@ function treeList(from: string, nodes: RecipeNode[], unfold: ReadonlySet<string>
       : '';
     return `<li class="${n.mark}"><div class="node">${MARK[n.mark]}<span class="dot" style="background:${GRADE_COLOR[n.grade]}"></span>${link(n.id, n.name, from)}${n.cost ? `<span class="combine-cost">+ ${esc(n.cost)}</span>` : ''}${fold}</div>${shown ? treeList(from, n.children, unfold) : ''}</li>`;
   }).join('')}</ul>`;
-}
-
-function targetButton(id: string, story: { target: string | null; canSet: boolean }): string {
-  const on = story.target === id;
-  // pressing the current target again clears it
-  return `<button class="dex-target${on ? ' on' : ''}" data-action="storyTarget" data-arg="${on ? '' : esc(id)}"${story.canSet ? '' : ' disabled'} title="설화 의뢰 목표">${on ? '목표 ✓' : '목표'}</button>`;
 }

@@ -142,12 +142,11 @@ describe('review fixes: aura for all, lockouts, cooldowns, slow radii, tamed uni
 });
 
 test('dex filters retain the selected grade, hidden units and story actions', () => {
-  const story = { target: null, canSet: true };
-  const highest = dexHtml(d3, story, '6');
+  const highest = dexHtml(d3, '6');
   const eligible = d3.units.filter(u => u.grade === 6 && !u.hidden);
-  expect(highest.match(/data-action="storyTarget"/g)).toHaveLength(eligible.length);
+  expect(highest).not.toContain('data-action="storyTarget"');
   expect(highest).not.toContain('>5</td>');
-  const hidden = dexHtml(d3, story, 'hidden');
+  const hidden = dexHtml(d3, 'hidden');
   expect(hidden.match(/>길들이기/g)).toHaveLength(d3.units.filter(u => u.hidden).length);
   expect(hidden).not.toContain('data-action="storyTarget"');
   expect(dexHtml(d3)).toContain(`<span>${d3.units.length}종</span>`);
@@ -157,11 +156,11 @@ test('dex filters retain the selected grade, hidden units and story actions', ()
 });
 
 test('dex search combines grade with a unit or material name and handles no matches', () => {
-  const byName = dexHtml(d3, undefined, '6', '천년상모');
+  const byName = dexHtml(d3, '6', '천년상모');
   expect(byName).toContain('>천년 상모</div>');
-  const byMaterial = dexHtml(d3, undefined, '5', '지게');
+  const byMaterial = dexHtml(d3, '5', '지게');
   expect(byMaterial).toContain('>톱</div>');
-  expect(dexHtml(d3, undefined, '1', '천년상모')).toContain('찾는 유닛이 없습니다');
+  expect(dexHtml(d3, '1', '천년상모')).toContain('찾는 유닛이 없습니다');
 });
 
 test('the slots upgrade says how many cells its next level opens: 2 on the 6 x 4 board of every stage', () => {

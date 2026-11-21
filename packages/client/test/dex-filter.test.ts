@@ -65,7 +65,7 @@ describe('dex filters', () => {
     const plain = dexHtml(d3);
     expect(plain).toContain(`<span>${all.length}종</span>`);
     expect(plain).not.toContain('dexReset');
-    const html = dexHtml(d3, undefined, 'all', '', 1, {}, { kind: 'magical', role: 'magVuln' });
+    const html = dexHtml(d3, 'all', '', 1, {}, { kind: 'magical', role: 'magVuln' });
     const rows = ids(html);
     expect(rows).toContain('sutdarimi');
     expect(rows).not.toContain('yagyeon');
@@ -77,7 +77,7 @@ describe('dex filters', () => {
   });
 
   test('20-round data has the 계열 and 역할 rows, but no grade row or search', () => {
-    const html = dexHtml(d2, undefined, 'all', '', 1, {}, { role: 'physVuln' });
+    const html = dexHtml(d2, 'all', '', 1, {}, { role: 'physVuln' });
     expect(ids(html)).toContain('dadeumi');
     expect(html).toContain('data-action="dexRole"');
     expect(html).not.toContain('class="dex-search"');
@@ -180,11 +180,11 @@ describe('dex memory', () => {
   });
 
   test('chips render under the search box with a remove button', () => {
-    const html = dexHtml(d3, undefined, 'all', '', 1, { recent: ['짚', '북'] });
+    const html = dexHtml(d3, 'all', '', 1, { recent: ['짚', '북'] });
     expect(html).toContain('data-action="dexRecent" data-arg="짚"');
     expect(html).toContain('data-action="dexRecentDel" data-arg="북"');
     expect(dexHtml(d3)).not.toContain('dex-recent');
-    expect(dexHtml(d2, undefined, 'all', '', 1, { recent: ['짚'] })).not.toContain('dex-recent');
+    expect(dexHtml(d2, 'all', '', 1, { recent: ['짚'] })).not.toContain('dex-recent');
   });
 });
 

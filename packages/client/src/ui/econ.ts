@@ -207,73 +207,9 @@ export function questChips(econ: EconMine, state: GameState, view: ClientView | 
     }
   }
 
-  const story = econ.story;
-  const sd = eco.story;
-  if (story?.active && sd) {
-    out.push({
-      title: '설화', text: `${nameOf(data, story.active.target)} · 잡귀 ${Math.min(econ.roundKills, sd.kills)}/${sd.kills}`,
-      action: { name: 'econTab', arg: 'story', label: '보기' },
-    });
-  }
   return out;
 }
 
-// ---------- story request ----------
-
-export interface StoryModel {
-  title: string; lines: string[]; shortfalls: string[]; offer: boolean; target: string | null; canClear: boolean; done: boolean;
-  terms?: { label: string; value: string }[];
-}
-
-export function storyModel(econ: EconMine, state: GameState): StoryModel | null {
-  const data = state.data;
-  const def = data.economy?.story;
-  const s = econ.story;
-  if (!def || !s) return null;
-  const checks = def.checks.map(c => c.round).join('·');
-  const v = s.view;
-  const recipe = s.target ? data.recipes.find(r => r.result === s.target) : undefined;
-  const matLine = recipe && v ? recipe.materials.map((id, i) => `${nameOf(data, id)}${NBSP}${v.have[i] ? '✓' : '부족'}`).join(' · ') : null;
-  const ledger = v ? [`완성${NBSP}${v.total} · 내 재료${NBSP}${v.paid} · 지원${NBSP}+${v.support}`, `이번 판 지원 ${v.cap} 중 ${v.used} 사용`] : [];
-  const shortfalls: string[] = [];
-  if (v && v.short > 0) shortfalls.push(`유닛 값 ${v.short} 더 필요`);
-  if (s.awarded) {
-    return { title: '설화 의뢰', lines: ['이번 판 설화 완성품을 받았습니다.'], shortfalls: [], offer: false, target: s.target, canClear: false, done: true };
-  }
-  if (s.active && recipe && v) {
-    const target = nameOf(data, s.active.target);
-    const held = recipe.materials.filter((_, i) => v.have[i]).map(id => nameOf(data, id));
-    const heldText = held.join('·');
-    if (state.coins < def.fee.coins) shortfalls.push(`엽전 ${def.fee.coins - state.coins}냥 부족`);
-    if (state.buckwheat < def.fee.buckwheat) shortfalls.push(`메밀묵 ${def.fee.buckwheat - state.buckwheat}개 부족`);
-    return {
-      title: `설화 의뢰 · ${s.active.round}라운드`, offer: true, target: s.active.target, canClear: false, done: false, shortfalls,
-      lines: [target, matLine ?? '', ledger[0] ?? ''],
-      terms: [
-        { label: '잡귀 처치', value: `${Math.min(econ.roundKills, def.kills)}/${def.kills}` },
-        { label: '라운드 종료 시 지불', value: `${heldText} · ${def.fee.coins}냥 · 묵 ${def.fee.buckwheat}개` },
-        { label: '이번 판 지원 사용', value: `${v.used}/${v.cap}` },
-      ],
-    };
-  }
-  const how = `${checks}라운드 시작에 목표 재료가 한 자리만 비어 있으면 의뢰가 옵니다`;
-  if (!s.target) return { title: '설화 의뢰', lines: ['목표 6등급이 없습니다', how], shortfalls: [], offer: false, target: null, canClear: false, done: false };
-  return {
-    title: '설화 의뢰', offer: false, target: s.target, canClear: true, done: false, shortfalls,
-    lines: [`목표 ${nameOf(data, s.target)}`, ...(matLine ? [matLine] : []), how, ...ledger],
-  };
-}
-
-// ---------- notes ----------
-
-const END_TEXT: Record<string, string | null> = {
-  award: null, declined: '설화 의뢰를 거절했습니다', targetChanged: '목표를 바꿔 설화 의뢰가 끝났습니다',
-  lostMaterial: '재료가 빠져 설화 의뢰가 끝났습니다', gotMaterial: '마지막 재료가 생겨 설화 의뢰가 끝났습니다',
-  kills: '잡귀 수를 못 채워 설화 의뢰가 끝났습니다', funds: '엽전이나 묵이 모자라 설화 의뢰가 끝났습니다',
-  cap: '지원 한도에 걸려 설화 의뢰가 끝났습니다',
-};
-
-/** One line for an economy result on the owner's screen. */
 export function noteText(ev: EconNote, data: GameData): string | null {
   switch (ev.type) {
     case 'buy': {
@@ -282,11 +218,9 @@ export function noteText(ev: EconNote, data: GameData): string | null {
     }
     case 'questReward': {
       const gain = [ev.coins ? `+${ev.coins}냥` : '', ev.buckwheat ? `묵 +${ev.buckwheat}` : '', ev.tokens ? `불 +${ev.tokens}` : ''].filter(Boolean).join(' · ');
-      const title = { mission: '쇠밥 한 끼 성공', collection: '살림 한 벌 완성', team: '서낭당 정성', ssireum: '씨름 승리', story: '설화 완성품을 받았습니다', transfer: '첫 배달' }[ev.quest];
+      const title = { mission: '쇠밥 한 끼 성공', collection: '살림 한 벌 완성', team: '서낭당 정성', ssireum: '씨름 승리', transfer: '첫 배달' }[ev.quest];
       return gain ? `${title} · ${gain}` : title;
     }
-    case 'storyOffer': return `설화 의뢰: ${nameOf(data, ev.target)} · ${nameOf(data, ev.missing)} 자리`;
-    case 'storyEnd': return END_TEXT[ev.reason] ?? null;
     case 'tame': return `길들이기 성공 · ${withJosa(nameOf(data, ev.defId), '이/가')} 우리 편이 됐습니다`;
   }
 }
@@ -318,12 +252,10 @@ export function transferEndText(end: TransferEndView, me: number, data: GameData
 const button = (action: string, arg: string, label: string, disabled = false, cls = '') =>
   `<button data-action="${action}" data-arg="${esc(arg)}"${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
 
-export type EconTab = 'market' | 'story';
+export type EconTab = 'market';
 
-/** `unread`: a story request came while the market was open; its tab is marked until it is looked at. */
-export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: ShipModel | null, story: StoryModel | null, unread = false): string {
-  const storyTab = story ? button('econTab', 'story', story.offer ? '의뢰 !' : '의뢰', false, [tab === 'story' ? 'on' : '', unread ? 'unread' : ''].filter(Boolean).join(' ')) : '';
-  const tabs = `<div class="econ-head">${button('econTab', 'market', '장터', false, tab === 'market' ? 'on' : '')}${storyTab}${button('toggleMarket', '', 'B 닫기', false, 'econ-close')}</div>`;
+export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: ShipModel | null): string {
+  const tabs = `<div class="econ-head">${button('econTab', 'market', '장터', false, tab === 'market' ? 'on' : '')}${button('toggleMarket', '', 'B 닫기', false, 'econ-close')}</div>`;
   let body = '';
   if (tab === 'market' && market) {
     const shops = market.shops.map(s => `<section class="shop">
@@ -335,15 +267,6 @@ export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: Sh
       ${ship.targets.length ? `<div class="ship-targets">${ship.targets.map(t => button('ship', String(t.seat), t.label, t.disabled)).join('')}</div>` : ''}
       ${ship.cancel ? button('shipCancel', '', '보내기 취소') : ''}</section>` : '';
     body = `<div class="econ-sub">${esc(market.head)}</div>${shops}${shipHtml}`;
-  } else if (story) {
-    const lines = story.lines.filter(Boolean).map((l, i) => `<div class="${i === 0 && story.offer ? 'story-target' : 'shop-line'}">${esc(l)}</div>`).join('');
-    const terms = story.terms ? `<dl class="story-terms">${story.terms.map(({ label, value }) =>
-      `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl>` : '';
-    const shorts = story.shortfalls.map(l => `<div class="shop-short">${esc(l)}</div>`).join('');
-    const actions = story.offer
-      ? `<div class="story-actions">${button('econClose', '', '닫기')}${button('storyDecline', '', '의뢰 거절')}</div>`
-      : story.done ? '' : `<div class="story-actions">${button('openDex', 'story', story.target ? '목표 바꾸기' : '도감에서 목표 고르기')}${story.canClear ? button('storyTarget', '', '목표 해제') : ''}</div>`;
-    body = `<div class="econ-sub">${esc(story.title)}</div><section class="shop">${lines}${terms}${shorts}${actions}</section>`;
   }
   return `<div class="econ-panel">${tabs}<div class="econ-body">${body}</div></div>`;
 }

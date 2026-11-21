@@ -20,7 +20,7 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     ${needSlot ? '<div class="need-slot">빈칸 필요</div>' : ''}
     <button data-action="convert" ${m.canConvert ? '' : 'disabled'}>불 바꾸기 (+${state.data.balance.tokens.toCoins}냥)</button>
     <button data-action="openUpgrades">강화 (E)</button>
-    ${opts.market === undefined ? '' : `<button data-action="toggleMarket" class="market-btn" aria-pressed="${opts.market}">장터 (B)${opts.badge ? '<span class="badge">의뢰</span>' : ''}</button>`}
+    ${opts.market === undefined ? '' : `<button data-action="toggleMarket" class="market-btn" aria-pressed="${opts.market}">장터 (B)</button>`}
     ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}`);
 }
 

@@ -68,7 +68,6 @@ function clearLane(lane: GameState): void {
   lane.fires = [];
   if (lane.econ) {
     lane.econ.pendingDrops = [];
-    lane.econ.story.active = null;
     lane.econ.events = [];
     if (lane.econ.mission.phase === 'active') {
       lane.econ.mission = { phase: 'lost', beastId: null, beastDown: false };

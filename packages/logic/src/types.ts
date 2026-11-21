@@ -82,20 +82,19 @@ export interface GameData {
 export interface JigeSource { zone: 'board' | 'storage'; index: number; unitId: number }
 export type EconItem = 'draw';
 export type GeneralQuestId = 'mission' | 'collection' | 'team' | 'ssireum';
-export type EconSection = 'market' | 'drops' | 'story' | GeneralQuestId | 'shadow' | 'tame' | 'transfer';
+export type EconSection = 'market' | 'drops' | GeneralQuestId | 'shadow' | 'tame' | 'transfer';
 export interface TameTargetDef {
   enemy: string; unit: string; cost: { buckwheat?: number; coins?: number; tokens?: number };
   needs?: 'slowed' | { vulnSource: string; stacks: number };
 }
 export interface EconomyDef {
   startingBuckwheat: number;
-  ledger: { tokenValue: number; storyCap: number; totalCap: number; ratio: number };
+  ledger: { tokenValue: number; totalCap: number; ratio: number };
   market?: {
     dayRounds: number; jigeChance: number; maxSwapGrade: number;
     draw: { buckwheatCost: number; perDay: number; weights: number[] };
   };
   drops?: { round: number; grade: number }[];
-  story?: { checks: { round: number; recordRounds: number[] }[]; kills: number; fee: { coins: number; buckwheat: number }; maxAwards: number };
   mission?: { round: number; entrySeconds: number; fee: number; enemy: string; kills: number; reward: { coins: number; buckwheat: number } };
   collection?: { fromRound: number; toRound: number; items: string[]; coins: number };
   team?: { fromRound: number; toRound: number; perSurvivor: number; nights: number; tokens: number };
@@ -104,21 +103,13 @@ export interface EconomyDef {
   tame?: { hpPct: number; targets: TameTargetDef[] };
   transfer?: { offerSeconds: number; cooldownRounds: number; maxGrade: number; reward: number; rewardCap: number };
 }
-export type StoryEndReason = 'award' | 'declined' | 'targetChanged' | 'lostMaterial' | 'gotMaterial' | 'kills' | 'funds' | 'cap';
-export interface StoryState {
-  target: string | null; pinned: number[];
-  log: { round: number; target: string; missing: number | null }[];
-  offers: number; awarded: boolean;
-  active: { target: string; missing: number; round: number } | null;
-}
 export interface EconState {
   rng: { marketGrade: RngState; marketUnit: RngState; jige: RngState; drop: RngState };
   roundKills: number; questTokens: number;
-  ledger: { story: number; tokens: number };
+  ledger: { tokens: number };
   pendingDrops: string[];
   market: { day: number; draws: number };
   jige: number;
-  story: StoryState;
   mission: { phase: 'idle' | 'active' | 'won' | 'lost'; beastId: number | null; beastDown: boolean };
   collection: { done: string[]; paid: boolean };
   events: { id: number; kind: 'beast' | 'ssireum' | 'shadow'; spawnTick: number; grown: boolean }[];
@@ -167,13 +158,13 @@ export type Command =
   | { type: 'move'; from: number; to: number; unitId?: number; toUnitId?: number | null } | { type: 'convertToken' }
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' }
   | { type: 'jigeSwap'; source: JigeSource; result: string }
-  | { type: 'buy'; item: EconItem } | { type: 'storyTarget'; id: string | null; unitIds?: number[] } | { type: 'storyDecline' }
+  | { type: 'buy'; item: EconItem }
   | { type: 'missionEnter' } | { type: 'tame'; enemyId: number }
   | { type: 'store'; slot: number; unitId?: number } | { type: 'storeAll' }
   | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string };
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
-  | 'marketClosed' | 'soldOut' | 'badTarget' | 'notOffered' | 'missionClosed' | 'noTarget' | 'tameHp' | 'tameCondition'
+  | 'marketClosed' | 'soldOut' | 'missionClosed' | 'noTarget' | 'tameHp' | 'tameCondition'
   | 'locked' | 'busy' | 'targetBusy' | 'targetAway' | 'cooldown' | 'noJige' | 'noOffer'
   | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
@@ -188,9 +179,7 @@ export type GameEvent =
   | { type: 'ended'; result: GameResult }
   | { type: 'jigeSwap'; source: JigeSource; unitId: number; defId: string }
   | { type: 'buy'; item: EconItem; defId: string; spentBuckwheat: number; jige: boolean }
-  | { type: 'storyOffer'; target: string; missing: string; round: number }
-  | { type: 'storyEnd'; target: string; reason: StoryEndReason }
-  | { type: 'questReward'; quest: GeneralQuestId | 'story' | 'transfer'; coins: number; buckwheat: number; tokens: number }
+  | { type: 'questReward'; quest: GeneralQuestId | 'transfer'; coins: number; buckwheat: number; tokens: number }
   | { type: 'tame'; enemyId: number; defId: string; unitId: number; slot: number }
   | { type: 'grow'; enemyId: number; hp: number } | { type: 'flee'; enemyId: number };
 export interface StepResult { events: GameEvent[]; rejected: { command: Command; reason: RejectReason }[] }

@@ -150,7 +150,7 @@ describe('dex link navigation', () => {
 
 describe('dex html', () => {
   test('material names link to their entries; only recipe units get the tree toggle', () => {
-    const html = dexHtml(d3, undefined, '6');
+    const html = dexHtml(d3, '6');
     expect(html).toContain('data-action="dexGo" data-arg="top@bihyeongrang">톱</button>');
     const rows = html.split('<tr data-dex-id=').slice(1);
     for (const row of rows) {
@@ -161,7 +161,7 @@ describe('dex html', () => {
   });
 
   test('an open tree shows marks, costs and links back to its entry, and the back button names the last step', () => {
-    const html = dexHtml(d3, undefined, 'all', '', 1, {
+    const html = dexHtml(d3, 'all', '', 1, {
       open: ['bihyeongrang'], board: ['kkeul'], back: [{ id: 'bihyeongrang', filter: '6', query: '' }],
     });
     const tree = html.slice(html.indexOf('dex-tree-box'), html.indexOf('dex-skill', html.indexOf('dex-tree-box')));
@@ -178,17 +178,17 @@ describe('dex html', () => {
     const kkeul = recipeTree(d3, 'bihyeongrang', ['kkeul'])![1]!;
     const n = treeSize(kkeul);
     expect(n).toBeGreaterThan(0);
-    const folded = dexHtml(d3, undefined, '6', '', 1, { open: ['bihyeongrang'], board: ['kkeul'] });
+    const folded = dexHtml(d3, '6', '', 1, { open: ['bihyeongrang'], board: ['kkeul'] });
     expect(folded).toContain(`data-action="dexFold" data-arg="bihyeongrang:1" aria-expanded="false">▸ 하위 ${n}개</button>`);
     expect(folded).not.toContain('<li class="covered">');
     // the missing 톱 branch shows down to grade 1
     expect(folded).toContain('data-arg="jige@bihyeongrang">지게</button>');
     expect(folded).toContain('✓ 보드에 있음 · ✗ 없음 · ▸ 하위 재료 펼치기');
-    const open = dexHtml(d3, undefined, '6', '', 1, { open: ['bihyeongrang'], board: ['kkeul'], unfold: ['bihyeongrang:1'] });
+    const open = dexHtml(d3, '6', '', 1, { open: ['bihyeongrang'], board: ['kkeul'], unfold: ['bihyeongrang:1'] });
     expect(open).toContain(`aria-expanded="true">▾ 하위 ${n}개</button>`);
     expect(open.match(/<li class="covered">/g)).toHaveLength(n);
     // only ✓ nodes fold: nothing to fold on an empty board
-    expect(dexHtml(d3, undefined, '6', '', 1, { open: ['bihyeongrang'] })).not.toContain('dexFold');
+    expect(dexHtml(d3, '6', '', 1, { open: ['bihyeongrang'] })).not.toContain('dexFold');
   });
 
   test('folding is per branch and toggles back', () => {

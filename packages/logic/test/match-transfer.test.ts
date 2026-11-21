@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  createMatch, loadGameData, roundStartTick, stepMatch, storySlots,
+  createMatch, loadGameData, roundStartTick, stepMatch,
   type MatchCommand, type MatchEvent, type MatchState, type StepMatchResult,
 } from '../src/index';
 import { jumpToTick, placeUnitForTest } from '../src/testing';
@@ -86,7 +86,6 @@ describe('jige transfer', () => {
     expect(send(m, [[1, { type: 'sell', slot: 0 }]]).reasons).toEqual(['locked']);
     expect(send(m, [[1, { type: 'combine', result: 'kkwaenggwari' }]]).reasons).toEqual(['missingMaterials']);
     expect(send(m, [[1, { type: 'combine', result: 'kkwaenggwari', slot: 0, unitId: moru.id }]]).reasons).toEqual(['locked']);
-    expect(storySlots(lane, 'cheonnyeonjing').have[2]).toBeNull();
     expect(lane.slots[0]).toBe(moru);
   });
 

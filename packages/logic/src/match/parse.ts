@@ -5,7 +5,6 @@ import type { WireCommand } from './wire';
 const INVALID: MatchCommand = { type: 'invalid' };
 const UPGRADE_IDS: ReadonlySet<string> = new Set<UpgradeId>(['physical', 'magical', 'polish', 'slots']);
 const ECON_ITEMS: ReadonlySet<string> = new Set<EconItem>(['draw']);
-const MAX_PINNED = 3;
 const TOP_KEYS: ReadonlySet<string> = new Set(['seq', 'type', 'args']);
 const MAX_SEAT = 6;
 const MAX_RESULT_LENGTH = 32;
@@ -21,7 +20,7 @@ const hasAll = (args: Args, keys: readonly string[]): boolean => keys.every(k =>
 
 type Parser = (args: Args, slotCount: number) => MatchCommand | null;
 
-const noArgs = (type: 'summon' | 'convertToken' | 'helperOpened' | 'forfeit' | 'storyDecline' | 'missionEnter' | 'storeAll'): Parser =>
+const noArgs = (type: 'summon' | 'convertToken' | 'helperOpened' | 'forfeit' | 'missionEnter' | 'storeAll'): Parser =>
   args => (Object.keys(args).length === 0 ? { type } : null);
 
 const PARSERS: Record<string, Parser> = {
@@ -29,7 +28,6 @@ const PARSERS: Record<string, Parser> = {
   convertToken: noArgs('convertToken'),
   helperOpened: noArgs('helperOpened'),
   forfeit: noArgs('forfeit'),
-  storyDecline: noArgs('storyDecline'),
   missionEnter: noArgs('missionEnter'),
   storeAll: noArgs('storeAll'),
   store: (args, slotCount) => {
@@ -62,14 +60,6 @@ const PARSERS: Record<string, Parser> = {
     const keys = ['item'];
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
     return typeof args.item === 'string' && ECON_ITEMS.has(args.item) ? { type: 'buy', item: args.item as EconItem } : null;
-  },
-  storyTarget: args => {
-    if (!onlyKeys(args, ['id', 'unitIds']) || !hasAll(args, ['id'])) return null;
-    const { id, unitIds } = args;
-    if (id !== null && (typeof id !== 'string' || id.length < 1 || id.length > MAX_RESULT_LENGTH)) return null;
-    if (!Object.hasOwn(args, 'unitIds')) return { type: 'storyTarget', id };
-    if (!Array.isArray(unitIds) || unitIds.length > MAX_PINNED || !unitIds.every(isInt)) return null;
-    return { type: 'storyTarget', id, unitIds: [...unitIds] };
   },
   tame: args => {
     const keys = ['enemyId'];
@@ -180,8 +170,6 @@ export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand
     case 'jigeSwap': return { type: cmd.type, args: { source: { ...cmd.source }, result: cmd.result } };
     case 'buy':
       return { type: 'buy', args: { item: cmd.item } };
-    case 'storyTarget':
-      return { type: 'storyTarget', args: cmd.unitIds === undefined ? { id: cmd.id } : { id: cmd.id, unitIds: [...cmd.unitIds] } };
     case 'tame':
       return { type: 'tame', args: { enemyId: cmd.enemyId } };
     case 'transferOffer':

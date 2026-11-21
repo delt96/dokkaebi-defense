@@ -4,7 +4,7 @@ import { createGame, econView, loadGameData, step, type ClientView, type EconMin
 import { forceRound, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import {
-  econPanelHtml, incomingModel, marketModel, noteText, questChips, shipModel, storyModel, tameModel, tameRejectText, transferEndText,
+  econPanelHtml, incomingModel, marketModel, noteText, questChips, shipModel, tameModel, tameRejectText, transferEndText,
 } from '../src/ui/econ';
 import { rejectText } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
@@ -150,35 +150,9 @@ describe('tame prompt', () => {
   });
 });
 
-describe('story request page', () => {
-  test('the offer separates kill progress, settlement costs and support usage', () => {
-    const s = lane(31, 40);
-    s.buckwheat = 0;
-    placeUnitForTest(s, 'janggu', 0);
-    placeUnitForTest(s, 'moru', 1);
-    step(s, [{ type: 'storyTarget', id: 'cheonnyeonjing' }]);
-    s.econ!.story.active = { target: 'cheonnyeonjing', missing: 1, round: 31 };
-    s.econ!.roundKills = 17;
-    const m = storyModel(econOf(s), s)!;
-    const fee = eco.story!.fee;
-    expect(m.title).toBe('설화 의뢰 · 31라운드');
-    const panel = document.createElement('div');
-    panel.innerHTML = econPanelHtml('story', null, null, m);
-    const terms = Array.from(panel.querySelectorAll('.story-terms dt, .story-terms dd'), el => el.textContent);
-    expect(terms).toEqual([
-      '잡귀 처치', '17/' + eco.story!.kills,
-      '라운드 종료 시 지불', '장구·모루 · ' + fee.coins + '냥 · 묵 ' + fee.buckwheat + '개',
-      '이번 판 지원 사용', econOf(s).story!.view!.used + '/' + econOf(s).story!.view!.cap,
-    ]);
-    expect(m.shortfalls).toContain(`엽전 ${fee.coins - 40}냥 부족`);
-    expect(m.shortfalls).toContain(`메밀묵 ${fee.buckwheat}개 부족`);
-    expect(m.shortfalls.some(x => /^유닛 값 \d+ 더 필요$/.test(x))).toBe(true);
-  });
-});
-
 describe('refusals', () => {
   test('every economy refusal has a line', () => {
-    for (const r of ['marketClosed', 'soldOut', 'badTarget', 'notOffered', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'locked', 'busy', 'targetBusy', 'targetAway', 'cooldown', 'noJige', 'noOffer']) {
+    for (const r of ['marketClosed', 'soldOut', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'locked', 'busy', 'targetBusy', 'targetAway', 'cooldown', 'noJige', 'noOffer']) {
       expect(rejectText(r), r).toBeTruthy();
     }
   });
@@ -251,41 +225,6 @@ describe('market hotkey', () => {
     expect(panel()).toBe('');
   });
 
-  test('a story request opens its page only over an idle left column; otherwise the 장터 button and the tab are marked', () => {
-    let clock = 1000;
-    vi.spyOn(performance, 'now').mockImplementation(() => clock);
-    const scene = new FakeScene();
-    const driver = new GameDriver(createGame(d3, 1));
-    mountUi(driver, scene as never);
-    const s = driver.state;
-    forceRound(s, 31);
-    s.enemies = [];
-    placeUnitForTest(s, 'janggu', 0);
-    placeUnitForTest(s, 'moru', 1);
-    step(s, [{ type: 'storyTarget', id: 'cheonnyeonjing' }]);
-    const frame = () => { clock += 150; scene.onFrame?.(); };
-    press(document.querySelector('[data-action="toggleHelper"]'));
-    s.econ!.story.active = { target: 'cheonnyeonjing', missing: 1, round: 31 };
-    frame();
-    // the open helper stays; the request waits behind a mark
-    expect(panel()).toBe('');
-    expect(document.getElementById('left')!.textContent).toContain('조합 도우미 (Q) ▾');
-    expect(document.querySelector('.market-btn .badge')?.textContent).toBe('의뢰');
-    press(document.querySelector('.market-btn'));
-    expect(document.querySelector('.econ-head .unread')?.textContent).toBe('의뢰 !');
-    press(document.querySelector('.econ-head .unread'));
-    expect(panel()).toContain('설화 의뢰 · 31라운드');
-    expect(document.querySelector('.econ-head .unread')).toBeNull();
-    expect(document.querySelector('.market-btn .badge')).toBeNull();
-    // the page closes with 닫기; there is no 받기 that sends nothing
-    expect(Array.from(document.querySelectorAll('#econ-panel .story-actions button')).map(b => b.textContent)).toEqual(['닫기', '의뢰 거절']);
-    press(document.querySelector('[data-action="econClose"]'));
-    expect(panel()).toBe('');
-    // the next request comes over an idle left column and opens its page
-    s.econ!.story.active = { target: 'cheonnyeonjing', missing: 1, round: 46 };
-    frame();
-    expect(panel()).toContain('설화 의뢰 · 46라운드');
-  });
 
   test('B does nothing while typing in a text box or during IME composition', () => {
     mountSolo();

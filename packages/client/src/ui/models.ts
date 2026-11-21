@@ -274,8 +274,6 @@ const REJECT_TEXT: Record<string, string> = {
   // stage 3 economy
   marketClosed: '장터는 1라운드부터 엽니다',
   soldOut: '이번 장날 몫을 다 샀습니다',
-  badTarget: '목표로 고를 수 없는 유닛입니다',
-  notOffered: '받은 설화 의뢰가 없습니다',
   missionClosed: '입장 시간이 지났습니다',
   noTarget: '길들일 대상이 사라졌습니다',
   tameHp: '아직 체력이 높습니다',

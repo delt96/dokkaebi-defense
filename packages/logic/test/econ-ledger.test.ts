@@ -31,7 +31,7 @@ describe('economy ledger', () => {
     expect(s.econ!.rng.drop.s).toBe(createRng(deriveSeed(7, 'drop')).s);
     expect(s.econ!.market).toEqual({ day: 0, draws: 0 });
     expect(s.econ!.questTokens).toBe(0);
-    expect(s.econ!.ledger).toEqual({ story: 0, tokens: 0 });
+    expect(s.econ!.ledger).toEqual({ tokens: 0 });
   });
 
   test('unit cost: summon = grade value, combine = sum, pity = 1 like any grade-1 summon', () => {
@@ -82,13 +82,13 @@ describe('economy ledger', () => {
     expect(nonQuestValue(s)).toBe(24);
     s.slots[1]!.cost = 0;
     expect(nonQuestValue(s)).toBe(16);
-    s.econ!.ledger.tokens = 4; s.econ!.ledger.story = 0;
+    s.econ!.ledger.tokens = 4;
     expect(questLoad(s)).toBe(4);
-    expect(fitsCaps(s, 16, 0, 60)).toBe(true);
-    expect(fitsCaps(s, 16, 0, 59)).toBe(false);
-    expect(fitsCaps(s, 17, 0, 999)).toBe(false);
-    s.econ!.ledger.story = 16;
-    expect(fitsCaps(s, 0, 4, 999)).toBe(false);
+    expect(fitsCaps(s, 16, 60)).toBe(true);
+    expect(fitsCaps(s, 16, 59)).toBe(false);
+    expect(fitsCaps(s, 17, 999)).toBe(false);
+    s.econ!.ledger.tokens = 20;
+    expect(fitsCaps(s, 4, 999)).toBe(false);
   });
 
   test('unitValue: grade 5 = 16, cheonnyeonjing = 40, hidden = 0', () => {
@@ -104,7 +104,7 @@ describe('economy ledger', () => {
   test('economyVariant drops only the switched-off sections; stripEconomy removes economy', () => {
     const base = loadGameData('stage3');
     const d = economyVariant(base, { market: false, team: false });
-    expect(d.economy!.market).toBeUndefined(); expect(d.economy!.team).toBeUndefined(); expect(d.economy!.story).toBeDefined();
+    expect(d.economy!.market).toBeUndefined(); expect(d.economy!.team).toBeUndefined(); expect(d.economy!.mission).toBeDefined();
     expect(base.economy!.market).toBeDefined();
     expect(stripEconomy(loadGameData('stage3')).economy).toBeUndefined();
     expect('econ' in createGame(stripEconomy(loadGameData('stage3')), 1)).toBe(false);

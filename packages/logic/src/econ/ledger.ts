@@ -10,11 +10,10 @@ export function createEcon(seed: number, economy: EconomyDef): EconState {
       jige: createRng(deriveSeed(seed, 'jige')), drop: createRng(deriveSeed(seed, 'drop')),
     },
     roundKills: 0, questTokens: 0,
-    ledger: { story: 0, tokens: 0 },
+    ledger: { tokens: 0 },
     pendingDrops: [],
     market: { day: 0, draws: 0 },
     jige: 0,
-    story: { target: null, pinned: [], log: [], offers: 0, awarded: false, active: null },
     mission: { phase: 'idle', beastId: null, beastDown: false },
     collection: { done: [], paid: false },
     events: [],
@@ -50,19 +49,18 @@ export function nonQuestValue(state: GameState): number {
   return n;
 }
 
-/** Q: story support plus the value reserved for quest tokens. */
+/** Q: the value reserved for quest tokens. */
 export function questLoad(state: GameState): number {
   const l = state.econ?.ledger;
-  return l ? l.story + l.tokens : 0;
+  return l?.tokens ?? 0;
 }
 
-export function fitsCaps(state: GameState, addStory: number, addTokens: number, nAfter: number): boolean {
+export function fitsCaps(state: GameState, addTokens: number, nAfter: number): boolean {
   const econ = state.econ;
   const caps = state.data.economy?.ledger;
   if (!econ || !caps) return false;
-  const story = econ.ledger.story + addStory;
-  const q = story + econ.ledger.tokens + addTokens;
-  return story <= caps.storyCap && q <= caps.totalCap && caps.ratio * q <= nAfter;
+  const q = econ.ledger.tokens + addTokens;
+  return q <= caps.totalCap && caps.ratio * q <= nAfter;
 }
 
 /** Spends one token, quest tokens first. */
@@ -83,7 +81,7 @@ export function grantQuestTokens(state: GameState, n: number): boolean {
   const caps = state.data.economy?.ledger;
   if (!econ || !caps) return false;
   const add = n * caps.tokenValue;
-  if (!fitsCaps(state, 0, add, nonQuestValue(state))) return false;
+  if (!fitsCaps(state, add, nonQuestValue(state))) return false;
   state.tokens += n;
   econ.questTokens += n;
   econ.ledger.tokens += add;

@@ -43,13 +43,12 @@ export function marketCommands(state: GameState, target: string | null, freeAfte
   return Array.from({ length: count }, () => ({ type: 'buy', item: 'draw' }));
 }
 
-/** Story target on change, the personal mission when affordable, and missing collection combines. */
+/** The personal mission when affordable, and missing collection combines. */
 export function questCommands(state: GameState, target: string | null): Command[] {
   const econ = state.econ;
   const eco = state.data.economy;
   if (!econ || !eco) return [];
   const cmds: Command[] = [];
-  if (eco.story && econ.story.target !== target) cmds.push({ type: 'storyTarget', id: target });
   const m = eco.mission;
   if (m && state.phase === 'round' && state.round === m.round && econ.mission.phase === 'idle'
       && state.tick < state.roundStartTick + toTicks(m.entrySeconds) && state.coins - m.fee >= reserveCoins(state, target)) {

@@ -43,9 +43,7 @@ describe('stage 3 economy bot policies', () => {
     const s = lane(12, 20);
     s.tick = s.roundStartTick + 10;
     const first = questCommands(s, T);
-    expect(first).toContainEqual({ type: 'storyTarget', id: T });
     expect(first).toContainEqual({ type: 'missionEnter' });
-    s.econ!.story.target = T;
     expect(questCommands(s, T)).toEqual([{ type: 'missionEnter' }]);
     s.coins = 19;
     expect(questCommands(s, T)).toEqual([]);
@@ -54,7 +52,6 @@ describe('stage 3 economy bot policies', () => {
     expect(questCommands(s, T)).toEqual([]);
 
     const c = lane(22, 0);
-    c.econ!.story.target = T;
     placeUnitForTest(c, 'sotlid', 0); placeUnitForTest(c, 'bujigaengi', 1);
     expect(questCommands(c, T)).toEqual([{ type: 'combine', result: 'gamasot' }]);
     c.econ!.collection.done = ['gamasot'];
@@ -158,14 +155,14 @@ describe('six-seat grade 6 measurement', () => {
 
   test('configData switches sections off', () => {
     const base = configData(d3, STANDARD_CONFIGS.find(c => c.name === 'target-base')!, 1).economy!;
-    for (const k of ['market', 'drops', 'story', 'mission', 'collection', 'team', 'ssireum', 'shadow', 'tame', 'transfer'] as const) {
+    for (const k of ['market', 'drops', 'mission', 'collection', 'team', 'ssireum', 'shadow', 'tame', 'transfer'] as const) {
       expect(base[k]).toBeUndefined();
     }
     expect(base.ledger).toBeDefined();
     const q2 = configData(d3, STANDARD_CONFIGS.find(c => c.name === 'target-full-q2')!, 1).economy!;
     const general = (['mission', 'collection', 'team', 'ssireum'] as const).filter(k => q2[k] !== undefined);
     expect(general).toEqual(questPair(1));
-    expect(q2.market && q2.story && q2.tame && q2.transfer).toBeTruthy();
+    expect(q2.market && q2.tame && q2.transfer).toBeTruthy();
     const nd = configData(d3, { ...STANDARD_CONFIGS[0]!, noDefeat: true }, 1);
     expect(nd.balance.limit).toBe(1e9);
     expect(d3.balance.limit).not.toBe(1e9);
@@ -208,14 +205,14 @@ describe('six-seat grade 6 measurement', () => {
 function econMatchRunStub(): EconRow[] {
   return [{
     seed: 1, config: 'target-full', bot: 'target', seat: 2, finished: true, teamOutcome: 'clear', endRound: 60,
-    grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, coinsAtFinal: 412, buckwheatAtFinal: 2, firstGrade6Round: 33, firstSource: 'story', storyOffers: 1, storyAward: 1,
+    grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, coinsAtFinal: 412, buckwheatAtFinal: 2, firstGrade6Round: 33, firstSource: 'combine',
     buckwheat9Round: 30, buckwheat12Round: null, coins180Round: 6, coins240Round: 8,
     draws: 12, questWins: 'mission+team', tames: 1, transfersSent: 1, transfersReceived: 0, sold: 30,
     missingAtEnd: 'moru', yeoksinKills: 4,
     boss10: 21.5, boss20: 48.25, boss30: null, boss40: 60, boss50: null, boss60: 70.1,
   }, {
     seed: 1, config: 'target-full', bot: 'target', seat: 3, finished: false, teamOutcome: 'clear', endRound: 41,
-    grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
+    grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null,
     buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
     draws: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
     boss10: 30, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,

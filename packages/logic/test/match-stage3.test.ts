@@ -143,28 +143,6 @@ describe('stage 3 match schedule', () => {
     expect(snapshot()).toMatchObject({ mission: { phase: 'lost', beastId: null, beastDown: false }, events: [] });
   });
 
-  test('story settlement sees coins before the round-end 10 and records the grade-6 award in the result', () => {
-    for (const [coins, reason, after] of [[59, 'funds', 69], [60, 'award', 10]] as const) {
-      const m = createMatch(d3, 1, [1]);
-      const lane = m.lanes[1]!;
-      placeUnitForTest(lane, 'janggu', 0); placeUnitForTest(lane, 'moru', 1);
-      for (let i = 6; i < 9; i++) placeUnitForTest(lane, 'top', i);
-      lane.econ!.story.target = 'cheonnyeonjing';
-      lane.econ!.story.log = [28, 29].map(round => ({ round, target: 'cheonnyeonjing', missing: 1 }));
-      jumpToTick(m, rst(31));
-      const r = stepMatch(m, []);
-      expect(r.lanes[1]!.events.some(e => e.type === 'storyOffer')).toBe(true);
-      lane.coins = coins; lane.buckwheat = 1; lane.econ!.roundKills = 20;
-      jumpToTick(m, rst(32) - 1);
-      const end = stepMatch(m, []);
-      expect(end.lanes[1]!.events).toContainEqual({ type: 'storyEnd', target: 'cheonnyeonjing', reason });
-      expect(lane.coins).toBe(after);
-      if (reason === 'award') {
-        stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'forfeit' } }]);
-        expect(m.result?.seats[0]?.bestUnit).toEqual({ defId: 'cheonnyeonjing', grade: 6 });
-      }
-    }
-  });
 });
 
 function teamMatch(seats = SIX): MatchState {
@@ -193,7 +171,7 @@ const eight = (seats: number[], extra: Record<number, number> = {}) =>
 describe('team request and ssireum', () => {
   test('team request: three nights at or under survivors × 8 pay each survivor one quest token; 49 of 48 resets', () => {
     const m = teamMatch();
-    m.lanes[6]!.econ!.ledger = { story: 16, tokens: 4 };
+    m.lanes[6]!.econ!.ledger = { tokens: 20 };
     const tokens = SIX.map(s => m.lanes[s]!.tokens);
     nightWith(m, 21, eight(SIX));
     nightWith(m, 22, eight(SIX));

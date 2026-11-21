@@ -4,7 +4,6 @@ import { createRng, deriveSeed, nextInt } from '../rng';
 import { countNormalEnemies } from '../stats';
 import { toTicks, waveOf } from '../flow';
 import { addUnit, unitDefFast } from '../units';
-import { storyTick } from '../econ/story';
 import { grantQuestTokens } from '../econ/ledger';
 import { spawnEventEnemy } from '../econ/events';
 
@@ -65,7 +64,6 @@ function endOffer(
   if (unit) {
     delete unit.locked;
     const lane = match.lanes[offer.from]!;
-    if (lane.econ?.story.active) storyTick(lane, laneEvents(ctx, offer.from));
   }
   ctx.events.push({
     type: 'transferEnd', from: offer.from, to: offer.to, defId: why.defId ?? unit?.defId ?? '', outcome,
@@ -108,7 +106,6 @@ function offer(match: MatchState, from: number, cmd: Extract<MatchCommand, { typ
   if (involved(match, target)) return 'targetBusy';
   if (match.round < (econ.readyRound[from] ?? 0) || match.round < (econ.readyRound[target] ?? 0)) return 'cooldown';
   unit.locked = true;
-  if (lane.econ.story.active) storyTick(lane, laneEvents(ctx, from));
   econ.offers.push({ offerId: econ.nextOfferId++, from, to: target, slot: cmd.slot, unitId: unit.id, tick: ctx.tick });
   ctx.events.push({ type: 'transferOffer', from, to: target, defId: unit.defId, tick: ctx.tick });
   return null;
@@ -131,7 +128,6 @@ function accept(match: MatchState, seat: number, offerId: number, slot: number, 
   const moved = addUnit(to, unit.defId, slot, laneEvents(ctx, seat));
   if (unit.cost !== undefined) moved.cost = unit.cost;
   moved.delivered = true;
-  if (to.econ?.story.active) storyTick(to, laneEvents(ctx, seat));
   laneEvents(ctx, seat).push({ type: 'summon', unitId: moved.id, defId: moved.defId, grade: unitDefFast(match.data, moved.defId).grade, slot });
   econ.readyRound[o.from] = match.round + def.cooldownRounds;
   econ.readyRound[seat] = match.round + def.cooldownRounds;

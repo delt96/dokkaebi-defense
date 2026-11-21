@@ -1,15 +1,11 @@
 {
-  "ledger": { "tokenValue": 4, "storyCap": 16, "totalCap": 20, "ratio": 3 },
+  "ledger": { "tokenValue": 4, "totalCap": 20, "ratio": 3 },
   "startingBuckwheat": 1,
   "market": {
     "dayRounds": 10, "jigeChance": 0.03, "maxSwapGrade": 4,
     "draw": { "buckwheatCost": 1, "perDay": 3, "weights": [2, 1] }
   },
   "drops": [ { "round": 20, "grade": 3 }, { "round": 40, "grade": 3 }, { "round": 50, "grade": 2 } ],
-  "story": {
-    "checks": [ { "round": 31, "recordRounds": [28, 29] }, { "round": 46, "recordRounds": [44, 45] } ],
-    "kills": 20, "fee": { "coins": 60, "buckwheat": 1 }, "maxAwards": 1
-  },
   "mission": { "round": 12, "entrySeconds": 5, "fee": 20, "enemy": "ev_soebap", "kills": 20, "reward": { "coins": 30, "buckwheat": 1 } },
   "collection": { "fromRound": 21, "toRound": 29, "items": ["gamasot", "meongseok", "hwaro"], "coins": 20 },
   "team": { "fromRound": 21, "toRound": 29, "perSurvivor": 8, "nights": 3, "tokens": 1 },

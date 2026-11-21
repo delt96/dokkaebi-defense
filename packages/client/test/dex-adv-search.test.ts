@@ -142,17 +142,17 @@ describe('dex html', () => {
     const closed = dexHtml(d3);
     expect(closed).toContain('data-action="dexAdv" aria-expanded="false"');
     expect(closed).not.toContain('dex-skillsearch');
-    const open = dexHtml(d3, undefined, 'all', '', 1, { adv: true });
+    const open = dexHtml(d3, 'all', '', 1, { adv: true });
     expect(open).toContain('dex-skillsearch');
     expect(open).not.toContain('data-action="dexMine"');
-    const withGame = dexHtml(d3, undefined, 'all', '', 1, { adv: true, state: board(true, true) });
+    const withGame = dexHtml(d3, 'all', '', 1, { adv: true, state: board(true, true) });
     for (const k of ['ready', 'one', 'uses']) expect(withGame).toContain(`data-action="dexMine" data-arg="${k}"`);
-    expect(dexHtml(d2, undefined, 'all', '', 1, { adv: true })).toContain('dex-skillsearch');
-    expect(dexHtml(d2, undefined, 'all', '', 1, { adv: true })).not.toContain('dex-search"');
+    expect(dexHtml(d2, 'all', '', 1, { adv: true })).toContain('dex-skillsearch');
+    expect(dexHtml(d2, 'all', '', 1, { adv: true })).not.toContain('dex-search"');
   });
 
   test('the toggle counts the criteria that are on, and the list follows them', () => {
-    const html = dexHtml(d3, undefined, 'all', '', 1, {}, { skill: '폭발', role: 'slow,stun' });
+    const html = dexHtml(d3, 'all', '', 1, {}, { skill: '폭발', role: 'slow,stun' });
     expect(html).toContain('상세검색 ▸ (2)');
     expect(html).toContain('data-action="dexReset"');
     const rows = ids(html);
@@ -256,7 +256,7 @@ describe('상세검색 in the mounted ui', () => {
 describe('dex two-column layout', () => {
   test('filters sit in the side column, the count and reset above the scrolling list, in both dexes', () => {
     for (const data of [d2, d3]) {
-      const html = dexHtml(data, undefined, 'all', '', 1, { adv: true }, { skill: '폭발' });
+      const html = dexHtml(data, 'all', '', 1, { adv: true }, { skill: '폭발' });
       const side = html.slice(html.indexOf('class="dex-side"'), html.indexOf('class="dex-main"'));
       const main = html.slice(html.indexOf('class="dex-main"'));
       expect(side).toContain('data-action="dexKind"');

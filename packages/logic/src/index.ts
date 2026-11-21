@@ -9,10 +9,9 @@ export {
 } from './econ/ledger';
 export { jigeCandidates, swapJige } from './econ/jige';
 export { buyCheck, marketDay, marketView, placePendingDrops, type MarketView } from './econ/market';
-export { econView, type EconMarketView, type EconStoryView, type EconTameView, type EconView } from './econ/view';
+export { econView, type EconMarketView, type EconTameView, type EconView } from './econ/view';
 export { spawnEventEnemy, type EventKind } from './econ/events';
 export { onCollectionCombine } from './econ/quests';
-export { storySlots, storyView, type StoryView } from './econ/story';
 export { pickResultSlot } from './combine';
 export { tameCheck } from './econ/tame';
 export { createGame, step, laneOf, applyCommand, runAfterCommandHooks, runCombat } from './game';
