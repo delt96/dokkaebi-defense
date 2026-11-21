@@ -17,17 +17,8 @@ export interface YeoksinView { stage: number; hp: number; maxHp: number; seat: n
 /** stage 3 = both gates cleared. */
 export interface GateView { stage: number; kills: number; deadlineTick: number | null }
 export interface ClockView { tick: number; phase: 'prep' | 'round' | 'ended'; round: number; roundStartTick: number; roundEndTick: number }
-/** The jige delivery as one seat sees it: its own and everyone's next allowed round, seats tied up in an offer, and its offer. */
-export interface TransferMine {
-  ready: number; readyRounds: Record<number, number>; busy: number[];
-  offer: { offerId: number; from: number; to: number; defId: string; slot: number; unitId: number; deadlineTick: number } | null;
-  rewarded: boolean; rewardsLeft: number;
-  /** Ids of this seat's units that came by delivery (they cannot be sent on). */
-  delivered: number[];
-}
-/** Stage 3 only: the lane economy plus the match parts one seat needs (delivery, team request night count). */
+/** Stage 3 only: the lane economy plus the match part one seat needs (team request night count). */
 export interface EconMine extends EconView {
-  transfer: TransferMine | null;
   team: { streak: number; paid: boolean } | null;
 }
 export interface MineView {
@@ -38,11 +29,7 @@ export interface MineView {
   storage?: UnitView[];
   /** Left out entirely on rule data without an economy, so 20-round messages stay as they were. */
   econ?: EconMine;
-  /** Stage 3: deliveries this seat took part in that ended on this tick, with the server's reason (only when there are some). */
-  transferEnds?: TransferEndView[];
 }
-/** How a delivery ended, as the logic decided it (see MatchEvent 'transferEnd'). */
-export type TransferEndView = Omit<Extract<MatchEvent, { type: 'transferEnd' }>, 'type'>;
 export interface ClientView {
   n: number; dataVersion: string; clock: ClockView; rows: RowView[]; gate: GateView; yeoksin: YeoksinView | null;
   me: { seat: number; key: string }; mine: MineView; watching: number; lane: LaneView; result: MatchResult | null;

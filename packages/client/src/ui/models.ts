@@ -278,13 +278,8 @@ const REJECT_TEXT: Record<string, string> = {
   noTarget: '길들일 대상이 사라졌습니다',
   tameHp: '아직 체력이 높습니다',
   tameCondition: '길들이기 조건이 풀렸습니다',
-  locked: '배달 중인 유닛은 쓸 수 없습니다',
-  busy: '이미 배달을 주고받는 중입니다',
-  targetBusy: '상대가 다른 배달을 주고받는 중입니다',
-  targetAway: '그 고개는 연결이 끊겼습니다',
-  cooldown: '아직 다음 배달을 할 수 없습니다',
-  noJige: '지게 도깨비가 없습니다',
-  noOffer: '받을 배달이 없습니다',
+  cooldown: '아직 다시 시도할 수 없습니다',
+  noJige: '지게가 없습니다',
   // storage
   notStorable: '1·2등급만 보관할 수 있습니다',
   nothingToStore: '보관할 1·2등급 유닛이 없습니다',
@@ -517,9 +512,9 @@ export function recipeTree(data: GameData, id: string, board: readonly string[] 
   return top;
 }
 
-/** Def ids of the units a combine can use: the board's (a unit out on a delivery is locked), then the stored ones. */
+/** Def ids of the units a combine can use: the board's, then the stored ones. */
 export function boardUnits(state: GameState): string[] {
-  return [...state.slots.flatMap(u => (u && !u.locked ? [u.defId] : [])), ...(state.storage ?? []).map(u => u.defId)];
+  return [...state.slots.flatMap(u => (u ? [u.defId] : [])), ...(state.storage ?? []).map(u => u.defId)];
 }
 
 /** One stack in the storage column: every stored unit of one kind. */

@@ -112,31 +112,6 @@ describe('stage 3 economy bot policies', () => {
     expect(withPolicy).toBeDefined();
     expect(withPolicy).toBeGreaterThanOrEqual(4);
   });
-
-  test('driver offers a unit another seat lacks and the receiver accepts', () => {
-    const m = createMatch(d3, 1, [1, 2]);
-    jumpToTick(m, roundStartTick(d3, 22) + 1);
-    while (m.tick % 10 !== 0) stepMatch(m, []);
-    m.lanes[1]!.econ!.jige = 1;
-    m.lanes[1]!.tokens = 0; m.lanes[2]!.tokens = 0;
-    const other = d3.units.find(u => u.grade === 6 && !u.hidden && !expandHas(u.id, 'moru'))!.id;
-    const b1 = targetBot(1, { targets: [other], policy: { market: false, quests: false, tame: false } });
-    const b2 = targetBot(2, { targets: [T], policy: { market: false, quests: false, tame: false } });
-    placeUnitForTest(m.lanes[1]!, 'moru', 12);
-    for (let k = 0; k < 18; k++) if (!m.lanes[2]!.slots[k] && k !== 5) placeUnitForTest(m.lanes[2]!, 'janggu', k);
-    m.lanes[2]!.slots[0] = null;
-    const driver = new EconDriver(m, [b1, b2], { transfer: true });
-    let offered = false;
-    let accepted = false;
-    for (let k = 0; k < 40 && !accepted; k++) {
-      const r = stepMatch(m, driver.inputs());
-      if (r.events.some(e => e.type === 'transferOffer' && e.from === 1 && e.to === 2 && e.defId === 'moru')) offered = true;
-      if (r.events.some(e => e.type === 'transferEnd' && e.outcome === 'accepted')) accepted = true;
-    }
-    expect(offered).toBe(true);
-    expect(accepted).toBe(true);
-    expect(m.lanes[2]!.slots.some(u => u?.defId === 'moru' && u.delivered)).toBe(true);
-  });
 });
 
 function expandHas(target: string, id: string): boolean {
@@ -155,14 +130,14 @@ describe('six-seat grade 6 measurement', () => {
 
   test('configData switches sections off', () => {
     const base = configData(d3, STANDARD_CONFIGS.find(c => c.name === 'target-base')!, 1).economy!;
-    for (const k of ['market', 'drops', 'mission', 'collection', 'team', 'ssireum', 'shadow', 'tame', 'transfer'] as const) {
+    for (const k of ['market', 'drops', 'mission', 'collection', 'team', 'ssireum', 'shadow', 'tame'] as const) {
       expect(base[k]).toBeUndefined();
     }
     expect(base.ledger).toBeDefined();
     const q2 = configData(d3, STANDARD_CONFIGS.find(c => c.name === 'target-full-q2')!, 1).economy!;
     const general = (['mission', 'collection', 'team', 'ssireum'] as const).filter(k => q2[k] !== undefined);
     expect(general).toEqual(questPair(1));
-    expect(q2.market && q2.tame && q2.transfer).toBeTruthy();
+    expect(q2.market && q2.tame).toBeTruthy();
     const nd = configData(d3, { ...STANDARD_CONFIGS[0]!, noDefeat: true }, 1);
     expect(nd.balance.limit).toBe(1e9);
     expect(d3.balance.limit).not.toBe(1e9);
@@ -207,14 +182,14 @@ function econMatchRunStub(): EconRow[] {
     seed: 1, config: 'target-full', bot: 'target', seat: 2, finished: true, teamOutcome: 'clear', endRound: 60,
     grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, coinsAtFinal: 412, buckwheatAtFinal: 2, firstGrade6Round: 33, firstSource: 'combine',
     buckwheat9Round: 30, buckwheat12Round: null, coins180Round: 6, coins240Round: 8,
-    draws: 12, questWins: 'mission+team', tames: 1, transfersSent: 1, transfersReceived: 0, sold: 30,
+    draws: 12, questWins: 'mission+team', tames: 1, sold: 30,
     missingAtEnd: 'moru', yeoksinKills: 4,
     boss10: 21.5, boss20: 48.25, boss30: null, boss40: 60, boss50: null, boss60: 70.1,
   }, {
     seed: 1, config: 'target-full', bot: 'target', seat: 3, finished: false, teamOutcome: 'clear', endRound: 41,
     grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null,
     buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
-    draws: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
+    draws: 0, questWins: '', tames: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
     boss10: 30, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
   }];
 }

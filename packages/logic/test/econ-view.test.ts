@@ -61,41 +61,16 @@ describe('econ in the mine stream', () => {
     return { m, streamer: new MatchStreamer(m) };
   }
 
-  test('a buy and a transfer offer reach both seats through mine, and full agrees with the stream', () => {
+  test('a buy reaches its seat through mine, and full agrees with the stream', () => {
     const { m, streamer } = start();
-    m.lanes[1]!.coins = 500;
-    m.lanes[1]!.econ!.jige = 1;
-    const view = buildFull(m, 2, { watching: 2, names, key: 'k', n: 0 });
-    let r = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'buy', item: 'draw' } }]);
-    let out = streamer.afterStep(r);
+    const view = buildFull(m, 1, { watching: 1, names, key: 'k', n: 0 });
+    const r = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'buy', item: 'draw' } }]);
+    const out = streamer.afterStep(r);
     expect(out.mine[1]!.econ!.market!.draw.left).toBe(2);
-    const unit = placeUnitForTest(m.lanes[1]!, 'jipsin', 5);
-    const offer: MatchCommand = { type: 'transferOffer', target: 2, slot: 5, unitId: unit.id };
-    r = stepMatch(m, [{ seat: 1, seq: 2, cmd: offer }]);
-    out = streamer.afterStep(r);
-    const t2 = out.mine[2]!.econ!.transfer!;
-    expect(t2.offer).toEqual({ offerId: 1, from: 1, to: 2, slot: 5, unitId: unit.id, defId: 'jipsin', deadlineTick: r.tick + 200 });
-    expect(t2.busy).toEqual([1, 2]);
-    applyMine(view, out.mine[2]!);
-    expect(view.mine.econ).toEqual(buildFull(m, 2, { watching: 2, names, key: 'k', n: 0 }).mine.econ);
-    r = stepMatch(m, [{ seat: 2, seq: 1, cmd: { type: 'transferAccept', offerId: t2.offer!.offerId, slot: 0 } }]);
-    out = streamer.afterStep(r);
-    expect(out.mine[2]!.econ!.transfer).toMatchObject({ offer: null, ready: m.round + 5, rewarded: true, rewardsLeft: 4 });
-    expect(out.mine[1]!.econ!.transfer!.readyRounds).toEqual({ 1: m.round + 5, 2: m.round + 5 });
-  });
-
-  test('an ended delivery reaches both seats\' mine once, with the server\'s reason; a full never carries it', () => {
-    const { m, streamer } = start();
-    m.lanes[1]!.econ!.jige = 1;
-    const unit = placeUnitForTest(m.lanes[1]!, 'moru', 5);
-    streamer.afterStep(stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'transferOffer', target: 2, slot: 5, unitId: unit.id } }]));
-    const out = streamer.afterStep(stepMatch(m, [{ seat: 2, seq: 1, cmd: { type: 'disconnect' } }]));
-    const end = { from: 1, to: 2, defId: 'moru', outcome: 'invalid', by: 2, cause: 'disconnected' };
-    expect(out.mine[1]!.transferEnds).toEqual([end]);
-    expect(out.mine[2]!.transferEnds).toEqual([end]);
-    const next = streamer.afterStep(stepMatch(m, []));
-    expect(next.mine[1]?.transferEnds).toBeUndefined();
-    expect('transferEnds' in buildFull(m, 1, { watching: 1, names, key: 'k', n: 0 }).mine).toBe(false);
+    expect(out.mine[2]).toBeNull();
+    applyMine(view, out.mine[1]!);
+    expect(view.mine.econ).toEqual(buildFull(m, 1, { watching: 1, names, key: 'k', n: 0 }).mine.econ);
+    expect('transfer' in view.mine.econ!).toBe(false);
   });
 });
 

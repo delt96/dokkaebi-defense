@@ -21,11 +21,7 @@ export interface SeatResult {
 }
 export interface MatchResult { outcome: TeamOutcome; tick: number; round: number; yeoksinKills: number; started: number; alive: number; seats: SeatResult[] }
 export interface MatchOptions { noElimination?: boolean; noGate?: boolean }
-export interface TransferOffer { offerId: number; from: number; to: number; slot: number; unitId: number; tick: number }
-export interface MatchEcon {
-  rng: RngState; team: { streak: number; paid: boolean }; ssireumSeat: number | null;
-  nextOfferId: number; offers: TransferOffer[]; readyRound: Record<number, number>; rewarded: number[];
-}
+export interface MatchEcon { rng: RngState; team: { streak: number; paid: boolean }; ssireumSeat: number | null }
 export interface MatchState {
   data: GameData; dataVersion: string; seed: number; ring: number[];
   tick: number; phase: 'prep' | 'round' | 'ended'; round: number; roundStartTick: number; roundEndTick: number;
@@ -34,9 +30,7 @@ export interface MatchState {
   econ?: MatchEcon;
 }
 export type MatchCommand =
-  | Command | { type: 'support'; target: number } | { type: 'forfeit' } | { type: 'disconnect' } | { type: 'reconnect' } | { type: 'invalid' }
-  | { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; offerId: number; slot: number }
-  | { type: 'transferDecline'; offerId: number };
+  | Command | { type: 'support'; target: number } | { type: 'forfeit' } | { type: 'disconnect' } | { type: 'reconnect' } | { type: 'invalid' };
 export interface MatchInput { seat: number; seq: number; cmd: MatchCommand }
 export type Ack =
   | { seat: number; seq: number; tick: number; ok: true }
@@ -48,14 +42,6 @@ export type MatchEvent =
   | { type: 'support'; from: number; to: number; coins: number }
   | { type: 'bossSpawn'; seat: number; round: number; enemyId: number } | { type: 'bossKilled'; seat: number; round: number }
   | { type: 'ssireumDraw'; seat: number }
-  | { type: 'transferOffer'; from: number; to: number; defId: string; tick: number }
-  | {
-    type: 'transferEnd'; from: number; to: number; defId: string; outcome: 'accepted' | 'declined' | 'expired' | 'invalid';
-    /** The seat that declined or dropped out; null when the offer was taken or ran out. */
-    by: number | null;
-    /** Why an invalid offer ended: a seat was eliminated or lost its connection, or the unit was gone. */
-    cause: 'eliminated' | 'disconnected' | 'unitGone' | null;
-  }
   | { type: 'yeoksinSpawn'; stage: number; maxHp: number }
   | { type: 'yeoksinEnter'; stage: number; seat: number; from: number | null; enterTick: number; hp: number; maxHp: number }
   | { type: 'yeoksinLeave'; stage: number; seat: number }

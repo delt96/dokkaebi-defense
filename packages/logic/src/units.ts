@@ -107,7 +107,6 @@ registerCommand('move', (state, cmd) => {
   if (!validSlot(state, cmd.from) || !state.slots[cmd.from]) return 'noUnit';
   if (!validSlot(state, cmd.to) || !state.open[cmd.to]) return 'closedSlot';
   if (cmd.from === cmd.to) return null;
-  if (state.slots[cmd.from]!.locked || state.slots[cmd.to]?.locked) return 'locked';
   const a = state.slots[cmd.from]!;
   state.slots[cmd.from] = state.slots[cmd.to] ?? null;
   state.slots[cmd.to] = a;
@@ -117,7 +116,6 @@ registerCommand('move', (state, cmd) => {
 registerCommand('sell', (state, cmd) => {
   if (cmd.type !== 'sell') return 'unknown';
   if (!validSlot(state, cmd.slot) || !state.slots[cmd.slot]) return 'noUnit';
-  if (state.slots[cmd.slot]!.locked) return 'locked';
   const def = unitDefFast(state.data, state.slots[cmd.slot]!.defId);
   state.coins += state.data.balance.sellPrice[def.grade - 1] ?? 0;
   state.slots[cmd.slot] = null;

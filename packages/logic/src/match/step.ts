@@ -9,7 +9,7 @@ import {
   applySeatCommand, decideResult, expireDisconnects, judgeSeats, onBossSpawned, seatsAfterLane, seatsOnRoundStart,
 } from './seats';
 import { expireMissedYeoksin, yeoksinAfterLane, yeoksinPosition, yeoksinStep2 } from './yeoksin';
-import { applyTransferCommand, matchEconRoundEnd, matchEconRoundStart, TRANSFER_COMMANDS, transferStep } from './econ';
+import { matchEconRoundEnd, matchEconRoundStart } from './econ';
 import { eventsTick } from '../econ/events';
 import { econRoundEnd } from '../econ/hooks';
 
@@ -36,7 +36,6 @@ function applyInput(match: MatchState, input: MatchInput, ctx: StepMatchResult):
   const cmd = input.cmd;
   const type = (cmd as { type?: unknown } | null | undefined)?.type;
   if (typeof type === 'string' && SEAT_COMMANDS.has(type)) return applySeatCommand(match, input, ctx);
-  if (typeof type === 'string' && TRANSFER_COMMANDS.has(type)) return applyTransferCommand(match, input, ctx);
   if (type === 'invalid') return 'badArgs';
   const seat = match.seats[input.seat]!;
   if (!seat.alive) return 'notAlive';
@@ -78,7 +77,6 @@ export function stepMatch(match: MatchState, inputs: MatchInput[]): StepMatchRes
     if (lane.econ) eventsTick(lane, step.events);
   }
   expireDisconnects(match, ctx);
-  if (match.econ) transferStep(match, ctx);
   for (const input of inputs) {
     if (!match.ring.includes(input.seat)) continue;
     const seat = match.seats[input.seat]!;

@@ -1,4 +1,4 @@
-import { econView, step, type Command, type EconMine, type GameEvent, type GameState, type StepResult, type TransferEndView } from '@dorandi/logic';
+import { econView, step, type Command, type EconMine, type GameEvent, type GameState, type StepResult } from '@dorandi/logic';
 
 export function ticksToRun(elapsedMs: number, carryMs: number, tickMs = 50, maxTicks = 40): { ticks: number; carryMs: number } {
   const total = elapsedMs + carryMs;
@@ -42,7 +42,6 @@ export interface Driver {
   /** Stage 3: the own lane's economy (null without one, or while only watching). */
   econ?(): EconMine | null;
   /** Online stage 3: deliveries this seat took part in that ended, with the server's reason. */
-  onTransferEnd?(cb: (ends: TransferEndView[]) => void): void;
 }
 
 export class GameDriver implements Driver {
@@ -57,7 +56,7 @@ export class GameDriver implements Driver {
 
   econ(): EconMine | null {
     const v = econView(this.state);
-    return v ? { ...v, transfer: null, team: null } : null;
+    return v ? { ...v, team: null } : null;
   }
 
   enemyDistance(id: number, distance: number): number {

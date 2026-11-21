@@ -1,5 +1,5 @@
 import {
-  laneOf, unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type TransferEndView, type UpgradeId,
+  laneOf, unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type UpgradeId,
 } from '@dorandi/logic';
 import type { Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
@@ -11,8 +11,8 @@ import { playSfx } from '../sfx';
 import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
-  econBottomHtml, econPanelHtml, econTopHtml, incomingModel, marketModel, noteText, questChips, shipModel, tameModel,
-  tameRejectText, transferEndText, type EconTab,
+  econBottomHtml, econPanelHtml, econTopHtml, marketModel, noteText, questChips, tameModel,
+  tameRejectText, type EconTab,
 } from './econ';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
@@ -37,14 +37,13 @@ export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: 
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
-  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'missionEnter', 'tame', 'ship', 'shipCancel', 'receive', 'refuse',
+  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'missionEnter', 'tame',
   'storeAll', 'retrieve', 'sellStored',
 ]);
 const PRESS_MS = 120;
 
 /** Online screens also read the server view for the scoreboard and the two-line top bar. */
-export type TransferCommand = { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; offerId: number; slot: number } | { type: 'transferDecline'; offerId: number };
-export interface OnlineActions { support(): void; watch(seat: number): void; forfeit(): void; transfer?(cmd: TransferCommand): void }
+export interface OnlineActions { support(): void; watch(seat: number): void; forfeit(): void }
 export interface MountOpts { online?: boolean; view?: () => ClientView | null; data?: GameData; actions?: OnlineActions }
 
 export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, opts: MountOpts = {}): { resetUi: () => void } {
@@ -63,12 +62,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | null = null;
   let best: { id: string; grade: number } | null = null;
   let notice: Notice | null = null;
-  // stage 3 economy: the B panel (null = closed), the story request already seen, a new one not yet looked at (the left
-  // panel was busy when it came), the slot a delivery lands in and the offer on screen
+  // stage 3 economy: the B panel (null = closed)
   let econTab: EconTab | null = null;
-  let receiveSlot: number | null = null;
-  let incomingShown = false;
-  let lastOffer: number | null = null;
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
   for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage']) {
@@ -129,19 +124,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         driver.queue({ type: 'tame', enemyId: t.enemyId });
         break;
       }
-      case 'ship': {
-        const e = econ();
-        const m = e ? shipModel(e, driver.state, opts.view?.() ?? null, selectedSlot(driver.state, scene.selectedId)) : null;
-        if (m?.unit) opts.actions?.transfer?.({ type: 'transferOffer', target: Number(arg), slot: m.unit.slot, unitId: m.unit.unitId });
-        break;
-      }
-      case 'shipCancel':
-      case 'refuse':
-        if (lastOffer !== null) opts.actions?.transfer?.({ type: 'transferDecline', offerId: lastOffer });
-        break;
-      case 'receive':
-        if (lastOffer !== null) opts.actions?.transfer?.({ type: 'transferAccept', offerId: lastOffer, slot: Number(arg) });
-        break;
       case 'toggleHelper':
         if (modal === 'menu' && helperOpen) { modal = null; break; }
         helperOpen = !helperOpen;
@@ -242,8 +224,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   });
   scene.onSelect(slot => {
     if (modal || driver.failed || driver.state.phase === 'ended') return;
-    // while a delivery waits, a press on an empty cell picks where it lands
-    if (incomingShown && slot !== null && !driver.state.slots[slot] && driver.state.open[slot]) receiveSlot = slot;
     scene.selectedId = slot === null ? null : driver.state.slots[slot]?.id ?? null;
     render();
   });
@@ -271,26 +251,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (text) say(text, NOTE_MS);
     }
     for (const r of rejected) {
-      // a refused 받기/거절 decided nothing; the end of the offer is told by the server's transferEnd
-      // (delivery commands come back from the server only, so they are outside the lane's Command type)
-      const kind: string = r.command.type;
-      if (kind === 'transferAccept' && r.reason === 'noSlot' && freeSlot()) {
-        notice = { text: '그 칸이 막 찼습니다 · 다시 받아 주세요', until: performance.now() + NOTICE_MS };
-        continue;
-      }
       const fullBoard = r.command.type === 'summon' && !freeSlot();
       const tame = r.command.type === 'tame' ? tameRejectText(econ(), r.command.enemyId, r.reason, driver.state.data) : null;
       const text = tame ?? rejectText(fullBoard ? 'noSlot' : r.reason);
       if (text) notice = { text, until: performance.now() + NOTICE_MS };
     }
     if (scene.selectedId !== priorSelection) render();
-  });
-  // how a delivery ended, as the server decided it; it comes even when this seat was just eliminated
-  driver.onTransferEnd?.((ends: TransferEndView[]) => {
-    const me = opts.view?.()?.me.seat;
-    if (me === undefined) return;
-    for (const end of ends) say(transferEndText(end, me, driver.state.data));
-    render();
   });
   scene.onEvents(events => {
     for (const e of events) {
@@ -453,21 +419,12 @@ ${dex.mine.join()}`;
   function renderEcon(view: ClientView | null, selected: number | null): number {
     const s = driver.state;
     const e = s.phase === 'ended' ? null : econ();
-    // the end of an offer is told by the server's transferEnd (see onTransferEnd); here only its leftovers go
-    const offer = e?.transfer?.offer ?? null;
-    if (!offer || offer.offerId !== lastOffer) receiveSlot = null;
-    lastOffer = offer?.offerId ?? null;
-    const incoming = e ? incomingModel(e, s, view, receiveSlot) : null;
-    incomingShown = incoming !== null;
-    const outgoing = e && offer && view && offer.from === view.me.seat
-      ? `${unitName(driver, offer.defId)} → ${offer.to} ${view.rows.find(r => r.seat === offer.to)?.name ?? ''} · 기다리는 중 ${Math.max(0, Math.ceil((offer.deadlineTick - s.tick) * s.data.balance.tickMs / 1000))}초`
-      : null;
     const tame = e ? tameModel(e, s) : null;
-    setHtml(el('econ-top'), e ? econTopHtml(incoming, outgoing, tame) : '');
+    setHtml(el('econ-top'), e ? econTopHtml(tame) : '');
     setHtml(el('econ-bottom'), e ? econBottomHtml(questChips(e, s, view)) : '');
     if (!e || !econTab) setHtml(el('econ-panel'), '');
-    else setHtml(el('econ-panel'), econPanelHtml(econTab, marketModel(e, s), shipModel(e, s, view, selected)));
-    return (incoming || outgoing ? 1 : 0) + (tame ? 1 : 0);
+    else setHtml(el('econ-panel'), econPanelHtml(econTab, marketModel(e, s)));
+    return tame ? 1 : 0;
   }
 
   let pressedUntil = 0;
@@ -494,8 +451,6 @@ ${dex.mine.join()}`;
     best = null;
     notice = null;
     econTab = null;
-    receiveSlot = null;
-    lastOffer = null;
     render();
   }
   return { resetUi };

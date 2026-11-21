@@ -82,7 +82,7 @@ export interface GameData {
 export interface JigeSource { zone: 'board' | 'storage'; index: number; unitId: number }
 export type EconItem = 'draw';
 export type GeneralQuestId = 'mission' | 'collection' | 'team' | 'ssireum';
-export type EconSection = 'market' | 'drops' | GeneralQuestId | 'shadow' | 'tame' | 'transfer';
+export type EconSection = 'market' | 'drops' | GeneralQuestId | 'shadow' | 'tame';
 export interface TameTargetDef {
   enemy: string; unit: string; cost: { buckwheat?: number; coins?: number; tokens?: number };
   needs?: 'slowed' | { vulnSource: string; stacks: number };
@@ -101,7 +101,6 @@ export interface EconomyDef {
   ssireum?: { round: number; enemy: string; seconds: number; buckwheat: number };
   shadow?: { round: number; enemy: string; growSeconds: number; grownHp: number; coins: number; grownCoins: number };
   tame?: { hpPct: number; targets: TameTargetDef[] };
-  transfer?: { offerSeconds: number; cooldownRounds: number; maxGrade: number; reward: number; rewardCap: number };
 }
 export interface EconState {
   rng: { marketGrade: RngState; marketUnit: RngState; jige: RngState; drop: RngState };
@@ -121,7 +120,7 @@ export interface Unit {
   id: number; defId: string; cooldown: number; attackCount: number; periodic: number[];
   chargeTicks?: number; charged?: boolean; streak?: { enemyId: number; count: number };
   neighborHits?: number; neighborLockUntil?: number; explodeReadyTick?: number;
-  cost?: number; locked?: true; delivered?: true;
+  cost?: number;
 }
 export interface Vuln { pct: number; damageType: DamageType | 'all'; ticks: number; stacks: number }
 export interface Dot { remaining: number; pulsesLeft: number; nextPulse: number }
@@ -165,7 +164,7 @@ export type Command =
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
   | 'marketClosed' | 'soldOut' | 'missionClosed' | 'noTarget' | 'tameHp' | 'tameCondition'
-  | 'locked' | 'busy' | 'targetBusy' | 'targetAway' | 'cooldown' | 'noJige' | 'noOffer'
+  | 'cooldown' | 'noJige'
   | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 
@@ -179,7 +178,7 @@ export type GameEvent =
   | { type: 'ended'; result: GameResult }
   | { type: 'jigeSwap'; source: JigeSource; unitId: number; defId: string }
   | { type: 'buy'; item: EconItem; defId: string; spentBuckwheat: number; jige: boolean }
-  | { type: 'questReward'; quest: GeneralQuestId | 'transfer'; coins: number; buckwheat: number; tokens: number }
+  | { type: 'questReward'; quest: GeneralQuestId; coins: number; buckwheat: number; tokens: number }
   | { type: 'tame'; enemyId: number; defId: string; unitId: number; slot: number }
   | { type: 'grow'; enemyId: number; hp: number } | { type: 'flee'; enemyId: number };
 export interface StepResult { events: GameEvent[]; rejected: { command: Command; reason: RejectReason }[] }

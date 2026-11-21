@@ -13,14 +13,14 @@ export const ECON_BOTS: EconBotKind[] = ['clumsy', 'normal', 'target', 'switch',
 
 export interface EconConfig {
   name: string; bot: EconBotKind; noDefeat: boolean;
-  market: boolean; quests: 0 | 2 | 4; tame: boolean; transfer: boolean;
+  market: boolean; quests: 0 | 2 | 4; tame: boolean;
 }
 export interface EconRow {
   seed: number; config: string; bot: string; seat: number; finished: boolean; teamOutcome: string; endRound: number;
   grade6AtFinal: number; grade6AtEnd: number; hidden: number; coinsAtFinal: number; buckwheatAtFinal: number;
   firstGrade6Round: number | null; firstSource: 'combine' | null;
   buckwheat9Round: number | null; buckwheat12Round: number | null; coins180Round: number | null; coins240Round: number | null;
-  draws: number; questWins: string; tames: number; transfersSent: number; transfersReceived: number;
+  draws: number; questWins: string; tames: number;
   sold: number; missingAtEnd: string; yeoksinKills: number;
   boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null;
 }
@@ -56,7 +56,7 @@ export function questPair(seed: number): GeneralQuestId[] {
 export function configData(data: GameData, c: EconConfig, seed: number): GameData {
   const quests = c.quests === 4 ? QUESTS : c.quests === 2 ? questPair(seed) : [];
   const on: Partial<Record<EconSection, boolean>> = {
-    market: c.market, drops: c.market, tame: c.tame, shadow: c.tame, transfer: c.transfer,
+    market: c.market, drops: c.market, tame: c.tame, shadow: c.tame,
   };
   for (const q of QUESTS) on[q] = quests.includes(q);
   const d = economyVariant(data, on);
@@ -93,7 +93,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
   const policy: EconPolicy = { market: c.market, quests: c.quests > 0, tame: c.tame };
   const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
-  const driver = new EconDriver(match, bots, { transfer: c.transfer });
+  const driver = new EconDriver(match, bots);
   const finalTick = roundStartTick(d, d.balance.rounds);
   const rows = new Map<number, EconRow>();
   const prev = new Map<number, { coins: number; buckwheat: number }>();
@@ -103,7 +103,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       seed, config: c.name, bot: c.bot, seat: s, finished: false, teamOutcome: '', endRound: 0,
       grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null,
       buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
-      draws: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
+      draws: 0, questWins: '', tames: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
       boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
     });
     prev.set(s, { coins: 0, buckwheat: 0 });
@@ -131,7 +131,6 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
     for (const e of r.events) {
       if (e.type === 'yeoksinSpawn') yeoksinSpawn.set(e.stage, r.tick);
       else if (e.type === 'yeoksinKilled') yeoksinSeconds[e.stage - 1] = (r.tick - (yeoksinSpawn.get(e.stage) ?? r.tick)) / 20;
-      else if (e.type === 'transferEnd' && e.outcome === 'accepted') { rows.get(e.from)!.transfersSent++; rows.get(e.to)!.transfersReceived++; }
     }
     for (const [key, step] of Object.entries(r.lanes)) {
       const s = Number(key);
@@ -251,17 +250,16 @@ const cfg = (bot: EconBotKind, name: string, x: Omit<EconConfig, 'name' | 'bot' 
   ({ name: `${bot}-${name}`, bot, noDefeat: false, ...x });
 
 export const STANDARD_CONFIGS: EconConfig[] = ECON_BOTS.flatMap(bot => [
-  cfg(bot, 'base', { market: false, quests: 0, tame: false, transfer: false }),
-  cfg(bot, 'market', { market: true, quests: 0, tame: false, transfer: false }),
-  cfg(bot, 'quests4', { market: false, quests: 4, tame: false, transfer: false }),
-  cfg(bot, 'full', { market: true, quests: 4, tame: true, transfer: true }),
-  cfg(bot, 'full-q2', { market: true, quests: 2, tame: true, transfer: true }),
+  cfg(bot, 'base', { market: false, quests: 0, tame: false }),
+  cfg(bot, 'market', { market: true, quests: 0, tame: false }),
+  cfg(bot, 'quests4', { market: false, quests: 4, tame: false }),
+  cfg(bot, 'full', { market: true, quests: 4, tame: true }),
+  cfg(bot, 'full-q2', { market: true, quests: 2, tame: true }),
 ]);
 
 const NUMBER_COLS = new Set([
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 
-  'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'transfersSent',
-  'transfersReceived', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
+  'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
 ]);
 const NULLABLE_COLS = new Set([
   'firstGrade6Round', 'firstSource', 'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round',

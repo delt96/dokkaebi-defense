@@ -27,7 +27,8 @@ describe('stage 3 match schedule', () => {
     expect(Object.keys(m.seats[1]!.bosses)).toEqual(['10', '20', '30', '40', '50', '60']);
     expect(m.seats[1]!.yeoksinDamage).toEqual([0, 0, 0, 0]);
     expect(m.econ!.rng.s).toBe(createRng(deriveSeed(3, 'econ')).s);
-    expect(m.econ).toMatchObject({ team: { streak: 0, paid: false }, ssireumSeat: null, offers: [], readyRound: {}, rewarded: [] });
+    expect(m.econ).toMatchObject({ team: { streak: 0, paid: false }, ssireumSeat: null });
+    expect('offers' in m.econ!).toBe(false);
     expect(d3.coop!.yeoksin.map(y => [y.stage, y.startRound, y.deadlineRound, y.baseHp, y.startIndex])).toEqual([
       [1, 6, 9, 8000, 0], [2, 15, 19, 30000, 1], [3, 35, 39, 109000, 2], [4, 55, 59, 210000, 3],
     ]);

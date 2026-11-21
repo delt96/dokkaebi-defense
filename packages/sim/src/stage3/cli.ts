@@ -71,9 +71,9 @@ export function cliConfigs(arg: Arg): EconConfig[] {
     const q = Number(arg('quests', '4'));
     const x = {
       market: onOff(arg('market', 'on')), quests: (q === 0 || q === 2 ? q : 4) as 0 | 2 | 4,
-      tame: onOff(arg('tame', 'on')), transfer: onOff(arg('transfer', 'on')),
+      tame: onOff(arg('tame', 'on')),
     };
-    const tag = `m${+x.market}-q${x.quests}-t${+x.tame}-x${+x.transfer}`;
+    const tag = `m${+x.market}-q${x.quests}-t${+x.tame}`;
     configs = bots.map(b => ({ name: `${b}-${tag}`, bot: b, noDefeat: false, ...x }));
   }
   const only = arg('config', '');

@@ -34,22 +34,15 @@ describe('parseClientCommand', () => {
   test('parses the new economy commands and rejects bad args', () => {
     expect(parseClientCommand({ seq: 1, type: 'buy', args: { item: 'draw' } })!.cmd).toEqual({ type: 'buy', item: 'draw' });
     expect(parseClientCommand({ seq: 2, type: 'buy', args: { item: 'gold' } })!.cmd).toEqual({ type: 'invalid' });
-    expect(parseClientCommand({ seq: 4, type: 'transferOffer', args: { target: 2, slot: 3, unitId: 9 } })!.cmd)
-      .toEqual({ type: 'transferOffer', target: 2, slot: 3, unitId: 9 });
     expect(parseClientCommand({ seq: 5, type: 'tame', args: { enemyId: 1.5 } })!.cmd).toEqual({ type: 'invalid' });
     expect(parseClientCommand({ seq: 6, type: 'tame', args: { enemyId: 12 } })!.cmd).toEqual({ type: 'tame', enemyId: 12 });
     expect(parseClientCommand({ seq: 8, type: 'missionEnter' })!.cmd).toEqual({ type: 'missionEnter' });
-    expect(parseClientCommand({ seq: 9, type: 'transferAccept', args: { offerId: 1, slot: 4 } })!.cmd).toEqual({ type: 'transferAccept', offerId: 1, slot: 4 });
-    expect(parseClientCommand({ seq: 10, type: 'transferDecline', args: { offerId: 1 } })!.cmd).toEqual({ type: 'transferDecline', offerId: 1 });
     const bad = [
-      { type: 'transferAccept', args: { slot: 1 } }, { type: 'transferDecline' },
       { type: 'buy' }, { type: 'buy', args: { item: 'draw', n: 2 } },
       { type: 'storyTarget', args: {} }, { type: 'storyTarget', args: { id: '' } }, { type: 'storyTarget', args: { id: 'x'.repeat(33) } },
       { type: 'storyTarget', args: { id: 'a', unitIds: [1, 2, 3, 4] } }, { type: 'storyTarget', args: { id: 'a', unitIds: [1.5] } },
       { type: 'storyTarget', args: { id: 3 } }, { type: 'storyDecline', args: { x: 1 } }, { type: 'missionEnter', args: { x: 1 } },
-      { type: 'tame', args: {} }, { type: 'transferOffer', args: { target: 7, slot: 0, unitId: 1 } },
-      { type: 'transferOffer', args: { target: 2, slot: 24, unitId: 1 } }, { type: 'transferOffer', args: { target: 2, slot: 0 } },
-      { type: 'transferAccept', args: { slot: -1 } }, { type: 'transferDecline', args: { slot: 1 } },
+      { type: 'tame', args: {} },
     ];
     for (const raw of bad) expect(parseClientCommand({ seq: 1, ...raw })).toEqual({ seq: 1, cmd: { type: 'invalid' } });
   });
@@ -57,9 +50,15 @@ describe('parseClientCommand', () => {
     const cmds: Parameters<typeof toWire>[0][] = [
       { type: 'buy', item: 'draw' },
       { type: 'missionEnter' },
-      { type: 'tame', enemyId: -3 }, { type: 'transferOffer', target: 4, slot: 2, unitId: 17 },
-      { type: 'transferAccept', offerId: 1, slot: 0 }, { type: 'transferDecline', offerId: 1 },
+      { type: 'tame', enemyId: -3 },
     ];
     for (const cmd of cmds) expect(parseClientCommand({ seq: 1, ...toWire(cmd) })!.cmd).toEqual(cmd);
   });
+});
+
+test('delivery inputs are rejected on current rules', () => {
+  for (const [type, args] of [['transferOffer', { target: 2, slot: 1, unitId: 4 }],
+    ['transferAccept', { offerId: 1, slot: 2 }], ['transferDecline', { offerId: 1 }]] as const) {
+    expect(parseClientCommand({ seq: 1, type, args })?.cmd).toEqual({ type: 'invalid' });
+  }
 });

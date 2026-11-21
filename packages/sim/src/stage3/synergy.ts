@@ -131,13 +131,13 @@ export function auraPlacement(state: GameState): Command | null {
   };
   for (let slot = 0; slot < state.slots.length; slot++) {
     const u = state.slots[slot];
-    if (!u || u.locked || !hasAllyAura(unitDefFast(state.data, u.defId))) continue;
+    if (!u || !hasAllyAura(unitDefFast(state.data, u.defId))) continue;
     const edge = lane.cells[slot]!.isEdge;
     const now = covered(slot, slot);
     let best = slot;
     let bestV = now;
     for (let j = 0; j < state.slots.length; j++) {
-      if (j === slot || !state.open[j] || lane.cells[j]!.isEdge !== edge || state.slots[j]?.locked) continue;
+      if (j === slot || !state.open[j] || lane.cells[j]!.isEdge !== edge) continue;
       const v = covered(slot, j);
       if (v > bestV) { best = j; bestV = v; }
     }

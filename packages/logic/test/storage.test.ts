@@ -37,17 +37,15 @@ describe('storage commands', () => {
     expect(s.slots[1]!.defId).toBe('jangdok');
   });
 
-  test('storeAll takes every unlocked grade 1-2 unit in slot order and nothing else', () => {
+  test('storeAll takes every grade 1-2 unit in slot order and nothing else', () => {
     const s = createGame(data, 1);
     placeUnitForTest(s, 'ki', 7);
     placeUnitForTest(s, 'jangdok', 2);
     placeUnitForTest(s, 'gamasot', 0);
-    placeUnitForTest(s, 'sotlid', 4).locked = true;
     expect(reasons(s, [{ type: 'storeAll' }])).toEqual([]);
     expect(storedIds(s)).toEqual(['gamasot', 'ki']);
     expect(s.slots[2]!.defId).toBe('jangdok');
-    expect(s.slots[4]!.defId).toBe('sotlid');
-    expect(reasons(s, [{ type: 'storeAll' }, { type: 'store', slot: 4 }])).toEqual(['nothingToStore', 'locked']);
+    expect(reasons(s, [{ type: 'storeAll' }])).toEqual(['nothingToStore']);
   });
 
   test('retrieve places the newest stored unit: best free slot when clicked, the given slot when dragged', () => {

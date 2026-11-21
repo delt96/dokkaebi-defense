@@ -261,8 +261,6 @@ body.online #econ-panel { height: 292px; }
 .shop-line { color: #c9c0d6; line-height: 12px; word-break: keep-all; }
 .shop button { margin-top: 2px; min-height: 20px; }
 .shop-short { color: #ffab99; line-height: 12px; }
-.ship-targets { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
-.ship-targets button { padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #econ-top { position: absolute; left: 132px; top: 26px; width: 392px; z-index: 1; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
 /* each prompt is one 19px row: two of them end at y 66, above the top lane's boss bar (y 68) */
 .prompt { position: relative; height: 19px; overflow: hidden; pointer-events: auto; background: #1d1626ee; border: 1px solid var(--accent); padding: 1px 4px 2px; font-size: 10px; }
@@ -270,10 +268,6 @@ body.online #econ-panel { height: 292px; }
 .prompt-line > * { flex-shrink: 0; }
 .prompt-line > b, .prompt-line > span:first-child { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .prompt-line button { min-height: 15px; height: 15px; line-height: 13px; padding: 0 5px; }
-.prompt-gain { color: var(--accent); }
-.prompt-time { margin-left: auto; color: #ffb396; font-weight: bold; font-variant-numeric: tabular-nums; }
-.prompt-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #2a2232; }
-.prompt-bar i { display: block; height: 100%; background: #ffb396; }
 .prompt .ok { color: #9fe0a8; }
 .prompt .no { color: #ff9482; font-weight: bold; }
 .prompt.tame button { margin-left: auto; color: var(--accent); border-color: var(--accent); }

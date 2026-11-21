@@ -31,37 +31,23 @@ describe('stage 3 economy commands through the room', () => {
     expect(r.links[0]!.last('mine').acks).toEqual([{ seat: 1, seq: 2, tick: expect.any(Number), ok: false, reason: 'badArgs' }]);
   });
 
-  test('a jige delivery: offer, the receiver sees it in mine, accepts, and the unit moves lanes', () => {
+  test('delivery inputs are invalid in a new room', () => {
     const r = room60(3);
     const match = r.core.match!;
-    match.lanes[1]!.econ!.jige = 1;
     const unit = placeUnitForTest(match.lanes[1]!, 'jipsin', 4);
+    const before = [1, 2].map(s => ({ ids: match.lanes[s]!.slots.map(u => u?.id ?? null), buckwheat: match.lanes[s]!.buckwheat }));
     send(r.core, 'a', 1, 'transferOffer', { target: 2, slot: 4, unitId: unit.id });
+    send(r.core, 'a', 2, 'transferAccept', { offerId: 1, slot: 2 });
+    send(r.core, 'a', 3, 'transferDecline', { offerId: 1 });
     tickOnce(r.core, r.deps);
-    expect(r.links[0]!.last('mine').acks[0]).toMatchObject({ seq: 1, ok: true });
-    const offer = r.links[1]!.last('mine').econ.transfer.offer;
-    expect(offer).toMatchObject({ from: 1, to: 2, defId: 'jipsin', slot: 4, unitId: unit.id });
-    send(r.core, 'b', 1, 'transferAccept', { offerId: offer.offerId, slot: 2 });
-    tickOnce(r.core, r.deps);
-    const mineB = r.links[1]!.last('mine');
-    expect(mineB.acks[0]).toMatchObject({ seq: 1, ok: true });
-    expect(mineB.units[2]).toMatchObject({ defId: 'jipsin' });
-    expect(mineB.econ.transfer).toMatchObject({ offer: null, ready: match.round + d3.economy!.transfer!.cooldownRounds, rewarded: true });
-    expect(r.links[0]!.last('mine').units[4]).toBeNull();
-  });
-
-  test('a declined delivery reaches the sender\'s mine with who declined it', () => {
-    const r = room60(3);
-    const match = r.core.match!;
-    match.lanes[1]!.econ!.jige = 1;
-    const unit = placeUnitForTest(match.lanes[1]!, 'jipsin', 4);
-    send(r.core, 'a', 1, 'transferOffer', { target: 2, slot: 4, unitId: unit.id });
-    tickOnce(r.core, r.deps);
-    send(r.core, 'b', 1, 'transferDecline', { offerId: r.links[1]!.last('mine').econ.transfer.offer.offerId });
-    tickOnce(r.core, r.deps);
-    const end = { from: 1, to: 2, defId: 'jipsin', outcome: 'declined', by: 2, cause: null };
-    expect(r.links[0]!.last('mine').transferEnds).toEqual([end]);
-    expect(r.links[1]!.last('mine').transferEnds).toEqual([end]);
+    const mine = r.links[0]!.last('mine');
+    expect(mine.acks.map((a: { reason?: string }) => a.reason)).toEqual(['badArgs', 'badArgs', 'badArgs']);
+    for (let i = 0; i < 200; i++) tickOnce(r.core, r.deps);
+    const after = [1, 2].map(s => ({ ids: match.lanes[s]!.slots.map(u => u?.id ?? null), buckwheat: match.lanes[s]!.buckwheat }));
+    expect(after).toEqual(before);
+    expect('transfer' in r.links[0]!.last('mine').econ).toBe(false);
+    expect('transferEnds' in r.links[0]!.last('mine')).toBe(false);
+    expect('offers' in match.econ!).toBe(false);
   });
 
   test('a 20-round room refuses the economy commands without a crash', () => {
@@ -70,7 +56,7 @@ describe('stage 3 economy commands through the room', () => {
     send(r.core, 'a', 2, 'transferAccept', { offerId: 1, slot: 0 });
     tickOnce(r.core, r.deps);
     const acks = r.links[0]!.last('mine').acks.map((a: { reason?: string }) => a.reason);
-    expect(acks).toEqual(['marketClosed', 'unknown']);
+    expect(acks).toEqual(['marketClosed', 'badArgs']);
     expect('econ' in r.links[0]!.last('mine')).toBe(false);
   });
 });

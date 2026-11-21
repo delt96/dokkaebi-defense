@@ -20,6 +20,5 @@
       { "enemy": "ev_ssireum", "unit": "ssireumdokkaebi", "cost": { "buckwheat": 1 } },
       { "enemy": "ev_shadow", "unit": "eoduksini", "cost": { "tokens": 2 } }
     ]
-  },
-  "transfer": { "offerSeconds": 10, "cooldownRounds": 5, "maxGrade": 4, "reward": 1, "rewardCap": 6 }
+  }
 }

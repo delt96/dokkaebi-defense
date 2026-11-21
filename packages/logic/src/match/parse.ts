@@ -46,8 +46,6 @@ const PARSERS: Record<string, Parser> = {
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
     return isUnitId(args.defId) ? { type: 'sellStored', defId: args.defId } : null;
   },
-  transferDecline: args => onlyKeys(args, ['offerId']) && isInt(args.offerId) && args.offerId > 0
-    ? { type: 'transferDecline', offerId: args.offerId } : null,
   jigeSwap: args => {
     const { source, result } = args;
     if (!onlyKeys(args, ['source', 'result']) || !isUnitId(result) || !isPlainObject(source)
@@ -65,19 +63,6 @@ const PARSERS: Record<string, Parser> = {
     const keys = ['enemyId'];
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
     return isInt(args.enemyId) ? { type: 'tame', enemyId: args.enemyId } : null;
-  },
-  transferOffer: (args, slotCount) => {
-    const keys = ['target', 'slot', 'unitId'];
-    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
-    const { target, slot, unitId } = args;
-    if (!inRange(target, 1, MAX_SEAT) || !inRange(slot, 0, slotCount - 1) || !isInt(unitId)) return null;
-    return { type: 'transferOffer', target, slot, unitId };
-  },
-  transferAccept: (args, slotCount) => {
-    const keys = ['slot', 'offerId'];
-    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
-    return inRange(args.slot, 0, slotCount - 1) && isInt(args.offerId) && args.offerId > 0
-      ? { type: 'transferAccept', offerId: args.offerId, slot: args.slot } : null;
   },
   upgrade: args => {
     const keys = ['id'];
@@ -135,9 +120,7 @@ export function parseClientCommand(raw: unknown, slotCount = 24): { seq: number;
   return cmd ? { seq, cmd } : invalid;
 }
 
-type OutgoingCommand = Command | { type: 'support'; target: number } | { type: 'forfeit' }
-  | { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; offerId: number; slot: number }
-  | { type: 'transferDecline'; offerId: number };
+type OutgoingCommand = Command | { type: 'support'; target: number } | { type: 'forfeit' };
 
 /** Turns a local command into its wire form, filling the unit ids the player saw from `lane`. */
 export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand, 'seq'> {
@@ -172,12 +155,6 @@ export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand
       return { type: 'buy', args: { item: cmd.item } };
     case 'tame':
       return { type: 'tame', args: { enemyId: cmd.enemyId } };
-    case 'transferOffer':
-      return { type: 'transferOffer', args: { target: cmd.target, slot: cmd.slot, unitId: cmd.unitId } };
-    case 'transferAccept':
-      return { type: 'transferAccept', args: { offerId: cmd.offerId, slot: cmd.slot } };
-    case 'transferDecline':
-      return { type: 'transferDecline', args: { offerId: cmd.offerId } };
     default:
       return { type: cmd.type };
   }

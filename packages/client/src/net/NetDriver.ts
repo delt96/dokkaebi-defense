@@ -1,5 +1,5 @@
 import type {
-  ClientView, Command, EconMine, GameData, GameEvent, GameState, LaneBatch, LaneEvent, RejectReason, StepResult, TransferEndView,
+  ClientView, Command, EconMine, GameData, GameEvent, GameState, LaneBatch, LaneEvent, RejectReason, StepResult,
 } from '@dorandi/logic';
 import { enemyDistanceAt } from '@dorandi/logic';
 import type { Driver } from '../driver';
@@ -42,7 +42,6 @@ export class NetDriver implements Driver {
   private view: ClientView;
   private readonly listeners: Listener[] = [];
   private readonly remapListeners: ((ids: Map<number, number>) => void)[] = [];
-  private readonly transferEndListeners: ((ends: TransferEndView[]) => void)[] = [];
   /**
    * Lane events waiting for the next frame. Messages keep arriving while a tab is hidden and no
    * frame runs, so they are held here (old ticks dropped) and only the newest 10 ticks get animated.
@@ -80,10 +79,6 @@ export class NetDriver implements Driver {
 
   onEvents(cb: Listener): void {
     this.listeners.push(cb);
-  }
-
-  onTransferEnd(cb: (ends: TransferEndView[]) => void): void {
-    this.transferEndListeners.push(cb);
   }
 
   /** Called with old id → new id when a `mine` puts a new unit where one stood (a combine result in its target slot). */
@@ -156,12 +151,7 @@ export class NetDriver implements Driver {
         this.latestTick = view.clock.tick;
         this.receivedAt = this.now();
       }
-      if (view.mine !== this.lastMine) {
-        this.noteMine(this.lastMine, view);
-        // read from the message itself: the next mine replaces it, and it comes for the own seat even while watching
-        const ends = view.mine.transferEnds;
-        if (ends?.length) for (const cb of this.transferEndListeners) cb(ends);
-      }
+      if (view.mine !== this.lastMine) this.noteMine(this.lastMine, view);
     }
   }
 

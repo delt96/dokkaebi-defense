@@ -11,7 +11,7 @@ export function storedUnits(state: GameState): readonly Unit[] {
 }
 
 export function canStore(state: GameState, unit: Unit): boolean {
-  return !unit.locked && unitDefFast(state.data, unit.defId).grade <= STORAGE_MAX_GRADE;
+  return unitDefFast(state.data, unit.defId).grade <= STORAGE_MAX_GRADE;
 }
 
 /** Moves a board unit into storage. The field is created here, so lanes that never store keep their old state shape. */
@@ -37,7 +37,6 @@ registerCommand('store', (state, cmd) => {
   if (cmd.type !== 'store') return 'unknown';
   if (!validSlot(state, cmd.slot) || !state.slots[cmd.slot]) return 'noUnit';
   const unit = state.slots[cmd.slot]!;
-  if (unit.locked) return 'locked';
   if (!canStore(state, unit)) return 'notStorable';
   putAway(state, cmd.slot);
   return null;

@@ -4,7 +4,7 @@ import { createGame, econView, loadGameData, step, type ClientView, type EconMin
 import { forceRound, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import {
-  econPanelHtml, incomingModel, marketModel, noteText, questChips, shipModel, tameModel, tameRejectText, transferEndText,
+  econPanelHtml, marketModel, noteText, questChips, tameModel, tameRejectText,
 } from '../src/ui/econ';
 import { rejectText } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
@@ -20,7 +20,7 @@ function lane(round: number, coins = 1000): GameState {
   s.coins = coins;
   return s;
 }
-const econOf = (s: GameState, extra: Partial<EconMine> = {}): EconMine => ({ ...econView(s)!, transfer: null, team: null, ...extra });
+const econOf = (s: GameState, extra: Partial<EconMine> = {}): EconMine => ({ ...econView(s)!, team: null, ...extra });
 const fill = (s: GameState) => { for (let i = 0; i < s.slots.length; i++) if (s.open[i] && !s.slots[i]) placeUnitForTest(s, 'jipsin', i); };
 
 /** Just the parts of a server view the economy models read: who I am and the six rows. */
@@ -87,48 +87,6 @@ describe('quest tracker text', () => {
   });
 });
 
-describe('delivery prompt and countdown', () => {
-  const v = view(2, [{ seat: 1, name: '가나' }, { seat: 2, name: '다라' }, { seat: 3, name: '마바', connected: false }]);
-  const transfer = (over = {}) => ({
-    ready: 0, readyRounds: { 1: 0, 2: 0, 3: 0 }, busy: [], offer: null, rewarded: false, rewardsLeft: 6, delivered: [], ...over,
-  });
-
-  test('the receiver sees who sends what, the reward, the slot and the seconds left', () => {
-    const s = lane(22);
-    const offer = { offerId: 7, from: 1, to: 2, defId: 'moru', slot: 3, unitId: 9, deadlineTick: s.tick + 140 };
-    const e = econOf(s, { transfer: transfer({ offer, busy: [1, 2] }) });
-    const m = incomingModel(e, s, v, null)!;
-    expect(m).toEqual({ text: '가나가 모루를 보냅니다', reward: `받으면 묵 +${eco.transfer!.reward}`, slot: 0, secondsLeft: 7, frac: 0.7 });
-    expect(incomingModel(e, s, v, 5)!.slot).toBe(5);
-    s.tick += 139;
-    expect(incomingModel(e, s, v, null)!.secondsLeft).toBe(1);
-    fill(s);
-    expect(incomingModel(e, s, v, 5)!.slot).toBeNull();
-    // the sender's own offer is not a prompt to accept
-    expect(incomingModel(e, s, view(1, [{ seat: 1, name: '가나' }, { seat: 2, name: '다라' }]), null)).toBeNull();
-  });
-
-  test('the sender picks a unit and a living seat; locks and rests are spelled out', () => {
-    const s = lane(22);
-    const unit = placeUnitForTest(s, 'jipsin', 0);
-    placeUnitForTest(s, 'gangcheori', 1);
-    const me = view(1, [{ seat: 1, name: '가나' }, { seat: 2, name: '다라' }, { seat: 3, name: '마바', connected: false }]);
-    expect(shipModel(econOf(s, { transfer: transfer() }), s, me, 0)!.lines[0]).toMatch(/지게 도깨비가 옵니다$/);
-    s.econ!.jige = 1;
-    let m = shipModel(econOf(s, { transfer: transfer({ readyRounds: { 1: 0, 2: 25, 3: 0 } }) }), s, me, 0)!;
-    expect(m.unit).toEqual({ slot: 0, unitId: unit.id });
-    expect(m.targets).toEqual([{ seat: 2, label: '2 다라 · 쉬는 중', disabled: true }, { seat: 3, label: '3 마바 · 단절', disabled: true }]);
-    expect(shipModel(econOf(s, { transfer: transfer() }), s, me, 1)!.lines[0]).toBe('강철이 · 히든은 보낼 수 없습니다');
-    expect(shipModel(econOf(s, { transfer: transfer({ delivered: [unit.id] }) }), s, me, 0)!.lines[0]).toMatch(/받은 유닛은 다시 보낼 수 없습니다$/);
-    const sut = placeUnitForTest(s, 'sutdarimi', 2);
-    const two = view(1, [{ seat: 1, name: '가나' }, { seat: 2, name: '다라' }]);
-    expect(shipModel(econOf(s, { transfer: transfer() }), s, two, 2)!).toMatchObject({ lines: ['숯다리미(3등급)를 누구에게?'], unit: { slot: 2, unitId: sut.id } });
-    m = shipModel(econOf(s, { transfer: transfer({ ready: 25 }) }), s, me, 0)!;
-    expect(m.lines).toEqual(['다음 배달 25라운드부터 (3라운드 남음)']);
-    expect(m.targets).toEqual([]);
-  });
-});
-
 describe('tame prompt', () => {
   test('appears at the tame HP with every condition ticked; a lost slow is named', () => {
     const s = lane(20);
@@ -152,33 +110,11 @@ describe('tame prompt', () => {
 
 describe('refusals', () => {
   test('every economy refusal has a line', () => {
-    for (const r of ['marketClosed', 'soldOut', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'locked', 'busy', 'targetBusy', 'targetAway', 'cooldown', 'noJige', 'noOffer']) {
+    for (const r of ['marketClosed', 'soldOut', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'cooldown', 'noJige']) {
       expect(rejectText(r), r).toBeTruthy();
     }
   });
 
-  test('a delivery refusal says whether the target is gone, away, or busy, and whether the busy one is me', () => {
-    expect(rejectText('targetNotAlive')).toBe('그 고개는 이미 뚫렸습니다');
-    expect(rejectText('targetAway')).toBe('그 고개는 연결이 끊겼습니다');
-    expect(rejectText('busy')).toBe('이미 배달을 주고받는 중입니다');
-    expect(rejectText('targetBusy')).toBe('상대가 다른 배달을 주고받는 중입니다');
-  });
-});
-
-describe('delivery end lines', () => {
-  const end = (outcome: 'accepted' | 'declined' | 'expired' | 'invalid', by: number | null = null, cause: 'eliminated' | 'disconnected' | 'unitGone' | null = null) =>
-    ({ from: 1, to: 2, defId: 'sutdarimi', outcome, by, cause });
-  test('each side reads the server reason from its own seat', () => {
-    const say = (e: ReturnType<typeof end>, me: number) => transferEndText(e, me, d3);
-    expect([say(end('accepted'), 1), say(end('accepted'), 2)]).toEqual(['숯다리미 배달을 마쳤습니다', '숯다리미를 받았습니다']);
-    expect([say(end('declined', 1), 1), say(end('declined', 1), 2)]).toEqual(['보내기를 취소했습니다', '보내는 쪽이 배달을 취소했습니다']);
-    expect([say(end('declined', 2), 1), say(end('declined', 2), 2)]).toEqual(['상대가 배달을 사양했습니다', '배달을 사양했습니다']);
-    expect(say(end('expired'), 1)).toBe('시간이 지나 배달이 끝났습니다');
-    expect([say(end('invalid', 2, 'disconnected'), 1), say(end('invalid', 2, 'eliminated'), 1)])
-      .toEqual(['상대 연결이 끊겨 배달이 취소됐습니다', '상대 고개가 뚫려 배달이 취소됐습니다']);
-    expect([say(end('invalid', 1, 'eliminated'), 1), say(end('invalid', 1, 'unitGone'), 2)])
-      .toEqual(['고개가 뚫려 배달이 취소됐습니다', '보낼 유닛이 없어져 배달이 취소됐습니다']);
-  });
 });
 
 describe('notes and particles', () => {
@@ -241,172 +177,4 @@ describe('market hotkey', () => {
     expect(panel()).toBe('');
   });
 
-});
-
-describe('online: delivery prompt on the receiver', () => {
-  test('a mine with an offer shows the prompt with its countdown; 받기 sends transferAccept for the picked slot', async () => {
-    const { buildFull, createMatch, roundStartTick } = await import('@dorandi/logic');
-    const { jumpToTick } = await import('@dorandi/logic/testing');
-    const { NetClient } = await import('../src/net/NetClient');
-    const { NetDriver } = await import('../src/net/NetDriver');
-    const { FakeRoom, press } = await import('./fixtures/net');
-    document.body.innerHTML = STAGE_HTML;
-    let clock = 1000;
-    vi.spyOn(performance, 'now').mockImplementation(() => clock);
-    const match = createMatch(d3, 2, [1, 2]);
-    jumpToTick(match, roundStartTick(d3, 22) + 1);
-    const full = buildFull(match, 2, { watching: 2, names: { 1: '가나', 2: '다라' }, key: 'k', n: 0 });
-    const room = new FakeRoom();
-    const net = new NetClient(room, full.dataVersion);
-    room.emit('full', full);
-    const driver = new NetDriver(net, d3, () => clock);
-    const scene = { selectedId: null, onFrame: undefined as (() => void) | undefined, onSelect() {}, onEvents() {} };
-    mountUi(driver, scene as never, {}, {
-      online: true, view: () => net.view, data: d3,
-      actions: { support() {}, watch() {}, forfeit() {}, transfer: cmd => { net.send(cmd); } },
-    });
-    const mine = structuredClone(full.mine);
-    mine.tick = full.clock.tick + 1;
-    mine.econ!.transfer!.offer = { offerId: 7, from: 1, to: 2, defId: 'moru', slot: 0, unitId: 77, deadlineTick: full.clock.tick + 100 };
-    room.emit('mine', mine);
-    clock += 150; driver.update(16); scene.onFrame?.();
-    const top = document.getElementById('econ-top')!;
-    expect(top.textContent).toContain('가나가 모루를 보냅니다');
-    expect(top.textContent).toContain('5초');
-    press(top.querySelector('[data-action="receive"]'));
-    expect(room.cmds('transferAccept')).toEqual([{ seq: 1, type: 'transferAccept', args: { offerId: 7, slot: 0 } }]);
-    press(top.querySelector('[data-action="refuse"]'));
-    expect(room.cmds('transferDecline').length).toBe(1);
-  });
-
-  /** Seat 2 with a delivery from seat 1 on screen; `send` streams the next mine and draws a frame. */
-  /** `tame`: a tame target at its tame HP is on seat 2's lane too, so a second prompt row shows. */
-  async function mountReceiver(opts: { tame?: boolean } = {}) {
-    const { buildFull, createMatch, roundStartTick } = await import('@dorandi/logic');
-    const { jumpToTick } = await import('@dorandi/logic/testing');
-    const { NetClient } = await import('../src/net/NetClient');
-    const { NetDriver } = await import('../src/net/NetDriver');
-    const { FakeRoom, press } = await import('./fixtures/net');
-    document.body.innerHTML = STAGE_HTML;
-    let clock = 1000;
-    vi.spyOn(performance, 'now').mockImplementation(() => clock);
-    const match = createMatch(d3, 2, [1, 2]);
-    jumpToTick(match, roundStartTick(d3, 22) + 1);
-    if (opts.tame) {
-      const foe = spawnEnemyForTest(match.lanes[2]!, 'gangcheori', 3, 20000);
-      foe.maxHp = 100000;
-      foe.hp = Math.floor(foe.maxHp * eco.tame!.hpPct);
-    }
-    const full = buildFull(match, 2, { watching: 2, names: { 1: '가나', 2: '다라' }, key: 'k', n: 0 });
-    const room = new FakeRoom();
-    const net = new NetClient(room, full.dataVersion);
-    room.emit('full', full);
-    const driver = new NetDriver(net, d3, () => clock);
-    const scene = { selectedId: null, onFrame: undefined as (() => void) | undefined, onSelect() {}, onEvents() {} };
-    mountUi(driver, scene as never, {}, {
-      online: true, view: () => net.view, data: d3,
-      actions: { support() {}, watch() {}, forfeit() {}, transfer: cmd => { net.send(cmd); } },
-    });
-    let tick = full.clock.tick;
-    const send = (edit: (m: typeof full.mine) => void) => {
-      const m = structuredClone(net.view!.mine);
-      m.tick = ++tick;
-      m.acks = [];
-      delete m.transferEnds;
-      edit(m);
-      room.emit('mine', m);
-      // the notice line is drawn before the economy part decides what ended, so it shows a frame later
-      for (let i = 0; i < 2; i++) { clock += 150; driver.update(16); scene.onFrame?.(); }
-    };
-    send(m => { m.econ!.transfer!.offer = { offerId: 7, from: 1, to: 2, defId: 'moru', slot: 0, unitId: 77, deadlineTick: full.clock.tick + 100 }; });
-    const top = () => document.getElementById('econ-top')!;
-    return {
-      send, top,
-      receive: () => press(top().querySelector('[data-action="receive"]')),
-      banner: () => document.getElementById('round-banner')!.textContent ?? '',
-      bannerLow: () => document.getElementById('round-banner')!.classList.contains('low'),
-      right: () => document.getElementById('right')!.textContent ?? '',
-      refusal: (m: typeof full.mine, reason: 'noOffer' | 'noSlot') => { m.acks = [{ seat: 2, seq: 1, tick: m.tick, ok: false, reason }]; },
-    };
-  }
-
-  test('a 받기 the server turned down is not reported as received', async () => {
-    const r = await mountReceiver();
-    r.receive();
-    // the offer ran out on the server just before the press got there
-    r.send(m => { m.econ!.transfer!.offer = null; });
-    expect(r.banner()).not.toContain('받았습니다');
-    r.send(m => r.refusal(m, 'noOffer'));
-    expect(r.banner()).toBe('받을 배달이 없습니다');
-  });
-
-  test('a delivery that lands is reported from the server end reason', async () => {
-    const r = await mountReceiver();
-    r.receive();
-    r.send(m => {
-      m.econ!.transfer!.offer = null;
-      m.units[0] = { id: 500, defId: 'moru' };
-      m.econ!.transfer!.delivered = [500];
-      m.acks = [{ seat: 2, seq: 1, tick: m.tick, ok: true }];
-      m.transferEnds = [{ from: 1, to: 2, defId: 'moru', outcome: 'accepted', by: null, cause: null }];
-    });
-    expect(r.banner()).toBe('모루를 받았습니다');
-  });
-
-  test('the sender dropping out is told as such, not as a cancel', async () => {
-    for (const [cause, text] of [['disconnected', '상대 연결이 끊겨 배달이 취소됐습니다'], ['eliminated', '상대 고개가 뚫려 배달이 취소됐습니다']] as const) {
-      const r = await mountReceiver();
-      r.send(m => {
-        m.econ!.transfer!.offer = null;
-        m.transferEnds = [{ from: 1, to: 2, defId: 'moru', outcome: 'invalid', by: 1, cause }];
-      });
-      expect(r.banner()).toBe(text);
-    }
-  });
-
-  test('my own elimination ends the delivery with its own line', async () => {
-    const r = await mountReceiver();
-    r.send(m => {
-      m.econ!.transfer!.offer = null;
-      m.transferEnds = [{ from: 1, to: 2, defId: 'moru', outcome: 'invalid', by: 2, cause: 'eliminated' }];
-    });
-    expect(r.banner()).toBe('고개가 뚫려 배달이 취소됐습니다');
-  });
-
-  test('with one prompt row the notice takes the second row on one line; with two it moves to the right column', async () => {
-    const one = await mountReceiver();
-    expect(one.top().querySelectorAll('.prompt').length).toBe(1);
-    one.receive();
-    one.send(m => { m.units[0] = { id: 400, defId: 'jipsin' }; one.refusal(m, 'noSlot'); });
-    expect(one.bannerLow()).toBe(true);
-    expect(one.banner()).toBe('그 칸이 막 찼습니다 · 다시 받아 주세요');
-    vi.restoreAllMocks();
-    const two = await mountReceiver({ tame: true });
-    expect(two.top().querySelectorAll('.prompt').length).toBe(2);
-    two.receive();
-    two.send(m => { m.units[0] = { id: 400, defId: 'jipsin' }; two.refusal(m, 'noSlot'); });
-    expect(two.banner()).toBe('');
-    expect(two.right()).toContain('그 칸이 막 찼습니다 · 다시 받아 주세요');
-    // the offer gone, one row is left and the line comes back over the lane
-    two.send(m => { m.econ!.transfer!.offer = null; m.transferEnds = [{ from: 1, to: 2, defId: 'moru', outcome: 'expired', by: null, cause: null }]; });
-    expect(two.top().querySelectorAll('.prompt').length).toBe(1);
-    expect(two.banner()).toBe('시간이 지나 배달이 끝났습니다');
-  });
-
-  test('an offer that leaves without a server reason (the match ended) says nothing', async () => {
-    const r = await mountReceiver();
-    r.send(m => { m.econ!.transfer!.offer = null; });
-    expect(r.banner()).toBe('');
-  });
-
-  test('a 받기 whose cell was just taken says so, offers the next free cell and is not reported as received', async () => {
-    const r = await mountReceiver();
-    r.receive();
-    // a summon sent just before took cell 1 first
-    r.send(m => { m.units[0] = { id: 400, defId: 'jipsin' }; r.refusal(m, 'noSlot'); });
-    expect(r.banner()).toBe('그 칸이 막 찼습니다 · 다시 받아 주세요');
-    expect(r.top().querySelector('[data-action="receive"]')?.getAttribute('data-arg')).toBe('1');
-    r.send(m => { m.econ!.transfer!.offer = null; });
-    expect(r.banner()).not.toContain('받았습니다');
-  });
 });

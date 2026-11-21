@@ -1,10 +1,10 @@
 import {
-  toTicks, type ClientView, type EconMine, type EconNote, type GameData, type GameState, type RejectReason, type TransferEndView,
+  toTicks, type ClientView, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
 } from '@dorandi/logic';
 import { esc } from './dom';
 import { withJosa } from './josa';
 
-// Stage 3 economy on screen: the market panel (B), the delivery and tame prompts over the top of the lane and the
+// Stage 3 economy on screen: the market panel (B), the tame prompt over the top of the lane and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -36,70 +36,6 @@ export function marketModel(econ: EconMine, state: GameState): MarketModel | nul
   const blocked = why === 'noBuckwheat' ? `메밀묵 ${m.draw.buckwheatCost - state.buckwheat}개 부족` : why ? BUY_BLOCK[why] ?? '살 수 없음' : null;
   return { head, shops: [{ item: 'draw', name: '헌 살림 보따리', price: m.draw.buckwheatCost,
     left: `${m.draw.left}회 남음`, lines: [odds], blocked, short: null }] };
-}
-
-// ---------- delivery (online) ----------
-
-export interface ShipTarget { seat: number; label: string; disabled: boolean }
-export interface ShipModel { lines: string[]; targets: ShipTarget[]; cancel: boolean; reward: string | null; unit: { slot: number; unitId: number } | null }
-
-/** The delivery block under the market; null in solo. `selected` is the board slot picked on the lane. */
-export function shipModel(econ: EconMine, state: GameState, view: ClientView | null, selected: number | null): ShipModel | null {
-  const t = econ.transfer;
-  const def = state.data.economy?.transfer;
-  const market = state.data.economy?.market;
-  if (!t || !def || !view) return null;
-  const empty: ShipModel = { lines: [], targets: [], cancel: false, reward: null, unit: null };
-  if (!econ.jige) return { ...empty, lines: [market ? `보따리를 사면 ${pct(market.jigeChance)} 확률로 지게 도깨비가 옵니다` : '지게 도깨비가 없습니다'] };
-  const reward = !t.rewarded && t.rewardsLeft > 0 ? `첫 배달 묵 +${def.reward}` : null;
-  const seatName = (s: number) => view.rows.find(r => r.seat === s)?.name ?? '';
-  const me = view.me.seat;
-  if (t.offer) {
-    const left = secondsOf(state.data, t.offer.deadlineTick - state.tick);
-    if (t.offer.from === me) {
-      return { ...empty, reward, cancel: true, lines: [`${nameOf(state.data, t.offer.defId)} → ${t.offer.to} ${seatName(t.offer.to)} · ${left}초`, '받을지 기다리는 중 · 그동안 잠김'] };
-    }
-    return { ...empty, reward, lines: [`${withJosa(seatName(t.offer.from), '이/가')} 보낸 짐을 받을지 고르세요`] };
-  }
-  if (t.ready > state.round) return { ...empty, reward, lines: [`다음 배달 ${t.ready}라운드부터 (${t.ready - state.round}라운드 남음)`] };
-  const unit = selected === null ? null : state.slots[selected] ?? null;
-  if (!unit) return { ...empty, reward, lines: [`보낼 1~${def.maxGrade}등급 유닛을 판에서 고르세요`] };
-  const unitDef = state.data.units.find(u => u.id === unit.defId);
-  const bad = !unitDef ? '보낼 수 없는 유닛입니다'
-    : unitDef.hidden ? '히든은 보낼 수 없습니다'
-      : unitDef.grade > def.maxGrade ? `${def.maxGrade}등급까지만 보낼 수 있습니다`
-        : t.delivered.includes(unit.id) ? '받은 유닛은 다시 보낼 수 없습니다' : null;
-  if (bad) return { ...empty, reward, lines: [`${unitDef?.name ?? ''} · ${bad}`] };
-  const targets: ShipTarget[] = view.rows
-    .filter(r => r.status === 'alive' && r.seat !== me)
-    .map(r => {
-      const why = !r.connected ? '단절' : t.busy.includes(r.seat) ? '배달 중' : (t.readyRounds[r.seat] ?? 0) > state.round ? '쉬는 중' : null;
-      return { seat: r.seat, label: `${r.seat} ${r.name}${why ? ` · ${why}` : ''}`, disabled: why !== null };
-    });
-  return {
-    ...empty, reward, unit: { slot: selected!, unitId: unit.id }, targets,
-    lines: [targets.length ? `${withJosa(`${unitDef!.name}(${unitDef!.grade}등급)`, '을/를')} 누구에게?` : '받을 수 있는 고개가 없습니다'],
-  };
-}
-
-export interface IncomingModel { text: string; reward: string | null; slot: number | null; secondsLeft: number; frac: number }
-
-/** The receiver's prompt: who sends what, the slot it lands in, and the 10-second countdown. */
-export function incomingModel(econ: EconMine, state: GameState, view: ClientView | null, chosen: number | null): IncomingModel | null {
-  const offer = econ.transfer?.offer;
-  const def = state.data.economy?.transfer;
-  if (!offer || !def || !view || offer.to !== view.me.seat) return null;
-  const from = view.rows.find(r => r.seat === offer.from)?.name || `${offer.from}번`;
-  const unit = nameOf(state.data, offer.defId);
-  const free = freeSlots(state);
-  const slot = chosen !== null && free.includes(chosen) ? chosen : free[0] ?? null;
-  const span = toTicks(def.offerSeconds);
-  const left = Math.max(0, offer.deadlineTick - state.tick);
-  return {
-    text: `${withJosa(from, '이/가')} ${withJosa(unit, '을/를')} 보냅니다`,
-    reward: econ.transfer && !econ.transfer.rewarded && econ.transfer.rewardsLeft > 0 ? `받으면 묵 +${def.reward}` : null,
-    slot, secondsLeft: secondsOf(state.data, left), frac: Math.min(1, left / span),
-  };
 }
 
 // ---------- taming ----------
@@ -218,32 +154,10 @@ export function noteText(ev: EconNote, data: GameData): string | null {
     }
     case 'questReward': {
       const gain = [ev.coins ? `+${ev.coins}냥` : '', ev.buckwheat ? `묵 +${ev.buckwheat}` : '', ev.tokens ? `불 +${ev.tokens}` : ''].filter(Boolean).join(' · ');
-      const title = { mission: '쇠밥 한 끼 성공', collection: '살림 한 벌 완성', team: '서낭당 정성', ssireum: '씨름 승리', transfer: '첫 배달' }[ev.quest];
+      const title = { mission: '쇠밥 한 끼 성공', collection: '살림 한 벌 완성', team: '서낭당 정성', ssireum: '씨름 승리' }[ev.quest];
       return gain ? `${title} · ${gain}` : title;
     }
     case 'tame': return `길들이기 성공 · ${withJosa(nameOf(data, ev.defId), '이/가')} 우리 편이 됐습니다`;
-  }
-}
-
-/**
- * How a delivery ended, from the seat `me`'s side, as the server decided it. Nothing when the match ended with the offer
- * open: the server sends no end then, and the result screen takes over.
- */
-export function transferEndText(end: TransferEndView, me: number, data: GameData): string {
-  const unit = nameOf(data, end.defId);
-  const sender = me === end.from;
-  const mine = end.by === me;
-  switch (end.outcome) {
-    case 'accepted': return sender ? (unit ? `${unit} 배달을 마쳤습니다` : '배달을 마쳤습니다') : unit ? `${withJosa(unit, '을/를')} 받았습니다` : '배달을 받았습니다';
-    case 'declined':
-      if (mine) return sender ? '보내기를 취소했습니다' : '배달을 사양했습니다';
-      return sender ? '상대가 배달을 사양했습니다' : '보내는 쪽이 배달을 취소했습니다';
-    case 'expired': return '시간이 지나 배달이 끝났습니다';
-    case 'invalid':
-      if (end.cause === 'eliminated') return mine ? '고개가 뚫려 배달이 취소됐습니다' : '상대 고개가 뚫려 배달이 취소됐습니다';
-      if (end.cause === 'disconnected') return mine ? '연결이 끊겨 배달이 취소됐습니다' : '상대 연결이 끊겨 배달이 취소됐습니다';
-      if (end.cause === 'unitGone') return '보낼 유닛이 없어져 배달이 취소됐습니다';
-      return '배달이 취소됐습니다';
   }
 }
 
@@ -254,7 +168,7 @@ const button = (action: string, arg: string, label: string, disabled = false, cl
 
 export type EconTab = 'market';
 
-export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: ShipModel | null): string {
+export function econPanelHtml(tab: EconTab, market: MarketModel | null): string {
   const tabs = `<div class="econ-head">${button('econTab', 'market', '장터', false, tab === 'market' ? 'on' : '')}${button('toggleMarket', '', 'B 닫기', false, 'econ-close')}</div>`;
   let body = '';
   if (tab === 'market' && market) {
@@ -262,32 +176,16 @@ export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: Sh
       <div class="shop-title"><b>${esc(s.name)}</b><span>메밀묵 ${s.price}</span></div>
       <div class="shop-line">${esc(s.left)}</div>${s.lines.map(l => `<div class="shop-line">${esc(l)}</div>`).join('')}
       ${button('buy', s.item, s.blocked ?? '사기', s.blocked !== null)}${s.short ? `<div class="shop-short">${esc(s.short)}</div>` : ''}</section>`).join('');
-    const shipHtml = ship ? `<section class="shop ship"><div class="shop-title"><b>지게 배달</b>${ship.reward ? `<span>${esc(ship.reward)}</span>` : ''}</div>
-      ${ship.lines.map(l => `<div class="shop-line">${esc(l)}</div>`).join('')}
-      ${ship.targets.length ? `<div class="ship-targets">${ship.targets.map(t => button('ship', String(t.seat), t.label, t.disabled)).join('')}</div>` : ''}
-      ${ship.cancel ? button('shipCancel', '', '보내기 취소') : ''}</section>` : '';
-    body = `<div class="econ-sub">${esc(market.head)}</div>${shops}${shipHtml}`;
+    body = `<div class="econ-sub">${esc(market.head)}</div>${shops}`;
   }
   return `<div class="econ-panel">${tabs}<div class="econ-body">${body}</div></div>`;
 }
 
-/** Prompts over the top of the lane, one row each: an incoming delivery or the own offer waiting, and a tame chance. */
-export function econTopHtml(incoming: IncomingModel | null, outgoing: string | null, tame: TameModel | null): string {
-  const parts: string[] = [];
-  if (incoming) {
-    const take = incoming.slot === null ? button('receive', '', '빈칸 없음', true) : button('receive', String(incoming.slot), `받기 · ${incoming.slot + 1}번 칸`);
-    // one row, so two prompts still end above the top lane; the hint rides on the row's tooltip
-    const hint = incoming.slot === null ? '칸을 비우면 받을 수 있습니다' : '빈칸을 누르면 받을 칸이 바뀝니다';
-    parts.push(`<div class="prompt incoming" title="${esc(hint)}"><div class="prompt-line"><b>${esc(incoming.text)}</b>${incoming.reward ? `<span class="prompt-gain">${esc(incoming.reward)}</span>` : ''}<span class="prompt-time">${incoming.secondsLeft}초</span>${take}${button('refuse', '', '사양')}</div>
-      <i class="prompt-bar"><i style="width:${Math.round(incoming.frac * 100)}%"></i></i></div>`);
-  } else if (outgoing) {
-    parts.push(`<div class="prompt"><div class="prompt-line"><span>${esc(outgoing)}</span>${button('shipCancel', '', '취소')}</div></div>`);
-  }
-  if (tame) {
-    const ticks = tame.parts.map(p => `<span class="${p.ok ? 'ok' : 'no'}">${esc(p.text)}</span>`).join('');
-    parts.push(`<div class="prompt tame"><div class="prompt-line"><b>${esc(tame.title)}</b>${ticks}${button('tame', String(tame.enemyId), 'T 길들이기', !tame.ready)}</div></div>`);
-  }
-  return parts.join('');
+/** The tame chance over the top of the lane. */
+export function econTopHtml(tame: TameModel | null): string {
+  if (!tame) return '';
+  const ticks = tame.parts.map(p => `<span class="${p.ok ? 'ok' : 'no'}">${esc(p.text)}</span>`).join('');
+  return `<div class="prompt tame"><div class="prompt-line"><b>${esc(tame.title)}</b>${ticks}${button('tame', String(tame.enemyId), 'T 길들이기', !tame.ready)}</div></div>`;
 }
 
 export function econBottomHtml(chips: Chip[]): string {

@@ -18,7 +18,7 @@ export function swapJige(state: GameState, source: JigeSource, result: string, e
   const units = zone === 'board' ? state.slots : state.storage;
   const unit = units?.[index];
   if (!units || !unit || unit.id !== unitId) return 'staleUnit';
-  if (unit.locked || (zone === 'board' && !state.open[index])) return 'badArgs';
+  if (zone === 'board' && !state.open[index]) return 'badArgs';
   const target = jigeCandidates(state.data, unit.defId).find(u => u.id === result);
   if (!target || (zone === 'storage' && target.grade > STORAGE_MAX_GRADE)) return 'badArgs';
   if (econ.jige < 1) return 'noJige';

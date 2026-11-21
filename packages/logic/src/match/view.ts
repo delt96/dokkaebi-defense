@@ -2,7 +2,7 @@ import type { Enemy, GameEvent, GameState } from '../types';
 import type { Ack, MatchState, StepMatchResult } from './types';
 import type {
   ClientView, ClockView, EconMine, EnemyView, FullMsg, GateView, LaneEvent, LaneMsg, LaneView, MineMsg, MineView, RowView,
-  TickMsg, TransferEndView, TransferMine, UnitView, YeoksinView,
+  TickMsg, UnitView, YeoksinView,
 } from './wire';
 import { econView } from '../econ/view';
 import { enemyHp } from '../data';
@@ -72,39 +72,16 @@ function yeoksinOf(match: MatchState): YeoksinView | null {
   };
 }
 
-function transferOf(match: MatchState, seat: number): TransferMine | null {
-  const def = match.data.economy?.transfer;
-  const econ = match.econ;
-  if (!def || !econ) return null;
-  const mine = econ.offers.find(o => o.from === seat || o.to === seat);
-  const readyRounds: Record<number, number> = {};
-  for (const s of match.ring) readyRounds[s] = econ.readyRound[s] ?? 0;
-  return {
-    ready: econ.readyRound[seat] ?? 0, readyRounds,
-    busy: [...new Set(econ.offers.flatMap(o => [o.from, o.to]))].sort((a, b) => a - b),
-    offer: mine
-      ? {
-        offerId: mine.offerId, from: mine.from, to: mine.to, slot: mine.slot, unitId: mine.unitId,
-        defId: match.lanes[mine.from]?.slots[mine.slot]?.defId ?? '',
-        deadlineTick: mine.tick + toTicks(def.offerSeconds),
-      }
-      : null,
-    rewarded: econ.rewarded.includes(seat), rewardsLeft: Math.max(0, def.rewardCap - econ.rewarded.length),
-    delivered: (match.lanes[seat]?.slots ?? []).flatMap(u => (u?.delivered ? [u.id] : [])),
-  };
-}
-
 /** Stage 3 economy for one seat, or undefined on data without an economy. */
 function econMineOf(match: MatchState, seat: number): EconMine | undefined {
   const lane = econView(match.lanes[seat]!);
   if (!lane) return undefined;
   const team = match.econ && match.data.economy?.team ? { ...match.econ.team } : null;
-  return { ...lane, transfer: transferOf(match, seat), team };
+  return { ...lane, team };
 }
 
 function mineOf(
   match: MatchState, seat: number, tick: number, acks: Ack[], supportIn: { from: number; coins: number }[], econ = econMineOf(match, seat),
-  transferEnds: TransferEndView[] = [],
 ): MineView {
   const lane = match.lanes[seat]!;
   const st = match.seats[seat]!;
@@ -115,7 +92,6 @@ function mineOf(
     open: [...lane.open], units: unitsOf(lane), acks, supportIn,
     ...(lane.storage && { storage: storageOf(lane) }),
     ...(econ && { econ }),
-    ...(transferEnds.length > 0 ? { transferEnds } : {}),
   };
 }
 
@@ -251,18 +227,12 @@ export class MatchStreamer {
       const acks = step.acks.filter(a => a.seat === seat);
       const supportIn: { from: number; coins: number }[] = [];
       for (const ev of step.events) if (ev.type === 'support' && ev.to === seat) supportIn.push({ from: ev.from, coins: ev.coins });
-      const ends: TransferEndView[] = [];
-      for (const ev of step.events) {
-        if (ev.type !== 'transferEnd' || (ev.from !== seat && ev.to !== seat)) continue;
-        const { type: _, ...end } = ev;
-        ends.push(end);
-      }
       const econ = econMineOf(match, seat);
       const key = mineKey(match, seat, econ);
       const changed = key !== this.mines.get(seat);
       this.mines.set(seat, key);
-      mine[seat] = acks.length > 0 || supportIn.length > 0 || ends.length > 0 || changed
-        ? mineOf(match, seat, step.tick, acks, supportIn, econ, ends) : null;
+      mine[seat] = acks.length > 0 || supportIn.length > 0 || changed
+        ? mineOf(match, seat, step.tick, acks, supportIn, econ) : null;
     }
     return { lanes, mine };
   }
@@ -374,7 +344,7 @@ function diffValue(path: string, a: unknown, b: unknown, out: string[]): void {
   out.push(path);
 }
 
-const MINE_SKIP: ReadonlySet<string> = new Set(['tick', 'acks', 'supportIn', 'transferEnds']);
+const MINE_SKIP: ReadonlySet<string> = new Set(['tick', 'acks', 'supportIn']);
 const ENEMY_SKIP: ReadonlySet<string> = new Set(['d', 't']);
 
 function diffEnemies(a: LaneView, b: LaneView, out: string[]): void {
@@ -395,7 +365,7 @@ function diffEnemies(a: LaneView, b: LaneView, out: string[]): void {
   }
 }
 
-/** Paths where two client views differ ([] when equal). Ignores mine.tick/acks/supportIn/transferEnds; enemies compare by id and position. */
+/** Paths where two client views differ ([] when equal). Ignores mine.tick/acks/supportIn; enemies compare by id and position. */
 export function diffViews(a: ClientView, b: ClientView): string[] {
   const out: string[] = [];
   for (const k of new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof ClientView>) {

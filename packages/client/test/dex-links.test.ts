@@ -86,7 +86,6 @@ describe('recipe tree', () => {
     const s = createGame(d3, 1);
     placeUnitForTest(s, 'kkeul', 0);
     placeUnitForTest(s, 'ja', 1);
-    placeUnitForTest(s, 'ja', 2).locked = true;
     expect(boardUnits(s)).toEqual(['kkeul', 'ja']);
     const marked = recipeTree(d3, 'bihyeongrang', boardUnits(s))!;
     expect(marked.map(n => n.mark)).toEqual(['missing', 'have', 'have']);
