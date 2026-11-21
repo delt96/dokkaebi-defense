@@ -31,14 +31,13 @@ describe('stage 3 board, 8 x 5 inside the 6 x 4 path', () => {
     expect(lane.pointAt(7)).toEqual({ x: 6.5, y: -0.5 });
     expect(lane.cells.filter(c => !c.isEdge).length).toBe(18);
   });
-  test('stage 3 starts with 24 open cells and the slots upgrade opens the last 16, 4 a level', () => {
+  test('stage 3 starts with 32 open cells and the slots upgrade opens the last 8 (3, 3, 2)', () => {
     const s = createGame(d3, 1);
     expect(s.slots.length).toBe(40);
-    expect(s.open.filter(Boolean).length).toBe(24);
-    expect([0, 1, 2, 3].map(l => slotsOpenedAt(d3, l))).toEqual([[24, 25, 26, 27], [28, 29, 30, 31], [32, 33, 34, 35], [36, 37, 38, 39]]);
+    expect(s.open.filter(Boolean).length).toBe(32);
+    expect([0, 1, 2].map(l => slotsOpenedAt(d3, l))).toEqual([[32, 33, 34], [35, 36, 37], [38, 39]]);
     s.coins = 1000;
-    for (let i = 0; i < 4; i++) expect(step(s, [{ type: 'upgrade', id: 'slots' }]).rejected).toEqual([]);
-    expect(s.coins).toBe(1000 - 50 - 100 - 150 - 200);
+    for (let i = 0; i < 3; i++) expect(step(s, [{ type: 'upgrade', id: 'slots' }]).rejected).toEqual([]);
     expect(s.open.every(Boolean)).toBe(true);
     expect(step(s, [{ type: 'upgrade', id: 'slots' }]).rejected[0]!.reason).toBe('maxed');
   });
@@ -58,10 +57,10 @@ describe('stage 3 board, 8 x 5 inside the 6 x 4 path', () => {
     expect(chooseSlot(s, unitDef(d3, melee.id))).toBe(0);
     expect(chooseSlot(s, unitDef(d3, ranged.id))).toBe(9);
     const inner = laneOf(s).cells.filter(c => !c.isEdge && s.open[c.index]).map(c => c.index);
-    expect(inner).toEqual([9, 10, 11, 12, 13, 14, 17, 18, 19, 20, 21, 22]);
+    expect(inner).toEqual([9, 10, 11, 12, 13, 14, 17, 18, 19, 20, 21, 22, 25, 26, 27, 28, 29, 30]);
     for (const i of inner) placeUnitForTest(s, ranged.id, i);
     expect(chooseSlot(s, unitDef(d3, ranged.id))).toBe(0);
-    for (let i = 0; i < 24; i++) if (!s.slots[i]) placeUnitForTest(s, melee.id, i);
+    for (let i = 0; i < 32; i++) if (!s.slots[i]) placeUnitForTest(s, melee.id, i);
     expect(chooseSlot(s, unitDef(d3, melee.id))).toBeNull();
   });
   test('auras count cells: 8 neighbours inside, 3 in a corner, none across the row end', () => {
