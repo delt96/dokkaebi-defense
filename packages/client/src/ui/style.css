@@ -251,6 +251,9 @@ body.online #econ-panel { height: 292px; }
 .ship-targets { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
 .ship-targets button { padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .story-target { color: var(--accent); font-weight: bold; }
+.story-terms { display: grid; gap: 4px; margin: 2px 0; word-break: keep-all; }
+.story-terms dt { color: var(--accent); font-weight: bold; }
+.story-terms dd { margin: 0; color: #c9c0d6; }
 .story-actions { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 2px; }
 .story-actions button { flex: 1; }
 #econ-top { position: absolute; left: 132px; top: 26px; width: 392px; z-index: 1; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
