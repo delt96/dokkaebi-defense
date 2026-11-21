@@ -18,6 +18,6 @@
   "bossCcFactor": 0.5, "vulnCap": 0.5, "auraRadius": 1.5, "pulseSeconds": 0.5,
   "onBasicHitRadius": 3,
   "auraCaps": { "attackSpeed": 0.5, "attackPower": 0.4 },
-  "inheritUpgrades": true, "periodicReady": true, "extendedCombat": true,
+  "periodicReady": true, "extendedCombat": true,
   "bossControl": { "windowTicks": 200, "stunTicks": 60, "pushDistance": 3, "maxStoppedShare": 0.3 }
 }

@@ -32,7 +32,7 @@ export type Effect =
 export interface SkillDef { trigger: Trigger; effects: Effect[] }
 export interface UnitDef {
   id: string; name: string; grade: number; damageType: DamageType; range: number; interval: number; factor: number; skills: SkillDef[];
-  hidden?: boolean; onBasicHit?: { targetPct: number; splashPct: number }; lineage?: DamageType[];
+  hidden?: boolean; onBasicHit?: { targetPct: number; splashPct: number };
 }
 export interface RecipeDef { result: string; materials: string[]; cost?: { buckwheat?: number; coins?: number } }
 export interface BossControlDef { windowTicks: number; stunTicks: number; pushDistance: number; maxStoppedShare: number }
@@ -62,7 +62,7 @@ export interface BalanceDef {
   summonOdds: number[]; pityEvery: number; grid: GridDef;
   bossCcFactor: number; vulnCap: number; auraRadius: number; pulseSeconds: number;
   onBasicHitRadius?: number; auraCaps?: { attackSpeed: number; attackPower: number };
-  inheritUpgrades?: boolean; periodicReady?: boolean; extendedCombat?: boolean; bossControl?: BossControlDef;
+  periodicReady?: boolean; extendedCombat?: boolean; bossControl?: BossControlDef;
 }
 export type UpgradeId = 'physical' | 'magical' | 'polish' | 'slots';
 export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number; openCount?: number }

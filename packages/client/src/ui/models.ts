@@ -134,10 +134,13 @@ function supports(def: UnitDef): Effect[] {
   return def.skills.flatMap(s => s.effects.filter(e => (s.trigger.kind === 'aura' && AURA_KINDS.has(e.kind)) || ('source' in e && e.source)));
 }
 
-/** Stage 3 notes under a unit: which upgrade line it reads, and the aura caps. Empty for stage 1-2 data. */
+/** The upgrade a unit reads: its own damage type's, never its materials'. */
+export const upgradeLine = (def: UnitDef): string => `${typeName(def.damageType)} 강화를 받음`;
+
+/** Stage 3 notes under a unit: which upgrade it reads, and the aura caps. Empty for stage 1-2 data. */
 export function unitNotes(data: GameData, def: UnitDef): string[] {
   const out: string[] = [];
-  if (data.balance.inheritUpgrades && def.lineage && def.lineage.length > 1) out.push('강화: 물딜·마딜 강화 중 높은 쪽을 받음');
+  if (data.balance.extendedCombat) out.push(upgradeLine(def));
   const caps = data.balance.auraCaps;
   if (caps && def.skills.some(s => s.effects.some(e => e.kind === 'auraAttackSpeed' || e.kind === 'auraAttackPower'))) {
     out.push(`오라는 종류마다 한 번만, 합쳐서 공격 속도 +${pct(caps.attackSpeed)}·공격력 +${pct(caps.attackPower)}까지`);
@@ -145,10 +148,10 @@ export function unitNotes(data: GameData, def: UnitDef): string[] {
   return out;
 }
 
-export interface CombineNotes { lineage: string | null; range: number; lostAuras: string[]; lostControls: string[]; inherited: string[] }
+export interface CombineNotes { upgrade: string; range: number; lostAuras: string[]; lostControls: string[]; inherited: string[] }
 
 /**
- * Stage 3 combine card (v5 6장 "도감 도움말"): the result's damage lines and range, the materials' auras and
+ * Stage 3 combine card (v5 6장 "도감 도움말"): the upgrade the result reads and its range, the materials' auras and
  * controls the result does not keep, and the support effects it carries on from a material. Null for stage 1-2.
  */
 export function combineNotes(data: GameData, result: string): CombineNotes | null {
@@ -184,9 +187,8 @@ export function combineNotes(data: GameData, result: string): CombineNotes | nul
       if (source && source !== def.id) inherited.push(`${name(source)}의 ${effectText({ ...e, source: undefined } as Effect, s.trigger, INHERIT_CTX(data))}`);
     }
   }
-  const lineage = def.lineage && def.lineage.length > 1 ? '물딜·마딜 (강화는 높은 쪽)' : def.lineage?.[0] ? typeName(def.lineage[0]) : null;
   return {
-    lineage, range: def.range, lostAuras, inherited,
+    upgrade: upgradeLine(def), range: def.range, lostAuras, inherited,
     lostControls: [...controls].map(([c, who]) => `${c} (${who.join(', ')})`),
   };
 }
@@ -198,7 +200,7 @@ const INHERIT_CTX = (data: GameData): SkillCtx => ({ interval: Number.POSITIVE_I
 export function combineNoteLines(data: GameData, result: string): string[] {
   const n = combineNotes(data, result);
   if (!n) return [];
-  const lines = [`${n.lineage ? `계열 ${n.lineage} · ` : ''}사거리 ${n.range}칸`];
+  const lines = [`${n.upgrade} · 사거리 ${n.range}칸`];
   if (n.inherited.length) lines.push(`이어받는 지원 효과: ${n.inherited.join(' / ')}`);
   if (n.lostAuras.length) lines.push(`조합하면 사라지는 오라: ${n.lostAuras.join(' / ')}`);
   if (n.lostControls.length) lines.push(`조합하면 사라지는 제어: ${n.lostControls.join(', ')}`);

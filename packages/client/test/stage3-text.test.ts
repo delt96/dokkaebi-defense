@@ -5,7 +5,7 @@ import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { spriteKey, tameArt } from '../src/sprites';
 import { dexHtml } from '../src/ui/dex';
-import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitSkillText, upgradeRows } from '../src/ui/models';
+import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitNotes, unitSkillText, upgradeRows } from '../src/ui/models';
 
 const d3 = loadGameData('stage3');
 const text = (id: string) => unitSkillText(d3, unitDefFast(d3, id));
@@ -17,7 +17,7 @@ describe('stage 3 skill text', () => {
       + ' / 오라: 주변 마딜 아군 공격력 +13% (갓의 효과와 겹치지 않음)',
     );
     expect(combineNoteLines(d3, 'cheonnyeonsangmo')).toEqual([
-      '계열 물딜·마딜 (강화는 높은 쪽) · 사거리 2.5칸',
+      '마딜 강화를 받음 · 사거리 2.5칸',
       '이어받는 지원 효과: 망건의 받는 마딜 +15% 3초 / 갓의 주변 마딜 아군 공격력 +13%',
       '조합하면 사라지는 제어: 스턴 (가위)',
     ]);
@@ -174,4 +174,13 @@ test('the slots upgrade says how many cells its next level opens: 3, 3, 2 on the
   expect(slots()).toBe('칸 2개 열기');
   const one = createGame(loadGameData(), 1);
   expect(upgradeRows(one).find(r => r.id === 'slots')!.effectText).toBe('칸 2개 열기');
+});
+
+test('a stage 3 card says which upgrade the unit gets: its own type, never the higher of its materials', () => {
+  expect(unitNotes(d3, unitDefFast(d3, 'jangdok'))[0]).toBe('물딜 강화를 받음');
+  expect(unitNotes(d3, unitDefFast(d3, 'bihyeongrang'))[0]).toBe('마딜 강화를 받음');
+  expect(combineNoteLines(d3, 'jangdok')[0]).toMatch(/^물딜 강화를 받음 · 사거리/);
+  expect(JSON.stringify(dexEntries(d3))).not.toContain('높은 쪽');
+  const d1 = loadGameData();
+  expect(unitNotes(d1, unitDefFast(d1, 'sotlid'))).toEqual([]);
 });

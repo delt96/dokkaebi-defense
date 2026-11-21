@@ -34,7 +34,7 @@ describe('stage 3 data, grades 1-4', () => {
   test('stage 1 and stage 2 untouched', () => {
     expect(loadGameData().units.length).toBe(22);
     expect(loadGameData('stage2').units.length).toBe(40);
-    expect(loadGameData('stage2').units.every(u => u.onBasicHit === undefined && u.lineage === undefined)).toBe(true);
+    expect(loadGameData('stage2').units.every(u => u.onBasicHit === undefined)).toBe(true);
     expect(loadGameData('stage2').balance.bossControl).toBeUndefined();
   });
 
@@ -50,11 +50,9 @@ describe('stage 3 data, grades 1-4', () => {
     expect(enemyDef(d3, 'gangcheori6')).toMatchObject({ boss: true, hp: 107000, resist: { magical: 0.3 } });
   });
 
-  test('onBasicHit entries and lineage', () => {
+  test('onBasicHit entries', () => {
     expect(unitDef(d3, 'hwaetbul').onBasicHit).toEqual({ targetPct: 0.05, splashPct: 0 });
     expect(unitDef(d3, 'pulmu').onBasicHit).toEqual({ targetPct: 0, splashPct: 0.15 });
-    expect(unitDef(d3, 'jangdok').lineage).toEqual(['magical', 'physical']);
-    expect(unitDef(d3, 'pulmu').lineage).toEqual(['magical']);
   });
 
   test('skill spot values', () => {
@@ -111,7 +109,6 @@ describe('stage 3 data, grades 5-6 and hidden', () => {
   });
 
   test('grade 6 spot values', () => {
-    expect(unitDef(d3, 'bihyeongrang').lineage).toEqual(['magical', 'physical']);
     expect(unitDef(d3, 'cheonnyeonsangmo').skills).toContainEqual({ trigger: { kind: 'aura' },
       effects: [{ kind: 'auraAttackPower', pct: 0.13, damageType: 'magical', source: 'gat' }] });
     expect(unitDef(d3, 'gamtudokkaebi').skills[0]!.trigger).toEqual({ kind: 'charge', seconds: 4 });
@@ -141,7 +138,7 @@ describe('stage 3 balance stands on its own', () => {
       bossCcFactor: 0.5, vulnCap: 0.5, auraRadius: 1.5, pulseSeconds: 0.5,
       onBasicHitRadius: 3,
       auraCaps: { attackSpeed: 0.5, attackPower: 0.4 },
-      inheritUpgrades: true, periodicReady: true, extendedCombat: true,
+      periodicReady: true, extendedCombat: true,
       bossControl: { windowTicks: 200, stunTicks: 60, pushDistance: 3, maxStoppedShare: 0.3 },
     });
     expect(d3.coop).toEqual({

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadGameData, stripEconomy, type GameData } from '@dorandi/logic';
 import { normalBot } from '../bots';
-import { combineGainAll, parseCombinePlacement } from './combineGain';
+import { combineGainAll, parseCombinePlacement, parseUpgradeLevels } from './combineGain';
 import { controlAll } from './control';
 import { grade6Markdown, grade6Run, type Grade6Row } from './grade6';
 import { combineGainMarkdown, controlMarkdown, toCsvRows } from './report';
@@ -25,10 +25,12 @@ export function stage3Cli(arg: Arg): void {
 
   if (check === 'combine' || check === 'all') {
     const placement = parseCombinePlacement(arg('combine-place', 'fit'));
-    const rows = combineGainAll(data, { seeds, placement });
-    const file = join(out, placement === 'fit' ? 'combine.csv' : `combine-${placement}.csv`);
+    const upgrades = parseUpgradeLevels(arg('upgrades', '0/0'));
+    const rows = combineGainAll(data, { seeds, placement, upgrades });
+    const skew = upgrades.physical || upgrades.magical ? `-u${upgrades.physical}-${upgrades.magical}` : '';
+    const file = join(out, `${placement === 'fit' ? 'combine' : `combine-${placement}`}${skew}.csv`);
     writeFileSync(file, toCsvRows(rows));
-    console.log(`## combine gain (seeds ${seeds}, placement ${placement}, ${elapsed()}, ${file})\n`);
+    console.log(`## combine gain (seeds ${seeds}, placement ${placement}, upgrades ${upgrades.physical}/${upgrades.magical}, ${elapsed()}, ${file})\n`);
     console.log(combineGainMarkdown(rows) + '\n');
   }
   if (check === 'control' || check === 'all') {
