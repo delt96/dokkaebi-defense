@@ -1,8 +1,9 @@
 import {
   attackIntervalTicks, damageBonus, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
   upgradeCost, summonOddsForRound,
-  type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
+  type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
+import { unitRoles, type RoleTag } from './dex-roles';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const typeName = (t: string) => (t === 'physical' ? '물딜' : t === 'magical' ? '마딜' : '피해');
@@ -397,6 +398,8 @@ export function unitCard(state: GameState, slot: number): { name: string; grade:
 export interface DexEntry {
   id: string; name: string; grade: number; recipe: string[]; recipeIds: string[]; hidden: boolean;
   typeText: string; range: number; skillText: string; cost: string | null; notes: string[];
+  /** the unit's own damage type and the roles read from its skills (dex-roles) */
+  kind: DamageType; roles: RoleTag[];
 }
 
 export function dexEntries(data: GameData): DexEntry[] {
@@ -406,6 +409,7 @@ export function dexEntries(data: GameData): DexEntry[] {
     return {
       id: u.id, name: u.name, grade: u.grade, hidden: u.hidden === true,
       recipe: (recipe?.materials ?? []).map(name), recipeIds: [...(recipe?.materials ?? [])],
+      kind: u.damageType, roles: unitRoles(u),
       typeText: typeName(u.damageType), range: u.range, skillText: unitSkillText(data, u), cost: costText(recipe),
       // the combine card's first line (lines and range) is already in the row
       notes: [...combineNoteLines(data, u.id).slice(1), ...unitNotes(data, u)],
@@ -515,16 +519,22 @@ export interface DexStep { id: string; filter: string; query: string }
  * the entry to scroll to and flash after the next draw, the entries whose material tree is open, and the branches
  * under a ✓ material the player unfolded (`entry:path`; those branches start folded).
  */
-export interface DexNav { filter: string; query: string; back: DexStep[]; focus: string | null; open: string[]; unfold: string[] }
+export interface DexNav { filter: string; kind: string; role: string; query: string; back: DexStep[]; focus: string | null; open: string[]; unfold: string[] }
 
 const DEX_BACK_MAX = 10;
 
 export function dexNavStart(filter = 'all'): DexNav {
-  return { filter, query: '', back: [], focus: null, open: [], unfold: [] };
+  return { filter, kind: 'all', role: 'all', query: '', back: [], focus: null, open: [], unfold: [] };
 }
 
 /** Whether a dex entry shows under a filter and search (stage 1-2 data has neither, so everything shows). */
-export function dexShows(data: GameData, entry: Pick<DexEntry, 'grade' | 'hidden' | 'name' | 'recipe'>, filter: string, query: string): boolean {
+export function dexShows(
+  data: GameData, entry: Pick<DexEntry, 'grade' | 'hidden' | 'name' | 'recipe'> & Partial<Pick<DexEntry, 'kind' | 'roles'>>,
+  filter: string, query: string, more: { kind?: string; role?: string } = {},
+): boolean {
+  // 계열 and 역할 apply to every unit set; grade and search only where the dex has them (stage 3 data)
+  if (more.kind && more.kind !== 'all' && entry.kind !== more.kind) return false;
+  if (more.role && more.role !== 'all' && !entry.roles?.some(t => t.role === more.role)) return false;
   if (!data.balance.extendedCombat) return true;
   if (filter === 'hidden' && !entry.hidden) return false;
   if (filter !== 'all' && filter !== 'hidden' && String(entry.grade) !== filter) return false;
@@ -541,8 +551,11 @@ export function dexGo(data: GameData, nav: DexNav, target: string, from: string)
   if (!entry) return nav;
   const back = [...nav.back, { id: from, filter: nav.filter, query: nav.query }].slice(-DEX_BACK_MAX);
   const tries: [string, string][] = [[nav.filter, nav.query], [nav.filter, ''], ['all', nav.query], ['all', '']];
+  // 계열/역할 stay when they show the target; otherwise they are cleared before the grade and search are given up
+  const found = tries.find(([f, q]) => dexShows(data, entry, f, q, nav));
+  if (found) return { ...nav, filter: found[0], query: found[1], back, focus: target };
   const [filter, query] = tries.find(([f, q]) => dexShows(data, entry, f, q)) ?? ['all', ''];
-  return { ...nav, filter, query, back, focus: target };
+  return { ...nav, filter, query, kind: 'all', role: 'all', back, focus: target };
 }
 
 /** Goes back to the entry the last material link was followed from, with its filter and search. */

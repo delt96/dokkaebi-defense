@@ -135,7 +135,7 @@ describe('review fixes: aura for all, lockouts, cooldowns, slow radii, tamed uni
     const entries = dexEntries(d3);
     expect(entries.filter(e => e.hidden).map(e => e.id).sort()).toEqual(['bulgasari', 'eoduksini', 'gangcheori', 'jinegaksi', 'ssireumdokkaebi']);
     expect(dexEntries(loadGameData('stage2')).some(e => e.hidden)).toBe(false);
-    const row = (html: string, name: string) => html.split('<tr').find(r => r.includes(`<td>${name}</td>`)) ?? '';
+    const row = (html: string, name: string) => html.split('<tr').find(r => r.includes(`<div class="dex-name">${name}</div>`)) ?? '';
     expect(row(dexHtml(d3), '강철이')).toContain('<td>길들이기');
     expect(row(dexHtml(d3), '짚신')).toContain('<td>소환');
   });
@@ -150,7 +150,7 @@ test('dex filters retain the selected grade, hidden units and story actions', ()
   const hidden = dexHtml(d3, story, 'hidden');
   expect(hidden.match(/>길들이기/g)).toHaveLength(d3.units.filter(u => u.hidden).length);
   expect(hidden).not.toContain('data-action="storyTarget"');
-  expect(dexHtml(d3)).toContain(`도감 · ${d3.units.length}종`);
+  expect(dexHtml(d3)).toContain(`<span>${d3.units.length}종</span>`);
   for (const stage of ['stage1', 'stage2'] as const) {
     expect(dexHtml(loadGameData(stage))).not.toContain('dex-filters');
   }
@@ -158,8 +158,8 @@ test('dex filters retain the selected grade, hidden units and story actions', ()
 
 test('dex search combines grade with a unit or material name and handles no matches', () => {
   const byName = dexHtml(d3, undefined, '6', '천년상모');
-  expect(byName).toContain('>천년 상모</td>');
+  expect(byName).toContain('>천년 상모</div>');
   const byMaterial = dexHtml(d3, undefined, '5', '지게');
-  expect(byMaterial).toContain('>톱</td>');
+  expect(byMaterial).toContain('>톱</div>');
   expect(dexHtml(d3, undefined, '1', '천년상모')).toContain('찾는 유닛이 없습니다');
 });

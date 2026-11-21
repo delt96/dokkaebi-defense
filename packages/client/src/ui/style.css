@@ -301,12 +301,13 @@ body.online #econ-bottom { top: 272px; height: 42px; }
 
 #modal .dex-browser { display: flex; flex-direction: column; overflow: hidden; }
 .dex-browser .dex-scroll { overflow: auto; }
-.dex-filters { display: flex; gap: 2px; padding-bottom: 4px; }
-.dex-filters button { flex: auto; padding: 0 3px; }
-.dex-filters [aria-pressed="true"] { color: var(--accent); border-color: var(--accent); font-weight: bold; }
+.dex-filters, .dex-chips { display: flex; gap: 2px; padding-bottom: 3px; }
+.dex-filters button, .dex-chips button { flex: auto; min-height: 19px; padding: 0 3px; }
+.dex-filters [aria-pressed="true"], .dex-chips [aria-pressed="true"] { color: var(--accent); border-color: var(--accent); font-weight: bold; }
 .dex-browser thead { position: sticky; top: 0; background: var(--panel); }
 
-.dex-search { display: flex; gap: 4px; margin-bottom: 4px; }
+.dex-top { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.dex-search { display: flex; flex: 1; gap: 4px; }
 .dex-search input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid #55485f; color: var(--ink); font: inherit; padding: 2px 5px; }
 .dex-search input::placeholder { color: #b4aabe; }
 
@@ -361,3 +362,23 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 #storage .stack-sell:hover { opacity: 1; border-color: #fff2c0; }
 .storage-empty { margin: 6px 2px 0; color: var(--ink-dim); line-height: 1.45; text-align: center; word-break: keep-all; }
 .stack-ghost { position: absolute; z-index: 3; width: 24px; height: 24px; pointer-events: none; opacity: 0.85; }
+.dex-filter-label { flex: none; align-self: center; width: 28px; color: var(--ink-dim); font-size: 10px; }
+.dex-summary { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--ink-dim); font-size: 11px; }
+.dex-summary button { min-height: 16px; padding: 0 5px; font-size: 10px; color: var(--accent); border-color: var(--accent); }
+.dex .dex-name { white-space: nowrap; }
+.dex-roles { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; white-space: normal; }
+.role-tag { padding: 0 3px; border: 1px solid #55485f; border-radius: 3px; font-size: 9px; line-height: 13px; color: var(--ink-dim); white-space: nowrap; }
+.role-physVuln { color: #ffb08a; border-color: #8a5a42; }
+.role-magVuln { color: #a8c4ff; border-color: #4a5f95; }
+.role-slow { color: #8fe0e0; border-color: #3f7a7a; }
+.role-stun { color: #ffe08a; border-color: #8a7a3a; }
+.role-area { color: #ffa0c8; border-color: #8a4a68; }
+.role-aura { color: #b8e8a0; border-color: #5a7a48; }
+.dex-recent { display: flex; align-items: center; gap: 3px; margin-bottom: 3px; overflow: hidden; white-space: nowrap; }
+.dex-recent[data-searching="true"] { display: none; }
+.dex-searchbox:focus-within .dex-recent { display: flex; }
+.recent-chip { display: inline-flex; min-width: 0; flex: 0 1 auto; border: 1px solid #55485f; border-radius: 3px; background: #241c2e; }
+.recent-chip button { min-height: 16px; border: 0; background: none; padding: 0 3px; font-size: 10px; }
+.recent-chip .recent-run { min-width: 0; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-chip .recent-del { flex: none; color: var(--ink-dim); padding: 0 4px 0 1px; }
+.recent-chip .recent-del:hover { color: var(--danger); }

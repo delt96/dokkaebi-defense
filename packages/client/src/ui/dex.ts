@@ -2,6 +2,7 @@ import type { GameData } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import { branchKey, dexEntries, dexShows, recipeTree, summonOddsText, treeSize, type DexStep, type RecipeNode } from './models';
 import { esc } from './dom';
+import { ROLE_LABEL, ROLE_ORDER, roleText } from './dex-roles';
 import { withRo } from './josa';
 
 /**
@@ -9,13 +10,16 @@ import { withRo } from './josa';
  * material tree is shown, `board` the def ids on the player's board that the tree marks with ✓, `unfold` the branches
  * under a ✓ material that are unfolded (branchKey; the rest stay folded).
  */
-export interface DexExtra { back?: readonly DexStep[]; open?: readonly string[]; board?: readonly string[]; unfold?: readonly string[] }
+export interface DexExtra { recent?: readonly string[]; back?: readonly DexStep[]; open?: readonly string[]; board?: readonly string[]; unfold?: readonly string[] }
 
 /** `story`: stage 3 lets a normal grade-6 row be picked as the story request's target. */
-export function dexHtml(data: GameData, story?: { target: string | null; canSet: boolean }, filter = 'all', query = '', round = 1, extra: DexExtra = {}): string {
+export function dexHtml(data: GameData, story?: { target: string | null; canSet: boolean }, filter = 'all', query = '', round = 1, extra: DexExtra = {}, more: { kind?: string; role?: string } = {}): string {
   const entries = dexEntries(data);
   const browsable = !!data.balance.extendedCombat;
-  const visible = entries.filter(d => dexShows(data, d, filter, query));
+  const visible = entries.filter(d => dexShows(data, d, filter, query, more));
+  const kind = more.kind ?? 'all';
+  const role = more.role ?? 'all';
+  const narrowed = (browsable && (filter !== 'all' || query !== '')) || kind !== 'all' || role !== 'all';
   const nameOf = new Map(entries.map(d => [d.id, d.name]));
   const open = new Set(extra.open ?? []);
   const rows = visible.map(d => {
@@ -29,7 +33,7 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
     // one row per unit: an open tree sits right under the recipe line (where it was opened), then the skill line
     return `
     <tr data-dex-id="${esc(d.id)}"><td><span class="dot" style="background:${GRADE_COLOR[d.grade]}"></span>${d.grade}</td>
-    <td>${esc(d.name)}${story && d.grade === 6 && !d.hidden && d.recipe.length ? targetButton(d.id, story) : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
+    <td><div class="dex-name">${esc(d.name)}${story && d.grade === 6 && !d.hidden && d.recipe.length ? targetButton(d.id, story) : ''}</div>${d.roles.length ? `<div class="dex-roles">${d.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
     <div class="dex-skill">${d.typeText} · 사거리 ${d.range}칸${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>`;
   }).join('');
   const grades = [...new Set(entries.map(d => d.grade))].sort((a, b) => a - b);
@@ -37,12 +41,24 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
     const label = key === 'all' ? '전체' : key === 'hidden' ? '숨은 유닛' : `${key}등급`;
     return `<button data-action="dexFilter" data-arg="${key}" aria-pressed="${key === filter}">${label}</button>`;
   }).join('');
+  const chips = (action: string, current: string, items: [string, string][]) =>
+    items.map(([key, label]) => `<button data-action="${action}" data-arg="${key}" aria-pressed="${key === current}">${label}</button>`).join('');
+  const kindRow = chips('dexKind', kind, [['all', '전체'], ['physical', '물딜'], ['magical', '마딜']]);
+  const roleRow = chips('dexRole', role, [['all', '전체'], ...ROLE_ORDER.map((r): [string, string] => [r, ROLE_LABEL[r]])]);
+  const summary = `<div class="dex-summary"><span>${visible.length}종</span>${narrowed ? '<button data-action="dexReset">필터 초기화</button>' : ''}</div>`;
   const last = extra.back?.[extra.back.length - 1];
   const backName = last ? nameOf.get(last.id) : undefined;
   const back = backName ? `<button class="dex-back" data-action="dexBack">← ${esc(withRo(backName))}</button>` : '';
-  return `<div class="modal dex-modal${browsable ? ' dex-browser' : ''}"><div class="modal-head">도감${browsable ? ` · ${visible.length}종` : ''} <span class="dex-head-actions">${back}<button data-action="closeModal">닫기</button></span></div>
+  return `<div class="modal dex-modal${browsable ? ' dex-browser' : ''}"><div class="modal-head">도감 <span class="dex-head-actions">${back}<button data-action="closeModal">닫기</button></span></div>
     <div>${esc(summonOddsText(data, round))}</div>
-    ${browsable ? `<form class="dex-search"><input type="search" name="query" aria-label="이름·재료 검색" placeholder="이름·재료 검색" value="${esc(query)}"><button>검색</button></form><div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div><div class="dex-scroll">` : ''}<table class="dex"><thead><tr><th>등급</th><th>이름</th><th>재료</th></tr></thead><tbody>${rows || '<tr><td colspan="3">찾는 유닛이 없습니다.</td></tr>'}</tbody></table>${browsable ? '</div>' : ''}</div>`;
+    <div class="dex-searchbox"><div class="dex-top">${browsable ? `<form class="dex-search"><input type="search" name="query" aria-label="이름·재료 검색" placeholder="이름·재료 검색" value="${esc(query)}"><button>검색</button></form>` : ''}${summary}</div>${browsable ? recentHtml(extra.recent ?? [], query) : ''}</div>${browsable ? `<div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div>` : ''}<div class="dex-chips" role="group" aria-label="도감 계열"><span class="dex-filter-label">계열</span>${kindRow}</div><div class="dex-chips" role="group" aria-label="도감 역할"><span class="dex-filter-label">역할</span>${roleRow}</div>${browsable ? '<div class="dex-scroll">' : ''}<table class="dex"><thead><tr><th>등급</th><th>이름</th><th>재료</th></tr></thead><tbody>${rows || '<tr><td colspan="3">찾는 유닛이 없습니다.</td></tr>'}</tbody></table>${browsable ? '</div>' : ''}</div>`;
+}
+
+/** The recent searches under the search box: a chip runs its search, its × removes it. Hidden by CSS while a search shows and the box is not focused. */
+function recentHtml(recent: readonly string[], query: string): string {
+  if (!recent.length) return '';
+  const chips = recent.map(t => `<span class="recent-chip"><button class="recent-run" data-action="dexRecent" data-arg="${esc(t)}" title="${esc(t)}">${esc(t)}</button><button class="recent-del" data-action="dexRecentDel" data-arg="${esc(t)}" aria-label="${esc(t)} 삭제" title="삭제">×</button></span>`).join('');
+  return `<div class="dex-recent" data-searching="${query !== ''}"><span class="dex-filter-label">최근</span>${chips}</div>`;
 }
 
 /** A material name that jumps to its own entry; `from` is the entry it is shown in, for the back button. */
