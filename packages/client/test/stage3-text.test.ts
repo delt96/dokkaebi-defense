@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
-import { spriteKey } from '../src/sprites';
+import { spriteKey, tameArt } from '../src/sprites';
 import { dexHtml } from '../src/ui/dex';
 import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitSkillText } from '../src/ui/models';
 
@@ -108,6 +108,10 @@ describe('sprites', () => {
     expect(spriteKey('gangcheori6', files)).toBe('gangcheori');
     expect(spriteKey('nosuchunit', files)).toBeNull();
     expect(spriteKey('yeoksin1', files)).toBeNull();
+    // event enemies borrow the art of the hidden unit they are tamed into
+    const alias = tameArt(d3);
+    for (const id of ['ev_soebap', 'ev_ssireum', 'ev_shadow']) expect(spriteKey(id, files, alias), id).toBe(alias.get(id));
+    expect(tameArt(loadGameData('stage2')).size).toBe(0);
   });
 });
 
