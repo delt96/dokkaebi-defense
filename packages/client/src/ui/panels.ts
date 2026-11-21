@@ -1,6 +1,6 @@
 import type { GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { combineOptions, rightModel, unitCard, upgradeRows } from './models';
+import { combineNoteLines, combineOptions, rightModel, unitCard, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
 
 export interface RightOpts { online?: boolean; notices?: string[] }
@@ -21,17 +21,30 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}`);
 }
 
-function recipeHtml(option: ReturnType<typeof combineOptions>[number], unitId: number | null): string {
-  return option.missing.length
-    ? `<span class="combine-missing">${esc(option.name)} (모자람: ${option.missing.map(esc).join(', ')})</span>`
-    : `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}">${option.key ? `[${option.key}] ` : ''}${esc(option.name)}</button>`;
+function recipeHtml(option: CombineOption, unitId: number | null): string {
+  if (option.missing.length) {
+    const cost = option.cost ? ` · 비용 ${esc(option.cost)}` : '';
+    return `<span class="combine-missing">${esc(option.name)} (모자람: ${option.missing.map(esc).join(', ')}${cost})</span>`;
+  }
+  // every material is there but not the cost: the button stays, disabled, and says what is missing
+  if (option.short) {
+    return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" disabled title="${esc(option.short)}">${esc(option.name)} · <span class="combine-short">${esc(option.short)}</span></button>`;
+  }
+  const cost = option.cost ? ` · <span class="combine-cost">${esc(option.cost)}</span>` : '';
+  return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}"${option.cost ? ` title="비용 ${esc(option.cost)}"` : ''}>${option.key ? `[${option.key}] ` : ''}${esc(option.name)}${cost}</button>`;
 }
+
+const notesHtml = (lines: string[]): string => (lines.length ? `<ul class="card-notes">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '');
 
 export function unitDetailsHtml(state: GameState, selected: number): string {
   const card = unitCard(state, selected)!;
-  const options = combineOptions(state, selected).map(option => recipeHtml(option, state.slots[selected]!.id));
+  const unitId = state.slots[selected]!.id;
+  const options = combineOptions(state, selected).map(option => {
+    const notes = combineNoteLines(state.data, option.result);
+    return notes.length ? `<div class="recipe">${recipeHtml(option, unitId)}${notesHtml(notes)}</div>` : recipeHtml(option, unitId);
+  });
   return `<div class="modal"><div class="modal-head">${esc(card.name)} · 상세 <button data-action="closeModal">닫기</button></div>
-    <p>${esc(card.skillText)}</p><div class="recipe-list">${options.join('') || '최종 조합입니다.'}</div></div>`;
+    <p>${esc(card.skillText)}</p>${notesHtml(card.notes)}<div class="recipe-list">${options.join('') || '최종 조합입니다.'}</div></div>`;
 }
 
 export function renderBottom(state: GameState, selected: number | null, online = false) {
@@ -46,7 +59,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
         <span>공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${card.range}칸</span></span>
         ${online ? '' : `<span class="skill" title="${esc(card.skillText)}">${esc(card.skillText)}</span>`}
         ${options ? `<div class="combine-options">${options}</div>` : ''}
-        ${online ? '<button data-action="unitDetails">상세</button>' : ''}
+        ${online || state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세</button>' : ''}
         <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`
     : '<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · Esc 선택 해제</div>');
   return { unitId, recipes };

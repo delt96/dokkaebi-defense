@@ -1,6 +1,6 @@
 import {
-  attackIntervalTicks, damageBonus, speedBonus, unitAttack, availableRecipes, countNormalEnemies, recipesUsing, unitDefFast, upgradeCost,
-  type Effect, type GameData, type GameState, type SkillDef, type Trigger, type UpgradeId,
+  attackIntervalTicks, damageBonus, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, unitDefFast, upgradeCost,
+  type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -9,7 +9,9 @@ const typeName = (t: string) => (t === 'physical' ? '물딜' : t === 'magical' ?
 function triggerText(t: Trigger): string {
   switch (t.kind) {
     case 'chance': return `${pct(t.p)} `;
-    case 'nth': return `${t.n}번째 공격마다 `;
+    case 'nth':
+      if (!t.phase) return `${t.n}번째 공격마다 `;
+      return t.n === 2 && t.phase === 1 ? '홀수 번째 공격마다 ' : `${t.n}번 중 ${t.phase}번째 공격마다 `;
     case 'periodic': return `${t.seconds}초마다 `;
     case 'aura': return '오라: ';
     case 'charge': return `${t.seconds}초마다 충전한 다음 공격에 `;
@@ -21,7 +23,32 @@ function triggerText(t: Trigger): string {
   }
 }
 
-export interface SkillCtx { interval: number; pulseSeconds: number }
+/** `nameOf` turns a source id into a unit name for the "does not stack with" notes. */
+export interface SkillCtx { interval: number; pulseSeconds: number; nameOf?: (id: string) => string }
+
+/** Who a status lands on (stage 3 `radius` / `area`); empty for the plain target. */
+function areaText(a: StatusArea): string {
+  if (a.radius) return `주변 ${a.radius}칸 `;
+  if (a.area === 'hit') return '맞은 적 모두 ';
+  if (a.area === 'others') return '대상 말고 맞은 적에게 ';
+  return '';
+}
+
+/** Stage 3 support effects keyed by a material's id do not stack with that material's own effect. */
+function sourceNote(source: string | undefined, ctx?: SkillCtx): string | null {
+  return source ? `${ctx?.nameOf?.(source) ?? source}의 효과와 겹치지 않음` : null;
+}
+
+/** " (a, b)" from the notes that apply, or nothing. */
+function paren(...notes: (string | number | null | undefined | false)[]): string {
+  const list = notes.filter((n): n is string => typeof n === 'string' && n !== '');
+  return list.length ? ` (${list.join(', ')})` : '';
+}
+
+function fireText(e: Extract<Effect, { kind: 'groundFire' }>): string {
+  const where = e.align === 'ahead' ? `대상이 갈 쪽 ${e.length}칸` : e.align === 'behind' ? `대상이 지나온 ${e.length}칸` : `경로 ${e.length}칸`;
+  return `${where}에 ${e.seconds}초 불길`;
+}
 
 function dotText(e: Extract<Effect, { kind: 'dot' }>, trigger: Trigger, ctx?: SkillCtx): string {
   const base = `${e.seconds}초 동안 공격력 ${pct(e.mult)} 지속 피해`;
@@ -37,19 +64,27 @@ function effectText(e: Effect, trigger: Trigger, ctx?: SkillCtx): string {
     case 'extraAttack': return '한 번 더 공격';
     case 'crit': return `피해 ${e.mult}배`;
     case 'execute': return `체력 ${pct(e.hpBelow)} 이하에 피해 ${e.mult}배`;
-    case 'splash': return `주변 ${e.radius}칸에 공격력 ${pct(e.mult)}`;
-    case 'pierce': return `뒤따르는 ${e.length}칸 관통 ${pct(e.mult)}`;
+    case 'splash': {
+      const area = e.radiusCycle?.length ? `주변 ${e.radiusCycle.join('→')}칸을 번갈아` : `주변 ${e.radius}칸에`;
+      const bonus = e.stunnedBonus ? ` (스턴 중이거나 풀린 지 ${e.stunnedBonus.graceSeconds}초 안이면 ${e.stunnedBonus.mult}배)` : '';
+      return `${area} 공격력 ${pct(e.mult)}${bonus}`;
+    }
+    case 'pierce': {
+      const bonus = e.knockedBonus ? ` (이번 라운드에 밀려난 적에게 ${e.knockedBonus}배)` : '';
+      return `${e.both ? '앞뒤' : '뒤따르는'} ${e.length}칸 관통 ${pct(e.mult)}${bonus}`;
+    }
     case 'allInRange': return `사거리 안 모두에게 공격력 ${pct(e.mult)}`;
-    case 'stun': return `스턴 ${e.seconds}초`;
-    case 'slow': return `${e.radius ? '주변 ' : ''}둔화 ${pct(e.pct)} ${e.seconds}초`;
-    case 'knockback': return `${e.distance}칸 밀어냄`;
-    case 'vuln': return `받는 ${typeName(e.damageType)} +${pct(e.pct)} ${e.seconds}초${e.maxStacks ? ` (최대 ${e.maxStacks}중첩)` : ''}`;
-    case 'dot': return dotText(e, trigger, ctx);
-    case 'groundFire': return `경로 ${e.length}칸에 ${e.seconds}초 불길`;
-    case 'onKillExplode': return `처치하면 주변 폭발 ${pct(e.mult)}`;
-    case 'auraAttackSpeed': return `주변 아군 공격 속도 +${pct(e.pct)}`;
-    case 'auraAttackPower': return `주변 ${typeName(e.damageType)} 아군 공격력 +${pct(e.pct)}`;
-    case 'auraEnemyVuln': return `사거리 안 적이 받는 피해 +${pct(e.pct)}`;
+    case 'stun': return `${areaText(e)}스턴 ${e.seconds}초`;
+    // stage 1-2 slows with a radius keep their old wording
+    case 'slow': return `${e.radius ? '주변 ' : areaText(e)}둔화 ${pct(e.pct)} ${e.seconds}초`;
+    case 'knockback': return `${areaText(e)}${e.distance}칸 밀어냄`;
+    case 'vuln': return `${areaText(e)}받는 ${typeName(e.damageType)} +${pct(e.pct)} ${e.seconds}초${paren(e.maxStacks && `최대 ${e.maxStacks}중첩`, sourceNote(e.source, ctx))}`;
+    case 'dot': return areaText(e) + dotText(e, trigger, ctx);
+    case 'groundFire': return fireText(e);
+    case 'onKillExplode': return `${e.requireExecute ? '처형으로 ' : ''}처치하면 주변 폭발 ${pct(e.mult)}`;
+    case 'auraAttackSpeed': return `주변 ${e.damageType ? `${typeName(e.damageType)} ` : ''}아군 공격 속도 +${pct(e.pct)}`;
+    case 'auraAttackPower': return `주변 ${typeName(e.damageType)} 아군 공격력 +${pct(e.pct)}${paren(sourceNote(e.source, ctx))}`;
+    case 'auraEnemyVuln': return `사거리 안 적이 받는 ${e.damageType ? typeName(e.damageType) : '피해'} +${pct(e.pct)}${paren(sourceNote(e.source, ctx))}`;
     case 'strike': return `대상에게 공격력 ${pct(e.mult)} 추가 피해`;
     case 'chain': return `${e.range}칸 안의 다음 적에게 차례로 ${pct(e.mult)} (최대 ${e.maxBounces}번)`;
     case 'rampCrit': return `같은 적을 연달아 치면 피해가 ${e.step}배씩 올라 최대 ${e.max}배`;
@@ -61,6 +96,124 @@ function effectText(e: Effect, trigger: Trigger, ctx?: SkillCtx): string {
 
 export function skillText(skills: SkillDef[], ctx?: SkillCtx): string {
   return skills.map(s => triggerText(s.trigger) + s.effects.map(e => effectText(e, s.trigger, ctx)).join(', ')).join(' / ');
+}
+
+const nameIn = (data: GameData) => (id: string): string => data.units.find(u => u.id === id)?.name ?? id;
+
+function ctxOf(data: GameData, def: UnitDef): SkillCtx {
+  return { interval: def.interval, pulseSeconds: data.balance.pulseSeconds, nameOf: nameIn(data) };
+}
+
+/** Stage 3 extra damage on every basic attack, shown as its own line (v5 6장 "도감 도움말"). */
+export function basicHitText(data: GameData, def: UnitDef): string | null {
+  const h = def.onBasicHit;
+  if (!h || (!h.targetPct && !h.splashPct)) return null;
+  const parts: string[] = [];
+  if (h.targetPct) parts.push(`대상에게 공격력 ${pct(h.targetPct)}`);
+  if (h.splashPct) parts.push(`주변 ${data.balance.onBasicHitRadius ?? 0}칸에 공격력 ${pct(h.splashPct)}`);
+  return `기본 공격마다 추가 피해: ${parts.join(', ')}`;
+}
+
+/** The whole skill text of a unit: its skills, then the stage 3 basic-hit line. */
+export function unitSkillText(data: GameData, def: UnitDef): string {
+  const skills = skillText(def.skills, ctxOf(data, def));
+  const extra = basicHitText(data, def);
+  return [skills, extra].filter(Boolean).join(' / ');
+}
+
+const AURA_KINDS = new Set<Effect['kind']>(['auraAttackSpeed', 'auraAttackPower', 'auraEnemyVuln']);
+const CONTROL_TEXT: Partial<Record<Effect['kind'], string>> = { stun: '스턴', slow: '둔화', knockback: '밀어내기' };
+/** The stacking key the rules use for supports (effects.ts auraKey): a material's id when `source` names it. */
+const supportKey = (owner: string, e: Effect): string => `${('source' in e && e.source) || owner}:${e.kind}`;
+
+function supports(def: UnitDef): Effect[] {
+  return def.skills.flatMap(s => s.effects.filter(e => (s.trigger.kind === 'aura' && AURA_KINDS.has(e.kind)) || ('source' in e && e.source)));
+}
+
+/** Stage 3 notes under a unit: which upgrade line it reads, and the aura caps. Empty for stage 1-2 data. */
+export function unitNotes(data: GameData, def: UnitDef): string[] {
+  const out: string[] = [];
+  if (data.balance.inheritUpgrades && def.lineage && def.lineage.length > 1) out.push('강화: 물딜·마딜 강화 중 높은 쪽을 받음');
+  const caps = data.balance.auraCaps;
+  if (caps && def.skills.some(s => s.effects.some(e => e.kind === 'auraAttackSpeed' || e.kind === 'auraAttackPower'))) {
+    out.push(`오라는 종류마다 한 번만, 합쳐서 공격 속도 +${pct(caps.attackSpeed)}·공격력 +${pct(caps.attackPower)}까지`);
+  }
+  return out;
+}
+
+export interface CombineNotes { lineage: string | null; range: number; lostAuras: string[]; lostControls: string[]; inherited: string[] }
+
+/**
+ * Stage 3 combine card (v5 6장 "도감 도움말"): the result's damage lines and range, the materials' auras and
+ * controls the result does not keep, and the support effects it carries on from a material. Null for stage 1-2.
+ */
+export function combineNotes(data: GameData, result: string): CombineNotes | null {
+  if (!data.balance.extendedCombat) return null;
+  const recipe = data.recipes.find(r => r.result === result);
+  if (!recipe) return null;
+  const def = unitDefFast(data, result);
+  const name = nameIn(data);
+  const kept = new Set(supports(def).map(e => supportKey(def.id, e)));
+  const resultKinds = new Set(def.skills.flatMap(s => s.effects.map(e => e.kind)));
+  const lostAuras: string[] = [];
+  const controls = new Map<string, string[]>();
+  for (const id of new Set(recipe.materials)) {
+    const m = unitDefFast(data, id);
+    for (const s of m.skills) {
+      for (const e of s.effects) {
+        if (s.trigger.kind === 'aura' && AURA_KINDS.has(e.kind) && !kept.has(supportKey(m.id, e))) {
+          lostAuras.push(`${m.name}의 ${effectText(e, s.trigger, ctxOf(data, m))}`);
+        }
+        const c = CONTROL_TEXT[e.kind];
+        if (c && !resultKinds.has(e.kind)) {
+          const who = controls.get(c) ?? [];
+          if (!who.includes(m.name)) who.push(m.name);
+          controls.set(c, who);
+        }
+      }
+    }
+  }
+  const inherited: string[] = [];
+  for (const s of def.skills) {
+    for (const e of s.effects) {
+      const source = 'source' in e ? e.source : undefined;
+      if (source && source !== def.id) inherited.push(`${name(source)}의 ${effectText({ ...e, source: undefined } as Effect, s.trigger)}`);
+    }
+  }
+  const lineage = def.lineage && def.lineage.length > 1 ? '물딜·마딜 (강화는 높은 쪽)' : def.lineage?.[0] ? typeName(def.lineage[0]) : null;
+  return {
+    lineage, range: def.range, lostAuras, inherited,
+    lostControls: [...controls].map(([c, who]) => `${c} (${who.join(', ')})`),
+  };
+}
+
+/** The combine notes as card lines; empty for stage 1-2. */
+export function combineNoteLines(data: GameData, result: string): string[] {
+  const n = combineNotes(data, result);
+  if (!n) return [];
+  const lines = [`${n.lineage ? `계열 ${n.lineage} · ` : ''}사거리 ${n.range}칸`];
+  if (n.inherited.length) lines.push(`이어받는 지원 효과: ${n.inherited.join(' / ')}`);
+  if (n.lostAuras.length) lines.push(`조합하면 사라지는 오라: ${n.lostAuras.join(' / ')}`);
+  if (n.lostControls.length) lines.push(`조합하면 사라지는 제어: ${n.lostControls.join(', ')}`);
+  return lines;
+}
+
+/** "메밀묵 1개 · 엽전 60냥", or null for a recipe without a cost. */
+export function costText(recipe: RecipeDef | undefined): string | null {
+  const parts: string[] = [];
+  if (recipe?.cost?.buckwheat) parts.push(`메밀묵 ${recipe.cost.buckwheat}개`);
+  if (recipe?.cost?.coins) parts.push(`엽전 ${recipe.cost.coins}냥`);
+  return parts.length ? parts.join(' · ') : null;
+}
+
+/** What the player is short of to pay for a recipe ("메밀묵 1개 모자람"), or null when it can be paid. */
+export function costShortText(state: GameState, recipe: RecipeDef | undefined): string | null {
+  const parts: string[] = [];
+  const buckwheat = (recipe?.cost?.buckwheat ?? 0) - state.buckwheat;
+  const coins = (recipe?.cost?.coins ?? 0) - state.coins;
+  if (buckwheat > 0) parts.push(`메밀묵 ${buckwheat}개`);
+  if (coins > 0) parts.push(`엽전 ${coins}냥`);
+  return parts.length ? `${parts.join(', ')} 모자람` : null;
 }
 
 export function selectedSlot(state: GameState, id: number | null): number | null {
@@ -123,27 +276,43 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
   };
 }
 
-export function helperModel(state: GameState): { recipe: string; name: string; grade: number }[] {
-  return availableRecipes(state).map(id => {
-    const def = unitDefFast(state.data, id);
-    return { recipe: id, name: def.name, grade: def.grade };
-  });
+/** `cost` is set on recipes with a cost (stage 3 grades 5 and 6), `short` when every material is there but the cost is not. */
+export interface HelperItem { recipe: string; name: string; grade: number; cost?: string; short?: string }
+
+/** Recipes that can be made now (in table order); stage 3 also lists those that only lack the cost, marked `short`. */
+export function helperModel(state: GameState): HelperItem[] {
+  const out: HelperItem[] = [];
+  for (const recipe of state.data.recipes) {
+    if (missingMaterials(state, recipe.result).length) continue;
+    const cost = costText(recipe);
+    const short = cost ? costShortText(state, recipe) : null;
+    const def = unitDefFast(state.data, recipe.result);
+    out.push({ recipe: recipe.result, name: def.name, grade: def.grade, ...(cost ? { cost } : {}), ...(short ? { short } : {}) });
+  }
+  return out;
 }
 
 const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
 
-export function combineOptions(state: GameState, slot: number): {
-  result: string; name: string; grade: number; missing: string[]; key: 'Z' | 'X' | 'C' | null;
-}[] {
+/** `cost` and `short` are only set on recipes with a cost (stage 3 grades 5 and 6). */
+export interface CombineOption { result: string; name: string; grade: number; missing: string[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
+
+export function combineOptions(state: GameState, slot: number): CombineOption[] {
   let ready = 0;
   const recipes = recipesUsing(state, slot);
   const readyFirst = [...recipes.filter(r => !r.missing.length), ...recipes.filter(r => r.missing.length)];
   return readyFirst.map(({ result, missing }) => {
     const { name, grade } = unitDefFast(state.data, result);
+    const recipe = state.data.recipes.find(r => r.result === result);
+    const cost = costText(recipe);
+    const short = cost ? costShortText(state, recipe) : null;
     return {
       result, name, grade,
       missing: missing.map(id => unitDefFast(state.data, id).name),
-      key: missing.length === 0 ? COMBINE_KEYS[ready++] ?? null : null,
+      // a recipe that cannot be paid gets no hotkey, so Z/X/C always mean "combine now"
+      key: missing.length === 0 && !short ? COMBINE_KEYS[ready++] ?? null : null,
+      ...(cost ? { cost } : {}),
+      ...(short ? { short } : {}),
     };
   });
 }
@@ -167,7 +336,7 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
   });
 }
 
-export function unitCard(state: GameState, slot: number): { name: string; grade: number; typeText: '물딜' | '마딜'; skillText: string; usedIn: string[]; attack: number; interval: number; range: number; sellPrice: number } | null {
+export function unitCard(state: GameState, slot: number): { name: string; grade: number; typeText: '물딜' | '마딜'; skillText: string; notes: string[]; usedIn: string[]; attack: number; interval: number; range: number; sellPrice: number } | null {
   const unit = state.slots[slot];
   if (!unit) return null;
   const def = unitDefFast(state.data, unit.defId);
@@ -181,16 +350,27 @@ export function unitCard(state: GameState, slot: number): { name: string; grade:
     name: def.name, grade: def.grade, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
     attack: Math.round(unitAttack(def, state.data.balance) * (1 + damageBonus(state, slot))),
     interval: attackIntervalTicks(def.interval, speedBonus(state, slot)) * state.data.balance.tickMs / 1000,
-    range: def.range, skillText: skillText(def.skills, { interval: def.interval, pulseSeconds: state.data.balance.pulseSeconds }), usedIn, sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
+    range: def.range, skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
   };
 }
 
-export function dexEntries(data: GameData): { id: string; name: string; grade: number; recipe: string[] }[] {
-  const name = (id: string) => data.units.find(u => u.id === id)?.name ?? id;
-  return data.units.map(u => ({
-    id: u.id, name: u.name, grade: u.grade,
-    recipe: (data.recipes.find(r => r.result === u.id)?.materials ?? []).map(name),
-  }));
+export interface DexEntry {
+  id: string; name: string; grade: number; recipe: string[];
+  typeText: string; range: number; skillText: string; cost: string | null; notes: string[];
+}
+
+export function dexEntries(data: GameData): DexEntry[] {
+  const name = nameIn(data);
+  return data.units.map(u => {
+    const recipe = data.recipes.find(r => r.result === u.id);
+    return {
+      id: u.id, name: u.name, grade: u.grade,
+      recipe: (recipe?.materials ?? []).map(name),
+      typeText: typeName(u.damageType), range: u.range, skillText: unitSkillText(data, u), cost: costText(recipe),
+      // the combine card's first line (lines and range) is already in the row
+      notes: [...combineNoteLines(data, u.id).slice(1), ...unitNotes(data, u)],
+    };
+  });
 }
 
 export function resultModel(state: GameState, bestUnitId: string | null): {
