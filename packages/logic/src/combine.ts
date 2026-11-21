@@ -1,6 +1,7 @@
 import type { GameState, RecipeDef } from './types';
 import { registerCommand } from './registry';
 import { addUnit, unitDefFast } from './units';
+import { onCollectionCombine } from './econ/quests';
 
 function ownedCounts(state: GameState): Map<string, number> {
   const counts = new Map<string, number>();
@@ -83,5 +84,6 @@ registerCommand('combine', (state, cmd, events) => {
   const unit = addUnit(state, recipe.result, resultSlot, events);
   if (state.econ) unit.cost = cost;
   events.push({ type: 'combine', replacedUnitId, unitId: unit.id, defId: unit.defId, slot: resultSlot });
+  if (state.econ) onCollectionCombine(state, unit.defId, events);
   return null;
 });
