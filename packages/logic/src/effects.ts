@@ -10,6 +10,7 @@ import { computeHitDamage, damageBonus, dealDamage, enemyResist, hitDamage, inRa
 import { unitDefFast } from './units';
 import { isShared } from './stats';
 import { payFirstHit } from './income';
+import { applyBossKnockback } from './bosscontrol';
 
 /** Auras of the same source and kind count once; the source defaults to the unit's own id. */
 function auraKey(defId: string, e: Effect): string {
@@ -129,7 +130,8 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
     case 'knockback': {
       const d = eff.distance * (target.boss ? b.bossCcFactor : 1);
       const before = target.d;
-      target.d = Math.max(0, target.d - d);
+      if (b.bossControl && target.boss) applyBossKnockback(state, target, d);
+      else target.d = Math.max(0, target.d - d);
       if (b.extendedCombat && target.d < before) target.knockedRound = state.round;
       emitSpeed(state, target, events);
       break;

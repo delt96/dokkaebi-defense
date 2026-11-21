@@ -1,6 +1,7 @@
 import type { Enemy, EnemyDef, GameData, GameEvent, GameResult, GameState, WaveDef } from './types';
 import { enemyDef, enemyHp } from './data';
 import { countNormalEnemies, currentStats, isShared } from './stats';
+import { bossStunGate } from './bosscontrol';
 
 export const TICKS_PER_SECOND = 20;
 export const toTicks = (seconds: number): number => Math.round(seconds * TICKS_PER_SECOND);
@@ -104,9 +105,11 @@ export function enemySpeed(state: GameState, e: Enemy): number {
   return enemyDefFast(state.data, e.defId).speed * (1 - (e.slow?.pct ?? 0));
 }
 
-export function moveEnemies(state: GameState): void {
+export function moveEnemies(state: GameState, events: GameEvent[] = []): void {
+  const capped = state.data.balance.bossControl !== undefined;
   for (const e of state.enemies) {
     if (e.hp <= 0 || isShared(state.data, e)) continue;
+    if (capped && e.boss) bossStunGate(state, e, events);
     e.d += enemySpeed(state, e) / TICKS_PER_SECOND;
   }
 }
