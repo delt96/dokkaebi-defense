@@ -142,6 +142,8 @@ export interface GameState {
   result: GameResult | null;
   tokens: number; coins: number; buckwheat: number;
   slots: (Unit | null)[]; open: boolean[];
+  /** Grade 1-2 units the player put away off the board (no attacks, no auras); absent until first used. */
+  storage?: Unit[];
   pendingPity: string[]; summonCounts: Record<string, number>; grade1Summons: number;
   enemies: Enemy[]; fires: GroundFire[];
   upgrades: Record<UpgradeId, number>;
@@ -157,11 +159,14 @@ export type Command =
   | { type: 'move'; from: number; to: number; unitId?: number; toUnitId?: number | null } | { type: 'convertToken' }
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' }
   | { type: 'buy'; item: EconItem } | { type: 'storyTarget'; id: string | null; unitIds?: number[] } | { type: 'storyDecline' }
-  | { type: 'missionEnter' } | { type: 'tame'; enemyId: number };
+  | { type: 'missionEnter' } | { type: 'tame'; enemyId: number }
+  | { type: 'store'; slot: number; unitId?: number } | { type: 'storeAll' }
+  | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string };
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
   | 'marketClosed' | 'soldOut' | 'badTarget' | 'notOffered' | 'missionClosed' | 'noTarget' | 'tameHp' | 'tameCondition'
-  | 'locked' | 'busy' | 'targetBusy' | 'targetAway' | 'cooldown' | 'noJige' | 'noOffer';
+  | 'locked' | 'busy' | 'targetBusy' | 'targetAway' | 'cooldown' | 'noJige' | 'noOffer'
+  | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 
 export type GameEvent =

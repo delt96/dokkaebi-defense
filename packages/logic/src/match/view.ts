@@ -23,6 +23,10 @@ function unitsOf(lane: GameState): (UnitView | null)[] {
   return lane.slots.map(u => (u ? { id: u.id, defId: u.defId } : null));
 }
 
+function storageOf(lane: GameState): UnitView[] | undefined {
+  return lane.storage?.map(u => ({ id: u.id, defId: u.defId }));
+}
+
 function clockOf(match: MatchState): ClockView {
   return {
     tick: match.tick - 1, phase: match.phase, round: match.round,
@@ -109,6 +113,7 @@ function mineOf(
     pendingPity: [...lane.pendingPity], grade1Summons: lane.grade1Summons, helperOpens: lane.helperOpens,
     supportTokens: st.supportTokens, received: st.receivedThisRound, lastSeq: st.lastSeq,
     open: [...lane.open], units: unitsOf(lane), acks, supportIn,
+    ...(lane.storage && { storage: storageOf(lane) }),
     ...(econ && { econ }),
     ...(transferEnds.length > 0 ? { transferEnds } : {}),
   };
@@ -169,7 +174,7 @@ function mineKey(match: MatchState, seat: number, econ: EconMine | undefined): s
   return JSON.stringify([
     lane.tokens, lane.coins, lane.buckwheat, lane.upgrades, lane.pendingPity, lane.grade1Summons, lane.helperOpens,
     st.supportTokens, st.receivedThisRound, st.lastSeq,
-  ]) + boardKey(lane) + (econ ? JSON.stringify(econ) : '');
+  ]) + boardKey(lane) + (lane.storage ? `|${lane.storage.map(u => `${u.id}:${u.defId}`).join(',')}|` : '') + (econ ? JSON.stringify(econ) : '');
 }
 
 function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {

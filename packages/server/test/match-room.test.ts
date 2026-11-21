@@ -55,6 +55,25 @@ describe('match room', () => {
     expect(a!.last('mine').acks.map((x: Ack) => (x.ok ? 'ok' : x.reason))).toEqual(['ok', 'staleUnit']);
     expect(lane.coins).toBe(0); expect(lane.slots[0]!.defId).toBe('gamasot');
   });
+  test('storage commands round-trip: the owner sees its stack and a fresh full agrees', () => {
+    const r = started(['가', '나']);
+    const { core, deps, links: [a, b] } = r;
+    const lane = core.match!.lanes[1]!;
+    const ki = placeUnitForTest(lane, 'ki', 0); placeUnitForTest(lane, 'ki', 1); placeUnitForTest(lane, 'gamasot', 2);
+    const seeA = viewer(a!);
+    send(core, 'a', 1, 'store', toWire({ type: 'store', slot: 0 }, lane).args);
+    send(core, 'a', 2, 'storeAll');
+    send(core, 'a', 3, 'retrieve', { defId: 'gamasot', slot: 9 });
+    send(core, 'a', 4, 'sellStored', { defId: 'ki' });
+    send(core, 'a', 5, 'retrieve', { defId: 'ki', slot: 99 });
+    tickOnce(core, deps);
+    expect(a!.last('mine').acks.map((x: Ack) => (x.ok ? 'ok' : x.reason))).toEqual(['ok', 'ok', 'ok', 'ok', 'badArgs']);
+    expect(a!.last('mine').storage).toEqual([{ id: ki.id, defId: 'ki' }]);
+    expect(lane.slots[9]!.defId).toBe('gamasot');
+    expect(b!.last('mine')?.storage).toBeUndefined();
+    ticks(r, 2 + (core.match!.tick % 2));
+    expect(diffViews(seeA(), serverView(r, 1))).toEqual([]);
+  });
   test('duplicate seq is not re-run; seats come from the connection, not the payload', () => {
     const { core, deps, links: [, b] } = started(['가', '나']);
     send(core, 'a', 1, 'summon'); send(core, 'a', 1, 'summon');

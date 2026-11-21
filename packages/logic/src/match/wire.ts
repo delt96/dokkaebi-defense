@@ -34,6 +34,8 @@ export interface MineView {
   tick: number; tokens: number; coins: number; buckwheat: number; upgrades: Record<UpgradeId, number>; pendingPity: string[];
   grade1Summons: number; helperOpens: number; supportTokens: number; received: boolean; lastSeq: number;
   open: boolean[]; units: (UnitView | null)[]; acks: Ack[]; supportIn: { from: number; coins: number }[];
+  /** Stored grade 1-2 units, oldest first; left out until the seat first stores something. */
+  storage?: UnitView[];
   /** Left out entirely on rule data without an economy, so 20-round messages stay as they were. */
   econ?: EconMine;
   /** Stage 3: deliveries this seat took part in that ended on this tick, with the server's reason (only when there are some). */

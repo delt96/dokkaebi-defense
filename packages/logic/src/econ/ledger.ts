@@ -43,10 +43,11 @@ export function unitValue(data: GameData, defId: string): number {
   return v;
 }
 
-/** N: summed cost of the units on the board (quest-funded units cost 0). */
+/** N: summed cost of the units on the board and in storage (quest-funded units cost 0). */
 export function nonQuestValue(state: GameState): number {
   let n = 0;
   for (const u of state.slots) if (u) n += u.cost ?? 0;
+  for (const u of state.storage ?? []) n += u.cost ?? 0;
   return n;
 }
 

@@ -9,6 +9,7 @@ import { resolveKills } from './combat';
 import { afterCommandHooks, handlers, phases, type PhaseName } from './registry';
 import './units';
 import './combine';
+import './storage';
 import './combat';
 import './effects';
 import './upgrades';

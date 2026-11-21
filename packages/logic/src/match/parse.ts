@@ -9,6 +9,7 @@ const MAX_PINNED = 3;
 const TOP_KEYS: ReadonlySet<string> = new Set(['seq', 'type', 'args']);
 const MAX_SEAT = 6;
 const MAX_RESULT_LENGTH = 32;
+const isUnitId = (x: unknown): x is string => typeof x === 'string' && x.length >= 1 && x.length <= MAX_RESULT_LENGTH;
 
 type Args = Record<string, unknown>;
 
@@ -20,7 +21,7 @@ const hasAll = (args: Args, keys: readonly string[]): boolean => keys.every(k =>
 
 type Parser = (args: Args, slotCount: number) => MatchCommand | null;
 
-const noArgs = (type: 'summon' | 'convertToken' | 'helperOpened' | 'forfeit' | 'storyDecline' | 'missionEnter'): Parser =>
+const noArgs = (type: 'summon' | 'convertToken' | 'helperOpened' | 'forfeit' | 'storyDecline' | 'missionEnter' | 'storeAll'): Parser =>
   args => (Object.keys(args).length === 0 ? { type } : null);
 
 const PARSERS: Record<string, Parser> = {
@@ -30,6 +31,23 @@ const PARSERS: Record<string, Parser> = {
   forfeit: noArgs('forfeit'),
   storyDecline: noArgs('storyDecline'),
   missionEnter: noArgs('missionEnter'),
+  storeAll: noArgs('storeAll'),
+  store: (args, slotCount) => {
+    const keys = ['slot', 'unitId'];
+    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
+    const { slot, unitId } = args;
+    return inRange(slot, 0, slotCount - 1) && isInt(unitId) ? { type: 'store', slot, unitId } : null;
+  },
+  retrieve: (args, slotCount) => {
+    if (!onlyKeys(args, ['defId', 'slot']) || !hasAll(args, ['defId']) || !isUnitId(args.defId)) return null;
+    if (!Object.hasOwn(args, 'slot')) return { type: 'retrieve', defId: args.defId };
+    return inRange(args.slot, 0, slotCount - 1) ? { type: 'retrieve', defId: args.defId, slot: args.slot } : null;
+  },
+  sellStored: args => {
+    const keys = ['defId'];
+    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
+    return isUnitId(args.defId) ? { type: 'sellStored', defId: args.defId } : null;
+  },
   transferDecline: args => onlyKeys(args, ['offerId']) && isInt(args.offerId) && args.offerId > 0
     ? { type: 'transferDecline', offerId: args.offerId } : null,
   buy: args => {
@@ -138,6 +156,12 @@ export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand
       };
     case 'sell':
       return { type: 'sell', args: { slot: cmd.slot, unitId: cmd.unitId ?? idAt(cmd.slot) } };
+    case 'store':
+      return { type: 'store', args: { slot: cmd.slot, unitId: cmd.unitId ?? idAt(cmd.slot) } };
+    case 'retrieve':
+      return { type: 'retrieve', args: cmd.slot === undefined ? { defId: cmd.defId } : { defId: cmd.defId, slot: cmd.slot } };
+    case 'sellStored':
+      return { type: 'sellStored', args: { defId: cmd.defId } };
     case 'combine':
       if (cmd.slot === undefined) return { type: 'combine', args: { result: cmd.result } };
       return { type: 'combine', args: { result: cmd.result, slot: cmd.slot, unitId: cmd.unitId ?? idAt(cmd.slot) } };

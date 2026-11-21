@@ -63,6 +63,7 @@ export function seatRecord(match: MatchState, seat: number): SeatRecord {
 
 function clearLane(lane: GameState): void {
   lane.slots = lane.slots.map(() => null);
+  if (lane.storage) lane.storage = [];
   lane.enemies = [];
   lane.fires = [];
   lane.pendingPity = [];
