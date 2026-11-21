@@ -8,7 +8,8 @@ import { grade6Markdown, grade6Run, type Grade6Row } from './grade6';
 import { combineGainMarkdown, controlMarkdown, toCsvRows } from './report';
 import { targetBot } from './targetBot';
 import {
-  econMarkdown, econMatchRun, parseEconCsv, parseYeoksinCsv, STANDARD_CONFIGS, type EconConfig, type EconRow,
+  ECON_BOTS, econMarkdown, econMatchRun, parseEconCsv, parseYeoksinCsv, STANDARD_CONFIGS,
+  type EconBotKind, type EconConfig, type EconRow,
 } from './econRun';
 
 type Arg = (name: string, fallback: string) => string;
@@ -59,7 +60,8 @@ const onOff = (v: string) => v === 'on';
 export function cliConfigs(arg: Arg): EconConfig[] {
   const noDefeat = arg('defeat', 'off') !== 'on';
   const bot = arg('bot', 'both');
-  const bots: ('target' | 'switch')[] = bot === 'both' ? ['target', 'switch'] : [bot === 'switch' ? 'switch' : 'target'];
+  const bots: EconBotKind[] = bot === 'both' ? ['target', 'switch'] : bot === 'all' ? ECON_BOTS
+    : bot.split(',').map(b => (ECON_BOTS.includes(b as EconBotKind) ? b as EconBotKind : 'target'));
   let configs: EconConfig[];
   if (onOff(arg('matrix', 'off'))) {
     configs = STANDARD_CONFIGS.filter(c => bots.includes(c.bot));

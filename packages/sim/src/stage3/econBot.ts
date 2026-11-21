@@ -120,3 +120,12 @@ export function betterTarget(state: GameState, current: string, done: ReadonlySe
 export function switchBot(seed: number, policy: EconPolicy): TargetBot {
   return targetBot(seed, { policy, switchTargets: true });
 }
+
+/**
+ * Switch bot that also plays to its main damage type: targets score by missing value less a bonus for matching and
+ * supporting that type, upgrades go to that line, supporting units are kept, and ally auras move next to the units they
+ * boost.
+ */
+export function synergyBot(seed: number, policy: EconPolicy): TargetBot {
+  return targetBot(seed, { policy, switchTargets: true, synergy: true });
+}

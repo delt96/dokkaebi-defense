@@ -3,7 +3,10 @@ import {
   type Command, type GameData, type GameState,
 } from '@dorandi/logic';
 import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
-import { betterTarget, marketCommands, questCommands, tameCommands, type EconPolicy, type TargetBot } from './econBot';
+import {
+  betterTarget, marketCommands, questCommands, remainingValue, tameCommands, type EconPolicy, type TargetBot,
+} from './econBot';
+import { auraPlacement, mainType, supportSlots, synergyScore, synergyUpgrade } from './synergy';
 
 const FINAL_COMBINE_COINS = 60;
 
@@ -60,6 +63,19 @@ function strongestOutside(state: GameState, tree: Map<string, number>, n: number
 }
 
 const BOSS_GUARD = 4;
+const SUPPORT_GUARD = 4;
+const SYNERGY_MARGIN = 4;
+
+/** Normal grade 6 not yet built with the best synergy score; ties broken by `rng`. */
+function bestSynergyTarget(state: GameState, done: ReadonlySet<string>, current: string | null, rng: ReturnType<typeof createRng>) {
+  const main = mainType(state, current);
+  const pool = state.data.units.filter(u => u.grade === 6 && !u.hidden && !done.has(u.id)).sort((a, b) => a.id.localeCompare(b.id));
+  const scored = pool.map(u => ({ id: u.id, score: synergyScore(u, remainingValue(state, u.id), main) }));
+  const min = Math.min(...scored.map(x => x.score));
+  const best = scored.filter(x => x.score === min);
+  const cur = current ? scored.find(x => x.id === current) : undefined;
+  return { pick: best.length ? best[nextInt(rng, best.length)]!.id : null, min, cur: cur?.score ?? Infinity };
+}
 
 /**
  * Sell candidate when the board is full: the lowest-grade unit outside the target tree, else the lowest-grade held unit
@@ -89,7 +105,7 @@ function sellCandidate(state: GameState, tree: Map<string, number>, kept: Map<st
  * combine once it owns a grade 5 of the tree. Never sells grade 6.
  */
 export function targetBot(
-  seed: number, opts: { targets?: string[]; policy?: EconPolicy; switchTargets?: boolean } = {},
+  seed: number, opts: { targets?: string[]; policy?: EconPolicy; switchTargets?: boolean; synergy?: boolean } = {},
 ): TargetBot {
   const rng = createRng(deriveSeed(seed, 'target'));
   const done = new Set<string>();
@@ -103,6 +119,8 @@ export function targetBot(
   const nextTarget = (state: GameState): void => {
     if (opts.targets) {
       target = queue.shift() ?? null;
+    } else if (opts.synergy) {
+      target = bestSynergyTarget(state, done, null, rng).pick;
     } else {
       const pool = state.data.units.filter(u => u.grade === 6 && !u.hidden && !done.has(u.id)).map(u => u.id);
       target = pool.length ? pool[nextInt(rng, pool.length)]! : null;
@@ -116,7 +134,7 @@ export function targetBot(
   };
 
   return {
-    name: opts.switchTargets ? 'switch' : 'target',
+    name: opts.synergy ? 'synergy' : opts.switchTargets ? 'switch' : 'target',
     currentTarget: () => target,
     decide(state) {
       decisions++;
@@ -125,7 +143,10 @@ export function targetBot(
         done.add(target);
         nextTarget(state);
       }
-      if (opts.switchTargets && target !== null && state.round !== lastRound && decisions > 1) {
+      if (opts.synergy && target !== null && state.round !== lastRound && decisions > 1) {
+        const b = bestSynergyTarget(state, done, target, rng);
+        if (b.pick && b.pick !== target && b.min <= b.cur - SYNERGY_MARGIN) setTarget(state, b.pick);
+      } else if (opts.switchTargets && target !== null && state.round !== lastRound && decisions > 1) {
         const better = betterTarget(state, target, done);
         if (better) setTarget(state, better);
       }
@@ -140,7 +161,9 @@ export function targetBot(
       }
       if (recipe) cmds.push({ type: 'combine', result: recipe });
 
+      const main = opts.synergy ? mainType(state, target) : null;
       const protect = policy ? strongestOutside(state, tree, BOSS_GUARD) : new Set<number>();
+      if (main) for (const i of supportSlots(state, tree, main, SUPPORT_GUARD)) protect.add(i);
       let sold = false;
       if (emptyOpenSlots(state).length === 0 && state.tokens > 0 && !recipe) {
         const sell = sellCandidate(state, tree, kept, protect);
@@ -170,10 +193,14 @@ export function targetBot(
 
       const holdsTree5 = state.slots.some(u => u && tree.has(u.defId) && unitDefFast(state.data, u.defId).grade === 5);
       const keep = spent + (holdsTree5 ? FINAL_COMBINE_COINS : 0);
-      const up = cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
+      const up = main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
       if (up) cmds.push({ type: 'upgrade', id: up });
       const fix = placementFix(state);
       if (fix) cmds.push(fix);
+      else if (main && decisions % 4 === 2) {
+        const aura = auraPlacement(state);
+        if (aura) cmds.push(aura);
+      }
       if (decisions % 4 === 0) cmds.push(...followBoss(state));
       return cmds;
     },

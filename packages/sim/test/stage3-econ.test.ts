@@ -231,10 +231,12 @@ function econMatchRunStub(): EconRow[] {
     buckwheat9Round: 30, buckwheat12Round: null, coins180Round: 6, coins240Round: 8,
     bundles: 12, jars: 6, questWins: 'mission+team', tames: 1, transfersSent: 1, transfersReceived: 0, sold: 30,
     missingAtEnd: 'moru', yeoksinKills: 4,
+    boss10: 21.5, boss20: 48.25, boss30: null, boss40: 60, boss50: null, boss60: 70.1,
   }, {
     seed: 1, config: 'target-full', bot: 'target', seat: 3, finished: false, teamOutcome: 'clear', endRound: 41,
     grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
     buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
     bundles: 0, jars: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
+    boss10: 30, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
   }];
 }

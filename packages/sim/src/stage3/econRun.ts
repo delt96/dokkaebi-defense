@@ -3,12 +3,16 @@ import {
   type EconSection, type GameData, type GameState, type GeneralQuestId, type MatchCommand, type MatchState,
 } from '@dorandi/logic';
 import { EconDriver } from './econDriver';
-import { switchBot, type EconPolicy, type TargetBot } from './econBot';
+import { switchBot, synergyBot, type EconPolicy } from './econBot';
+import { clumsyBot, normalBot, type Bot } from '../bots';
 import { targetBot } from './targetBot';
 import { quantile } from './report';
 
+export type EconBotKind = 'clumsy' | 'normal' | 'target' | 'switch' | 'synergy';
+export const ECON_BOTS: EconBotKind[] = ['clumsy', 'normal', 'target', 'switch', 'synergy'];
+
 export interface EconConfig {
-  name: string; bot: 'target' | 'switch'; noDefeat: boolean;
+  name: string; bot: EconBotKind; noDefeat: boolean;
   market: boolean; quests: 0 | 2 | 4; story: boolean; tame: boolean; transfer: boolean;
 }
 export interface EconRow {
@@ -19,6 +23,22 @@ export interface EconRow {
   buckwheat9Round: number | null; buckwheat12Round: number | null; coins180Round: number | null; coins240Round: number | null;
   bundles: number; jars: number; questWins: string; tames: number; transfersSent: number; transfersReceived: number;
   sold: number; missingAtEnd: string; yeoksinKills: number;
+  boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null;
+}
+
+const BOSS_ROUNDS = [10, 20, 30, 40, 50, 60] as const;
+type BossCol = `boss${(typeof BOSS_ROUNDS)[number]}`;
+
+type RunBot = Bot & { currentTarget?(): string | null };
+
+function makeBot(kind: EconBotKind, seed: number, policy: EconPolicy): RunBot {
+  switch (kind) {
+    case 'clumsy': return clumsyBot(seed);
+    case 'normal': return normalBot();
+    case 'switch': return switchBot(seed, policy);
+    case 'synergy': return synergyBot(seed, policy);
+    default: return targetBot(seed, { policy });
+  }
 }
 
 const QUESTS: GeneralQuestId[] = ['mission', 'collection', 'team', 'ssireum'];
@@ -73,7 +93,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
   const policy: EconPolicy = { market: c.market, quests: c.quests > 0 || c.story, tame: c.tame };
-  const bots: TargetBot[] = SEATS.map(s => (c.bot === 'switch' ? switchBot(laneSeed(seed, s), policy) : targetBot(laneSeed(seed, s), { policy })));
+  const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
   const driver = new EconDriver(match, bots, { transfer: c.transfer });
   const finalTick = roundStartTick(d, d.balance.rounds);
   const rows = new Map<number, EconRow>();
@@ -85,6 +105,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
       buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
       bundles: 0, jars: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
+      boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
     });
     prev.set(s, { coins: 0, buckwheat: 0 });
     earned.set(s, { coins: 0, buckwheat: 0 });
@@ -159,7 +180,8 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
     row.storyAward = lane.econ?.story.awarded ? 1 : 0;
     row.questWins = [...wins.get(s)!].sort().join('+');
     row.yeoksinKills = match.yeoksinKills;
-    const target = bots[i]!.currentTarget();
+    for (const r of BOSS_ROUNDS) row[`boss${r}` as BossCol] = lane.stats.find(x => x.round === r)?.bossKillSeconds ?? null;
+    const target = bots[i]!.currentTarget?.() ?? null;
     if (target && st.alive) {
       const recipe = d.recipes.find(x => x.result === target);
       const held = new Map<string, number>();
@@ -230,10 +252,10 @@ export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data
   return out.join('\n');
 }
 
-const cfg = (bot: 'target' | 'switch', name: string, x: Omit<EconConfig, 'name' | 'bot' | 'noDefeat'>): EconConfig =>
+const cfg = (bot: EconBotKind, name: string, x: Omit<EconConfig, 'name' | 'bot' | 'noDefeat'>): EconConfig =>
   ({ name: `${bot}-${name}`, bot, noDefeat: false, ...x });
 
-export const STANDARD_CONFIGS: EconConfig[] = (['target', 'switch'] as const).flatMap(bot => [
+export const STANDARD_CONFIGS: EconConfig[] = ECON_BOTS.flatMap(bot => [
   cfg(bot, 'base', { market: false, quests: 0, story: false, tame: false, transfer: false }),
   cfg(bot, 'market', { market: true, quests: 0, story: false, tame: false, transfer: false }),
   cfg(bot, 'quests4', { market: false, quests: 4, story: true, tame: false, transfer: false }),
@@ -244,9 +266,12 @@ export const STANDARD_CONFIGS: EconConfig[] = (['target', 'switch'] as const).fl
 const NUMBER_COLS = new Set([
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 'storyOffers', 'storyAward',
   'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'bundles', 'jars', 'tames', 'transfersSent',
-  'transfersReceived', 'sold', 'yeoksinKills',
+  'transfersReceived', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
 ]);
-const NULLABLE_COLS = new Set(['firstGrade6Round', 'firstSource', 'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round']);
+const NULLABLE_COLS = new Set([
+  'firstGrade6Round', 'firstSource', 'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round',
+  'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
+]);
 
 /** Reads back rows written by `toCsvRows` (no field contains a comma). */
 export function parseEconCsv(text: string): EconRow[] {
