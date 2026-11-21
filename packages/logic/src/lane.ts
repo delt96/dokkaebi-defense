@@ -1,8 +1,13 @@
+import type { GridDef } from './types';
 export interface Vec2 { x: number; y: number }
 export interface Cell { index: number; col: number; row: number; x: number; y: number; isEdge: boolean }
 export interface Lane {
   cols: number;
   rows: number;
+  /** The board area the enemy path runs around, in path units; a board with more cells than this draws them smaller. */
+  frame: { cols: number; rows: number };
+  /** Cell size in path units (1 when the board fills its frame cell for cell). */
+  pitch: number;
   cells: Cell[];
   perimeter: number;
   pointAt(d: number): Vec2;
@@ -21,15 +26,22 @@ export function loopPos(d: number, perimeter: number): number {
   return m < 0 ? m + perimeter : m;
 }
 
-export function createLane(cols: number, rows: number): Lane {
-  const w = cols + 1;
-  const h = rows + 1;
+/**
+ * `frame` fixes the path: it runs half a unit outside a frame.cols x frame.rows area whatever the board's size, so a
+ * bigger board keeps the lap. The cells are square, as large as fit the frame, and centred in it.
+ */
+export function createLane(cols: number, rows: number, frame: { cols: number; rows: number } = { cols, rows }): Lane {
+  const w = frame.cols + 1;
+  const h = frame.rows + 1;
   const perimeter = 2 * (w + h);
+  const pitch = Math.min(frame.cols / cols, frame.rows / rows);
+  const ox = (frame.cols - cols * pitch) / 2;
+  const oy = (frame.rows - rows * pitch) / 2;
   const corners: Vec2[] = [
     { x: -0.5, y: -0.5 },
-    { x: cols + 0.5, y: -0.5 },
-    { x: cols + 0.5, y: rows + 0.5 },
-    { x: -0.5, y: rows + 0.5 },
+    { x: frame.cols + 0.5, y: -0.5 },
+    { x: frame.cols + 0.5, y: frame.rows + 0.5 },
+    { x: -0.5, y: frame.rows + 0.5 },
   ];
   const dirs: Vec2[] = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
   const lengths = [w, h, w, h];
@@ -44,7 +56,7 @@ export function createLane(cols: number, rows: number): Lane {
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       cells.push({
-        index: row * cols + col, col, row, x: col + 0.5, y: row + 0.5,
+        index: row * cols + col, col, row, x: ox + (col + 0.5) * pitch, y: oy + (row + 0.5) * pitch,
         isEdge: row === 0 || row === rows - 1 || col === 0 || col === cols - 1,
       });
     }
@@ -93,14 +105,20 @@ export function createLane(cols: number, rows: number): Lane {
   const coverageLength = (cellIndex: number, range: number): number =>
     coverage(cellIndex, range).reduce((sum, [a, b]) => sum + (b - a), 0);
 
-  return { cols, rows, cells, perimeter, pointAt, coverage, coverageLength };
+  return { cols, rows, frame: { ...frame }, pitch, cells, perimeter, pointAt, coverage, coverageLength };
+}
+
+/** Distance between two cells in cells (unit to unit rules such as auras count cells, not path units). */
+export function cellDistance(lane: Lane, a: number, b: number): number {
+  return dist(lane.cells[a]!, lane.cells[b]!) / lane.pitch;
 }
 
 const laneCache = new WeakMap<object, Lane>();
-export function laneOf(state: { data: { balance: { grid: { cols: number; rows: number } } } }): Lane {
+export function laneOf(state: { data: { balance: { grid: GridDef } } }): Lane {
   let lane = laneCache.get(state.data);
   if (!lane) {
-    lane = createLane(state.data.balance.grid.cols, state.data.balance.grid.rows);
+    const g = state.data.balance.grid;
+    lane = createLane(g.cols, g.rows, g.frame);
     laneCache.set(state.data, lane);
   }
   return lane;

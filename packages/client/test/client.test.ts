@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { GRADE_COLOR, computeZoom, laneToStage, stageToCell } from '../src/layout';
-import { createGame, loadGameData } from '@dorandi/logic';
+import { GRADE_COLOR, STORAGE_BOX, cellCorner, cellPx, computeZoom, laneToStage, stageToCell } from '../src/layout';
+import { createGame, createLane, laneOf, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver, ticksToRun } from '../src/driver';
 
@@ -11,9 +11,24 @@ describe('client helpers', () => {
   });
   test('lane to stage and back', () => {
     expect(laneToStage({ x: 0.5, y: 0.5 })).toEqual({ x: 248, y: 130 });
-    expect(stageToCell(248, 130)).toBe(0);
-    expect(stageToCell(232 + 32 * 5 + 1, 114 + 32 * 3 + 1)).toBe(23);
-    expect(stageToCell(10, 10)).toBeNull();
+    const six = createLane(6, 4);
+    expect(stageToCell(six, 248, 130)).toBe(0);
+    expect(stageToCell(six, 232 + 32 * 5 + 1, 114 + 32 * 3 + 1)).toBe(23);
+    expect(stageToCell(six, 10, 10)).toBeNull();
+  });
+  test('stage 3 draws 8 x 5 cells of 24px in the 6 x 4 board area, clear of the storage column', () => {
+    const lane = laneOf({ data: loadGameData('stage3') });
+    expect(cellPx(lane)).toBe(24);
+    // canvas corners of the first and last cell: the board spans 232..424 x 118..238 on the stage
+    expect(cellCorner(lane, 0)).toEqual({ x: 232 - 128, y: 118 - 24 });
+    expect(cellCorner(lane, 39)).toEqual({ x: 232 + 7 * 24 - 128, y: 118 + 4 * 24 - 24 });
+    expect(stageToCell(lane, 233, 119)).toBe(0);
+    expect(stageToCell(lane, 232 + 24 * 7 + 23, 118 + 24 * 4 + 23)).toBe(39);
+    expect(stageToCell(lane, 232 + 24 + 1, 118 + 24 + 1)).toBe(9);
+    expect(stageToCell(lane, 240, 116)).toBeNull();
+    expect(stageToCell(lane, 232 + 24 * 8 + 1, 130)).toBeNull();
+    expect(STORAGE_BOX.x + STORAGE_BOX.w).toBeLessThanOrEqual(232 - 32 / 2);
+    expect(laneToStage(lane.pointAt(0))).toEqual(laneToStage(createLane(6, 4).pointAt(0)));
   });
   test('grade colours cover grades 1 to 6, matching the sprite flames', () => {
     expect(GRADE_COLOR[5]).toBe('#ff4a3a');

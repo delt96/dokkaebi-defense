@@ -125,7 +125,7 @@ describe('stage 3 economy bot policies', () => {
     const board = () => {
       const s = lane(5, 0);
       strong.forEach((id, k) => placeUnitForTest(s, id, k));
-      for (let k = 4; k < 18; k++) placeUnitForTest(s, one, k);
+      for (let k = 4; k < 32; k++) placeUnitForTest(s, one, k);
       s.tokens = 1;
       return s;
     };

@@ -4,7 +4,7 @@ import {
 } from '@dorandi/logic';
 import { selectedSlot } from './ui/models';
 import type { Driver } from './driver';
-import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasInStorage, canvasToCell, laneToCanvas } from './layout';
+import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_KEYS, textureKey } from './fx/atlas';
 import { spriteKey, tameArt } from './sprites';
@@ -120,7 +120,7 @@ export class LaneScene extends Phaser.Scene {
     this.fires = this.add.graphics();
     this.coverage = this.add.graphics().setDepth(1);
     this.overlay = this.add.graphics().setDepth(5);
-    const post = laneToCanvas({ x: this.lane.cols + 0.9, y: this.lane.rows + 0.4 });
+    const post = laneToCanvas({ x: this.lane.frame.cols + 0.9, y: this.lane.frame.rows + 0.4 });
     this.jangseung = this.add.rectangle(post.x, post.y, 8, 22, 0x8a6a4a).setStrokeStyle(1, 0x2a1a0e);
     if (this.driver.online) {
       // where enemies really come in (d = 0), so a player can read the path direction
@@ -142,7 +142,7 @@ export class LaneScene extends Phaser.Scene {
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', (p: Phaser.Input.Pointer, hit: Phaser.GameObjects.GameObject[]) => {
       if (p.rightButtonDown()) this.emitSelect(null);
-      else if (!hit.length) this.emitSelect(canvasToCell(p.x, p.y));
+      else if (!hit.length) this.emitSelect(canvasToCell(this.lane, p.x, p.y));
     });
   }
 
@@ -230,12 +230,13 @@ export class LaneScene extends Phaser.Scene {
       if (d === 0) g.moveTo(p.x, p.y); else g.lineTo(p.x, p.y);
     }
     g.strokePath();
+    const size = cellPx(lane);
     for (const c of lane.cells) {
-      const p = laneToCanvas({ x: c.col, y: c.row });
+      const p = cellCorner(lane, c.index);
       const open = this.state.open[c.index];
       g.fillStyle(!open ? 0x141018 : c.isEdge ? 0x2a2438 : 0x221d30, 1);
-      g.fillRect(p.x + 1, p.y + 1, CELL - 2, CELL - 2);
-      if (!open) { g.lineStyle(1, 0x2a2232, 1); g.lineBetween(p.x + 4, p.y + 4, p.x + CELL - 4, p.y + CELL - 4); }
+      g.fillRect(p.x + 1, p.y + 1, size - 2, size - 2);
+      if (!open) { g.lineStyle(1, 0x2a2232, 1); g.lineBetween(p.x + 4, p.y + 4, p.x + size - 4, p.y + size - 4); }
     }
     if (this.driver.online) {
       const gate = laneToCanvas(lane.pointAt(0));
@@ -271,12 +272,13 @@ export class LaneScene extends Phaser.Scene {
       const unit = this.state.slots[slot]!;
       const view = this.units.get(unit.id);
       if (!view) return;
-      const cell = view === this.dragging ? canvasToCell(view.x, view.y) : slot;
+      const cell = view === this.dragging ? canvasToCell(this.lane, view.x, view.y) : slot;
       if (cell !== null && this.state.open[cell]) {
         this.drawCoverage(cell, unitDefFast(this.state.data, unit.defId).range, alpha);
       }
       if (id === this.selectedId) {
-        this.overlay.lineStyle(2, 0xffe08a).strokeRect(view.x - 15, view.y - 15, 30, 30);
+        const half = cellPx(this.lane) / 2 - 1;
+        this.overlay.lineStyle(2, 0xffe08a).strokeRect(view.x - half, view.y - half, half * 2, half * 2);
       }
     };
     if (this.hoveredId !== this.selectedId) draw(this.hoveredId, 0.22);
@@ -288,16 +290,20 @@ export class LaneScene extends Phaser.Scene {
     const view = this.add.container(0, 0) as UnitView;
     view.unitId = unitId;
     view.defId = defId;
+    // a board with more cells than its path frame (stage 3, 8 x 5) draws the art smaller and keeps the marks at its rim
+    const k = this.lane.pitch;
     if (this.hasTexture(defId)) {
-      view.add(this.add.image(0, 0, defId));
+      const art = this.add.image(0, 0, defId);
+      if (k !== 1) art.setScale(k);
+      view.add(art);
     } else {
-      view.add(this.add.circle(0, 0, 11, hex(GRADE_COLOR[def.grade] ?? '#ffffff')).setStrokeStyle(1, 0x000000));
+      view.add(this.add.circle(0, 0, 11 * k, hex(GRADE_COLOR[def.grade] ?? '#ffffff')).setStrokeStyle(1, 0x000000));
       view.add(this.add.text(0, 0, def.name.slice(0, 1), { fontSize: '11px', color: '#10101a', fontFamily: 'sans-serif' }).setOrigin(0.5));
     }
-    view.add(this.add.circle(0, -14, 2, hex(GRADE_COLOR[def.grade] ?? '#ffffff')));
-    view.combineMarker = this.add.circle(12, -12, 3, 0xffd65c);
+    view.add(this.add.circle(0, -14 * k, 2, hex(GRADE_COLOR[def.grade] ?? '#ffffff')));
+    view.combineMarker = this.add.circle(12 * k, -12 * k, 3, 0xffd65c);
     view.add(view.combineMarker);
-    view.setSize(CELL, CELL).setInteractive({ draggable: true, useHandCursor: true }).setDepth(3);
+    view.setSize(cellPx(this.lane), cellPx(this.lane)).setInteractive({ draggable: true, useHandCursor: true }).setDepth(3);
     view.on('pointerover', () => { this.hoveredId = unitId; });
     view.on('pointerout', () => { if (this.hoveredId === unitId) this.hoveredId = null; });
     view.on('dragstart', (pointer: Phaser.Input.Pointer) => {
@@ -320,7 +326,7 @@ export class LaneScene extends Phaser.Scene {
       if (this.dragging !== view) return;
       this.setStorageHover(null);
       this.onBoardDrag?.(false);
-      const cell = canvasToCell(view.x, view.y);
+      const cell = canvasToCell(this.lane, view.x, view.y);
       const from = selectedSlot(this.state, unitId);
       const live = !this.driver.paused && !this.driver.readOnly;
       if (from !== null && live && this.storageOpen() && canvasInStorage(view.x, view.y)) {

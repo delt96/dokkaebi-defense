@@ -42,6 +42,14 @@ export interface BossControlLog {
 }
 export interface EnemyDef { id: string; name: string; boss: boolean; shared?: boolean; event?: true; hpMult: number; hp?: number; speed: number; resist: { physical: number; magical: number } }
 export type WaveDef = { round: number; type: 'normal'; pattern: string[] } | { round: number; type: 'boss'; boss: string };
+/**
+ * `frame`: the area the enemy path runs around (defaults to cols x rows); `openPerLevel`: cells each slots upgrade
+ * level opens (defaults to the upgrade's openCount), the last level stopping at the board's end.
+ */
+export interface GridDef {
+  cols: number; rows: number; initialOpenRows: number;
+  frame?: { cols: number; rows: number }; openPerLevel?: number;
+}
 export interface BalanceDef {
   tickMs: number; prepSeconds: number; roundSeconds: number; bossRoundSeconds: number;
   spawnCount: number; spawnIntervalSeconds: number; rounds: number;
@@ -51,7 +59,7 @@ export interface BalanceDef {
   coins: { perKill: number; roundEnd: number; boss: number };
   bossBuckwheat: number; sellPrice: number[]; limit: number; limitSeconds: number;
   summonOddsByRound?: { fromRound: number; odds: number[] }[];
-  summonOdds: number[]; pityEvery: number; grid: { cols: number; rows: number; initialOpenRows: number };
+  summonOdds: number[]; pityEvery: number; grid: GridDef;
   bossCcFactor: number; vulnCap: number; auraRadius: number; pulseSeconds: number;
   onBasicHitRadius?: number; auraCaps?: { attackSpeed: number; attackPower: number };
   inheritUpgrades?: boolean; periodicReady?: boolean; extendedCombat?: boolean; bossControl?: BossControlDef;

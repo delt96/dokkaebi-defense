@@ -37,7 +37,7 @@ describe('lane boss control caps', () => {
   });
 
   test('buchae knockback on a stage 3 lane boss goes through the budget', () => {
-    const s = quietOf(sure('stage3')); placeUnitForTest(s, 'buchae', 7);
+    const s = quietOf(sure('stage3')); placeUnitForTest(s, 'buchae', 9);
     const b = spawnEnemyForTest(s, 'gangcheori', 3);
     for (let i = 0; i < 400; i++) { b.d = 3; step(s, []); }
     expect(b.ctl!.pushApplied).toBeGreaterThan(0);

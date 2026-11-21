@@ -5,7 +5,7 @@ import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { spriteKey, tameArt } from '../src/sprites';
 import { dexHtml } from '../src/ui/dex';
-import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitSkillText } from '../src/ui/models';
+import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitSkillText, upgradeRows } from '../src/ui/models';
 
 const d3 = loadGameData('stage3');
 const text = (id: string) => unitSkillText(d3, unitDefFast(d3, id));
@@ -162,4 +162,16 @@ test('dex search combines grade with a unit or material name and handles no matc
   const byMaterial = dexHtml(d3, undefined, '5', '지게');
   expect(byMaterial).toContain('>톱</td>');
   expect(dexHtml(d3, undefined, '1', '천년상모')).toContain('찾는 유닛이 없습니다');
+});
+
+test('the slots upgrade says how many cells its next level opens: 3, 3, 2 on the 8 x 5 board, 2 on 6 x 4', () => {
+  const s = createGame(d3, 1);
+  const slots = () => upgradeRows(s).find(r => r.id === 'slots')!.effectText;
+  expect(slots()).toBe('칸 3개 열기');
+  s.upgrades.slots = 2;
+  expect(slots()).toBe('칸 2개 열기');
+  s.upgrades.slots = 3;
+  expect(slots()).toBe('칸 2개 열기');
+  const one = createGame(loadGameData(), 1);
+  expect(upgradeRows(one).find(r => r.id === 'slots')!.effectText).toBe('칸 2개 열기');
 });

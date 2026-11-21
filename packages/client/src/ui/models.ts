@@ -1,6 +1,6 @@
 import {
   attackIntervalTicks, damageBonus, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
-  upgradeCost, summonOddsForRound,
+  slotsOpenedAt, upgradeCost, summonOddsForRound,
   type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 
@@ -369,7 +369,8 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
     const cost = level >= def.max ? null : upgradeCost(def, level + 1);
     return {
       id: def.id, label: def.label, level, max: def.max, cost,
-      effectText: UPGRADE_TEXT[def.id](def.pct ?? 0, def.openCount ?? 0),
+      // the slots upgrade shows what its next level opens (stage 3's 8 x 5 board opens 3, 3, then 2)
+      effectText: UPGRADE_TEXT[def.id](def.pct ?? 0, slotsOpenedAt(state.data, Math.min(level, def.max - 1)).length),
       affordable: cost !== null && state.coins >= cost,
     };
   });

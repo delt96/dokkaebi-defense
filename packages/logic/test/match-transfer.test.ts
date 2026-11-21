@@ -187,7 +187,7 @@ describe('jige transfer', () => {
     placeUnitForTest(m.lanes[2]!, 'jipsin', 3);
     send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
     expect(send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 3 }]]).reasons).toEqual(['noSlot']);
-    expect(send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 20 }]]).reasons).toEqual(['noSlot']);
+    expect(send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 36 }]]).reasons).toEqual(['noSlot']);
     expect(send(m, [[1, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 4 }]]).reasons).toEqual(['noOffer']);
     const { r, reasons } = send(m, [[1, { type: 'transferDecline', offerId: m.econ?.offers[0]?.offerId ?? 1 }]]);
     expect(reasons).toEqual([null]);

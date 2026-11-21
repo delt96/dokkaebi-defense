@@ -63,8 +63,8 @@ describe('stage 3 effect extensions', () => {
   test('aura damage type filter and source dedupe', () => {
     const s = createGame(d3, 1); placeUnitForTest(s, 'mulle', 1); placeUnitForTest(s, 'top', 0); placeUnitForTest(s, 'meok', 2);
     expect([speedBonus(s, 0), speedBonus(s, 2)]).toEqual([0.12, 0]);
-    const t = createGame(d3, 1); placeUnitForTest(t, 'gat', 1); placeUnitForTest(t, 'cheonnyeonsangmo', 2); placeUnitForTest(t, 'meok', 7);
-    expect(auraAttackPower(t, 7)).toBeCloseTo(0.13);
+    const t = createGame(d3, 1); placeUnitForTest(t, 'gat', 1); placeUnitForTest(t, 'cheonnyeonsangmo', 2); placeUnitForTest(t, 'meok', 9);
+    expect(auraAttackPower(t, 9)).toBeCloseTo(0.13);
   });
 
   test('vuln source key and enemy-vuln damage type', () => {

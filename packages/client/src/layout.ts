@@ -1,4 +1,4 @@
-import type { Vec2 } from '@dorandi/logic';
+import type { Lane, Vec2 } from '@dorandi/logic';
 
 export const STAGE_W = 640;
 export const STAGE_H = 360;
@@ -6,11 +6,10 @@ export const TOP_H = 24;
 export const BOTTOM_H = 28;
 export const LEFT_W = 128;
 export const RIGHT_W = 112;
+/** Pixels per path unit; a 6 x 4 board's cells are this size, a bigger board inside the same path draws them smaller. */
 export const CELL = 32;
 export const GRID_LEFT = 232;
 export const GRID_TOP = 114;
-export const GRID_COLS = 6;
-export const GRID_ROWS = 4;
 export const CENTER_X = LEFT_W;
 export const CENTER_Y = TOP_H;
 export const CENTER_W = STAGE_W - LEFT_W - RIGHT_W;
@@ -60,13 +59,25 @@ export function laneToCanvas(p: Vec2): Vec2 {
   return { x: s.x - CENTER_X, y: s.y - CENTER_Y };
 }
 
-export function stageToCell(x: number, y: number): number | null {
-  const col = Math.floor((x - GRID_LEFT) / CELL);
-  const row = Math.floor((y - GRID_TOP) / CELL);
-  if (col < 0 || row < 0 || col >= GRID_COLS || row >= GRID_ROWS) return null;
-  return row * GRID_COLS + col;
+/** A cell's drawn size in stage pixels. */
+export function cellPx(lane: Lane): number {
+  return CELL * lane.pitch;
 }
 
-export function canvasToCell(x: number, y: number): number | null {
-  return stageToCell(x + CENTER_X, y + CENTER_Y);
+/** Top-left corner of a cell in lane-canvas pixels. */
+export function cellCorner(lane: Lane, index: number): Vec2 {
+  const c = lane.cells[index]!;
+  return laneToCanvas({ x: c.x - lane.pitch / 2, y: c.y - lane.pitch / 2 });
+}
+
+export function stageToCell(lane: Lane, x: number, y: number): number | null {
+  const first = lane.cells[0]!;
+  const col = Math.floor(((x - GRID_LEFT) / CELL - (first.x - lane.pitch / 2)) / lane.pitch + 1e-9);
+  const row = Math.floor(((y - GRID_TOP) / CELL - (first.y - lane.pitch / 2)) / lane.pitch + 1e-9);
+  if (col < 0 || row < 0 || col >= lane.cols || row >= lane.rows) return null;
+  return row * lane.cols + col;
+}
+
+export function canvasToCell(lane: Lane, x: number, y: number): number | null {
+  return stageToCell(lane, x + CENTER_X, y + CENTER_Y);
 }

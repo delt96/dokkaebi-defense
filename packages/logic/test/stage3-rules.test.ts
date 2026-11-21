@@ -39,12 +39,12 @@ describe('stage 3 board rules', () => {
 
   test('aura caps: attack speed 0.5, attack power 0.4', () => {
     const s = createGame(d3, 1);
-    placeUnitForTest(s, 'top', 7); // physical, so the physical-only auras of mulle and byeongpung count too
-    for (const [id, i] of [['cheongsachorong', 0], ['daljip', 1], ['mulle', 2], ['cheonnyeonbyeongpung', 6]] as const) placeUnitForTest(s, id, i);
-    expect(speedBonus(s, 7)).toBe(0.5); // 0.1 + 0.2 + 0.12 + 0.12 = 0.54 uncapped
-    const t = createGame(d3, 1); placeUnitForTest(t, 'meok', 7);
-    for (const [id, i] of [['pulmu', 0], ['gat', 1], ['cheonnyeonjokja', 6], ['bihyeongrang', 8]] as const) placeUnitForTest(t, id, i);
-    expect(auraAttackPower(t, 7)).toBe(0.4); // 0.15 + 0.13 + 0.12 + 0.1 = 0.5 uncapped
+    placeUnitForTest(s, 'top', 9); // physical, so the physical-only auras of mulle and byeongpung count too
+    for (const [id, i] of [['cheongsachorong', 0], ['daljip', 1], ['mulle', 2], ['cheonnyeonbyeongpung', 8]] as const) placeUnitForTest(s, id, i);
+    expect(speedBonus(s, 9)).toBe(0.5); // 0.1 + 0.2 + 0.12 + 0.12 = 0.54 uncapped
+    const t = createGame(d3, 1); placeUnitForTest(t, 'meok', 9);
+    for (const [id, i] of [['pulmu', 0], ['gat', 1], ['cheonnyeonjokja', 8], ['bihyeongrang', 10]] as const) placeUnitForTest(t, id, i);
+    expect(auraAttackPower(t, 9)).toBe(0.4); // 0.15 + 0.13 + 0.12 + 0.1 = 0.5 uncapped
   });
 
   test('periodic skills start ready in stage 3 only', () => {

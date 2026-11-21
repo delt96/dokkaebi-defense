@@ -1,4 +1,5 @@
 import type { GameState } from '@dorandi/logic';
+import type { Lane } from '@dorandi/logic';
 import { GRADE_COLOR, STAGE_W, stageToCell } from '../layout';
 import { esc } from './dom';
 import { storageStacks } from './models';
@@ -31,10 +32,10 @@ export function storageHtml(state: GameState): string {
 }
 
 /** The board cell under a page point, or null outside the board (the stage is scaled to the window). */
-export function cellAtPage(stage: HTMLElement, clientX: number, clientY: number): number | null {
+export function cellAtPage(lane: Lane, stage: HTMLElement, clientX: number, clientY: number): number | null {
   const r = stage.getBoundingClientRect();
   const zoom = r.width / STAGE_W || 1;
-  return stageToCell((clientX - r.left) / zoom, (clientY - r.top) / zoom);
+  return stageToCell(lane, (clientX - r.left) / zoom, (clientY - r.top) / zoom);
 }
 
 const DRAG_PX = 4;
@@ -43,7 +44,9 @@ const DRAG_PX = 4;
  * Press handling for the stacks: a press without movement takes one unit out to the best free slot, a drag drops it on
  * the board cell under the pointer. Keyboard clicks take one out like a press.
  */
-export function wireStorage(box: HTMLElement, stage: HTMLElement, take: (defId: string, slot?: number) => void, enabled: () => boolean): void {
+export function wireStorage(
+  box: HTMLElement, stage: HTMLElement, lane: () => Lane, take: (defId: string, slot?: number) => void, enabled: () => boolean,
+): void {
   let drag: { defId: string; x: number; y: number; ghost: HTMLElement | null; html: string } | null = null;
   const end = () => {
     drag?.ghost?.remove();
@@ -74,7 +77,7 @@ export function wireStorage(box: HTMLElement, stage: HTMLElement, take: (defId: 
     end();
     if (!enabled()) return;
     if (!ghost) { take(defId); return; }
-    const cell = cellAtPage(stage, ev.clientX, ev.clientY);
+    const cell = cellAtPage(lane(), stage, ev.clientX, ev.clientY);
     if (cell !== null) take(defId, cell);
   }
   function cancel(): void { end(); }
