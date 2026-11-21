@@ -25,6 +25,8 @@ export class NetClient {
   lobby: LobbyMsg | null = null;
   view: ClientView | null = null;
   pending: PendingCmd[] = [];
+  /** Set once this client asked to leave, so its own consented close (4000) is not taken for the room closing. */
+  leaving = false;
   private nextSeq = 1;
   private awaitingFull = false;
   private readonly listeners: ((e: NetEvent) => void)[] = [];
@@ -69,6 +71,7 @@ export class NetClient {
   rematch(): void { this.room.send('rematch', {}); }
 
   async leave(): Promise<void> {
+    this.leaving = true;
     await this.room.leave(true);
   }
 

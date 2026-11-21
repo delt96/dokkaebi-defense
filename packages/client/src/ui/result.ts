@@ -6,15 +6,29 @@ import { esc } from './dom';
 const W = 300;
 const H = 90;
 
-export function graph(series: number[], limit: number): string {
-  if (!series.length) return '';
-  const max = Math.max(limit, ...series);
+/**
+ * Per-round line graph. The x axis spans every slot of `series`; a null slot (a round after an
+ * elimination) breaks the line, and a lone point between gaps is drawn as a dot.
+ */
+export function graph(series: (number | null)[], limit: number): string {
+  const values = series.filter((v): v is number => v !== null);
+  if (!values.length) return '';
+  const max = Math.max(limit, ...values);
   const x = (i: number) => (series.length === 1 ? W / 2 : (i / (series.length - 1)) * W);
   const y = (v: number) => H - (v / max) * H;
-  const pts = series.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const runs: [number, number][][] = [];
+  let run: [number, number][] = [];
+  series.forEach((v, i) => {
+    if (v === null) { if (run.length) runs.push(run); run = []; return; }
+    run.push([x(i), y(v)]);
+  });
+  if (run.length) runs.push(run);
+  const marks = runs.map(r => r.length === 1
+    ? `<circle cx="${r[0]![0].toFixed(1)}" cy="${r[0]![1].toFixed(1)}" r="1.5" fill="#ffe08a"/>`
+    : `<polyline points="${r.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(' ')}" fill="none" stroke="#ffe08a" stroke-width="1.5"/>`).join('');
   return `<svg class="graph" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
     <line x1="0" x2="${W}" y1="${y(limit)}" y2="${y(limit)}" stroke="#ff3b2f" stroke-dasharray="3 3" stroke-width="1"/>
-    <polyline points="${pts}" fill="none" stroke="#ffe08a" stroke-width="1.5"/>
+    ${marks}
   </svg>`;
 }
 

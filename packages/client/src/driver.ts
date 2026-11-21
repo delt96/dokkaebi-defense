@@ -33,6 +33,8 @@ export interface Driver {
   readonly laneEpoch?: number;
   queue(cmd: Command): void;
   onEvents(cb: Listener): void;
+  /** Online only: old unit id → new unit id when the server's board replaced a unit in place. */
+  onRemap?(cb: (ids: Map<number, number>) => void): void;
   update(elapsedMs: number): void;
   enemyDistance(id: number, d: number): number;
 }

@@ -36,5 +36,6 @@ export function menuHtml(kind: 'menu' | 'forfeit', spirit: boolean): string {
       <div class="modal-actions"><button data-action="forfeit">포기</button><button data-action="closeModal">취소</button></div></div>`;
   }
   return `<div class="modal"><div class="modal-head">메뉴 <button data-action="closeModal">닫기</button></div>
-    <div class="modal-actions"><button data-action="askForfeit" ${spirit ? 'disabled' : ''}>포기하고 나가기</button></div></div>`;
+    <div class="modal-actions"><button data-action="openDex">도감</button><button data-action="toggleHelper">조합 도우미</button>
+    <button data-action="askForfeit" ${spirit ? 'disabled' : ''}>포기하고 나가기</button></div></div>`;
 }

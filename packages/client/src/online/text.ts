@@ -29,6 +29,7 @@ export const TEXT = {
   alreadyStarted: '이미 시작한 방입니다',
   badKey: '자리를 되찾지 못했습니다. 닉네임을 다시 입력해 주세요',
   noRoom: '없거나 끝난 방입니다',
+  roomClosed: '방이 닫혔습니다',
   replaced: '다른 창에서 접속했습니다',
   disconnected: '연결이 끊겼습니다 · 다시 연결하는 중',
   versionMismatch: '게임이 업데이트되었습니다. 새로고침해 주세요',

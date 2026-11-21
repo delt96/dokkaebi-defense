@@ -39,6 +39,7 @@ export class NetDriver implements Driver {
   private receivedAt: number;
   private view: ClientView;
   private readonly listeners: Listener[] = [];
+  private readonly remapListeners: ((ids: Map<number, number>) => void)[] = [];
   /**
    * Lane events waiting for the next frame. Messages keep arriving while a tab is hidden and no
    * frame runs, so they are held here (old ticks dropped) and only the newest 10 ticks get animated.
@@ -76,6 +77,11 @@ export class NetDriver implements Driver {
 
   onEvents(cb: Listener): void {
     this.listeners.push(cb);
+  }
+
+  /** Called with old id → new id when a `mine` puts a new unit where one stood (a combine result in its target slot). */
+  onRemap(cb: (ids: Map<number, number>) => void): void {
+    this.remapListeners.push(cb);
   }
 
   queue(cmd: Command): void {
@@ -128,11 +134,11 @@ export class NetDriver implements Driver {
       this.buffered = [];
       this.newestTick = this.latestTick;
     } else {
-      if (view.mine !== this.lastMine) this.noteMine(this.lastMine, view);
       if (view.clock.tick !== this.latestTick) {
         this.latestTick = view.clock.tick;
         this.receivedAt = this.now();
       }
+      if (view.mine !== this.lastMine) this.noteMine(this.lastMine, view);
     }
   }
 
@@ -141,7 +147,18 @@ export class NetDriver implements Driver {
     this.lastMine = view.mine;
     if (view.watching !== view.me.seat) return;
     const same = previous.units.length === view.mine.units.length && previous.units.every((u, i) => u?.id === view.mine.units[i]?.id);
-    if (!same) this.boardBeforeMine = { tick: view.mine.tick, ids: this.state.slots.map(u => u?.id ?? null) };
+    if (same) return;
+    this.boardBeforeMine = { tick: view.mine.tick, ids: this.state.slots.map(u => u?.id ?? null) };
+    // The lane's combine event comes up to a tick later; the selection moves now, before a redraw
+    // from the new board could drop the vanished material's id.
+    const before = new Set(previous.units.map(u => u?.id));
+    const remap = new Map<number, number>();
+    view.mine.units.forEach((u, i) => {
+      const old = previous.units[i];
+      if (u && old && u.id !== old.id && !before.has(u.id)) remap.set(old.id, u.id);
+    });
+    this.refresh();
+    if (remap.size) for (const cb of this.remapListeners) cb(remap);
   }
 
   private onLane(batches: LaneBatch[]): void {

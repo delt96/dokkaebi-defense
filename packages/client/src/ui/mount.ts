@@ -8,7 +8,7 @@ import type { LaneScene } from '../LaneScene';
 import { playSfx } from '../sfx';
 import { dexHtml } from './dex';
 import { el, onAction, setHtml } from './dom';
-import { renderHelper } from './helper';
+import { helperPopHtml, renderHelper } from './helper';
 import { renderAlert, renderHud } from './hud';
 import { activeNotice, nextUnitId, rejectText, selectedSlot, type Notice } from './models';
 import { renderBottom, renderRight, upgradesHtml } from './panels';
@@ -68,6 +68,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'upgrade': driver.queue({ type: 'upgrade', id: arg as UpgradeId }); break;
       case 'toggleHelper':
         helperOpen = !helperOpen;
+        if (modal === 'menu') modal = null;
         if (helperOpen && !driver.readOnly) driver.queue({ type: 'helperOpened' });
         break;
       case 'support': opts.actions?.support(); break;
@@ -89,6 +90,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (modal || driver.failed || driver.state.phase === 'ended') return;
     scene.selectedId = slot === null ? null : driver.state.slots[slot]?.id ?? null;
     render();
+  });
+  driver.onRemap?.(ids => {
+    const next = scene.selectedId === null ? undefined : ids.get(scene.selectedId);
+    if (next !== undefined) scene.selectedId = next;
   });
   driver.onEvents((events, rejected) => {
     const priorSelection = scene.selectedId;
@@ -163,14 +168,14 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const view = online && opts.data ? opts.view?.() ?? null : null;
     if (view && opts.data) {
       renderTop(view, opts.data);
-      renderRows(view, opts.data);
+      renderRows(view, opts.data, helperOpen ? helperPopHtml(s) : '');
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
       renderHelper(s, helperOpen);
     }
     el('round-banner').textContent = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? (view ? activeNotice(notice, now) ?? '' : '');
-    renderRight(s, view ? { online: !driver.readOnly, notices: rightNotices(view, now) } : {});
+    renderRight(s, view ? { online: !driver.readOnly, notices: rightNotices(now) } : {});
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');
     const spiritCard = view && opts.data ? spiritCardHtml(view, opts.data) : null;
     if (spiritCard) {

@@ -2,8 +2,10 @@
 import { describe, expect, test } from 'vitest';
 import { loadGameData, type ClientView, type GateView, type RowView, type YeoksinView } from '@dorandi/logic';
 import { devCreateOptions } from '../src/net/room';
-import { rightNotices, rowsModel, topModel } from '../src/online/models';
+import { noteSupport, rightNotices, rowsModel, topModel, watchSupport } from '../src/online/models';
 import { renderRows, renderTop } from '../src/online/panels';
+import { NetClient } from '../src/net/NetClient';
+import { FakeRoom, fixtureFull } from './fixtures/net';
 
 const data = loadGameData('stage2');
 
@@ -59,17 +61,24 @@ describe('online rows', () => {
     const spirit = viewWith({ me: 1, tick: 5000, round: 6, roundEndTick: 5400, rows: [row({ seat: 1, status: 'spirit', cause: 'limit', eliminatedTick: 4000 })] });
     expect(topModel(spirit, data).line1).toBe('6 / 20 라운드 · 남은 20초 · 관전 중');
   });
-  test('support arrival notice lasts 3 seconds', () => {
+  test('support arrival notice lasts 3 seconds, once per message', () => {
     const v = viewWith({ me: 1, rows: [row({})] }); v.mine.supportIn = [{ from: 3, coins: 5 }];
-    expect(rightNotices(v, 1000)).toEqual(['3번 넋이 엽전 +5']);
-    expect(rightNotices(v, 4001)).toEqual([]);
+    noteSupport(v.mine.supportIn, 1000);
+    noteSupport(v.mine.supportIn, 1500);
+    expect(rightNotices(1000)).toEqual(['3번 넋이 엽전 +5']);
+    expect(rightNotices(4001)).toEqual([]);
   });
-  test('a notice outlives the next mine message that replaces supportIn', () => {
-    const v = viewWith({ me: 1, rows: [row({})] }); v.mine.supportIn = [{ from: 2, coins: 5 }];
-    expect(rightNotices(v, 10000)).toEqual(['2번 넋이 엽전 +5']);
-    v.mine = { ...v.mine, supportIn: [] };
-    expect(rightNotices(v, 11000)).toEqual(['2번 넋이 엽전 +5']);
-    expect(rightNotices(v, 13001)).toEqual([]);
+  test('a support arrival shows although the next mine replaces supportIn before any redraw (checkpoint 17-19, finding 2)', () => {
+    const full = fixtureFull();
+    const room = new FakeRoom();
+    const net = new NetClient(room, full.dataVersion);
+    room.emit('full', full);
+    watchSupport(net, () => 20000);
+    room.emit('mine', { ...structuredClone(full.mine), tick: full.mine.tick + 1, supportIn: [{ from: 2, coins: 5 }] });
+    room.emit('mine', { ...structuredClone(full.mine), tick: full.mine.tick + 2, supportIn: [] });
+    expect(net.view!.mine.supportIn).toEqual([]);
+    expect(rightNotices(20000)).toEqual(['2번 넋이 엽전 +5']);
+    expect(rightNotices(23001)).toEqual([]);
   });
   test('rendered markup fits six rows and two lines', () => {
     const rows = [1, 2, 3, 4, 5, 6].map(seat => row({ seat, name: seat === 1 ? '가나다라마바사아' : '', status: seat === 1 ? 'alive' : 'empty', count: 12 }));

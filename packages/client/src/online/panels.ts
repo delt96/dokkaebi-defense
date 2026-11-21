@@ -4,7 +4,7 @@ import { rowsModel, topModel } from './models';
 import { spiritModel } from './spirit';
 
 /** Left panel: a 28px title and six 44px rows, one per seat. */
-export function renderRows(view: ClientView, data: GameData): void {
+export function renderRows(view: ClientView, data: GameData, overlay = ''): void {
   const spirit = spiritModel(view) !== null;
   const rows = rowsModel(view, data).map(r => {
     if (r.empty) return `<div class="lane-row empty"><div class="line1"><span class="title">${esc(r.title)}</span></div></div>`;
@@ -17,7 +17,7 @@ export function renderRows(view: ClientView, data: GameData): void {
       <div class="line2"><span class="status">${esc(r.status)}</span>${mark}</div>
     </div>`;
   }).join('');
-  setHtml(el('left'), `<div class="rows-title">고개 현황</div>${rows}`);
+  setHtml(el('left'), `<div class="rows-title">고개 현황</div>${rows}${overlay}`);
 }
 
 /** Top bar: two 12px lines; the my-turn notice is appended to the second one. */

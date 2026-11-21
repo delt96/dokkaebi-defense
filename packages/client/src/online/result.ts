@@ -1,5 +1,7 @@
 import { unitDefFast, type EliminationCause, type GameData, type MatchResult, type SeatOutcome, type TeamOutcome } from '@dorandi/logic';
+import type { NetClient } from '../net/NetClient';
 import { esc } from '../ui/dom';
+import { TEXT } from './text';
 import { graph } from '../ui/result';
 
 export interface TeamRow {
@@ -38,7 +40,13 @@ export function teamResultModel(result: MatchResult, names: Record<number, strin
 }
 
 export interface ResultActions { rematch(): void; leave(): void }
-export interface ResultUi { opened: number | null; rematching: boolean }
+/** `closed`: the server closed the room (result hold over), so rematch can no longer be sent. */
+export interface ResultUi { opened: number | null; rematching: boolean; closed?: boolean }
+
+/** Without a rematch notice in this time the rematch button can be pressed again (the server retries on the next press). */
+export const REMATCH_RETRY_MS = 5000;
+/** Colyseus close code of a consented leave; the server's Room.disconnect() uses it too. */
+const CLOSE_CONSENTED = 4000;
 
 function div(cls: string, text?: string): HTMLElement {
   const node = document.createElement('div');
@@ -64,9 +72,8 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
     row.addEventListener('click', () => { ui.opened = open ? null : r.seat; redraw(); });
     box.append(row);
     if (open) {
-      const seats = result.seats.find(s => s.seat === r.seat);
       const detail = div('result-detail');
-      detail.innerHTML = `<p>라운드 끝 잡귀 (빨간 점선: 한도 ${data.balance.limit})</p>${graph(seats?.series ?? [], data.balance.limit)}<p>${esc(r.helperText)}</p>`;
+      detail.innerHTML = `<p>라운드 끝 잡귀 (빨간 점선: 한도 ${data.balance.limit})</p>${graph(r.series, data.balance.limit)}<p>${esc(r.helperText)}</p>`;
       box.append(detail);
     }
   }
@@ -77,15 +84,52 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
   const again = document.createElement('button');
   again.type = 'button';
   again.className = 'big';
-  again.textContent = ui.rematching ? '새 방으로 가는 중' : '다시 하기';
-  again.disabled = ui.rematching;
-  again.addEventListener('click', () => { if (ui.rematching) return; ui.rematching = true; actions.rematch(); redraw(); });
+  again.textContent = ui.rematching && !ui.closed ? '새 방으로 가는 중' : '다시 하기';
+  again.disabled = ui.rematching || ui.closed === true;
+  again.addEventListener('click', () => { if (ui.rematching || ui.closed) return; ui.rematching = true; actions.rematch(); redraw(); });
   const leave = document.createElement('button');
   leave.type = 'button';
   leave.className = 'big';
   leave.textContent = '나가기';
   leave.addEventListener('click', () => actions.leave());
   box.append(again, leave);
+  if (ui.closed) {
+    const link = document.createElement('a');
+    link.className = 'entry-link';
+    link.setAttribute('href', '/');
+    link.textContent = TEXT.newRoom;
+    box.append(div('result-sub', TEXT.roomClosed), link);
+  }
   root.replaceChildren(box);
 }
 
+
+/** Shows the team result in `root` when it arrives (also when a rejoin snapshot already carries it). */
+export function mountResult(net: NetClient, root: HTMLElement, data: GameData, go: (href: string) => void = href => location.assign(href)): void {
+  const ui: ResultUi = { opened: null, rematching: false, closed: false };
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  const show = (): void => {
+    const result = net.view?.result;
+    if (!result) return;
+    const names: Record<number, string> = {};
+    for (const r of net.view?.rows ?? []) names[r.seat] = r.name;
+    renderResult(root, result, names, data, {
+      rematch: () => {
+        net.rematch();
+        clearTimeout(retry);
+        retry = setTimeout(() => { ui.rematching = false; show(); }, REMATCH_RETRY_MS);
+      },
+      leave: () => { void net.leave().catch(() => undefined).finally(() => go('/')); },
+    }, ui);
+  };
+  net.on(e => {
+    if (e.kind === 'result' || (e.kind === 'view' && e.view.result && !root.querySelector('.result-screen'))) show();
+    else if (e.kind === 'notice' && e.msg.kind === 'rematch') clearTimeout(retry);
+    else if (e.kind === 'left' && e.code === CLOSE_CONSENTED && !net.leaving && net.view?.result) {
+      clearTimeout(retry);
+      ui.closed = true;
+      show();
+    }
+  });
+  show();
+}

@@ -1,4 +1,5 @@
 import type { ClientView, EliminationCause, GameData, RowView } from '@dorandi/logic';
+import type { NetEvent } from '../net/NetClient';
 
 export interface RowModel {
   seat: number; empty: boolean; title: string; count: string; danger: boolean; status: string;
@@ -102,16 +103,29 @@ interface Notice { text: string; at: number }
 let active: Notice[] = [];
 const seen = new WeakSet<object>();
 
+/** Remembers the supports in one `mine` message ("N번 넋이 엽전 +5" for 3 seconds). */
+export function noteSupport(incoming: ClientView['mine']['supportIn'], now: number): void {
+  if (incoming.length === 0 || seen.has(incoming)) return;
+  seen.add(incoming);
+  for (const s of incoming) active.push({ text: `${s.from}번 넋이 엽전 +${s.coins}`, at: now });
+}
+
 /**
- * "N번 넋이 엽전 +5" for 3 seconds after a support arrives. `mine` messages replace supportIn on
- * the next change, so arrivals are remembered here instead of read from the view each time.
+ * Notes every arriving `mine`. The server sends one on each resource change (in combat almost every
+ * tick) and the next one replaces supportIn, so reading it at redraw time (100 ms) would miss most.
  */
-export function rightNotices(view: ClientView, now: number): string[] {
-  const incoming = view.mine.supportIn;
-  if (incoming.length > 0 && !seen.has(incoming)) {
-    seen.add(incoming);
-    for (const s of incoming) active.push({ text: `${s.from}번 넋이 엽전 +${s.coins}`, at: now });
-  }
+export function watchSupport(net: { view: ClientView | null; on(cb: (e: NetEvent) => void): void }, now: () => number = () => performance.now()): void {
+  let last = net.view?.mine;
+  if (last) noteSupport(last.supportIn, now());
+  net.on(e => {
+    if (e.kind !== 'view' || e.view.mine === last) return;
+    last = e.view.mine;
+    noteSupport(last.supportIn, now());
+  });
+}
+
+/** Support notices still on screen. */
+export function rightNotices(now: number): string[] {
   active = active.filter(n => now - n.at <= NOTICE_MS);
   return active.map(n => n.text);
 }

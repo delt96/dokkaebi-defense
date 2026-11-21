@@ -146,6 +146,8 @@ body.online #left { border: 0; box-shadow: inset -1px 0 var(--panel-edge); paddi
 .lane-row .mask { flex: none; color: var(--accent); font-weight: bold; }
 .lane-row .bar { flex: none; width: 34px; height: 5px; background: #2a2232; border: 1px solid #4a3e5a; }
 .lane-row .bar i { display: block; height: 100%; background: var(--accent); }
+/* The open combine helper covers the rows below the title (Q or the menu closes it). */
+.helper-pop { position: absolute; left: 0; right: 0; top: 28px; bottom: 0; padding: 4px; display: flex; flex-direction: column; gap: 4px; background: var(--panel); border-top: 1px solid var(--accent); }
 
 body.online #right .need-slot { color: var(--danger); text-align: center; margin-top: -2px; }
 body.online #right .notices { margin-top: auto; color: var(--accent); }

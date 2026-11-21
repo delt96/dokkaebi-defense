@@ -8,7 +8,7 @@ import { renderLobby } from './lobby';
 import { NO_ROOM_CODE, TEXT, joinErrorText } from './text';
 
 const RETRY_MS = 2000;
-/** Colyseus close codes: 4000 consented leave, 4001 server-side close (tab replaced). */
+/** Colyseus close codes: 4000 consented leave (ours, or the server closing the room), 4001 server-side close (tab replaced). */
 const LEAVE_CONSENTED = 4000;
 const LEAVE_REPLACED = 4001;
 
@@ -94,13 +94,24 @@ export function startOnline(opts: { roomId?: string }): void {
   band.setAttribute('role', 'status');
   document.body.append(band);
 
-  const showMessage = (text: string): void => {
+  /**
+   * Ends the page with a message. Once the battle screen is mounted the entry form must not come back
+   * on this page (a second battle would double every key handler), so a new room is a fresh page load.
+   */
+  const showMessage = (text: string, newRoomLink = false): void => {
     stopped = true;
     band.textContent = '';
     root.replaceChildren();
     const box = document.createElement('div');
     box.className = 'screen-box';
     box.textContent = text;
+    if (newRoomLink) {
+      const link = document.createElement('a');
+      link.className = 'entry-link';
+      link.setAttribute('href', '/');
+      link.textContent = TEXT.newRoom;
+      box.append(link);
+    }
     root.append(box);
   };
 
@@ -109,7 +120,7 @@ export function startOnline(opts: { roomId?: string }): void {
     if (reconnecting || stopped) return;
     const roomId = opts.roomId ?? net?.roomId;
     const stored = roomId ? loadSession(roomId) : null;
-    if (!roomId || !stored?.key) { showEntry(TEXT.noRoom, stored?.name, true); return; }
+    if (!roomId || !stored?.key) { showMessage(TEXT.noRoom, true); return; }
     reconnecting = true;
     band.textContent = TEXT.disconnected;
     const attempt = (): void => {
@@ -120,12 +131,7 @@ export function startOnline(opts: { roomId?: string }): void {
         fresh.on(ev => { if (ev.kind === 'view') location.reload(); });
       }, (err: unknown) => {
         const code = errorCode(err);
-        if (code === JOIN_ERROR_CODES.badKey || code === NO_ROOM_CODE) {
-          stopped = true;
-          band.textContent = '';
-          showEntry(TEXT.noRoom, stored.name, true);
-          return;
-        }
+        if (code === JOIN_ERROR_CODES.badKey || code === NO_ROOM_CODE) { showMessage(TEXT.noRoom, true); return; }
         setTimeout(attempt, RETRY_MS);
       });
     };
@@ -161,7 +167,10 @@ export function startOnline(opts: { roomId?: string }): void {
         break;
       case 'left':
         if (screen === 'lobby' || screen === 'connecting') showEntry(TEXT.connectFail);
-        else if (screen === 'battle' && e.code !== LEAVE_CONSENTED && e.code !== LEAVE_REPLACED) reconnect();
+        else if (screen !== 'battle' || net?.leaving || e.code === LEAVE_REPLACED) break;
+        else if (e.code !== LEAVE_CONSENTED) reconnect();
+        // the server closed the room (Room.disconnect); the result screen marks itself closed
+        else if (!net?.view?.result) showMessage(TEXT.roomClosed, true);
         break;
       default:
         break;
