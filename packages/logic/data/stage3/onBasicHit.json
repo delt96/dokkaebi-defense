@@ -1,0 +1,11 @@
+{
+  "meongseok": { "targetPct": 0, "splashPct": 0.05 },
+  "sseurebatgi": { "targetPct": 0, "splashPct": 0.05 },
+  "jwibul": { "targetPct": 0, "splashPct": 0.05 },
+  "bujipge": { "targetPct": 0, "splashPct": 0.05 },
+  "jaetmulsiru": { "targetPct": 0, "splashPct": 0.05 },
+  "gawi": { "targetPct": 0, "splashPct": 0.05 },
+  "indu": { "targetPct": 0, "splashPct": 0.05 },
+  "hwaetbul": { "targetPct": 0.05, "splashPct": 0 },
+  "pulmu": { "targetPct": 0, "splashPct": 0.15 }
+}

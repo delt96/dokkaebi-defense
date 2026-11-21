@@ -1,0 +1,22 @@
+[
+  { "result": "dunggumi", "materials": ["jipsin", "jipsin"] },
+  { "result": "samtaegi", "materials": ["sseurebatgi", "bitjaru", "ki"] },
+  { "result": "mogitbul", "materials": ["sut", "bujigaengi", "buchae"] },
+  { "result": "saekkijul", "materials": ["dunggumi", "jipsin", "bitjaru"] },
+  { "result": "sutdarimi", "materials": ["sut", "dadeumi", "buchae"] },
+  { "result": "hongdukkae", "materials": ["dadeumitdol", "dadeumi", "dadeumi"] },
+  { "result": "bujipge", "materials": ["hwaro", "bujigaengi", "sotlid"] },
+  { "result": "jaetmulsiru", "materials": ["sseurebatgi", "bitjaru", "bujigaengi"] },
+  { "result": "jipsingol", "materials": ["dunggumi", "jipsin", "jipsin"] },
+  { "result": "che", "materials": ["jeolgu", "bitjaru", "sotlid"] },
+  { "result": "dwiju", "materials": ["samtaegi", "meongseok", "sseurebatgi"] },
+  { "result": "meok", "materials": ["but", "hanji", "hwaetbul"] },
+  { "result": "geumulbaneul", "materials": ["saekkijul", "mumyeong", "meongseok"] },
+  { "result": "indupan", "materials": ["sutdarimi", "mumyeong", "dadeumitdol"] },
+  { "result": "indu", "materials": ["bujipge", "sut", "dadeumitdol"] },
+  { "result": "soemangchi", "materials": ["bujipge", "hwaro", "sut"] },
+  { "result": "mulle", "materials": ["saekkijul", "mumyeong", "sut"] },
+  { "result": "yagyeon", "materials": ["che", "jeolgu", "hanji"] },
+  { "result": "maetdol", "materials": ["hamjibak", "dadeumitdol", "meongseok"] },
+  { "result": "jige", "materials": ["jipsingol", "dunggumi", "meongseok"] }
+]
