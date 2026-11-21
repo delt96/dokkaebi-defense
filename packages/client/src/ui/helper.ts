@@ -2,13 +2,14 @@ import type { GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import { helperModel } from './models';
 import { el, esc, setHtml } from './dom';
+import { typeBadgeHtml } from './badge';
 
 function helperItems(state: GameState): string {
   const items = helperModel(state);
   return items.length
     ? items.map(i => {
       const pay = i.short ? `<small class="combine-short">${esc(i.short)}</small>` : i.cost ? `<small class="combine-cost">비용 ${esc(i.cost)}</small>` : '';
-      return `<li><span class="dot" style="background:${GRADE_COLOR[i.grade]}"></span>${esc(i.name)}<button data-action="combine" data-arg="${esc(i.recipe)}"${i.short ? ` disabled title="${esc(i.short)}"` : ''}>조합</button>${pay}</li>`;
+      return `<li><span class="dot" style="background:${GRADE_COLOR[i.grade]}"></span>${esc(i.name)} ${typeBadgeHtml(state.data, i.recipe, true)}<button data-action="combine" data-arg="${esc(i.recipe)}"${i.short ? ` disabled title="${esc(i.short)}"` : ''}>조합</button>${pay}</li>`;
     }).join('')
     : '<li class="empty">지금 만들 수 있는 것이 없습니다</li>';
 }

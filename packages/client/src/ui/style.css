@@ -382,3 +382,7 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .recent-chip .recent-run { min-width: 0; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recent-chip .recent-del { flex: none; color: var(--ink-dim); padding: 0 4px 0 1px; }
 .recent-chip .recent-del:hover { color: var(--danger); }
+
+.type-badge { display: inline-block; padding: 0 4px; border-radius: 3px; border: 1px solid; font-size: 10px; font-weight: bold; line-height: 13px; vertical-align: 1px; }
+.type-badge.physical { color: #ffab5e; background: #3d2412; border-color: #b8651f; }
+.type-badge.magical { color: #a9b8ff; background: #1f2347; border-color: #5a6ad6; }
