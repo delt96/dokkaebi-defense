@@ -8,7 +8,7 @@ const ids = (s: ReturnType<typeof createGame>) => s.slots.filter(Boolean).map(u 
 
 describe('stage 3 board rules', () => {
   test('grade 5 combine needs one buckwheat; rejection consumes nothing', () => {
-    const s = createGame(d3, 1); placeUnitForTest(s, 'meok', 7); placeUnitForTest(s, 'jige', 0);
+    const s = createGame(d3, 1); s.buckwheat = 0; placeUnitForTest(s, 'meok', 7); placeUnitForTest(s, 'jige', 0);
     expect(availableRecipes(s)).not.toContain('top');
     const r = step(s, [{ type: 'combine', result: 'top' }]);
     expect(r.rejected[0]!.reason).toBe('noBuckwheat');

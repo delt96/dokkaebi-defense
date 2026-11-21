@@ -19,10 +19,10 @@ const freeSlots = (state: GameState): number[] => state.slots.flatMap((u, i) => 
 
 /** Short reason on a disabled buy button, said before any coin is paid. */
 const BUY_BLOCK: Partial<Record<RejectReason, string>> = {
-  noCoins: '엽전 부족', noSlot: '빈칸 없음', soldOut: '이번 장날 다 삼', marketClosed: '1라운드부터',
+  noSlot: '진영 한 칸 비우기', soldOut: '이번 장날 다 삼', marketClosed: '1라운드부터',
 };
 
-export interface ShopModel { item: 'bundle' | 'jar'; name: string; price: number; left: string; lines: string[]; blocked: string | null; short: string | null }
+export interface ShopModel { item: 'draw'; name: string; price: number; left: string; lines: string[]; blocked: string | null; short: string | null }
 export interface MarketModel { head: string; shops: ShopModel[] }
 
 export function marketModel(econ: EconMine, state: GameState): MarketModel | null {
@@ -30,33 +30,12 @@ export function marketModel(econ: EconMine, state: GameState): MarketModel | nul
   const def = state.data.economy?.market;
   if (!m || !def) return null;
   const head = m.day > 0 ? `${m.day}장날 · ${m.day * def.dayRounds}라운드까지` : `장날은 1라운드부터`;
-  const total = m.deck.reduce((a, d) => a + d.left, 0);
-  const cards = m.deck.filter(d => d.left > 0);
-  const odds = cards.length === 1 ? `다음은 ${cards[0]!.grade}등급 확정` : cards.map(d => `${d.grade}등급 ${d.left}/${total}`).join(' · ');
-  const short = (n: number | undefined) => (n ? `조합비까지 ${n}냥 부족` : null);
-  const jarPeriod = Math.max(1, Math.ceil(Math.max(1, state.round) / def.jar.periodRounds));
-  const nextJar = `다음 단지 ${jarPeriod * def.jar.periodRounds + 1}라운드부터`;
-  const jarLines = m.jar.left === 0
-    ? [`단지는 ${def.jar.periodRounds}라운드마다 ${def.jar.perPeriod}번`]
-    : m.jar.missed
-      ? ['이번엔 묵 확정']
-      : [`묵 ${pct(m.jar.chance)} · 재료 ${pct(1 - m.jar.chance)}`, '이번에 재료가 나오면 다음 묵 확정'];
-  return {
-    head,
-    shops: [
-      {
-        item: 'bundle', name: '헌 살림 보따리', price: m.bundle.price, left: `남은 ${m.bundle.left}/${def.bundle.perDay}번`,
-        lines: m.bundle.left === 0 ? [`다음 장날 ${Math.max(1, m.day) * def.dayRounds + 1}라운드부터`] : [odds],
-        blocked: m.why.bundle ? BUY_BLOCK[m.why.bundle] ?? '살 수 없음' : null, short: short(m.shortAfter?.bundle),
-      },
-      {
-        item: 'jar', name: '묵장수 단지', price: m.jar.price, left: `남은 ${m.jar.left}/${def.jar.perPeriod}번`,
-        // the jar has its own period, so its sold-out text names the next jar rather than the next market day
-        lines: jarLines, blocked: m.why.jar === 'soldOut' ? nextJar : m.why.jar ? BUY_BLOCK[m.why.jar] ?? '살 수 없음' : null,
-        short: short(m.shortAfter?.jar),
-      },
-    ],
-  };
+  const total = m.draw.weights.reduce((sum, w) => sum + w, 0);
+  const odds = m.draw.weights.map((w, i) => `${3 - i}등급 ${w}/${total}`).join(' · ');
+  const why = m.why.draw;
+  const blocked = why === 'noBuckwheat' ? `메밀묵 ${m.draw.buckwheatCost - state.buckwheat}개 부족` : why ? BUY_BLOCK[why] ?? '살 수 없음' : null;
+  return { head, shops: [{ item: 'draw', name: '헌 살림 보따리', price: m.draw.buckwheatCost,
+    left: `${m.draw.left}회 남음`, lines: [odds], blocked, short: null }] };
 }
 
 // ---------- delivery (online) ----------
@@ -299,7 +278,6 @@ export function noteText(ev: EconNote, data: GameData): string | null {
   switch (ev.type) {
     case 'buy': {
       const jige = ev.jige ? ' · 지게 도깨비가 왔습니다!' : '';
-      if (ev.item === 'jar') return ev.buckwheat ? `단지에서 메밀묵 ${ev.buckwheat}개` : `단지에서 ${nameOf(data, ev.defId ?? '')} · 다음 단지는 묵 확정`;
       return `보따리에서 ${nameOf(data, ev.defId ?? '')} (${gradeOf(data, ev.defId ?? '')}등급)${jige}`;
     }
     case 'questReward': {
@@ -349,7 +327,7 @@ export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: Sh
   let body = '';
   if (tab === 'market' && market) {
     const shops = market.shops.map(s => `<section class="shop">
-      <div class="shop-title"><b>${esc(s.name)}</b><span>${s.price}냥</span></div>
+      <div class="shop-title"><b>${esc(s.name)}</b><span>메밀묵 ${s.price}</span></div>
       <div class="shop-line">${esc(s.left)}</div>${s.lines.map(l => `<div class="shop-line">${esc(l)}</div>`).join('')}
       ${button('buy', s.item, s.blocked ?? '사기', s.blocked !== null)}${s.short ? `<div class="shop-short">${esc(s.short)}</div>` : ''}</section>`).join('');
     const shipHtml = ship ? `<section class="shop ship"><div class="shop-title"><b>지게 배달</b>${ship.reward ? `<span>${esc(ship.reward)}</span>` : ''}</div>

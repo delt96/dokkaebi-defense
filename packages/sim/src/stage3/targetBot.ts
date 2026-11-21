@@ -175,7 +175,6 @@ export function targetBot(
         else cmds.push({ type: 'convertToken' });
       }
 
-      let spent = 0;
       if (policy) {
         if (policy.quests) cmds.push(...questCommands(state, target));
         if (policy.tame) cmds.push(...tameCommands(state, target));
@@ -185,18 +184,16 @@ export function targetBot(
           if (buys.length === 0 && free === 0 && !sold && !recipe) {
             const sell = sellCandidate(state, tree, kept, protect, main);
             if (sell !== null) {
-              buys = marketCommands(state, target, 1).filter(c => c.type === 'buy' && c.item === 'bundle').slice(0, 1);
+              buys = marketCommands(state, target, 1).slice(0, 1);
               if (buys.length) cmds.push({ type: 'sell', slot: sell });
             }
           }
-          const view = state.econ && state.data.economy?.market;
-          for (const b of buys) if (b.type === 'buy' && view) spent += b.item === 'bundle' ? view.bundle.price : view.jar.price;
           cmds.push(...buys);
         }
       }
 
       const holdsTree5 = state.slots.some(u => u && tree.has(u.defId) && unitDefFast(state.data, u.defId).grade === 5);
-      const keep = spent + (holdsTree5 ? FINAL_COMBINE_COINS : 0);
+      const keep = holdsTree5 ? FINAL_COMBINE_COINS : 0;
       const up = main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
       if (up) cmds.push({ type: 'upgrade', id: up });
       const fix = placementFix(state);

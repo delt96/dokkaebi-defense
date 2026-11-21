@@ -79,7 +79,7 @@ export interface GameData {
   coop?: CoopDef; economy?: EconomyDef;
 }
 
-export type EconItem = 'bundle' | 'jar';
+export type EconItem = 'draw';
 export type GeneralQuestId = 'mission' | 'collection' | 'team' | 'ssireum';
 export type EconSection = 'market' | 'drops' | 'story' | GeneralQuestId | 'shadow' | 'tame' | 'transfer';
 export interface TameTargetDef {
@@ -87,11 +87,11 @@ export interface TameTargetDef {
   needs?: 'slowed' | { vulnSource: string; stacks: number };
 }
 export interface EconomyDef {
+  startingBuckwheat: number;
   ledger: { tokenValue: number; storyCap: number; totalCap: number; ratio: number };
   market?: {
     dayRounds: number; jigeChance: number;
-    bundle: { price: number; perDay: number; deck: number[] };
-    jar: { price: number; firstChance: number; periodRounds: number; perPeriod: number };
+    draw: { buckwheatCost: number; perDay: number; weights: number[] };
   };
   drops?: { round: number; grade: number }[];
   story?: { checks: { round: number; recordRounds: number[] }[]; kills: number; fee: { coins: number; buckwheat: number }; maxAwards: number };
@@ -111,12 +111,11 @@ export interface StoryState {
   active: { target: string; missing: number; round: number } | null;
 }
 export interface EconState {
-  rng: { bundle: RngState; jar: RngState; jige: RngState; drop: RngState };
+  rng: { marketGrade: RngState; marketUnit: RngState; jige: RngState; drop: RngState };
   roundKills: number; questTokens: number;
   ledger: { story: number; tokens: number };
   pendingDrops: string[];
-  bundle: { day: number; bought: number; left: number[] };
-  jar: { period: number; done: number; missed: boolean };
+  market: { day: number; draws: number };
   jige: boolean;
   story: StoryState;
   mission: { phase: 'idle' | 'active' | 'won' | 'lost'; beastId: number | null; beastDown: boolean };
@@ -185,7 +184,7 @@ export type GameEvent =
   | { type: 'damage'; enemyId: number; amount: number; source: string; effect?: HitEffect }
   | { type: 'kill'; enemyId: number } | { type: 'speedChange'; enemyId: number; d: number; speed: number }
   | { type: 'ended'; result: GameResult }
-  | { type: 'buy'; item: EconItem; defId: string | null; buckwheat: number; jige: boolean }
+  | { type: 'buy'; item: EconItem; defId: string; spentBuckwheat: number; jige: boolean }
   | { type: 'storyOffer'; target: string; missing: string; round: number }
   | { type: 'storyEnd'; target: string; reason: StoryEndReason }
   | { type: 'questReward'; quest: GeneralQuestId | 'story' | 'transfer'; coins: number; buckwheat: number; tokens: number }

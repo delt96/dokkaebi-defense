@@ -32,7 +32,7 @@ describe('parseClientCommand', () => {
   });
 
   test('parses the new economy commands and rejects bad args', () => {
-    expect(parseClientCommand({ seq: 1, type: 'buy', args: { item: 'jar' } })!.cmd).toEqual({ type: 'buy', item: 'jar' });
+    expect(parseClientCommand({ seq: 1, type: 'buy', args: { item: 'draw' } })!.cmd).toEqual({ type: 'buy', item: 'draw' });
     expect(parseClientCommand({ seq: 2, type: 'buy', args: { item: 'gold' } })!.cmd).toEqual({ type: 'invalid' });
     expect(parseClientCommand({ seq: 3, type: 'storyTarget', args: { id: null } })!.cmd).toEqual({ type: 'storyTarget', id: null });
     expect(parseClientCommand({ seq: 3, type: 'storyTarget', args: { id: 'cheonnyeonjing', unitIds: [4, 9] } })!.cmd)
@@ -47,7 +47,7 @@ describe('parseClientCommand', () => {
     expect(parseClientCommand({ seq: 10, type: 'transferDecline', args: { offerId: 1 } })!.cmd).toEqual({ type: 'transferDecline', offerId: 1 });
     const bad = [
       { type: 'transferAccept', args: { slot: 1 } }, { type: 'transferDecline' },
-      { type: 'buy' }, { type: 'buy', args: { item: 'jar', n: 2 } },
+      { type: 'buy' }, { type: 'buy', args: { item: 'draw', n: 2 } },
       { type: 'storyTarget', args: {} }, { type: 'storyTarget', args: { id: '' } }, { type: 'storyTarget', args: { id: 'x'.repeat(33) } },
       { type: 'storyTarget', args: { id: 'a', unitIds: [1, 2, 3, 4] } }, { type: 'storyTarget', args: { id: 'a', unitIds: [1.5] } },
       { type: 'storyTarget', args: { id: 3 } }, { type: 'storyDecline', args: { x: 1 } }, { type: 'missionEnter', args: { x: 1 } },
@@ -59,7 +59,7 @@ describe('parseClientCommand', () => {
   });
   test('toWire round-trips every new command through parseClientCommand', () => {
     const cmds: Parameters<typeof toWire>[0][] = [
-      { type: 'buy', item: 'bundle' }, { type: 'buy', item: 'jar' }, { type: 'storyTarget', id: null },
+      { type: 'buy', item: 'draw' }, { type: 'storyTarget', id: null },
       { type: 'storyTarget', id: 'cheonnyeonjing', unitIds: [3] }, { type: 'storyDecline' }, { type: 'missionEnter' },
       { type: 'tame', enemyId: -3 }, { type: 'transferOffer', target: 4, slot: 2, unitId: 17 },
       { type: 'transferAccept', offerId: 1, slot: 0 }, { type: 'transferDecline', offerId: 1 },

@@ -129,7 +129,7 @@ describe('jige transfer', () => {
     expect(acc.r.lanes[2]!.events.some(e => e.type === 'summon' && e.defId === 'moru' && e.slot === 4)).toBe(true);
     expect(ends(acc.r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, defId: 'moru', outcome: 'accepted', by: null, cause: null }]);
     expect(totals(m)).toEqual(before);
-    expect([m.lanes[1]!.buckwheat, m.lanes[2]!.buckwheat]).toEqual([1, 1]);
+    expect([m.lanes[1]!.buckwheat, m.lanes[2]!.buckwheat]).toEqual([2, 2]);
     expect(m.econ!.readyRound).toEqual({ 1: 27, 2: 27 });
     expect(m.econ!.rewarded).toEqual([1, 2]);
 
@@ -143,7 +143,7 @@ describe('jige transfer', () => {
     jumpToTick(m, rst(27) + 1);
     expect(send(m, [[1, { type: 'transferOffer', target: 3, slot: 1, unitId: p.id }]]).reasons).toEqual([null]);
     send(m, [[3, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 5 }]]);
-    expect([m.lanes[1]!.buckwheat, m.lanes[2]!.buckwheat, m.lanes[3]!.buckwheat]).toEqual([1, 1, 1]);
+    expect([m.lanes[1]!.buckwheat, m.lanes[2]!.buckwheat, m.lanes[3]!.buckwheat]).toEqual([2, 2, 2]);
     expect(m.econ!.rewarded).toEqual([1, 2, 3]);
   });
 
@@ -214,7 +214,7 @@ describe('jige transfer', () => {
     const moru = placeUnitForTest(m.lanes[1]!, 'moru', 0);
     send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
     send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 4 }]]);
-    expect([m.lanes[1]!.buckwheat, m.lanes[2]!.buckwheat]).toEqual([0, 0]);
+    expect([m.lanes[1]!.buckwheat, m.lanes[2]!.buckwheat]).toEqual([1, 1]);
   });
 
   test('stage 2 matches refuse transfer commands', () => {

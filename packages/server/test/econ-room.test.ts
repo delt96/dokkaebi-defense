@@ -17,15 +17,15 @@ describe('stage 3 economy commands through the room', () => {
     const r = room60(2);
     const lane = r.core.match!.lanes[1]!;
     lane.coins = 200;
-    send(r.core, 'a', 1, 'buy', { item: 'bundle' });
+    send(r.core, 'a', 1, 'buy', { item: 'draw' });
     tickOnce(r.core, r.deps);
     const mine = r.links[0]!.last('mine');
     expect(mine.acks).toEqual([{ seat: 1, seq: 1, tick: expect.any(Number), ok: true }]);
-    expect(mine.coins).toBe(200 - d3.economy!.market!.bundle.price);
-    expect(mine.econ.market.bundle.left).toBe(d3.economy!.market!.bundle.perDay - 1);
+    expect(mine.coins).toBe(200);
+    expect(mine.econ.market.draw.left).toBe(d3.economy!.market!.draw.perDay - 1);
     expect(mine.units.filter(Boolean).length).toBe(1);
     // the other seat's mine carries its own economy, untouched
-    expect(r.links[1]!.last('full').mine.econ.market.bundle.left).toBe(d3.economy!.market!.bundle.perDay);
+    expect(r.links[1]!.last('full').mine.econ.market.draw.left).toBe(d3.economy!.market!.draw.perDay);
     send(r.core, 'a', 2, 'buy', { item: 'crate' });
     tickOnce(r.core, r.deps);
     expect(r.links[0]!.last('mine').acks).toEqual([{ seat: 1, seq: 2, tick: expect.any(Number), ok: false, reason: 'badArgs' }]);
@@ -66,7 +66,7 @@ describe('stage 3 economy commands through the room', () => {
 
   test('a 20-round room refuses the economy commands without a crash', () => {
     const r = started(['가', '나']);
-    send(r.core, 'a', 1, 'buy', { item: 'jar' });
+    send(r.core, 'a', 1, 'buy', { item: 'draw' });
     send(r.core, 'a', 2, 'transferAccept', { offerId: 1, slot: 0 });
     tickOnce(r.core, r.deps);
     const acks = r.links[0]!.last('mine').acks.map((a: { reason?: string }) => a.reason);

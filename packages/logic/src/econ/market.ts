@@ -15,90 +15,45 @@ export function marketDay(state: GameState): number {
   return Math.ceil(state.round / m.dayRounds);
 }
 
-function jarPeriod(state: GameState, m: MarketDef): number {
-  return state.round < 1 ? 0 : Math.ceil(state.round / m.jar.periodRounds);
-}
-
-/** Bundle purchases already made today and jar progress this period, as they read after any day/period change. */
-function bundleBought(state: GameState): number {
-  const b = state.econ!.bundle;
-  return b.day === marketDay(state) ? b.bought : 0;
-}
-
-function jarProgress(state: GameState, m: MarketDef): { done: number; missed: boolean } {
-  const j = state.econ!.jar;
-  return j.period === jarPeriod(state, m) ? { done: j.done, missed: j.missed } : { done: 0, missed: false };
-}
-
 function pickNormal(state: GameState, grade: number, rng: RngState): string {
   const pool = state.data.units.filter(u => u.grade === grade && !u.hidden);
   return pool[nextInt(rng, pool.length)]!.id;
 }
 
-/** Why buying `item` now would be refused (checked in the same order as the purchase), or null when it would go through. */
-export function buyCheck(state: GameState, item: EconItem): 'marketClosed' | 'soldOut' | 'noCoins' | 'noSlot' | null {
+export function marketGrade(weights: readonly number[], roll: number): 2 | 3 {
+  return roll < weights[0]! / (weights[0]! + weights[1]!) ? 3 : 2;
+}
+
+function drawsToday(state: GameState): number {
+  const market = state.econ!.market;
+  return market.day === marketDay(state) ? market.draws : 0;
+}
+
+export function buyCheck(state: GameState, item: EconItem) {
   const m = state.data.economy?.market;
   if (!state.econ || !m || state.phase !== 'round' || state.round < 1) return 'marketClosed';
-  if (item === 'bundle') {
-    if (bundleBought(state) >= m.bundle.perDay) return 'soldOut';
-    if (state.coins < m.bundle.price) return 'noCoins';
-    if (!hasFreeSlot(state)) return 'noSlot';
-    return null;
-  }
-  const { done, missed } = jarProgress(state, m);
-  if (done >= m.jar.perPeriod) return 'soldOut';
-  if (state.coins < m.jar.price) return 'noCoins';
-  if (!missed && !hasFreeSlot(state)) return 'noSlot';
-  return null;
-}
-
-function buyBundle(state: GameState, m: MarketDef, events: GameEvent[]) {
-  const econ = state.econ!;
-  const day = marketDay(state);
-  const reason = buyCheck(state, 'bundle');
-  if (reason) return reason;
-  if (econ.bundle.day !== day) { econ.bundle.day = day; econ.bundle.bought = 0; }
-  state.coins -= m.bundle.price;
-  econ.bundle.bought++;
-  const grade = econ.bundle.left.splice(nextInt(econ.rng.bundle, econ.bundle.left.length), 1)[0]!;
-  if (econ.bundle.left.length === 0) econ.bundle.left = [...m.bundle.deck];
-  const defId = pickNormal(state, grade, econ.rng.bundle);
-  let jige = false;
-  if (!econ.jige && nextFloat(econ.rng.jige) < m.jigeChance) { econ.jige = true; jige = true; }
-  events.push({ type: 'buy', item: 'bundle', defId, buckwheat: 0, jige });
-  receive(state, defId, events, gradeValue(grade));
-  return null;
-}
-
-function buyJar(state: GameState, m: MarketDef, events: GameEvent[]) {
-  const econ = state.econ!;
-  const { missed } = jarProgress(state, m);
-  const reason = buyCheck(state, 'jar');
-  if (reason) return reason;
-  const period = jarPeriod(state, m);
-  if (econ.jar.period !== period) econ.jar = { period, done: 0, missed: false };
-  state.coins -= m.jar.price;
-  if (missed || nextFloat(econ.rng.jar) < m.jar.firstChance) {
-    state.buckwheat += 1;
-    econ.jar.done++;
-    econ.jar.missed = false;
-    events.push({ type: 'buy', item: 'jar', defId: null, buckwheat: 1, jige: false });
-    return null;
-  }
-  econ.jar.missed = true;
-  const defId = pickNormal(state, 1, econ.rng.jar);
-  events.push({ type: 'buy', item: 'jar', defId, buckwheat: 0, jige: false });
-  receive(state, defId, events, gradeValue(1));
+  if (item !== 'draw') return 'badArgs';
+  if (drawsToday(state) >= m.draw.perDay) return 'soldOut';
+  if (state.buckwheat < m.draw.buckwheatCost) return 'noBuckwheat';
+  if (!hasFreeSlot(state)) return 'noSlot';
   return null;
 }
 
 registerCommand('buy', (state, cmd, events) => {
   if (cmd.type !== 'buy') return 'unknown';
-  const m = state.data.economy?.market;
-  if (!state.econ || !m || state.phase !== 'round' || state.round < 1) return 'marketClosed';
-  if (cmd.item === 'bundle') return buyBundle(state, m, events);
-  if (cmd.item === 'jar') return buyJar(state, m, events);
-  return 'badArgs';
+  const why = buyCheck(state, cmd.item);
+  if (why) return why;
+  const econ = state.econ!;
+  const m = state.data.economy!.market!;
+  const grade = marketGrade(m.draw.weights, nextFloat(econ.rng.marketGrade));
+  const defId = pickNormal(state, grade, econ.rng.marketUnit);
+  const jige = !econ.jige && nextFloat(econ.rng.jige) < m.jigeChance;
+  if (jige) econ.jige = true;
+  state.buckwheat -= m.draw.buckwheatCost;
+  econ.market = { day: marketDay(state), draws: drawsToday(state) + 1 };
+  events.push({ type: 'buy', item: 'draw', defId, spentBuckwheat: m.draw.buckwheatCost, jige });
+  receive(state, defId, events, gradeValue(grade));
+  return null;
 });
 
 /** Boss-kill drop for the boss's spawn round, placed now or queued for the next free slot. */
@@ -124,30 +79,18 @@ export function placePendingDrops(state: GameState, events: GameEvent[]): void {
 registerAfterCommands(placePendingDrops);
 
 export interface MarketView {
-  bundle: { price: number; left: number; odds: Record<number, number> };
-  /** `missed`: the first draw this period gave a material, so the next jar is a sure buckwheat. */
-  jar: { price: number; left: number; chance: number; missed: boolean };
-  shortAfter: { bundle: number; jar: number } | null;
+  day: number;
+  endRound: number;
+  draw: { buckwheatCost: number; left: number; weights: number[] };
+  jigeChance: number;
+  why: { draw: ReturnType<typeof buyCheck> };
 }
 
 export function marketView(state: GameState): MarketView | null {
   const m = state.data.economy?.market;
-  const econ = state.econ;
-  if (!m || !econ) return null;
-  const deck = econ.bundle.left;
-  const odds: Record<number, number> = {};
-  for (const g of m.bundle.deck) odds[g] = deck.filter(x => x === g).length / deck.length;
-  const jar = jarProgress(state, m);
-  let shortAfter: MarketView['shortAfter'] = null;
-  const target = econ.story.target;
-  if (target) {
-    const fee = state.data.recipes.find(r => r.result === target)?.cost?.coins ?? 0;
-    const short = (price: number) => Math.max(0, fee - (state.coins - price));
-    shortAfter = { bundle: short(m.bundle.price), jar: short(m.jar.price) };
-  }
-  return {
-    bundle: { price: m.bundle.price, left: Math.max(0, m.bundle.perDay - bundleBought(state)), odds },
-    jar: { price: m.jar.price, left: Math.max(0, m.jar.perPeriod - jar.done), chance: jar.missed ? 1 : m.jar.firstChance, missed: jar.missed },
-    shortAfter,
-  };
+  if (!m || !state.econ) return null;
+  const day = marketDay(state);
+  return { day, endRound: Math.max(day, 1) * m.dayRounds, jigeChance: m.jigeChance,
+    draw: { buckwheatCost: m.draw.buckwheatCost, left: m.draw.perDay - drawsToday(state), weights: [...m.draw.weights] },
+    why: { draw: buyCheck(state, 'draw') } };
 }

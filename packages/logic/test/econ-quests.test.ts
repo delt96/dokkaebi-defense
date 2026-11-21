@@ -10,6 +10,7 @@ function lane(round: number, coins = 100): GameState {
   const s = createGame(d3, 1);
   forceRound(s, round);
   s.coins = coins;
+  s.buckwheat = 0;
   return s;
 }
 

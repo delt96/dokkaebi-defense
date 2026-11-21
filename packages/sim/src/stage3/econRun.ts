@@ -21,7 +21,7 @@ export interface EconRow {
   firstGrade6Round: number | null; firstSource: 'combine' | 'story' | null;
   storyOffers: number; storyAward: number;
   buckwheat9Round: number | null; buckwheat12Round: number | null; coins180Round: number | null; coins240Round: number | null;
-  bundles: number; jars: number; questWins: string; tames: number; transfersSent: number; transfersReceived: number;
+  draws: number; questWins: string; tames: number; transfersSent: number; transfersReceived: number;
   sold: number; missingAtEnd: string; yeoksinKills: number;
   boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null;
 }
@@ -104,7 +104,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       seed, config: c.name, bot: c.bot, seat: s, finished: false, teamOutcome: '', endRound: 0,
       grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
       buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
-      bundles: 0, jars: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
+      draws: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
       boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
     });
     prev.set(s, { coins: 0, buckwheat: 0 });
@@ -140,7 +140,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       const lane = match.lanes[s]!;
       const story = step.events.some(e => e.type === 'storyEnd' && e.reason === 'award');
       for (const e of step.events) {
-        if (e.type === 'buy') { if (e.item === 'bundle') row.bundles++; else row.jars++; }
+        if (e.type === 'buy') row.draws++;
         else if (e.type === 'tame') row.tames++;
         else if (e.type === 'questReward') wins.get(s)!.add(e.quest);
         else if ((e.type === 'combine' || e.type === 'summon') && row.firstGrade6Round === null && isNormal6(lane, e.defId)) {
@@ -265,7 +265,7 @@ export const STANDARD_CONFIGS: EconConfig[] = ECON_BOTS.flatMap(bot => [
 
 const NUMBER_COLS = new Set([
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 'storyOffers', 'storyAward',
-  'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'bundles', 'jars', 'tames', 'transfersSent',
+  'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'transfersSent',
   'transfersReceived', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
 ]);
 const NULLABLE_COLS = new Set([

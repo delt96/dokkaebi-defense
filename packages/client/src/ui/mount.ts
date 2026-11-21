@@ -284,9 +284,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       }
       const fullBoard = r.command.type === 'summon' && !freeSlot();
       const tame = r.command.type === 'tame' ? tameRejectText(econ(), r.command.enemyId, r.reason, driver.state.data) : null;
-      // the jar runs on its own period, not the market day the shared soldOut line names
-      const jar = r.command.type === 'buy' && r.command.item === 'jar' && r.reason === 'soldOut' ? '이번 단지는 다 샀습니다' : null;
-      const text = tame ?? jar ?? rejectText(fullBoard ? 'noSlot' : r.reason);
+      const text = tame ?? rejectText(fullBoard ? 'noSlot' : r.reason);
       if (text) notice = { text, until: performance.now() + NOTICE_MS };
     }
     if (scene.selectedId !== priorSelection) render();

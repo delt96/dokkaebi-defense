@@ -52,3 +52,15 @@ describe('stage 3 validator rules', () => {
     expect(errors).toContain('unit manggeon (grade 5) is not used in any recipe');
   });
 });
+
+test('invalid market settings fail validation', () => {
+  for (const weights of [[0, 0], [-1, 3], [1, Infinity], [3]]) {
+    expect(validateData(makeData(d => { d.economy!.market!.draw.weights = weights; }, 'stage3')).errors).toContain('invalid market weights');
+  }
+  const invalid = makeData(d => {
+    d.economy!.startingBuckwheat = -1;
+    d.economy!.market!.draw.perDay = 0.5;
+    d.economy!.market!.jigeChance = 1.1;
+  }, 'stage3');
+  expect(validateData(invalid).errors).toEqual(expect.arrayContaining(['invalid startingBuckwheat', 'invalid market price or limit', 'invalid jige chance']));
+});

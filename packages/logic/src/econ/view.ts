@@ -1,14 +1,9 @@
 import type { EconState, GameState, RejectReason, TameTargetDef } from '../types';
-import { buyCheck, marketDay, marketView, type MarketView } from './market';
+import { marketView, type MarketView } from './market';
 import { storyView, type StoryView } from './story';
 import { tameCheck } from './tame';
 
-/** What the market panel shows: marketView plus the cards left in the bundle deck and why each buy is refused now. */
-export interface EconMarketView extends MarketView {
-  day: number;
-  deck: { grade: number; left: number }[];
-  why: { bundle: RejectReason | null; jar: RejectReason | null };
-}
+export type EconMarketView = MarketView;
 
 /** A living tame target on the lane; `why` is tameCheck's answer right now (null = the button works). */
 export interface EconTameView {
@@ -34,19 +29,6 @@ export interface EconView {
   events: EconState['events'];
   story: EconStoryView | null;
   tame: EconTameView[];
-}
-
-function marketPart(state: GameState): EconMarketView | null {
-  const base = marketView(state);
-  const m = state.data.economy?.market;
-  const econ = state.econ!;
-  if (!base || !m) return null;
-  const left = econ.bundle.left;
-  const deck = [...new Set(m.bundle.deck)].sort((a, b) => b - a).map(grade => ({ grade, left: left.filter(g => g === grade).length }));
-  return {
-    ...base, day: marketDay(state), deck,
-    why: { bundle: buyCheck(state, 'bundle'), jar: buyCheck(state, 'jar') },
-  };
 }
 
 function storyPart(state: GameState): EconStoryView | null {
@@ -81,7 +63,7 @@ export function econView(state: GameState): EconView | null {
   const eco = state.data.economy;
   if (!econ || !eco) return null;
   return {
-    market: marketPart(state),
+    market: marketView(state),
     jige: econ.jige,
     roundKills: econ.roundKills,
     questTokens: econ.questTokens,

@@ -31,52 +31,16 @@ function view(me: number, rows: { seat: number; name: string; alive?: boolean; c
   } as unknown as ClientView;
 }
 
-describe('market text', () => {
-  test('prices, buys left and odds come from the data and the deck; reasons are given before paying', () => {
-    const s = lane(1, market.jar.price + 5);
-    const m = marketModel(econOf(s), s)!;
-    expect(m.head).toBe(`1장날 · ${market.dayRounds}라운드까지`);
-    const [bundle, jar] = m.shops;
-    expect(bundle).toMatchObject({ name: '헌 살림 보따리', price: market.bundle.price, left: `남은 ${market.bundle.perDay}/${market.bundle.perDay}번`, lines: ['3등급 2/3 · 2등급 1/3'], blocked: '엽전 부족' });
-    expect(jar).toMatchObject({ price: market.jar.price, blocked: null, lines: ['묵 50% · 재료 50%', '이번에 재료가 나오면 다음 묵 확정'] });
-    s.coins = 1000;
-    fill(s);
-    expect(marketModel(econOf(s), s)!.shops.map(x => x.blocked)).toEqual(['빈칸 없음', '빈칸 없음']);
-    expect(marketModel(econOf(lane(0)), lane(0))!.shops.map(x => x.blocked)).toEqual(['1라운드부터', '1라운드부터']);
-  });
-
-  test('a missed jar promises buckwheat, a one-grade deck says so, and a grade-6 target shows the shortfall', () => {
-    const s = lane(1);
-    s.econ!.jar = { period: 1, done: 0, missed: true };
-    s.econ!.bundle.left = [3];
-    let m = marketModel(econOf(s), s)!;
-    expect(m.shops[1]!.lines).toEqual(['이번엔 묵 확정']);
-    expect(m.shops[0]!.lines).toEqual(['다음은 3등급 확정']);
-    const fee = d3.recipes.find(r => r.result === 'cheonnyeonjing')!.cost!.coins!;
-    step(s, [{ type: 'storyTarget', id: 'cheonnyeonjing' }]);
-    s.coins = market.bundle.price + fee - 10;
-    m = marketModel(econOf(s), s)!;
-    expect(m.shops[0]!.short).toBe('조합비까지 10냥 부족');
-    expect(m.shops[1]!.short).toBeNull();
-  });
-
-  test('sold out today names the next market day', () => {
-    const s = lane(13);
-    s.econ!.bundle = { day: 2, bought: market.bundle.perDay, left: [3, 3, 2] };
-    const m = marketModel(econOf(s), s)!;
-    expect(m.shops[0]).toMatchObject({ left: `남은 0/${market.bundle.perDay}번`, blocked: '이번 장날 다 삼', lines: [`다음 장날 ${2 * market.dayRounds + 1}라운드부터`] });
-  });
-
-  test('a sold-out jar names the next jar by its own period, not the market day', () => {
-    const jar = market.jar;
-    const s = lane(jar.periodRounds + 3);
-    s.econ!.jar = { period: 2, done: jar.perPeriod, missed: false };
-    const m = marketModel(econOf(s), s)!;
-    expect(m.shops[1]).toMatchObject({
-      left: `남은 0/${jar.perPeriod}번`, blocked: `다음 단지 ${2 * jar.periodRounds + 1}라운드부터`,
-      lines: [`단지는 ${jar.periodRounds}라운드마다 ${jar.perPeriod}번`],
-    });
-  });
+test('market shows one fixed-price draw and the blocked reason', () => {
+  const s = lane(1, 0);
+  const shops = () => marketModel(econOf(s), s)!.shops;
+  expect(shops()).toHaveLength(1);
+  expect(shops()[0]).toMatchObject({ item: 'draw', name: '헌 살림 보따리', price: 1,
+    left: '3회 남음', lines: ['3등급 2/3 · 2등급 1/3'], blocked: null });
+  fill(s);
+  expect(shops()[0]?.blocked).toBe('진영 한 칸 비우기');
+  s.buckwheat = 0;
+  expect(shops()[0]?.blocked).toBe('메밀묵 1개 부족');
 });
 
 describe('quest tracker text', () => {
@@ -189,6 +153,7 @@ describe('tame prompt', () => {
 describe('story request page', () => {
   test('the offer separates kill progress, settlement costs and support usage', () => {
     const s = lane(31, 40);
+    s.buckwheat = 0;
     placeUnitForTest(s, 'janggu', 0);
     placeUnitForTest(s, 'moru', 1);
     step(s, [{ type: 'storyTarget', id: 'cheonnyeonjing' }]);
@@ -244,8 +209,7 @@ describe('delivery end lines', () => {
 
 describe('notes and particles', () => {
   test('purchase, reward and taming lines', () => {
-    expect(noteText({ type: 'buy', item: 'jar', defId: null, buckwheat: 1, jige: false }, d3)).toBe('단지에서 메밀묵 1개');
-    expect(noteText({ type: 'buy', item: 'bundle', defId: 'moru', buckwheat: 0, jige: true }, d3)).toMatch(/^보따리에서 모루 \(\d등급\) · 지게 도깨비가 왔습니다!$/);
+    expect(noteText({ type: 'buy', item: 'draw', defId: 'moru', spentBuckwheat: 1, jige: true }, d3)).toMatch(/^보따리에서 모루 \(\d등급\) · 지게 도깨비가 왔습니다!$/);
     expect(noteText({ type: 'questReward', quest: 'mission', coins: 30, buckwheat: 1, tokens: 0 }, d3)).toBe('쇠밥 한 끼 성공 · +30냥 · 묵 +1');
     expect(noteText({ type: 'tame', enemyId: 1, defId: 'gangcheori', unitId: 2, slot: 0 }, d3)).toBe('길들이기 성공 · 강철이가 우리 편이 됐습니다');
   });

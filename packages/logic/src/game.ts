@@ -28,7 +28,7 @@ export function createGame(data: GameData, seed: number): GameState {
     data, tick: 0, phase: 'prep',
     round: 0, roundStartTick: 0, roundEndTick: 0, spawned: 0,
     result: null,
-    tokens: data.balance.tokens.start, coins: 0, buckwheat: 0,
+    tokens: data.balance.tokens.start, coins: 0, buckwheat: data.economy?.startingBuckwheat ?? 0,
     slots: Array.from({ length: total }, () => null),
     open: Array.from({ length: total }, (_, i) => i < initialOpenRows * cols),
     summonCounts: {}, grade1Summons: 0,

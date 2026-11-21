@@ -28,38 +28,15 @@ const count = (cmds: Command[], type: string, item?: string) =>
   cmds.filter(c => c.type === type && (item === undefined || (c as { item?: string }).item === item)).length;
 
 describe('stage 3 economy bot policies', () => {
-  test('market policy buys bundles up to the daily limit while coins stay above the reserve', () => {
-    const perDay = d3.economy!.market!.bundle.perDay;
-    const s = lane(1, 1000);
-    expect(reserveCoins(s, T)).toBe(0);
-    expect(count(marketCommands(s, null), 'buy', 'bundle')).toBe(perDay);
-    s.econ!.bundle = { day: 1, bought: perDay - 1, left: [3, 2] };
-    expect(count(marketCommands(s, null), 'buy', 'bundle')).toBe(1);
-    s.econ!.bundle = { day: 1, bought: 0, left: [3, 3, 2] };
-    s.coins = 120;
-    expect(count(marketCommands(s, null), 'buy', 'bundle')).toBe(2);
-
-    const t = lane(1, 100);
-    t.buckwheat = 5;
-    placeUnitForTest(t, 'janggu', 0);
-    expect(reserveCoins(t, T)).toBe(60);
-    expect(count(marketCommands(t, T), 'buy', 'bundle')).toBe(0);
-    t.coins = 115;
-    expect(count(marketCommands(t, T), 'buy', 'bundle')).toBe(1);
-    expect(marketCommands(lane(0, 500), null)).toEqual([]);
-  });
-
-  test('jar is bought only when buckwheat is short of the next two grade-5s and the final combine', () => {
-    const s = lane(1, 1000);
-    s.econ!.bundle = { day: 1, bought: d3.economy!.market!.bundle.perDay, left: [3, 3, 2] };
-    expect(buckwheatNeed(s, T)).toBe(3);
-    s.buckwheat = 2;
-    expect(marketCommands(s, T)).toEqual([{ type: 'buy', item: 'jar' }]);
-    s.buckwheat = 3;
+  test('draw policy reserves recipe buckwheat after the opening draw', () => {
+    const s = lane(1, 0);
+    expect(marketCommands(s, T)).toEqual([{ type: 'buy', item: 'draw' }]);
+    forceRound(s, 11);
+    s.buckwheat = buckwheatNeed(s, T);
     expect(marketCommands(s, T)).toEqual([]);
-    placeUnitForTest(s, 'janggu', 0);
-    expect(buckwheatNeed(s, T)).toBe(2);
-    expect(buckwheatNeed(s, null)).toBe(0);
+    s.buckwheat += 5;
+    expect(marketCommands(s, T)).toHaveLength(3);
+    expect(marketCommands(s, T, 1)).toHaveLength(1);
   });
 
   test('quest policy sets the story target once per change and enters the mission when it can pay', () => {
@@ -205,7 +182,7 @@ describe('six-seat grade 6 measurement', () => {
       expect(r.grade6AtEnd).toBeGreaterThanOrEqual(0);
       expect(r.endRound).toBe(60);
     }
-    expect(a.rows.some(r => r.bundles > 0)).toBe(true);
+    expect(a.rows.some(r => r.draws > 0)).toBe(true);
   }, 120_000);
 
   test('econSummary applies the pass line on finishers only', () => {
@@ -233,14 +210,14 @@ function econMatchRunStub(): EconRow[] {
     seed: 1, config: 'target-full', bot: 'target', seat: 2, finished: true, teamOutcome: 'clear', endRound: 60,
     grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, coinsAtFinal: 412, buckwheatAtFinal: 2, firstGrade6Round: 33, firstSource: 'story', storyOffers: 1, storyAward: 1,
     buckwheat9Round: 30, buckwheat12Round: null, coins180Round: 6, coins240Round: 8,
-    bundles: 12, jars: 6, questWins: 'mission+team', tames: 1, transfersSent: 1, transfersReceived: 0, sold: 30,
+    draws: 12, questWins: 'mission+team', tames: 1, transfersSent: 1, transfersReceived: 0, sold: 30,
     missingAtEnd: 'moru', yeoksinKills: 4,
     boss10: 21.5, boss20: 48.25, boss30: null, boss40: 60, boss50: null, boss60: 70.1,
   }, {
     seed: 1, config: 'target-full', bot: 'target', seat: 3, finished: false, teamOutcome: 'clear', endRound: 41,
     grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
     buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
-    bundles: 0, jars: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
+    draws: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
     boss10: 30, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
   }];
 }

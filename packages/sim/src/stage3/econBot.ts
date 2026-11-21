@@ -34,27 +34,13 @@ export function buckwheatNeed(state: GameState, target: string | null): number {
 
 const freeSlots = (state: GameState): number => state.slots.filter((u, i) => !u && state.open[i]).length;
 
-/** Bundles up to the daily limit and a jar only when buckwheat is short, never dipping under the reserve. */
 export function marketCommands(state: GameState, target: string | null, freeAfter = freeSlots(state)): Command[] {
   const view = marketView(state);
   if (!view || state.phase !== 'round' || state.round < 1) return [];
-  const reserve = reserveCoins(state, target);
-  const cmds: Command[] = [];
-  let coins = state.coins;
-  let free = freeAfter;
-  if (state.buckwheat < buckwheatNeed(state, target) && view.jar.left > 0 && coins - view.jar.price >= reserve
-      && (view.jar.chance >= 1 || free > 0)) {
-    cmds.push({ type: 'buy', item: 'jar' });
-    coins -= view.jar.price;
-    if (view.jar.chance < 1) free--;
-  }
-  for (let i = 0; i < view.bundle.left; i++) {
-    if (coins - view.bundle.price < reserve || free <= 0) break;
-    cmds.push({ type: 'buy', item: 'bundle' });
-    coins -= view.bundle.price;
-    free--;
-  }
-  return cmds;
+  const reserve = state.round === 1 ? 0 : buckwheatNeed(state, target);
+  const affordable = Math.floor((state.buckwheat - reserve) / view.draw.buckwheatCost);
+  const count = Math.max(0, Math.min(affordable, freeAfter, view.draw.left));
+  return Array.from({ length: count }, () => ({ type: 'buy', item: 'draw' }));
 }
 
 /** Story target on change, the personal mission when affordable, and missing collection combines. */

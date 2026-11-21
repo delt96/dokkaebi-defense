@@ -19,22 +19,20 @@ describe('econView', () => {
 
   test('market part: closed in prep, then the reasons follow the purchase order and the deck counts', () => {
     const s = createGame(d3, 1);
-    expect(econView(s)!.market!.why).toEqual({ bundle: 'marketClosed', jar: 'marketClosed' });
+    expect(econView(s)!.market!.why).toEqual({ draw: 'marketClosed' });
     forceRound(s, 1);
     s.coins = 40;
     let v = econView(s)!.market!;
-    expect(v.why).toEqual({ bundle: 'noCoins', jar: null });
-    expect(v.deck).toEqual([{ grade: 3, left: 2 }, { grade: 2, left: 1 }]);
-    expect(v.jar).toMatchObject({ price: 35, left: 1, chance: 0.5, missed: false });
+    expect(v.why).toEqual({ draw: null });
+    expect(v.draw).toMatchObject({ buckwheatCost: 1, left: 3, weights: [2, 1] });
     s.coins = 1000;
     for (let i = 0; i < s.slots.length; i++) if (s.open[i]) placeUnitForTest(s, 'jipsin', i);
-    expect(buyCheck(s, 'bundle')).toBe('noSlot');
-    expect(econView(s)!.market!.why.bundle).toBe('noSlot');
+    expect(buyCheck(s, 'draw')).toBe('noSlot');
+    expect(econView(s)!.market!.why.draw).toBe('noSlot');
     s.slots[0] = null;
-    step(s, [{ type: 'buy', item: 'bundle' }]);
+    step(s, [{ type: 'buy', item: 'draw' }]);
     v = econView(s)!.market!;
-    expect(v.bundle.left).toBe(d3.economy!.market!.bundle.perDay - 1);
-    expect(v.deck.reduce((a, d) => a + d.left, 0)).toBe(2);
+    expect(v.draw.left).toBe(d3.economy!.market!.draw.perDay - 1);
   });
 
   test('tame part lists living targets with their limit and tameCheck reason', () => {
@@ -68,9 +66,9 @@ describe('econ in the mine stream', () => {
     m.lanes[1]!.coins = 500;
     m.lanes[1]!.econ!.jige = true;
     const view = buildFull(m, 2, { watching: 2, names, key: 'k', n: 0 });
-    let r = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'buy', item: 'jar' } }]);
+    let r = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'buy', item: 'draw' } }]);
     let out = streamer.afterStep(r);
-    expect(out.mine[1]!.econ!.market!.jar.left === 0 || out.mine[1]!.econ!.market!.jar.missed).toBe(true);
+    expect(out.mine[1]!.econ!.market!.draw.left).toBe(2);
     const unit = placeUnitForTest(m.lanes[1]!, 'jipsin', 5);
     const offer: MatchCommand = { type: 'transferOffer', target: 2, slot: 5, unitId: unit.id };
     r = stepMatch(m, [{ seat: 1, seq: 2, cmd: offer }]);
@@ -134,8 +132,8 @@ describe('event enemies in the lane stream', () => {
     jumpToTick(m, roundStartTick(d3, 2) + 1);
     m.lanes[1]!.coins = 100;
     const streamer = new MatchStreamer(m);
-    const out = streamer.afterStep(stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'buy', item: 'bundle' } }]));
+    const out = streamer.afterStep(stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'buy', item: 'draw' } }]));
     const note = out.lanes[1]!.find(e => e.t === 'note');
-    expect(note).toMatchObject({ t: 'note', ev: { type: 'buy', item: 'bundle' } });
+    expect(note).toMatchObject({ t: 'note', ev: { type: 'buy', item: 'draw' } });
   });
 });

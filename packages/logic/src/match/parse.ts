@@ -4,7 +4,7 @@ import type { WireCommand } from './wire';
 
 const INVALID: MatchCommand = { type: 'invalid' };
 const UPGRADE_IDS: ReadonlySet<string> = new Set<UpgradeId>(['physical', 'magical', 'polish', 'slots']);
-const ECON_ITEMS: ReadonlySet<string> = new Set<EconItem>(['bundle', 'jar']);
+const ECON_ITEMS: ReadonlySet<string> = new Set<EconItem>(['draw']);
 const MAX_PINNED = 3;
 const TOP_KEYS: ReadonlySet<string> = new Set(['seq', 'type', 'args']);
 const MAX_SEAT = 6;

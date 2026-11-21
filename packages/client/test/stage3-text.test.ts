@@ -74,7 +74,7 @@ describe('stage 3 skill text', () => {
 
 describe('combine cost', () => {
   test('a grade 5 recipe shows its cost; short of buckwheat it is listed without a hotkey', () => {
-    const s = createGame(d3, 1); placeUnitForTest(s, 'meok', 7); placeUnitForTest(s, 'jige', 0);
+    const s = createGame(d3, 1); s.buckwheat = 0; placeUnitForTest(s, 'meok', 7); placeUnitForTest(s, 'jige', 0);
     const top = () => combineOptions(s, 7).find(o => o.result === 'top')!;
     expect(top()).toMatchObject({ missing: [], key: null, cost: '메밀묵 1개', short: '메밀묵 1개 모자람' });
     expect(helperModel(s)).toContainEqual({ recipe: 'top', name: '톱', grade: 5, cost: '메밀묵 1개', short: '메밀묵 1개 모자람' });

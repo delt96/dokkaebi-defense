@@ -6,14 +6,13 @@ import { unitDefFast } from '../units';
 export function createEcon(seed: number, economy: EconomyDef): EconState {
   return {
     rng: {
-      bundle: createRng(deriveSeed(seed, 'bundle')), jar: createRng(deriveSeed(seed, 'jar')),
+      marketGrade: createRng(deriveSeed(seed, 'marketGrade')), marketUnit: createRng(deriveSeed(seed, 'marketUnit')),
       jige: createRng(deriveSeed(seed, 'jige')), drop: createRng(deriveSeed(seed, 'drop')),
     },
     roundKills: 0, questTokens: 0,
     ledger: { story: 0, tokens: 0 },
     pendingDrops: [],
-    bundle: { day: 0, bought: 0, left: [...(economy.market?.bundle.deck ?? [])] },
-    jar: { period: 0, done: 0, missed: false },
+    market: { day: 0, draws: 0 },
     jige: false,
     story: { target: null, pinned: [], log: [], offers: 0, awarded: false, active: null },
     mission: { phase: 'idle', beastId: null, beastDown: false },
