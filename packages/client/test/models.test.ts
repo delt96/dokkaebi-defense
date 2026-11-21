@@ -257,10 +257,10 @@ describe('final review fixes: right panel and reject notices', () => {
       renderRight(s);
       expect(panel.innerHTML).toContain('도깨비불 (뽑기)');
       expect(panel.innerHTML).toContain('>뚝딱! (3번)</button>');
-      expect(panel.innerHTML).toContain('1등급 75% · 2등급 25% · 3등급 0% (3등급은 5라운드부터)');
+      expect(panel.innerHTML).toContain('1등급 85% · 2등급 15% · 3등급 0% (3등급은 5라운드부터)');
       s.round = 5;
       renderRight(s);
-      expect(panel.innerHTML).toContain('1등급 72% · 2등급 25% · 3등급 3%');
+      expect(panel.innerHTML).toContain('1등급 77% · 2등급 20% · 3등급 3%');
       expect(panel.innerHTML).not.toContain('보너스까지');
     } finally {
       vi.unstubAllGlobals();

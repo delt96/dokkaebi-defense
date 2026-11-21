@@ -9,7 +9,7 @@ const data = loadGameData();
 describe('units', () => {
   test.each(['stage1', 'stage2', 'stage3'] as const)('%s resolves each round boundary', stage => {
     const b = loadGameData(stage).balance;
-    const early = [0.75, 0.25, 0], mid = [0.72, 0.25, 0.03], late = [0.7, 0.25, 0.05];
+    const early = [0.85, 0.15, 0], mid = [0.77, 0.2, 0.03], late = [0.7, 0.25, 0.05];
     expect([0, 1, 4, 5, 9, 10, 60].map(r => summonOddsForRound(b, r)))
       .toEqual([early, early, early, mid, mid, late, late]);
   });
