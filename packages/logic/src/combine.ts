@@ -5,7 +5,7 @@ import { onCollectionCombine } from './econ/quests';
 
 function ownedCounts(state: GameState): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const u of state.slots) if (u) counts.set(u.defId, (counts.get(u.defId) ?? 0) + 1);
+  for (const u of state.slots) if (u && !u.locked) counts.set(u.defId, (counts.get(u.defId) ?? 0) + 1);
   return counts;
 }
 
@@ -57,6 +57,7 @@ registerCommand('combine', (state, cmd, events) => {
   if (cmd.type !== 'combine') return 'unknown';
   const chosen = cmd.slot === undefined ? null : state.slots[cmd.slot];
   if (cmd.slot !== undefined && !chosen) return 'noUnit';
+  if (chosen?.locked) return 'locked';
 
   const recipe = state.data.recipes.find(r => r.result === cmd.result);
   if (!recipe) return 'unknown';
@@ -68,7 +69,7 @@ registerCommand('combine', (state, cmd, events) => {
   let resultSlot = cmd.slot;
   if (resultSlot === undefined) {
     const materialSlots = state.slots
-      .map((u, i) => (u && recipe.materials.includes(u.defId) ? i : -1))
+      .map((u, i) => (u && !u.locked && recipe.materials.includes(u.defId) ? i : -1))
       .filter(i => i >= 0);
     resultSlot = pickResultSlot(state, materialSlots);
   }
@@ -78,7 +79,7 @@ registerCommand('combine', (state, cmd, events) => {
     if (!used.has(resultSlot) && state.slots[resultSlot]!.defId === m) { used.add(resultSlot); continue; }
     for (let i = state.slots.length - 1; i >= 0; i--) {
       if (i === resultSlot || used.has(i)) continue;
-      if (state.slots[i]?.defId === m) { used.add(i); break; }
+      if (state.slots[i]?.defId === m && !state.slots[i]!.locked) { used.add(i); break; }
     }
   }
   const replacedUnitId = state.slots[resultSlot]!.id;
