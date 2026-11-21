@@ -18,7 +18,7 @@
 - Use Vitest from the repository root. Room tests below use the in-memory RoomCore harness.
 - Use UTF-8 and LF.
 - Advance simulation in deterministic 50 ms ticks. Derive one RNG stream per purpose from the lane seed. Validate commands before drawing randomness.
-- Preserve the stage 1 golden at `3352005`. At integration, compare `git diff 3352005 -- packages/sim/test/golden-stage1.json` and run `npx vitest run packages/sim/test/golden.test.ts` against the original fixture. The inspected pity-grid tip changes that blob. Resolve any stage-1 rules drift at integration before measuring the new economy; never regenerate the fixture to accept it.
+- Stage 1 golden: pity-grid deliberately regenerates `packages/sim/test/golden-stage1.json` (the summon pity now replaces the roll, which changes stage 1 by design). After merging pity-grid, that regenerated fixture is the baseline. This plan's economy work is stage-3 only and must leave it byte-identical: check `git diff <post-merge commit> -- packages/sim/test/golden-stage1.json` is empty and `npx vitest run packages/sim/test/golden.test.ts` passes after every task; never regenerate it here.
 - Preserve all 20-round stage 1/2 behaviour, including state hashes, wire shape, controls and absence of an economy.
 - Read prices, limits, odds, thresholds, skill text and rewards from data or server views. Keep hard-coded economy numbers out of the client.
 - Use natural Korean UI copy and existing catalogue names, units and 조사.
@@ -214,4 +214,4 @@
 - §1–2 → Tasks 2–3, 6–8 cover independent market grades, quotas/receipts and a single seat-owned, instance-checked exchange across solo, online, board and storage. JigeSource, result, EconItem and integer jige have the same meaning at parser, handler, view, bot and UI boundaries.
 - §3–4 → Tasks 9–11 cover all five recruitments and all five quest rows, retained settlement, cooperative availability, clock boundaries and selection restoration.
 - §5 and measurement → Tasks 12–13 separate the designer's budget from actual income and spending and pin the round-60 sampling instant and denominators.
-- §6 → Tasks 1, 4–6 cover old-version play, removal of both retired flows and token-only reservation. The five Review Focus cases each have a named regression in their owning task. The merge and original golden check precede all implementation work.
+- §6 → Tasks 1, 4–6 cover old-version play, removal of both retired flows and token-only reservation. The five Review Focus cases each have a named regression in their owning task. The pity-grid merge and the post-merge golden check precede all implementation work.
