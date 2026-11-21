@@ -121,7 +121,7 @@ export class NetDriver implements Driver {
 
   private build(): GameState {
     const view = this.net.view ?? this.view;
-    const state = viewToGameState(view, this.data, this.net.units(), this.renderTick);
+    const state = viewToGameState(view, this.data, this.net.units(), this.renderTick, this.net.storage());
     // the summon button shows what is left after the summons still waiting for an ack
     state.tokens = summonsLeft(state.tokens, this.net.pending);
     return state;

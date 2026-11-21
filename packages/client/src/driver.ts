@@ -82,7 +82,7 @@ export class GameDriver implements Driver {
 
   queue(cmd: Command): void {
     if (this.failed || (this.paused && cmd.type !== 'helperOpened')) return;
-    const slot = cmd.type === 'move' ? cmd.from : cmd.type === 'sell' || cmd.type === 'combine' ? cmd.slot : undefined;
+    const slot = cmd.type === 'move' ? cmd.from : cmd.type === 'sell' || cmd.type === 'combine' || cmd.type === 'store' ? cmd.slot : undefined;
     this.pending.push({ command: cmd, unitId: slot === undefined ? undefined : this.state.slots[slot]?.id });
   }
 
@@ -97,7 +97,7 @@ export class GameDriver implements Driver {
         const slot = this.state.slots.findIndex(unit => unit?.id === unitId);
         if (slot < 0) continue;
         if (command.type === 'move') commands.push({ ...command, from: slot });
-        else if (command.type === 'sell' || command.type === 'combine') commands.push({ ...command, slot });
+        else if (command.type === 'sell' || command.type === 'combine' || command.type === 'store') commands.push({ ...command, slot });
       } else {
         commands.push(command);
       }

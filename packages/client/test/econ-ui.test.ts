@@ -266,12 +266,12 @@ describe('market hotkey', () => {
   const keydown = (target: EventTarget, init: KeyboardEventInit) => target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
 
   // first: mountUi's key listener stays on window for the rest of the file
-  test('20-round data: no market key, no market button, the old help line', () => {
+  test('20-round data: no market key, no market button, the help line without the market', () => {
     mountSolo(loadGameData('stage2'));
     keydown(window, { code: 'KeyB' });
     expect(panel()).toBe('');
     expect(document.querySelector('[data-action="toggleMarket"]')).toBeNull();
-    expect(document.getElementById('bottom')!.textContent).toBe('유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · Esc 선택 해제');
+    expect(document.getElementById('bottom')!.textContent).toBe('유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · G 1·2등급 보관 · Esc 선택 해제');
   });
 
   test('B opens and closes the market; the help line names it', () => {

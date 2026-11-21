@@ -3,7 +3,7 @@ import {
   type ClientView, type MatchStage, type Command, type FullMsg, type LaneBatch, type LaneMsg, type LobbyMsg, type MineMsg, type NoticeMsg,
   type RejectReason, type ResultMsg, type TickMsg, type UnitView,
 } from '@dorandi/logic';
-import { dimmedSlots, predictUnits, summonsLeft, type PendingCmd } from './predict';
+import { dimmedSlots, predictStorage, predictUnits, summonsLeft, type PendingCmd } from './predict';
 import type { RoomLike } from './room';
 import { lastName, loadSession, saveSession } from './session';
 
@@ -84,7 +84,7 @@ export class NetClient {
     if (!view) return false;
     if (this.isSpirit() && cmd.type !== 'support' && cmd.type !== 'forfeit') return false;
     if (cmd.type === 'summon' && summonsLeft(view.mine.tokens, this.pending) <= 0) return false;
-    if ((cmd.type === 'combine' || cmd.type === 'sell') && cmd.slot !== undefined && dimmedSlots(this.pending).has(cmd.slot)) return false;
+    if ((cmd.type === 'combine' || cmd.type === 'sell' || cmd.type === 'store') && cmd.slot !== undefined && dimmedSlots(this.pending).has(cmd.slot)) return false;
     const wire = toWire(this.withUnitIds(cmd));
     const pending: PendingCmd = { seq: this.nextSeq++, ...wire };
     this.pending.push(pending);
@@ -113,6 +113,13 @@ export class NetClient {
     return view.watching === view.me.seat ? this.ownUnits() : view.lane.units;
   }
 
+  /** The own storage with pending take-outs and sales removed; undefined before the seat first stores something. */
+  storage(): UnitView[] | undefined {
+    const view = this.view;
+    if (!view || view.watching !== view.me.seat) return undefined;
+    return predictStorage(view.mine.storage, this.pending);
+  }
+
   private ownUnits(): (UnitView | null)[] {
     const view = this.view;
     if (!view) return [];
@@ -136,6 +143,7 @@ export class NetClient {
           toUnitId: cmd.toUnitId !== undefined ? cmd.toUnitId : (idAt(cmd.to) ?? null),
         };
       case 'sell':
+      case 'store':
         return { ...cmd, unitId: cmd.unitId ?? idAt(cmd.slot) };
       case 'combine':
         return cmd.slot === undefined ? cmd : { ...cmd, unitId: cmd.unitId ?? idAt(cmd.slot) };

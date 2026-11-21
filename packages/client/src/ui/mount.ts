@@ -21,6 +21,7 @@ import {
 } from './models';
 import { renderBottom, renderRight, unitDetailsHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
+import { STORE_ALL_KEY, storageHtml, wireStorage } from './storage';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
   Digit1: 'physical', Digit2: 'magical', Digit3: 'polish', Digit4: 'slots',
@@ -36,6 +37,7 @@ export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
   'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'missionEnter', 'tame', 'storyTarget', 'storyDecline', 'ship', 'shipCancel', 'receive', 'refuse',
+  'storeAll', 'retrieve', 'sellStored',
 ]);
 const PRESS_MS = 120;
 
@@ -66,7 +68,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let lastOffer: number | null = null;
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
-  for (const id of ['econ-panel', 'econ-top', 'econ-bottom']) {
+  for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage']) {
     if (document.getElementById(id)) continue;
     const node = document.createElement('div');
     node.id = id;
@@ -100,6 +102,13 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       }
       case 'upgrade': driver.queue({ type: 'upgrade', id: arg as UpgradeId }); break;
+      case 'storeAll': driver.queue({ type: 'storeAll' }); break;
+      case 'retrieve': {
+        const [defId = '', slot] = arg.split('@');
+        driver.queue(slot === undefined ? { type: 'retrieve', defId } : { type: 'retrieve', defId, slot: Number(slot) });
+        break;
+      }
+      case 'sellStored': driver.queue({ type: 'sellStored', defId: arg }); break;
       case 'toggleMarket':
         econTab = econTab ? null : 'market';
         if (econTab) helperOpen = false;
@@ -176,7 +185,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (modal && modal !== previousModal) el('modal').querySelector<HTMLButtonElement>('button')?.focus();
   };
 
-  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-panel', 'econ-top', 'econ-bottom']) onAction(el(id), act);
+  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-panel', 'econ-top', 'econ-bottom', 'storage']) onAction(el(id), act);
+  // the storage column belongs to the own living lane; it takes presses while no window is open
+  const storageVisible = () => !driver.readOnly && driver.state.phase !== 'ended';
+  const storageLive = () => storageVisible() && !driver.failed && modal === null;
+  wireStorage(el('storage'), el('stage'), (defId, slot) => act('retrieve', slot === undefined ? defId : `${defId}@${slot}`), storageLive);
+  // the scene says when a dragged board unit is over the column, and whether it may go in
+  scene.onStorageHover = hover => {
+    if (hover) el('storage').dataset.drop = hover;
+    else delete el('storage').dataset.drop;
+  };
   el('modal').addEventListener('submit', ev => {
     const form = ev.target as HTMLFormElement;
     if (!form.matches('.dex-search')) return;
@@ -275,6 +293,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (upgrade) act('upgrade', upgrade);
     else if (ev.code === 'KeyQ') act('toggleHelper', '');
+    else if (ev.code === `Key${STORE_ALL_KEY}`) act('storeAll', '');
     else if (ev.code === 'KeyB' && driver.state.data.economy?.market) act('toggleMarket', '');
     else if (ev.code === 'KeyT' && driver.state.data.economy?.tame) act('tame', '');
     else if (ev.code === 'KeyP' && !online) { driver.paused = !driver.paused; render(); }
@@ -327,11 +346,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), spiritCard);
     } else displayedCard = renderBottom(s, selected, online, s.data.economy?.market ? 'B 장터' : undefined);
+    setHtml(el('storage'), storageVisible() ? storageHtml(s) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
     const dialogOpen = modal !== null || soloResult;
-    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom']) el(id).inert = dialogOpen;
+    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage']) el(id).inert = dialogOpen;
     // a redraw of the dex (a board change moves the tree marks) keeps its scroll position
     const dexShown = !soloResult && modal === 'dex';
     const listKey = `${dex.filter}

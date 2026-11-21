@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
-import { availableRecipes, countNormalEnemies, laneOf, loopPos, unitDefFast, type GameEvent, type GameState, type Lane } from '@dorandi/logic';
+import {
+  STORAGE_MAX_GRADE, availableRecipes, countNormalEnemies, laneOf, loopPos, unitDefFast, type GameEvent, type GameState, type Lane,
+} from '@dorandi/logic';
 import { selectedSlot } from './ui/models';
 import type { Driver } from './driver';
-import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasToCell, laneToCanvas } from './layout';
+import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasInStorage, canvasToCell, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_KEYS, textureKey } from './fx/atlas';
 import { spriteKey, tameArt } from './sprites';
@@ -51,6 +53,10 @@ export class LaneScene extends Phaser.Scene {
   private lastD = new Map<number, number>();
   private buffed = new Set<number>();
   private auraKey = '';
+  private storageKey = '';
+  /** Told while a dragged board unit is over the storage column: 'ok' when it may go in, 'no' when not (grade 3+). */
+  onStorageHover?: (hover: 'ok' | 'no' | null) => void;
+  private storageHover: 'ok' | 'no' | null = null;
   private reduceFx = readReduceFx();
   private wasRound = false;
   /** Views were just dropped (lane switch, resync): a yeoksin found now was already there, no slide-in. */
@@ -189,6 +195,17 @@ export class LaneScene extends Phaser.Scene {
     if (dropped) this.emitSelect(null);
   }
 
+  /** The storage column is drawn (by the page) for the own living lane only. */
+  private storageOpen(): boolean {
+    return !this.driver.readOnly && this.state.phase !== 'ended';
+  }
+
+  private setStorageHover(hover: 'ok' | 'no' | null): void {
+    if (hover === this.storageHover) return;
+    this.storageHover = hover;
+    this.onStorageHover?.(hover);
+  }
+
   private emitSelect(slot: number | null): void {
     for (const cb of this.selectListeners) cb(slot);
   }
@@ -284,13 +301,22 @@ export class LaneScene extends Phaser.Scene {
       view.setDepth(10);
     });
     view.on('drag', (_p: Phaser.Input.Pointer, x: number, y: number) => {
-      if (this.dragging === view) view.setPosition(x, y);
+      if (this.dragging !== view) return;
+      view.setPosition(x, y);
+      const over = this.storageOpen() && canvasInStorage(x, y);
+      this.setStorageHover(over ? (unitDefFast(this.state.data, defId).grade <= STORAGE_MAX_GRADE ? 'ok' : 'no') : null);
     });
     view.on('dragend', () => {
       if (this.dragging !== view) return;
+      this.setStorageHover(null);
       const cell = canvasToCell(view.x, view.y);
       const from = selectedSlot(this.state, unitId);
-      if (from !== null && cell !== null && this.state.open[cell] && cell !== from && !this.driver.paused && !this.driver.readOnly) {
+      const live = !this.driver.paused && !this.driver.readOnly;
+      if (from !== null && live && this.storageOpen() && canvasInStorage(view.x, view.y)) {
+        // a refused store (grade 3 and up) comes back as a notice and the unit slides home
+        this.driver.queue({ type: 'store', slot: from });
+        view.targetSlot = undefined;
+      } else if (from !== null && cell !== null && this.state.open[cell] && cell !== from && live) {
         this.driver.queue({ type: 'move', from, to: cell });
       } else {
         view.targetSlot = undefined;
@@ -349,6 +375,9 @@ export class LaneScene extends Phaser.Scene {
       this.units.delete(id);
       unitsChanged = true;
     }
+    // stored materials count for the markers too
+    const storageKey = (this.state.storage ?? []).map(u => u.id).join(',');
+    if (storageKey !== this.storageKey) { this.storageKey = storageKey; unitsChanged = true; }
     if (unitsChanged) this.updateCombineMarkers();
     const auraKey = this.state.slots.map(u => u?.defId ?? '').join(',');
     if (auraKey !== this.auraKey) {

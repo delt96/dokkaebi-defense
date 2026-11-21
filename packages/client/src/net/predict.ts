@@ -28,17 +28,32 @@ export function predictUnits(server: (UnitView | null)[], open: boolean[], pendi
   return units;
 }
 
+/**
+ * The server's storage less the units that pending take-outs and sales will remove (the newest of each kind, as
+ * the rules pick). A pending store adds nothing here: its unit stays on the board, faded, until the server answers.
+ */
+export function predictStorage(server: UnitView[] | undefined, pending: PendingCmd[]): UnitView[] | undefined {
+  if (!server) return undefined;
+  const units = server.slice();
+  for (const cmd of pending) {
+    if (cmd.type !== 'retrieve' && cmd.type !== 'sellStored') continue;
+    const defId = cmd.args?.defId;
+    for (let i = units.length - 1; i >= 0; i--) if (units[i]!.defId === defId) { units.splice(i, 1); break; }
+  }
+  return units;
+}
+
 /** Summons the player can still press: server tokens minus summons not yet acked. */
 export function summonsLeft(tokens: number, pending: PendingCmd[]): number {
   const waiting = pending.filter(c => c.type === 'summon').length;
   return Math.max(0, tokens - waiting);
 }
 
-/** Slots dimmed while a combine or sell on them waits for its ack. */
+/** Slots dimmed while a combine, sell or store on them waits for its ack. */
 export function dimmedSlots(pending: PendingCmd[]): Set<number> {
   const out = new Set<number>();
   for (const cmd of pending) {
-    if (cmd.type !== 'combine' && cmd.type !== 'sell') continue;
+    if (cmd.type !== 'combine' && cmd.type !== 'sell' && cmd.type !== 'store') continue;
     const slot = slotArg(cmd, 'slot');
     if (slot !== null) out.add(slot);
   }

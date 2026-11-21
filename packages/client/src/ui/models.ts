@@ -1,5 +1,6 @@
 import {
-  attackIntervalTicks, damageBonus, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, unitDefFast, upgradeCost, summonOddsForRound,
+  attackIntervalTicks, damageBonus, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
+  upgradeCost, summonOddsForRound,
   type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 
@@ -283,6 +284,11 @@ const REJECT_TEXT: Record<string, string> = {
   cooldown: '아직 다음 배달을 할 수 없습니다',
   noJige: '지게 도깨비가 없습니다',
   noOffer: '받을 배달이 없습니다',
+  // storage
+  notStorable: '1·2등급만 보관할 수 있습니다',
+  nothingToStore: '보관할 1·2등급 유닛이 없습니다',
+  notStored: '보관함에 없는 유닛입니다',
+  slotTaken: '그 칸에는 이미 유닛이 있습니다',
 };
 
 export function rejectText(reason: string): string | null {
@@ -303,8 +309,11 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
   };
 }
 
-/** `cost` is set on recipes with a cost (stage 3 grades 5 and 6), `short` when every material is there but the cost is not. */
-export interface HelperItem { recipe: string; name: string; grade: number; cost?: string; short?: string }
+/**
+ * `cost` is set on recipes with a cost (stage 3 grades 5 and 6), `short` when every material is there but the cost is not,
+ * `stored` when some materials would come out of storage (how many).
+ */
+export interface HelperItem { recipe: string; name: string; grade: number; cost?: string; short?: string; stored?: number }
 
 /** Recipes that can be made now (in table order); stage 3 also lists those that only lack the cost, marked `short`. */
 export function helperModel(state: GameState): HelperItem[] {
@@ -314,7 +323,10 @@ export function helperModel(state: GameState): HelperItem[] {
     const cost = costText(recipe);
     const short = cost ? costShortText(state, recipe) : null;
     const def = unitDefFast(state.data, recipe.result);
-    out.push({ recipe: recipe.result, name: def.name, grade: def.grade, ...(cost ? { cost } : {}), ...(short ? { short } : {}) });
+    const stored = storedMaterials(state, recipe.result);
+    out.push({
+      recipe: recipe.result, name: def.name, grade: def.grade, ...(cost ? { cost } : {}), ...(short ? { short } : {}), ...(stored ? { stored } : {}),
+    });
   }
   return out;
 }
@@ -476,9 +488,23 @@ export function recipeTree(data: GameData, id: string, board: readonly string[] 
   return top;
 }
 
-/** Def ids of the board units a combine can use (a unit out on a delivery is locked). */
+/** Def ids of the units a combine can use: the board's (a unit out on a delivery is locked), then the stored ones. */
 export function boardUnits(state: GameState): string[] {
-  return state.slots.flatMap(u => (u && !u.locked ? [u.defId] : []));
+  return [...state.slots.flatMap(u => (u && !u.locked ? [u.defId] : [])), ...(state.storage ?? []).map(u => u.defId)];
+}
+
+/** One stack in the storage column: every stored unit of one kind. */
+export interface StorageStack { defId: string; name: string; grade: number; count: number; sellPrice: number }
+
+/** The storage as stacks, lower grades first, then in the unit table's order, so a stack keeps its place. */
+export function storageStacks(state: GameState): StorageStack[] {
+  const counts = new Map<string, number>();
+  for (const u of state.storage ?? []) counts.set(u.defId, (counts.get(u.defId) ?? 0) + 1);
+  const order = new Map(state.data.units.map((u, i) => [u.id, i]));
+  return [...counts].map(([defId, count]) => {
+    const def = unitDefFast(state.data, defId);
+    return { defId, name: def.name, grade: def.grade, count, sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0 };
+  }).sort((a, b) => a.grade - b.grade || (order.get(a.defId) ?? 0) - (order.get(b.defId) ?? 0));
 }
 
 /** Where a material link came from, to go back to it with the list as it was. */

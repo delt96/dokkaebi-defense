@@ -20,6 +20,19 @@ export const ONLINE_BOTTOM_H = 44;
 export const ONLINE_CENTER_H = STAGE_H - TOP_H - ONLINE_BOTTOM_H;
 export const LANE_CANVAS_ONLINE = { width: CENTER_W, height: ONLINE_CENTER_H };
 
+/**
+ * The storage column (stage px): left of the board, clear of the lane path and a boss's bar on it (x >= 196),
+ * the economy prompts above (y < 68) and the trackers under the lane (y >= 272).
+ */
+export const STORAGE_BOX = { x: 130, y: 70, w: 66, h: 200 } as const;
+
+/** Whether a point in lane-canvas pixels lies over the storage column. */
+export function canvasInStorage(x: number, y: number): boolean {
+  const sx = x + CENTER_X;
+  const sy = y + CENTER_Y;
+  return sx >= STORAGE_BOX.x && sx < STORAGE_BOX.x + STORAGE_BOX.w && sy >= STORAGE_BOX.y && sy < STORAGE_BOX.y + STORAGE_BOX.h;
+}
+
 export const GRADE_COLOR: Record<number, string> = {
   1: '#4f9dff', 2: '#4fd27a', 3: '#b07aff', 4: '#ffb347', 5: '#ff4a3a', 6: '#ffe35a',
 };

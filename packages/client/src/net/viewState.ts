@@ -11,11 +11,14 @@ const NO_UPGRADES: Record<UpgradeId, number> = { physical: 0, magical: 0, polish
  * The server's display state in GameState shape, so LaneScene and the 1-player panels can read it.
  * Nothing here is simulated: combat fields the browser never sees are zero or empty.
  */
-export function viewToGameState(view: ClientView, data: GameData, units: (UnitView | null)[], renderTick: number): GameState {
+export function viewToGameState(
+  view: ClientView, data: GameData, units: (UnitView | null)[], renderTick: number, storage?: UnitView[],
+): GameState {
   const myRow = view.rows.find(r => r.seat === view.me.seat);
   const spirit = myRow?.status === 'spirit';
   const mine = view.mine;
   const ownLane = view.watching === view.me.seat;
+  const toUnit = (u: UnitView) => ({ id: u.id, defId: u.defId, cooldown: 0, attackCount: 0, periodic: [] });
   return {
     data,
     tick: view.clock.tick,
@@ -28,7 +31,9 @@ export function viewToGameState(view: ClientView, data: GameData, units: (UnitVi
     tokens: spirit ? 0 : mine.tokens,
     coins: spirit ? 0 : mine.coins,
     buckwheat: spirit ? 0 : mine.buckwheat,
-    slots: units.map(u => (u ? { id: u.id, defId: u.defId, cooldown: 0, attackCount: 0, periodic: [] } : null)),
+    slots: units.map(u => (u ? toUnit(u) : null)),
+    // only the own living lane has a storage on screen
+    ...(storage && ownLane && !spirit ? { storage: storage.map(toUnit) } : {}),
     // the own board comes from `mine` (sent at once), another lane's from the lane stream
     open: [...(ownLane && !spirit ? mine.open : view.lane.open)],
     pendingPity: spirit ? [] : [...mine.pendingPity],

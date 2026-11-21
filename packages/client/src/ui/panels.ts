@@ -2,6 +2,7 @@ import type { GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import { combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
+import { STORE_ALL_KEY } from './storage';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `badge`: a story request not yet looked at. */
 export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; badge?: boolean }
@@ -64,7 +65,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
         ${options ? `<div class="combine-options">${options}</div>` : ''}
         ${online || state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세</button>' : ''}
         <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`
-    : `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`);
+    : `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · ${STORE_ALL_KEY} 1·2등급 보관 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`);
   return { unitId, recipes };
 }
 
