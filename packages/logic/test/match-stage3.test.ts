@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  createMatch, createRng, deriveSeed, gateDeadlineTick, loadGameData, roundStartTick, stepMatch,
+  buildFull, createMatch, createRng, deriveSeed, gateDeadlineTick, loadGameData, roundStartTick, stepMatch,
   type GameEvent, type MatchState,
 } from '../src/index';
 import { allBossesKilled, bossRounds } from '../src/match/seats';
@@ -127,7 +127,23 @@ describe('stage 3 match schedule', () => {
     expect(m.yeoksinKills).toBe(3);
   });
 
-  test('story settlement sees coins before the round-end 10', () => {
+  test('forfeiting closes the active mission and clears event records from the personal snapshot', () => {
+    const m = createMatch(d3, 1, [1, 2]);
+    const round = d3.economy!.mission!.round;
+    jumpToTick(m, rst(round));
+    stepMatch(m, []);
+    m.lanes[1]!.coins = d3.economy!.mission!.fee;
+    const enter = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'missionEnter' } }]);
+    expect(enter.acks[0]?.ok).toBe(true);
+    const snapshot = () => buildFull(m, 1, { watching: 2, names: {}, key: 'k', n: 0 }).mine.econ;
+    expect(snapshot()).toMatchObject({ mission: { phase: 'active' }, events: [{ kind: 'beast' }] });
+
+    stepMatch(m, [{ seat: 1, seq: 2, cmd: { type: 'forfeit' } }]);
+    stepMatch(m, [{ seat: 1, seq: 0, cmd: { type: 'reconnect' } }]);
+    expect(snapshot()).toMatchObject({ mission: { phase: 'lost', beastId: null, beastDown: false }, events: [] });
+  });
+
+  test('story settlement sees coins before the round-end 10 and records the grade-6 award in the result', () => {
     for (const [coins, reason, after] of [[59, 'funds', 69], [60, 'award', 10]] as const) {
       const m = createMatch(d3, 1, [1]);
       const lane = m.lanes[1]!;
@@ -143,6 +159,10 @@ describe('stage 3 match schedule', () => {
       const end = stepMatch(m, []);
       expect(end.lanes[1]!.events).toContainEqual({ type: 'storyEnd', target: 'cheonnyeonjing', reason });
       expect(lane.coins).toBe(after);
+      if (reason === 'award') {
+        stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'forfeit' } }]);
+        expect(m.result?.seats[0]?.bestUnit).toEqual({ defId: 'cheonnyeonjing', grade: 6 });
+      }
     }
   });
 });
