@@ -1,4 +1,4 @@
-import { enemyDistanceAt, type ClientView, type GameData, type GameState, type UnitView, type UpgradeId } from '@dorandi/logic';
+import { enemyDistanceAt, type ClientView, type GameData, type GameState, type MineUnitView, type UpgradeId } from '@dorandi/logic';
 
 function slowOf(data: GameData, defId: string, speed: number): { pct: number; ticks: number } | null {
   const base = data.enemies.find(d => d.id === defId)?.speed ?? 0;
@@ -12,13 +12,14 @@ const NO_UPGRADES: Record<UpgradeId, number> = { physical: 0, magical: 0, polish
  * Nothing here is simulated: combat fields the browser never sees are zero or empty.
  */
 export function viewToGameState(
-  view: ClientView, data: GameData, units: (UnitView | null)[], renderTick: number, storage?: UnitView[],
+  view: ClientView, data: GameData, units: (MineUnitView | null)[], renderTick: number, storage?: MineUnitView[],
 ): GameState {
   const myRow = view.rows.find(r => r.seat === view.me.seat);
   const spirit = myRow?.status === 'spirit';
   const mine = view.mine;
   const ownLane = view.watching === view.me.seat;
-  const toUnit = (u: UnitView) => ({ id: u.id, defId: u.defId, cooldown: 0, attackCount: 0, periodic: [] });
+  // the own units carry their book cost from `mine` (stage 3); another lane's never do
+  const toUnit = (u: MineUnitView) => ({ id: u.id, defId: u.defId, cooldown: 0, attackCount: 0, periodic: [], ...(u.cost !== undefined && { cost: u.cost }) });
   return {
     data,
     tick: view.clock.tick,

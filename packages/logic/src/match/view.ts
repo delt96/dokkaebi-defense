@@ -1,8 +1,8 @@
-import type { Enemy, GameEvent, GameState } from '../types';
+import type { Enemy, GameEvent, GameState, Unit } from '../types';
 import type { Ack, MatchState, StepMatchResult } from './types';
 import type {
   ClientView, ClockView, EconMine, EnemyView, FullMsg, GateView, LaneEvent, LaneMsg, LaneView, MineMsg, MineView, RowView,
-  TickMsg, UnitView, YeoksinView,
+  MineUnitView, TickMsg, UnitView, YeoksinView,
 } from './wire';
 import { econView } from '../econ/view';
 import { enemyHp } from '../data';
@@ -23,8 +23,17 @@ function unitsOf(lane: GameState): (UnitView | null)[] {
   return lane.slots.map(u => (u ? { id: u.id, defId: u.defId } : null));
 }
 
-function storageOf(lane: GameState): UnitView[] | undefined {
-  return lane.storage?.map(u => ({ id: u.id, defId: u.defId }));
+/** The owner's units with their book cost; only stage 3 lanes keep one, so 20-round messages stay as they were. */
+function mineUnitOf(lane: GameState, u: Unit): MineUnitView {
+  return lane.econ && u.cost !== undefined ? { id: u.id, defId: u.defId, cost: u.cost } : { id: u.id, defId: u.defId };
+}
+
+function mineUnitsOf(lane: GameState): (MineUnitView | null)[] {
+  return lane.slots.map(u => (u ? mineUnitOf(lane, u) : null));
+}
+
+function storageOf(lane: GameState): MineUnitView[] | undefined {
+  return lane.storage?.map(u => mineUnitOf(lane, u));
 }
 
 function clockOf(match: MatchState): ClockView {
@@ -89,7 +98,7 @@ function mineOf(
     tick, tokens: lane.tokens, coins: lane.coins, buckwheat: lane.buckwheat, upgrades: { ...lane.upgrades },
     grade1Summons: lane.grade1Summons, helperOpens: lane.helperOpens,
     supportTokens: st.supportTokens, received: st.receivedThisRound, lastSeq: st.lastSeq,
-    open: [...lane.open], units: unitsOf(lane), acks, supportIn,
+    open: [...lane.open], units: mineUnitsOf(lane), acks, supportIn,
     ...(lane.storage && { storage: storageOf(lane) }),
     ...(econ && { econ }),
   };
@@ -150,7 +159,8 @@ function mineKey(match: MatchState, seat: number, econ: EconMine | undefined): s
   return JSON.stringify([
     lane.tokens, lane.coins, lane.buckwheat, lane.upgrades, lane.grade1Summons, lane.helperOpens,
     st.supportTokens, st.receivedThisRound, st.lastSeq,
-  ]) + boardKey(lane) + (lane.storage ? `|${lane.storage.map(u => `${u.id}:${u.defId}`).join(',')}|` : '') + (econ ? JSON.stringify(econ) : '');
+  ]) + boardKey(lane) + (lane.econ ? `$${lane.slots.map(u => u?.cost ?? '').join(',')}` : '')
+    + (lane.storage ? `|${lane.storage.map(u => `${u.id}:${u.defId}:${u.cost ?? ''}`).join(',')}|` : '') + (econ ? JSON.stringify(econ) : '');
 }
 
 function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {
@@ -169,7 +179,7 @@ function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {
     case 'combine': return { t: 'combine', unitId: e.unitId, defId: e.defId, slot: e.slot };
     case 'flee': return { t: 'flee', id: e.enemyId };
     case 'grow': return { t: 'grow', id: e.enemyId, hp: e.hp };
-    case 'buy': case 'questReward': case 'tame':
+    case 'buy': case 'jigeSwap': case 'questReward': case 'tame':
       return { t: 'note', ev: structuredClone(e) };
     default: return null;
   }

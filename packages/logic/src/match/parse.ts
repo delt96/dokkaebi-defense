@@ -46,12 +46,14 @@ const PARSERS: Record<string, Parser> = {
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
     return isUnitId(args.defId) ? { type: 'sellStored', defId: args.defId } : null;
   },
-  jigeSwap: args => {
+  jigeSwap: (args, slotCount) => {
     const { source, result } = args;
     if (!onlyKeys(args, ['source', 'result']) || !isUnitId(result) || !isPlainObject(source)
         || !onlyKeys(source, ['zone', 'index', 'unitId'])) return null;
     const { zone, index, unitId } = source;
     if ((zone !== 'board' && zone !== 'storage') || !isInt(index) || index < 0 || !isInt(unitId)) return null;
+    // a stored index is checked against the seat's storage when the swap runs
+    if (zone === 'board' && index >= slotCount) return null;
     return { type: 'jigeSwap', result, source: { zone, index, unitId } };
   },
   buy: args => {

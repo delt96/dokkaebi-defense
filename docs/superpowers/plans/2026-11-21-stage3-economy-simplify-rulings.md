@@ -4,3 +4,6 @@ Task 1: Ruling: 개발자용 시간 건너뛰기 방의 기록 내보내기를 �
 Task 1: Ruling: 재생 실행기는 tar에 상대 경로를 넘긴다 — Git Bash의 GNU tar가 'C:'를 원격 호스트로 읽어 테스트가 깨졌다 — 없음(같은 파일을 푼다).
 Task 5: Ruling: 옛 배달 명령은 20라운드 방에서도 'unknown' 대신 'badArgs'로 거절한다 — 해석기에서 명령을 지워 어떤 방이든 invalid가 된다 — 20라운드 클라이언트는 이 명령을 보내지 않으므로 화면 차이 없음.
 Task 5: Ruling: 쓰이지 않게 된 거절 사유 locked·busy·targetBusy·targetAway·noOffer를 없애고 cooldown·noJige 문구를 길들이기·지게용으로 바꿨다 — 배달 전용이었다 — 옛 기록 재생은 Task 1 고정 빌드로 돌린다.
+Task 6: Ruling: 원가는 소유자의 mine 유닛·보관함에만 cost로 싣고 lane/board 방송에는 싣지 않는다; 20라운드는 cost 키 자체가 없다 — 남의 원가를 볼 이유가 없고 20라운드 전문을 그대로 둔다 — 관전 화면에서 원가를 쓰려면 별도 필드가 필요하다.
+Task 6: Ruling: 지게 교환 결과는 buy와 같은 lane note(jigeSwap)로 보내 소유자 화면에서만 알림을 띄운다 — 기존 구매 알림 경로를 재사용 — 같은 고개를 관전하는 사람도 note를 받지만 읽기 전용이라 표시하지 않는다.
+Task 6: Ruling: 해석기는 진영 index를 slotCount 미만으로 막고 보관함 index는 실행 시 확인한다 — 보관함 길이는 방마다 달라 해석기가 모른다 — 없음.

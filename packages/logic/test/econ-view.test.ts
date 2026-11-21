@@ -74,6 +74,90 @@ describe('econ in the mine stream', () => {
   });
 });
 
+describe('market and swap results in mine', () => {
+  const opts = (seat: number) => ({ watching: seat, names, key: 'k', n: 0 });
+
+  test('full after two accepted swaps equals streamed mine', () => {
+    const m = createMatch(d3, 4, [1, 2]);
+    jumpToTick(m, roundStartTick(d3, 3) + 1);
+    const streamer = new MatchStreamer(m);
+    const view = buildFull(m, 1, opts(1));
+    const lane = m.lanes[1]!;
+    const board = placeUnitForTest(lane, 'meok', 2);
+    board.cost = 8;
+    const stored = placeUnitForTest(lane, 'jipsin', 1);
+    stored.cost = 0;
+    lane.econ!.jige = 2;
+    lane.buckwheat = 2;
+    const other = structuredClone(buildFull(m, 2, opts(2)).mine);
+    let seq = 0;
+    const run = (cmds: MatchCommand[]) => {
+      const out = streamer.afterStep(stepMatch(m, cmds.map(cmd => ({ seat: 1, seq: ++seq, cmd }))));
+      if (out.mine[1]) applyMine(view, out.mine[1]);
+      return out;
+    };
+    run([{ type: 'store', slot: 1, unitId: stored.id }, { type: 'buy', item: 'draw' }]);
+    const peer = (id: string) => d3.units.find(u => !u.hidden && u.grade === d3.units.find(x => x.id === id)!.grade && u.id !== id)!.id;
+    const swapBoard: MatchCommand = { type: 'jigeSwap', source: { zone: 'board', index: 2, unitId: board.id }, result: peer('meok') };
+    let out = run([swapBoard]);
+    expect(out.mine[1]!.acks.map(a => a.ok)).toEqual([true]);
+    const swapStored: MatchCommand = { type: 'jigeSwap', source: { zone: 'storage', index: 0, unitId: stored.id }, result: peer('jipsin') };
+    out = run([swapStored]);
+    expect(out.mine[1]!.acks.map(a => a.ok)).toEqual([true]);
+    // the same confirm again (a fresh seq, the old unit id) is stale
+    out = run([swapBoard]);
+    expect(out.mine[1]!.acks).toEqual([expect.objectContaining({ ok: false, reason: 'staleUnit' })]);
+    const fresh = buildFull(m, 1, opts(1));
+    expect(diffViews(view, fresh).filter(p => !/^(clock|lane)./.test(p))).toEqual([]);
+    expect(fresh.mine.econ!.jige).toBe(0);
+    expect(fresh.mine.econ!.market!.draw.left).toBe(2);
+    expect(fresh.mine.units[2]).toMatchObject({ defId: peer('meok'), cost: 8 });
+    expect(fresh.mine.storage![0]).toMatchObject({ defId: peer('jipsin'), cost: 0 });
+    expect(fresh.mine.lastSeq).toBe(seq);
+    expect({ ...buildFull(m, 2, opts(2)).mine, tick: 0 }).toEqual({ ...other, tick: 0 });
+    // board broadcasts carry public identity only
+    expect(fresh.lane.units[2]).toEqual({ id: fresh.mine.units[2]!.id, defId: peer('meok') });
+  });
+
+  test('stage 2 mine units carry no cost key', () => {
+    const m = createMatch(d2, 1, [1, 2]);
+    jumpToTick(m, roundStartTick(d2, 2) + 1);
+    placeUnitForTest(m.lanes[1]!, 'ki', 0);
+    const mine = buildFull(m, 1, opts(1)).mine;
+    expect(Object.keys(mine.units.find(Boolean)!)).toEqual(['id', 'defId']);
+  });
+
+  test('economy bytes are bounded by inventory and quests', () => {
+    const seats = [1, 2, 3, 4, 5, 6];
+    const m = createMatch(d3, 9, seats);
+    jumpToTick(m, roundStartTick(d3, 24) + 1);
+    const normals = d3.units.filter(u => !u.hidden && u.grade <= 2);
+    for (const s of seats) {
+      const lane = m.lanes[s]!;
+      lane.open.fill(true);
+      for (let i = 0; i < lane.slots.length; i++) placeUnitForTest(lane, normals[i % normals.length]!.id, i).cost = 12345;
+      lane.storage = Array.from({ length: 20 }, (_, i) => ({ ...lane.slots[0]!, id: 9000 + i, cost: 12345 }));
+      lane.econ!.jige = 99;
+    }
+    const strip = (v: unknown) => JSON.parse(JSON.stringify(v, (k, x) => (k === 'econ' || k === 'cost' ? undefined : x)));
+    const size = (v: unknown) => Buffer.byteLength(JSON.stringify(v), 'utf8');
+    for (const s of seats) {
+      const full = buildFull(m, s, opts(s));
+      expect(size(full) - size(strip(full))).toBeLessThanOrEqual(4096);
+      expect(JSON.stringify(full.lane)).not.toContain('cost');
+    }
+    const streamer = new MatchStreamer(m);
+    streamer.afterStep(stepMatch(m, []));
+    let mines = 0;
+    for (let i = 0; i < 20; i++) {
+      const out = streamer.afterStep(stepMatch(m, []));
+      mines += Object.values(out.mine).filter(Boolean).length;
+      for (const batch of Object.values(out.lanes)) expect(JSON.stringify(batch)).not.toMatch(/"(cost|rng|jige)"/);
+    }
+    expect(mines).toBe(0);
+  });
+});
+
 describe('event enemies in the lane stream', () => {
   test('the shadow grows and runs off at round end the same way in the stream and in a fresh full', () => {
     const m = createMatch(d3, 5, [1, 2], { noElimination: true });

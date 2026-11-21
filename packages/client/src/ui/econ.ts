@@ -157,6 +157,7 @@ export function noteText(ev: EconNote, data: GameData): string | null {
       const title = { mission: '쇠밥 한 끼 성공', collection: '살림 한 벌 완성', team: '서낭당 정성', ssireum: '씨름 승리' }[ev.quest];
       return gain ? `${title} · ${gain}` : title;
     }
+    case 'jigeSwap': return `지게로 ${withJosa(nameOf(data, ev.defId), '을/를')} 받았습니다`;
     case 'tame': return `길들이기 성공 · ${withJosa(nameOf(data, ev.defId), '이/가')} 우리 편이 됐습니다`;
   }
 }

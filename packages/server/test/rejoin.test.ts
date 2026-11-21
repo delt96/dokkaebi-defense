@@ -220,3 +220,26 @@ test('recordings pin rules and keep a detached input log', () => {
     stage: 'stage3', dataVersion: core.match!.dataVersion, seats: [1], log: core.log });
   expect(record.log).not.toBe(core.log);
 });
+
+test('a swap confirmed before a rejoin comes back with its place, cost and held jige, and is not confirmed again', () => {
+  const d3 = loadGameData('stage3');
+  const r = started(['가', '나'], { dev: true }, { stage: 'stage3', devJumpTick: roundStartTick(d3, 3) + 1 });
+  tickOnce(r.core, r.deps);
+  const lane = r.core.match!.lanes[1]!;
+  const unit = placeUnitForTest(lane, 'meok', 2);
+  unit.cost = 8;
+  lane.econ!.jige = 2;
+  const result = d3.units.find(u => !u.hidden && u.grade === d3.units.find(x => x.id === 'meok')!.grade && u.id !== 'meok')!.id;
+  send(r.core, 'a', 1, 'jigeSwap', { source: { zone: 'board', index: 2, unitId: unit.id }, result });
+  tickOnce(r.core, r.deps);
+  expect(r.links[0]!.last('mine').acks).toEqual([expect.objectContaining({ seq: 1, ok: true })]);
+  const key = r.links[0]!.last('full').me.key;
+  r.core.leave('a', false); tickOnce(r.core, r.deps);
+  const a2 = new FakeLink('a2'); r.core.join(a2, { rejoinKey: key }); tickOnce(r.core, r.deps);
+  const full = a2.last('full');
+  expect(full.mine.units[2]).toMatchObject({ defId: result, cost: 8 });
+  expect(full.mine.econ.jige).toBe(1);
+  expect(full.mine.acks).toEqual([]);
+  expect(full.mine.lastSeq).toBe(1);
+  expect(a2.all('mine').flatMap((m: { acks: unknown[] }) => m.acks)).toEqual([]);
+});

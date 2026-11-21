@@ -62,3 +62,20 @@ test('delivery inputs are rejected on current rules', () => {
     expect(parseClientCommand({ seq: 1, type, args })?.cmd).toEqual({ type: 'invalid' });
   }
 });
+
+test('jige swap arguments are checked before they reach the match', () => {
+  const ok = (args: unknown) => parseClientCommand({ seq: 1, type: 'jigeSwap', args }, 40)!.cmd;
+  expect(ok({ source: { zone: 'board', index: 39, unitId: 5 }, result: 'meok' }))
+    .toEqual({ type: 'jigeSwap', source: { zone: 'board', index: 39, unitId: 5 }, result: 'meok' });
+  expect(ok({ source: { zone: 'storage', index: 70, unitId: 5 }, result: 'meok' })).toMatchObject({ type: 'jigeSwap' });
+  for (const args of [
+    { source: { zone: 'board', index: 40, unitId: 5 }, result: 'meok' },
+    { source: { zone: 'board', index: 1.5, unitId: 5 }, result: 'meok' },
+    { source: { zone: 'storage', index: -1, unitId: 5 }, result: 'meok' },
+    { source: { zone: 'board', index: 1, unitId: 2 ** 60 }, result: 'meok' },
+    { source: { zone: 'board', index: 1, unitId: 5, seat: 2 }, result: 'meok' },
+    { source: { zone: 'board', index: 1, unitId: 5 }, result: 'meok', owner: 2 },
+    { source: { zone: 'board', index: 1, unitId: 5 }, result: 'x'.repeat(65) },
+    { source: { zone: 'hand', index: 1, unitId: 5 }, result: 'meok' },
+  ]) expect(ok(args)).toEqual({ type: 'invalid' });
+});

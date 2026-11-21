@@ -6,6 +6,8 @@ import type { Ack, EliminationCause, MatchEvent, MatchResult } from './types';
 // Browser -> server: 'cmd' (WireCommand), 'ready' { ready }, 'start', 'watch' { seat }, 'rematch', 'resync'.
 
 export interface UnitView { id: number; defId: string }
+/** A unit in the owner's own `mine`: stage 3 adds its book cost (0 included); other seats never see it. */
+export interface MineUnitView extends UnitView { cost?: number }
 export interface EnemyView { id: number; defId: string; hp: number; maxHp: number; boss: boolean; shared: boolean; d: number; t: number; speed: number }
 export interface FireView { source: string; from: number; to: number; endTick: number }
 export interface LaneView { seat: number; tick: number; open: boolean[]; units: (UnitView | null)[]; enemies: EnemyView[]; fires: FireView[] }
@@ -24,9 +26,9 @@ export interface EconMine extends EconView {
 export interface MineView {
   tick: number; tokens: number; coins: number; buckwheat: number; upgrades: Record<UpgradeId, number>;
   grade1Summons: number; helperOpens: number; supportTokens: number; received: boolean; lastSeq: number;
-  open: boolean[]; units: (UnitView | null)[]; acks: Ack[]; supportIn: { from: number; coins: number }[];
+  open: boolean[]; units: (MineUnitView | null)[]; acks: Ack[]; supportIn: { from: number; coins: number }[];
   /** Stored grade 1-2 units, oldest first; left out until the seat first stores something. */
-  storage?: UnitView[];
+  storage?: MineUnitView[];
   /** Left out entirely on rule data without an economy, so 20-round messages stay as they were. */
   econ?: EconMine;
 }
@@ -47,7 +49,7 @@ export type LaneEvent =
   // stage 3 only: an event enemy runs off or grows, and economy results the lane's owner is told about
   | { t: 'flee'; id: number } | { t: 'grow'; id: number; hp: number } | { t: 'note'; ev: EconNote };
 /** Economy results streamed for messages on the owner's screen (purchases, rewards, requests, taming). */
-export type EconNote = Extract<GameEvent, { type: 'buy' | 'questReward' | 'tame' }>;
+export type EconNote = Extract<GameEvent, { type: 'buy' | 'jigeSwap' | 'questReward' | 'tame' }>;
 export interface LaneBatch { tick: number; events: LaneEvent[] }
 export interface LaneMsg { n: number; seat: number; batches: LaneBatch[] }
 export type MineMsg = MineView;

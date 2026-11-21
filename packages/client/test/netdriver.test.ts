@@ -55,6 +55,17 @@ function tickFrom(view: FullMsg): TickMsg {
 }
 
 describe('NetDriver', () => {
+  test('viewToGameState keeps the own book costs from mine, 0 included', () => {
+    const { view, data } = fixtureView();
+    const units = view.mine.units.map((u, i) => (u ? { ...u, cost: i } : null));
+    const storage = [{ id: 900, defId: view.mine.units.find(Boolean)!.defId, cost: 0 }];
+    const s = viewToGameState({ ...view, mine: { ...view.mine, units, storage } }, data, units, view.clock.tick, storage);
+    const first = units.findIndex(Boolean);
+    expect(s.slots[first]!.cost).toBe(first);
+    expect(s.storage![0]!.cost).toBe(0);
+    expect('cost' in viewToGameState(view, data, view.mine.units, view.clock.tick).slots[first]!).toBe(false);
+  });
+
   test('viewToGameState exposes what LaneScene and the panels read', () => {
     const { view, data } = fixtureView();
     const s = viewToGameState(view, data, view.mine.units, view.clock.tick);

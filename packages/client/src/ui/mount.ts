@@ -31,7 +31,7 @@ const RENDER_MS = 100;
 const NOTICE_MS = 1500;
 /** Economy results (a purchase, a reward, a tame) stay a little longer than a refusal. */
 const NOTE_MS = 2500;
-const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'questReward', 'tame']);
+const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'jigeSwap', 'questReward', 'tame']);
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void }
 
