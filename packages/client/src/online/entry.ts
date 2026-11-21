@@ -8,6 +8,14 @@ export interface EntryOptions {
   onSubmit(name: string): Promise<void>;
 }
 
+/** Query that opens the solo page on the 60-round trial data. */
+export const SOLO_LONG_QUERY = 'rounds=60';
+
+/** Solo rule data from the page query: the 60-round trial on `?rounds=60`, else the solo game as before. */
+export function soloStage(search: string): 'stage1' | 'stage3' {
+  return new URLSearchParams(search).get('rounds') === '60' ? 'stage3' : 'stage1';
+}
+
 /** True when a key event came from a text field, so game hotkeys must ignore it. */
 export function isTypingTarget(ev: Event): boolean {
   const t = ev.target as { tagName?: string; isContentEditable?: boolean } | null;
@@ -77,8 +85,13 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   });
 
   box.append(form);
-  const solo = el('a', 'entry-link', TEXT.solo);
-  solo.setAttribute('href', '/solo');
+  // solo: the 20-round game as before, or the 60-round trial
+  const solo = el('div', 'entry-solo');
+  for (const [text, href] of [[TEXT.solo, '/solo'], [TEXT.soloLong, `/solo?${SOLO_LONG_QUERY}`]] as const) {
+    const link = el('a', 'entry-link', text);
+    link.setAttribute('href', href);
+    solo.append(link);
+  }
   box.append(solo);
   root.append(box);
   if (!opts.name) input.focus();

@@ -1,4 +1,4 @@
-import { NetClient, stage2DataVersion, type NetEvent } from '../net/NetClient';
+import { NetClient, knownDataVersions, stageOfVersion, type NetEvent } from '../net/NetClient';
 import { connectCreate, connectJoin, devCreateOptions, type RoomLike } from '../net/room';
 import { clearSession, lastName, loadSession } from '../net/session';
 import { JOIN_ERROR_CODES, loadGameData } from '@dorandi/logic';
@@ -68,6 +68,7 @@ export function startOnline(opts: { roomId?: string }): void {
     renderLobby(root, msg, {
       ready: v => n.ready(v),
       start: () => n.start(),
+      stage: s => n.setStage(s),
       copy: () => { void navigator.clipboard?.writeText(location.href).catch(() => undefined); },
     }, notice);
   };
@@ -83,7 +84,8 @@ export function startOnline(opts: { roomId?: string }): void {
     screen = 'battle';
     // an empty #screen is hidden, which uncovers the stage underneath
     root.replaceChildren();
-    startBattle(n, loadGameData('stage2'), goRematch);
+    // the snapshot's data version says which rules the room plays (20 or 60 rounds)
+    startBattle(n, loadGameData(stageOfVersion(n.view?.dataVersion ?? '') ?? 'stage2'), goRematch);
   };
 
   let stopped = false;
@@ -126,7 +128,7 @@ export function startOnline(opts: { roomId?: string }): void {
       if (stopped) return;
       connectJoin(roomId, { name: stored.name, rejoinKey: stored.key }).then(room => {
         // the new client saves the reissued key on its first snapshot; a reload then takes the seat again
-        const fresh = new NetClient(room, stage2DataVersion());
+        const fresh = new NetClient(room, knownDataVersions());
         let done = false;
         fresh.on(ev => {
           if (done) return;
@@ -184,7 +186,7 @@ export function startOnline(opts: { roomId?: string }): void {
   };
 
   const attach = (room: RoomLike): void => {
-    const client = new NetClient(room, stage2DataVersion());
+    const client = new NetClient(room, knownDataVersions());
     net = client;
     history.replaceState(null, '', `/room/${room.roomId}`);
     client.on(onEvent);
