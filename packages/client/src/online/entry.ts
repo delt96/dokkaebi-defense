@@ -5,8 +5,6 @@ export interface EntryOptions {
   roomId?: string;
   name?: string;
   error?: string;
-  /** Shows the "new room" link (the room is gone). */
-  newRoomButton?: boolean;
   onSubmit(name: string): Promise<void>;
 }
 
@@ -79,11 +77,6 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   });
 
   box.append(form);
-  if (opts.newRoomButton) {
-    const again = el('a', 'entry-link', TEXT.newRoom);
-    again.setAttribute('href', '/');
-    box.append(again);
-  }
   const solo = el('a', 'entry-link', TEXT.solo);
   solo.setAttribute('href', '/solo');
   box.append(solo);

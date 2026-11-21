@@ -3,6 +3,9 @@ import { availableRecipes, countNormalEnemies, laneOf, loopPos, unitDefFast, typ
 import { selectedSlot } from './ui/models';
 import type { Driver } from './driver';
 import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasToCell, laneToCanvas } from './layout';
+import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
+import { FX_KEYS, textureKey } from './fx/atlas';
+import { FX_FLAGS, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, writeReduceFx, type FxCmd } from './fx/plan';
 
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
 const hex = (c: string) => Number.parseInt(c.slice(1), 16);
@@ -12,7 +15,14 @@ const SPRITE_IDS: ReadonlySet<string> = new Set(
 );
 
 type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; combineMarker: Phaser.GameObjects.Arc };
-type EnemyContainer = Phaser.GameObjects.Container & { defId?: string };
+type EnemyContainer = Phaser.GameObjects.Container & {
+  defId?: string; shared?: boolean; bar?: Phaser.GameObjects.Container; hp?: Phaser.GameObjects.Rectangle;
+  /** Shared enemy only: when it came in (ms) and from which side, for the slide-in. */
+  enterAt?: number; enterSide?: number;
+};
+/** The yeoksin slides in from the lane's left edge over this long. */
+const ENTER_MS = 600;
+const SLOW_TINT = 0x8fc8ff;
 
 export class LaneScene extends Phaser.Scene {
   private driver: Driver;
@@ -34,6 +44,21 @@ export class LaneScene extends Phaser.Scene {
   private hoveredId: number | null = null;
   private effects!: Phaser.GameObjects.Group;
   private openKey = '';
+  /** Skill, attack and moment effects; absent until create() (unit tests build the scene without it). */
+  private fx?: FxLayer;
+  /** Each enemy's distance as drawn last frame: knockback streaks and the blast spot of a killed enemy. */
+  private lastD = new Map<number, number>();
+  private buffed = new Set<number>();
+  private auraKey = '';
+  private reduceFx = readReduceFx();
+  private wasRound = false;
+  /** Views were just dropped (lane switch, resync): a yeoksin found now was already there, no slide-in. */
+  private freshLane = true;
+  private yeoksinIn = false;
+  private yeoksinKilled = false;
+  private desaturated = false;
+  private desatFx: Phaser.FX.ColorMatrix | null = null;
+  private desatOverlay: Phaser.GameObjects.Rectangle | null = null;
 
   constructor(driver: Driver, opts: { height?: number } = {}) {
     super('lane');
@@ -45,6 +70,17 @@ export class LaneScene extends Phaser.Scene {
   onEvents(cb: (events: GameEvent[]) => void): void { this.eventListeners.push(cb); }
 
   get state(): GameState { return this.driver.state; }
+
+  /** 'Reduce effects' (stored per browser): fewer, plainer effects and no shake. */
+  get reduceEffects(): boolean { return this.reduceFx; }
+  setReduceEffects(on: boolean): void {
+    this.reduceFx = on;
+    writeReduceFx(on);
+    this.fx?.setReduced(on);
+  }
+
+  /** Running transient effects (for the headless performance check). */
+  get fxCount(): number { return this.fx?.activeCount ?? 0; }
   get lane(): Lane { return laneOf(this.state); }
 
   preload(): void {
@@ -53,6 +89,8 @@ export class LaneScene extends Phaser.Scene {
     for (const def of [...data.units, ...data.enemies]) {
       if (SPRITE_IDS.has(def.id)) this.load.image(def.id, `${import.meta.env.BASE_URL}sprites/${def.id}.png`);
     }
+    // pixelfx effect sheets baked by scripts/bake-fx.mjs
+    for (const key of FX_KEYS) this.load.atlas(textureKey(key), `${import.meta.env.BASE_URL}fx/${key}.png`, `${import.meta.env.BASE_URL}fx/${key}.json`);
   }
 
   private warned = new Set<string>();
@@ -80,6 +118,14 @@ export class LaneScene extends Phaser.Scene {
       }).setOrigin(0.5, 1).setDepth(1);
     }
     this.drawBoard();
+    this.fx = new FxLayer(this, {
+      enemyPos: id => { const v = this.enemies.get(id); return v ? { x: v.x, y: v.y } : null; },
+      unitPos: id => { const v = this.units.get(id); return v ? { x: v.x, y: v.y } : null; },
+      pointAt: d => laneToCanvas(this.lane.pointAt(d)),
+      width: CENTER_W,
+      height: this.canvasHeight,
+    });
+    this.fx.setReduced(this.reduceFx);
     this.driver.onEvents(events => this.handleEvents(events));
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', (p: Phaser.Input.Pointer, hit: Phaser.GameObjects.GameObject[]) => {
@@ -92,6 +138,8 @@ export class LaneScene extends Phaser.Scene {
     this.clearViews();
     this.fires.clear();
     this.cameras.main.resetFX();
+    this.setDesaturated(false);
+    this.wasRound = false;
     document.getElementById('error')!.hidden = true;
     this.openKey = '';
   }
@@ -109,6 +157,12 @@ export class LaneScene extends Phaser.Scene {
     this.coverage.clear();
     this.units.clear();
     this.enemies.clear();
+    this.fx?.clear();
+    this.lastD.clear();
+    this.auraKey = '';
+    this.buffed.clear();
+    this.yeoksinIn = false;
+    this.freshLane = true;
   }
 
   /**
@@ -292,6 +346,11 @@ export class LaneScene extends Phaser.Scene {
       unitsChanged = true;
     }
     if (unitsChanged) this.updateCombineMarkers();
+    const auraKey = this.state.slots.map(u => u?.defId ?? '').join(',');
+    if (auraKey !== this.auraKey) {
+      this.auraKey = auraKey;
+      this.buffed = auraBuffedSlots(this.state);
+    }
   }
 
   private updateCombineMarkers(): void {
@@ -314,12 +373,20 @@ export class LaneScene extends Phaser.Scene {
     const body = this.hasTexture(defId)
       ? this.add.image(0, 0, defId).setScale(boss ? 1 : 0.75)
       : this.add.circle(0, 0, radius, ENEMY_COLOR[defId] ?? 0x7a6a9a).setStrokeStyle(1, 0xb8a8e8);
-    const width = boss ? 44 : 18;
-    const y = boss ? -28 : -15;
-    view.add([body, this.add.rectangle(0, y, width + 2, 4, 0x100e14),
-      this.add.rectangle(-width / 2, y, width, 2, boss ? 0xff715c : 0x83d5a3).setOrigin(0, 0.5).setName('hp')]);
+    view.add(body);
+    this.attachBar(view, boss ? 44 : 18, boss ? -28 : -15, boss ? 0xff715c : 0x83d5a3);
     this.enemies.set(id, view);
     return view;
+  }
+
+  /** The HP bar lives in its own container above every effect (effects stay under the bars). */
+  private attachBar(view: EnemyContainer, width: number, y: number, color: number): void {
+    const bar = this.add.container(view.x, view.y).setDepth(FX_DEPTH.hp);
+    const fill = this.add.rectangle(-width / 2, y, width, 2, color).setOrigin(0, 0.5);
+    bar.add([this.add.rectangle(0, y, width + 2, 4, 0x100e14), fill]);
+    view.bar = bar;
+    view.hp = fill;
+    view.once('destroy', () => bar.destroy());
   }
 
   /** A shared enemy (the yeoksin): a mask a little smaller than a boss, marked '탈', with its own bar. */
@@ -327,13 +394,13 @@ export class LaneScene extends Phaser.Scene {
     const spawn = laneToCanvas(this.lane.pointAt(0));
     const view: EnemyContainer = this.add.container(spawn.x, spawn.y).setDepth(2);
     view.defId = defId;
-    const width = 36;
+    view.shared = true;
     view.add([
       this.add.circle(0, 0, 12, 0xc89a52).setStrokeStyle(2, 0x4a1a12),
       this.add.text(0, 0, '탈', { fontSize: '11px', color: '#2a0e08', fontFamily: 'sans-serif' }).setOrigin(0.5),
-      this.add.rectangle(0, -20, width + 2, 4, 0x100e14),
-      this.add.rectangle(-width / 2, -20, width, 2, 0xffb347).setOrigin(0, 0.5).setName('hp'),
     ]);
+    this.attachBar(view, 36, -20, 0xffb347);
+    if (!this.freshLane) { view.enterAt = this.time.now; view.enterSide = -1; }
     this.enemies.set(id, view);
     return view;
   }
@@ -348,18 +415,72 @@ export class LaneScene extends Phaser.Scene {
         this.enemies.delete(id);
       }
     }
+    const now = this.time.now;
+    const marked = this.fx ? auraMarkedEnemies(this.state) : new Set<number>();
+    const statuses: StatusView[] = [];
+    const sharedDefs = new Set(this.state.data.enemies.filter(d => d.shared).map(d => d.id));
+    let yeoksin: { x: number; y: number } | null = null;
+    this.lastD.clear();
     for (const enemy of this.state.enemies) {
       const view = this.enemies.get(enemy.id) ?? this.makeEnemy(enemy.id, enemy.defId, enemy.boss);
-      const p = laneToCanvas(this.lane.pointAt(this.driver.enemyDistance(enemy.id, enemy.d)));
-      view.setPosition(p.x, p.y);
+      const d = this.driver.enemyDistance(enemy.id, enemy.d);
+      this.lastD.set(enemy.id, d);
+      const p = laneToCanvas(this.lane.pointAt(d));
+      if (view.enterAt !== undefined && now - view.enterAt < ENTER_MS) {
+        // the yeoksin walks in from the side of the lane
+        const t = (now - view.enterAt) / ENTER_MS;
+        const k = 1 - (1 - t) * (1 - t);
+        const from = (view.enterSide ?? -1) < 0 ? -24 : CENTER_W + 24;
+        view.setPosition(from + (p.x - from) * k, p.y);
+      } else view.setPosition(p.x, p.y);
+      view.bar?.setPosition(view.x, view.y);
+      const shared = sharedDefs.has(enemy.defId);
+      if (shared) yeoksin = { x: view.x, y: view.y };
+      const status = enemyStatus(enemy, marked.has(enemy.id), shared);
       this.clearFlash(view);
-      (view.getByName('hp') as Phaser.GameObjects.Rectangle).setScale(Math.max(0, enemy.hp / enemy.maxHp), 1);
+      this.tintSlow(view, slowLook(status.slowed, this.fx?.flags ?? FX_FLAGS(false)).tint);
+      if (status.stunned || status.slowed || status.marked) {
+        const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
+        const scale = body instanceof Phaser.GameObjects.Image ? body.scaleY : 0.75;
+        statuses.push({ id: enemy.id, defId: enemy.defId, x: view.x, y: view.y, feet: view.y + 16 * scale, scale, r: body.displayHeight / 2, status });
+      }
+      view.hp?.setScale(Math.max(0, enemy.hp / enemy.maxHp), 1);
+    }
+    if (this.fx) {
+      if (yeoksin) this.fx.setMist(yeoksin, -1, now);
+      else if (this.yeoksinIn) this.fx.setMist(null, 1, now, this.yeoksinKilled);
+      this.yeoksinIn = yeoksin !== null;
+      this.yeoksinKilled = false;
+      const auras: AuraView[] = [];
+      for (const slot of this.buffed) {
+        const u = this.state.slots[slot];
+        const v = u && this.units.get(u.id);
+        if (v && v.visible) auras.push({ id: u.id, x: v.x, feet: v.y + 16 });
+      }
+      this.fx.update(now, statuses, auras);
+    }
+    this.freshLane = false;
+  }
+
+  /** Slowed enemies are drawn in a cold blue; a hit flash wins over it for its 85 ms. */
+  private tintSlow(view: EnemyContainer, slowed: boolean): void {
+    if (view.getData('flashUntil')) return;
+    if (!!view.getData('slowTint') === slowed) return;
+    view.setData('slowTint', slowed);
+    const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
+    if (body instanceof Phaser.GameObjects.Image) {
+      if (slowed) body.setTint(SLOW_TINT); else body.clearTint();
+    } else {
+      if (body.getData('color') === undefined) body.setData('color', body.fillColor);
+      body.setFillStyle(slowed ? 0x4f86c0 : body.getData('color'));
     }
   }
 
   private showHit(event: Extract<GameEvent, { type: 'damage' }>): void {
     const view = this.enemies.get(event.enemyId);
     if (!view) return;
+    // reduced effects: plain hits no longer blink the enemy white (the impact sheet already shows them)
+    if (this.reduceFx && !event.effect) return;
     const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
     if (body instanceof Phaser.GameObjects.Image) body.setTintFill(0xffffff);
     else {
@@ -367,13 +488,8 @@ export class LaneScene extends Phaser.Scene {
       body.setFillStyle(0xffffff);
     }
     view.setData('flashUntil', this.time.now + 85);
-    if (event.effect) {
-      const label = this.add.text(view.x, view.y - 12, String(event.amount), {
-        fontFamily: 'sans-serif', fontSize: '11px', color: '#ffe08a', stroke: '#241522', strokeThickness: 2,
-      }).setOrigin(0.5, 1).setDepth(8);
-      this.effects.add(label);
-      this.tweens.add({ targets: label, y: label.y - 15, alpha: 0, duration: 450, onComplete: () => label.destroy() });
-    }
+    view.setData('slowTint', false);
+    if (event.effect) this.fx?.number(view.x, view.y - 12, String(event.amount), this.time.now);
   }
 
   private clearFlash(view: Phaser.GameObjects.Container): void {
@@ -400,6 +516,15 @@ export class LaneScene extends Phaser.Scene {
   }
 
   private handleEvents(events: GameEvent[]): void {
+    const fx = this.fx;
+    const now = fx ? this.time.now : 0;
+    // planned before the loop below drops killed enemies, so a blast can start where one died
+    const cmds = fx ? planEvents(events, planFromState(this.state, this.lastD, this.lastD)) : [];
+    const later: FxCmd[] = [];
+    for (const c of cmds) {
+      if (c.kind === 'bigUnit' || c.kind === 'boss') later.push(c);
+      else fx!.run(c, now);
+    }
     for (const e of events) {
       if (e.type === 'spawn' && !this.enemies.has(e.enemyId)) {
         const boss = this.state.data.enemies.find(def => def.id === e.defId)?.boss ?? false;
@@ -411,11 +536,12 @@ export class LaneScene extends Phaser.Scene {
         if (view) {
           this.enemies.delete(e.enemyId);
           this.effects.add(view);
-          (view.getByName('hp') as Phaser.GameObjects.Rectangle).setVisible(false);
+          if (view.shared) this.yeoksinKilled = true;
+          view.bar?.setVisible(false);
           this.tweens.add({ targets: view, scale: 1.3, alpha: 0, duration: 145, onComplete: () => view.destroy() });
         }
       }
-      if (e.type === 'attack') this.projectile(e.unitId, e.enemyId);
+      if (e.type === 'attack') this.swing(e.unitId);
       if (e.type === 'summon' || e.type === 'combine') {
         this.placeUnits();
         const view = this.units.get(e.unitId);
@@ -423,6 +549,7 @@ export class LaneScene extends Phaser.Scene {
         if (view && e.type === 'combine') this.tweens.add({ targets: view, scaleX: 1.3, scaleY: 0.7, duration: 90, yoyo: true, ease: 'Quad.Out' });
       }
     }
+    for (const c of later) fx!.run(c, now);
     for (const cb of this.eventListeners) cb(events);
   }
 
@@ -436,22 +563,36 @@ export class LaneScene extends Phaser.Scene {
       view.setVisible(true).setScale(0.5);
       this.tweens.add({ targets: view, scale: 1, duration: 260, ease: 'Back.Out' });
     } });
-    if (grade >= 3) this.cameras.main.shake(200, 0.01);
+    if (grade >= 3 && !this.reduceFx) this.cameras.main.shake(200, 0.01);
   }
 
-  private projectile(unitId: number, enemyId: number): void {
+  /** A physical unit rocks as it strikes; the shot, swipe or orb itself is drawn by the effect layer. */
+  private swing(unitId: number): void {
     const from = this.units.get(unitId);
-    const to = this.enemies.get(enemyId);
     const u = this.state.slots.find(s => s?.id === unitId);
-    if (!from || !to || !u) return;
-    const target = { x: to.x, y: to.y };
-    const magical = unitDefFast(this.state.data, u.defId).damageType === 'magical';
-    if (magical) {
-      const dot = this.add.circle(from.x, from.y - 6, 2, 0x7fd0ff).setDepth(6);
-      this.effects.add(dot);
-      this.tweens.add({ targets: dot, x: target.x, y: target.y, duration: 150, onComplete: () => dot.destroy() });
+    if (!from || !u || unitDefFast(this.state.data, u.defId).damageType === 'magical') return;
+    this.tweens.add({ targets: from, angle: { from: -12, to: 12 }, duration: 70, yoyo: true, onComplete: () => from.setAngle(0) });
+  }
+
+  /** My lane fell (online: its seat is a spirit; 1 player: defeat): the lane goes grey. */
+  private setDesaturated(on: boolean): void {
+    if (on === this.desaturated) return;
+    this.desaturated = on;
+    const cam = this.cameras.main;
+    if (on) {
+      if (this.renderer?.type === Phaser.WEBGL && cam.postFX) {
+        this.desatFx = cam.postFX.addColorMatrix();
+        this.desatFx.grayscale(1);
+        this.desatFx.brightness(0.75, true);
+      } else {
+        this.desatOverlay = this.add.rectangle(0, 0, CENTER_W, this.canvasHeight, 0x30303a, 0.55).setOrigin(0).setDepth(FX_DEPTH.top - 0.1);
+      }
+      if (!this.reduceFx) cam.flash(220, 40, 20, 24);
     } else {
-      this.tweens.add({ targets: from, angle: { from: -12, to: 12 }, duration: 70, yoyo: true, onComplete: () => from.setAngle(0) });
+      if (this.desatFx) cam.postFX?.clear();
+      this.desatFx = null;
+      this.desatOverlay?.destroy();
+      this.desatOverlay = null;
     }
   }
 
@@ -481,6 +622,12 @@ export class LaneScene extends Phaser.Scene {
     this.placeEnemies();
     this.drawFires();
     this.drawSelection();
+    if (this.fx) {
+      const round = this.state.phase === 'round';
+      if (this.wasRound && this.state.phase === 'prep') this.fx.roundClear(this.time.now);
+      this.wasRound = round;
+      this.setDesaturated(this.driver.laneEliminated?.() ?? this.state.result?.outcome === 'defeat');
+    }
     const danger = Math.min(1, countNormalEnemies(this.state) / this.state.data.balance.limit);
     this.jangseung.setFillStyle(danger > 1 - 1e-9 ? 0xc04a3a : danger > 0.66 ? 0xa0704a : 0x8a6a4a);
     this.jangseung.setAngle(this.state.overLimitTicks > 0 ? Math.sin(this.time.now / 40) * 8 : 0);

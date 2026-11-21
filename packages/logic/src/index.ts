@@ -13,6 +13,7 @@ export { rollSummon, chooseSlot, pityPick, unitDefFast } from './units';
 export { availableRecipes, missingMaterials, recipesUsing } from './combine';
 export { computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps, resolveKills } from './combat';
 export { upgradeCost } from './upgrades';
+export { applyBossKnockback, bossStunGate } from './bosscontrol';
 export * from './hash';
 export * from './match/types';
 export { roundStartTick } from './match/schedule';

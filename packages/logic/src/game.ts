@@ -52,7 +52,7 @@ export function runAfterCommandHooks(state: GameState, events: GameEvent[]): voi
 }
 
 export function runCombat(state: GameState, events: GameEvent[], opts: { finalClear: boolean; afterMove?: () => void }): void {
-  moveEnemies(state);
+  moveEnemies(state, events);
   opts.afterMove?.();
   runPhase('tickStatuses', state, events);
   runPhase('unitAttacks', state, events);

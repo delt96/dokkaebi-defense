@@ -7,13 +7,13 @@ export interface Bot { name: string; decide(state: GameState): Command[] }
 
 const MELEE_MAX_RANGE = 2.0;
 
-function emptyOpenSlots(state: GameState): number[] {
+export function emptyOpenSlots(state: GameState): number[] {
   const out: number[] = [];
   state.slots.forEach((u, i) => { if (!u && state.open[i]) out.push(i); });
   return out;
 }
 
-function summonAll(state: GameState): Command[] {
+export function summonAll(state: GameState): Command[] {
   const n = Math.min(state.tokens, emptyOpenSlots(state).length);
   return Array.from({ length: n }, () => ({ type: 'summon' }) as Command);
 }
@@ -41,7 +41,7 @@ function bestRecipe(state: GameState): string | null {
   return best;
 }
 
-function cheapestUpgrade(state: GameState): UpgradeId | null {
+export function cheapestUpgrade(state: GameState): UpgradeId | null {
   const hasEmpty = emptyOpenSlots(state).length > 0;
   let best: UpgradeId | null = null;
   let bestCost = Infinity;
@@ -57,7 +57,7 @@ function cheapestUpgrade(state: GameState): UpgradeId | null {
 
 const isMelee = (state: GameState, i: number) => unitDefFast(state.data, state.slots[i]!.defId).range <= MELEE_MAX_RANGE;
 
-function placementFix(state: GameState): Command | null {
+export function placementFix(state: GameState): Command | null {
   const lane = laneOf(state);
   const empty = emptyOpenSlots(state);
   for (let i = 0; i < state.slots.length; i++) {

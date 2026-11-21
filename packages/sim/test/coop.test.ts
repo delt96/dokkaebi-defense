@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { createMatch, loadGameData, matchHash, replayMatch, stepMatch } from '@dorandi/logic';
-import { jumpToTick, placeUnitForTest } from '@dorandi/logic/testing';
+import { jumpToTick, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { followBoss } from '../src/bots';
-import { coopRows, runMatch, spiritSupport, teamRow } from '../src/coop';
+import { bossStunRatio, countBossStun, coopRows, runMatch, spiritSupport, teamRow } from '../src/coop';
 
 const data = loadGameData('stage2');
 
@@ -33,5 +33,25 @@ describe('coop sim', () => {
     const run = runMatch(data, 2, ['clumsy']);
     expect(coopRows(run, 2, 'clumsy1')[0]!.slice(0, 5)).toEqual(['2', 'clumsy1', '1', expect.stringMatching(/^(true|false)$/), '1']);
     expect(Object.keys(teamRow(run, 2, 'clumsy1'))).toEqual(['seed', 'config', 'players', 'started', 'alive', 'outcome', 'endTick', 'endRound', 'y1Enter', 'y1Kill', 'y1HpAtGate', 'y2Enter', 'y2Kill', 'y2HpAtGate', 'damage', 'supportSent', 'supportReceived', 'causes', 'leftoverGrade1']);
+  }, 60_000);
+  test('boss stun count: live lane bosses of survivors only, stunned when stunTicks > 0 (checkpoint 20-22, finding 2)', () => {
+    const m = createMatch(data, 1, [1, 2, 3]); jumpToTick(m, 4600); stepMatch(m, []);
+    const a = spawnEnemyForTest(m.lanes[1]!, 'jinegaksi', 3); a.boss = true; a.stunTicks = 5;
+    const b = spawnEnemyForTest(m.lanes[2]!, 'jinegaksi', 3); b.boss = true;
+    const dead = spawnEnemyForTest(m.lanes[2]!, 'jinegaksi', 4); dead.boss = true; dead.hp = 0; dead.stunTicks = 9;
+    const plain = spawnEnemyForTest(m.lanes[1]!, 'japgwi', 3); plain.stunTicks = 9;
+    const gone = spawnEnemyForTest(m.lanes[3]!, 'jinegaksi', 3); gone.boss = true; gone.stunTicks = 9;
+    m.seats[3]!.alive = false;
+    const acc = { bossTicks: 0, stunnedTicks: 0 };
+    countBossStun(m, acc);
+    expect(acc).toEqual({ bossTicks: 2, stunnedTicks: 1 });
+    expect(bossStunRatio([{ bossTicks: 2, stunnedTicks: 1 }, { bossTicks: 6, stunnedTicks: 1 }] as never)).toBe(0.25);
+    expect(bossStunRatio([{ bossTicks: 0, stunnedTicks: 0 }] as never)).toBeNull();
+  });
+  test('runMatch counts boss stun ticks over the whole match (checkpoint 20-22, finding 2)', () => {
+    const run = runMatch(data, 1, ['normal']);
+    expect(run.bossTicks).toBeGreaterThan(0);
+    expect(run.stunnedTicks).toBeGreaterThanOrEqual(0);
+    expect(run.stunnedTicks).toBeLessThanOrEqual(run.bossTicks);
   }, 60_000);
 });

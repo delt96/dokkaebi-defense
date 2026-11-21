@@ -1,27 +1,45 @@
 export type DamageType = 'physical' | 'magical';
+export type StatusArea = { radius?: number; area?: 'hit' | 'others' };
 export type Trigger =
-  | { kind: 'chance'; p: number } | { kind: 'nth'; n: number }
-  | { kind: 'always' } | { kind: 'periodic'; seconds: number } | { kind: 'aura' };
+  | { kind: 'chance'; p: number } | { kind: 'nth'; n: number; phase?: number }
+  | { kind: 'always' } | { kind: 'periodic'; seconds: number } | { kind: 'aura' }
+  | { kind: 'charge'; seconds: number } | { kind: 'streak'; n: number }
+  | { kind: 'targetHpBelow'; pct: number } | { kind: 'targetSlowed' }
+  | { kind: 'neighborHits'; count: number; lockoutSeconds: number };
 export type Effect =
   | { kind: 'extraAttack' }
   | { kind: 'crit'; mult: number }
   | { kind: 'execute'; hpBelow: number; mult: number }
-  | { kind: 'splash'; radius: number; mult: number }
-  | { kind: 'pierce'; length: number; mult: number }
+  | { kind: 'splash'; radius: number; mult: number; radiusCycle?: number[]; stunnedBonus?: { mult: number; graceSeconds: number } }
+  | { kind: 'pierce'; length: number; mult: number; both?: boolean; knockedBonus?: number }
   | { kind: 'allInRange'; mult: number }
-  | { kind: 'stun'; seconds: number }
-  | { kind: 'slow'; pct: number; seconds: number; radius?: number }
-  | { kind: 'knockback'; distance: number }
-  | { kind: 'vuln'; pct: number; seconds: number; damageType: DamageType | 'all'; maxStacks?: number }
-  | { kind: 'dot'; mult: number; seconds: number }
-  | { kind: 'groundFire'; length: number; seconds: number; pulseMult: number }
-  | { kind: 'onKillExplode'; radius: number; mult: number }
-  | { kind: 'auraAttackSpeed'; pct: number }
-  | { kind: 'auraAttackPower'; pct: number; damageType: DamageType | 'all' }
-  | { kind: 'auraEnemyVuln'; pct: number };
+  | { kind: 'strike'; mult: number }
+  | { kind: 'chain'; range: number; mult: number; maxBounces: number }
+  | { kind: 'rampCrit'; step: number; max: number }
+  | ({ kind: 'stun'; seconds: number } & StatusArea)
+  | ({ kind: 'slow'; pct: number; seconds: number } & StatusArea)
+  | ({ kind: 'knockback'; distance: number } & StatusArea)
+  | ({ kind: 'vuln'; pct: number; seconds: number; damageType: DamageType | 'all'; maxStacks?: number; source?: string } & StatusArea)
+  | ({ kind: 'dot'; mult: number; seconds: number } & StatusArea)
+  | { kind: 'groundFire'; length: number; seconds: number; pulseMult: number; align?: 'center' | 'ahead' | 'behind' }
+  | { kind: 'onKillExplode'; radius: number; mult: number; requireExecute?: boolean }
+  | { kind: 'onVulnKillExplode'; radius: number; mult: number; cooldownSeconds: number }
+  | { kind: 'auraAttackSpeed'; pct: number; damageType?: DamageType }
+  | { kind: 'auraAttackPower'; pct: number; damageType: DamageType | 'all'; source?: string }
+  | { kind: 'auraEnemyVuln'; pct: number; damageType?: DamageType; source?: string }
+  | { kind: 'coinOnFirstHit'; coins: number }
+  | { kind: 'coinTimer'; everySeconds: number; coins: number; maxPerRound: number };
 export interface SkillDef { trigger: Trigger; effects: Effect[] }
-export interface UnitDef { id: string; name: string; grade: number; damageType: DamageType; range: number; interval: number; factor: number; skills: SkillDef[] }
-export interface RecipeDef { result: string; materials: string[] }
+export interface UnitDef {
+  id: string; name: string; grade: number; damageType: DamageType; range: number; interval: number; factor: number; skills: SkillDef[];
+  hidden?: boolean; onBasicHit?: { targetPct: number; splashPct: number }; lineage?: DamageType[];
+}
+export interface RecipeDef { result: string; materials: string[]; cost?: { buckwheat?: number; coins?: number } }
+export interface BossControlDef { windowTicks: number; stunTicks: number; pushDistance: number; maxStoppedShare: number }
+export interface BossControlLog {
+  alive: number; stopped: number; stunLog: number[]; pushLog: [number, number][];
+  stunClipped: number; pushClipped: number; entranceClipped: number; pushApplied: number; maxWindowStopped: number;
+}
 export interface EnemyDef { id: string; name: string; boss: boolean; shared?: boolean; hpMult: number; hp?: number; speed: number; resist: { physical: number; magical: number } }
 export type WaveDef = { round: number; type: 'normal'; pattern: string[] } | { round: number; type: 'boss'; boss: string };
 export interface BalanceDef {
@@ -34,6 +52,8 @@ export interface BalanceDef {
   bossBuckwheat: number; sellPrice: number[]; limit: number; limitSeconds: number;
   summonOdds: number[]; pityEvery: number; grid: { cols: number; rows: number; initialOpenRows: number };
   bossCcFactor: number; vulnCap: number; auraRadius: number; pulseSeconds: number;
+  onBasicHitRadius?: number; auraCaps?: { attackSpeed: number; attackPower: number };
+  inheritUpgrades?: boolean; periodicReady?: boolean; extendedCombat?: boolean; bossControl?: BossControlDef;
 }
 export type UpgradeId = 'physical' | 'magical' | 'polish' | 'slots';
 export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number; openCount?: number }
@@ -48,13 +68,19 @@ export interface CoopDef {
 export interface GameData { units: UnitDef[]; recipes: RecipeDef[]; enemies: EnemyDef[]; waves: WaveDef[]; balance: BalanceDef; upgrades: UpgradeDef[]; coop?: CoopDef }
 
 export interface RngState { s: number }
-export interface Unit { id: number; defId: string; cooldown: number; attackCount: number; periodic: number[] }
+export interface Unit {
+  id: number; defId: string; cooldown: number; attackCount: number; periodic: number[];
+  chargeTicks?: number; charged?: boolean; streak?: { enemyId: number; count: number };
+  neighborHits?: number; neighborLockUntil?: number; explodeReadyTick?: number;
+}
 export interface Vuln { pct: number; damageType: DamageType | 'all'; ticks: number; stacks: number }
 export interface Dot { remaining: number; pulsesLeft: number; nextPulse: number }
 export interface Enemy {
   id: number; defId: string; hp: number; maxHp: number; d: number; boss: boolean; round: number;
   stunTicks: number; slow: { pct: number; ticks: number } | null;
   vulns: Record<string, Vuln>; dots: Record<string, Dot>; fireHit: Record<string, number>;
+  stunEndTick?: number; knockedRound?: number;
+  vulnCaster?: { unitId: number; attack: number; key: string }; ctl?: BossControlLog;
 }
 export interface GroundFire { source: string; from: number; to: number; basePerPulse: number; nextPulse: number; endTick: number }
 export interface RoundStats { round: number; hpSpawned: number; damageDealt: number; damageInRound: number; maxEnemies: number; endEnemies: number; bossKillSeconds: number | null }
@@ -72,12 +98,13 @@ export interface GameState {
   stats: RoundStats[];
   rng: { summon: RngState; combat: RngState };
   nextId: number;
+  income?: { round: number; firstHit: Record<string, true>; timerTicks: Record<string, number>; timerPaid: Record<string, number> };
 }
 export type Command =
   | { type: 'summon' } | { type: 'combine'; result: string; slot?: number; unitId?: number } | { type: 'sell'; slot: number; unitId?: number }
   | { type: 'move'; from: number; to: number; unitId?: number; toUnitId?: number | null } | { type: 'convertToken' }
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' };
-export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'maxed' | 'unknown'
+export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 

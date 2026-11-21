@@ -1,1 +1,1 @@
-{ "prepSeconds": 30 }
+{ "prepSeconds": 30, "hp": {"base": 75, "coef": 16, "exp": 1.5} }

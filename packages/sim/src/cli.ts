@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { loadGameData } from '@dorandi/logic';
 import { clumsyBot, normalBot, type Bot } from './bots';
 import { coopCli } from './coop';
+import { stage3Cli } from './stage3/cli';
 import { roundRows, runGame, toCsv, type Row } from './runner';
 
 function arg(name: string, fallback: string): string {
@@ -19,6 +20,10 @@ const median = (xs: number[]): number | null => {
 
 if (arg('stage', '1') === '2') {
   coopCli(arg);
+  process.exit(0);
+}
+if (arg('stage', '1') === '3') {
+  stage3Cli(arg);
   process.exit(0);
 }
 

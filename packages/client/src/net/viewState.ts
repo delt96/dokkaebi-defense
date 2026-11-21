@@ -1,5 +1,10 @@
 import { enemyDistanceAt, type ClientView, type GameData, type GameState, type UnitView, type UpgradeId } from '@dorandi/logic';
 
+function slowOf(data: GameData, defId: string, speed: number): { pct: number; ticks: number } | null {
+  const base = data.enemies.find(d => d.id === defId)?.speed ?? 0;
+  return speed > 0 && base > 0 && speed < base - 1e-9 ? { pct: 1 - speed / base, ticks: 1 } : null;
+}
+
 const NO_UPGRADES: Record<UpgradeId, number> = { physical: 0, magical: 0, polish: 0, slots: 0 };
 
 /**
@@ -34,7 +39,8 @@ export function viewToGameState(view: ClientView, data: GameData, units: (UnitVi
       // never draw before the enemy's base tick: going back past a spawn or speed change would misplace it
       d: enemyDistanceAt(e, Math.max(renderTick, e.t)),
       boss: e.boss, round: view.clock.round, stunTicks: e.speed === 0 ? 1 : 0,
-      slow: null, vulns: {}, dots: {}, fireHit: {},
+      // the view carries only the speed: below the enemy's own speed means slowed (drawn blue)
+      slow: slowOf(data, e.defId, e.speed), vulns: {}, dots: {}, fireHit: {},
     })),
     fires: view.lane.fires.map(f => ({ source: f.source, from: f.from, to: f.to, basePerPulse: 0, nextPulse: 0, endTick: f.endTick })),
     upgrades: spirit ? { ...NO_UPGRADES } : { ...mine.upgrades },

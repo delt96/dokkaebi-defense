@@ -26,7 +26,7 @@ export function placeUnitForTest(state: GameState, defId: string, slot: number):
   return addUnit(state, defId, slot, []);
 }
 
-export function makeData(patch: (d: GameData) => void, stage: 'stage1' | 'stage2' = 'stage1'): GameData {
+export function makeData(patch: (d: GameData) => void, stage: 'stage1' | 'stage2' | 'stage3' = 'stage1'): GameData {
   const d = loadGameData(stage);
   patch(d);
   return d;

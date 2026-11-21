@@ -12,6 +12,11 @@ function triggerText(t: Trigger): string {
     case 'nth': return `${t.n}번째 공격마다 `;
     case 'periodic': return `${t.seconds}초마다 `;
     case 'aura': return '오라: ';
+    case 'charge': return `${t.seconds}초마다 충전한 다음 공격에 `;
+    case 'streak': return `같은 적을 ${t.n}번 연달아 치면 `;
+    case 'targetHpBelow': return `체력 ${pct(t.pct)} 이하 대상에게 `;
+    case 'targetSlowed': return '둔화된 대상에게 ';
+    case 'neighborHits': return `이웃의 기본 공격 ${t.count}번마다 `;
     default: return '';
   }
 }
@@ -45,6 +50,12 @@ function effectText(e: Effect, trigger: Trigger, ctx?: SkillCtx): string {
     case 'auraAttackSpeed': return `주변 아군 공격 속도 +${pct(e.pct)}`;
     case 'auraAttackPower': return `주변 ${typeName(e.damageType)} 아군 공격력 +${pct(e.pct)}`;
     case 'auraEnemyVuln': return `사거리 안 적이 받는 피해 +${pct(e.pct)}`;
+    case 'strike': return `대상에게 공격력 ${pct(e.mult)} 추가 피해`;
+    case 'chain': return `${e.range}칸 안의 다음 적에게 차례로 ${pct(e.mult)} (최대 ${e.maxBounces}번)`;
+    case 'rampCrit': return `같은 적을 연달아 치면 피해가 ${e.step}배씩 올라 최대 ${e.max}배`;
+    case 'onVulnKillExplode': return `약화된 적이 쓰러지면 주변 ${e.radius}칸 폭발 ${pct(e.mult)}`;
+    case 'coinOnFirstHit': return `라운드 첫 명중에 엽전 ${e.coins}냥`;
+    case 'coinTimer': return `전투 ${e.everySeconds}초마다 엽전 ${e.coins}냥 (라운드당 최대 ${e.maxPerRound}냥)`;
   }
 }
 
@@ -83,6 +94,7 @@ const REJECT_TEXT: Record<string, string> = {
   noSlot: '빈 칸이 없습니다',
   noToken: '도깨비불이 없습니다',
   noCoins: '엽전이 모자랍니다',
+  noBuckwheat: '메밀묵이 모자랍니다',
   maxed: '이미 최대 단계입니다',
   missingMaterials: '재료가 모자랍니다',
   notAlive: '넋은 할 수 없습니다',

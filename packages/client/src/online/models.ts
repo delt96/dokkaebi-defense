@@ -88,26 +88,27 @@ export function topModel(view: ClientView, data: GameData): TopModel {
     line2 = `관문 ${gate}/${stages} · ${def.deadlineRound}라운드 끝까지 · 역신 ${STAGE_NAME[view.yeoksin.stage] ?? ''} 탈 ${view.yeoksin.hp.toLocaleString('ko-KR')} / ${view.yeoksin.maxHp.toLocaleString('ko-KR')}`;
   } else line2 = `관문 ${gate}/${stages} · ${def.startRound}라운드에 역신 등장`;
 
-  let myTurn: string | null = null;
+  return { line1, line2, myTurn: myTurnText(view, data) };
+}
+
+export function myTurnText(view: ClientView, data: GameData): string | null {
+  const coop = data.coop!;
   const y = view.yeoksin;
-  if (y) {
-    const cur = y.seat === view.me.seat;
-    const next = y.nextSeat === view.me.seat;
-    if (cur && next) myTurn = '내 고개 순환';
-    else if (next) myTurn = `다음은 내 고개 · ${secondsOf(y.enterTick + coop.staySeconds * TICKS_PER_SECOND - clock.tick)}초`;
-  }
-  return { line1, line2, myTurn };
+  if (!y || y.nextSeat !== view.me.seat) return null;
+  if (y.seat === view.me.seat) return '내 고개 순환';
+  const remaining = y.enterTick + coop.staySeconds * TICKS_PER_SECOND - view.clock.tick;
+  return `다음은 내 고개 · ${secondsOf(remaining)}초`;
 }
 
 interface Notice { text: string; at: number }
 let active: Notice[] = [];
 const seen = new WeakSet<object>();
 
-/** Remembers the supports in one `mine` message ("N번 넋이 엽전 +5" for 3 seconds). */
+/** Remembers the supports in one `mine` message ("N번 넋이 보낸 엽전 +5" for 3 seconds). */
 export function noteSupport(incoming: ClientView['mine']['supportIn'], now: number): void {
   if (incoming.length === 0 || seen.has(incoming)) return;
   seen.add(incoming);
-  for (const s of incoming) active.push({ text: `${s.from}번 넋이 엽전 +${s.coins}`, at: now });
+  for (const s of incoming) active.push({ text: `${s.from}번 넋이 보낸 엽전 +${s.coins}`, at: now });
 }
 
 /**

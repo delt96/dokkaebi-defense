@@ -11,10 +11,11 @@ const TICK_MS = 50;
 export interface ClientLink { id: string; send(type: string, msg: unknown): void; close(code?: number): void }
 export interface RoomDeps {
   now(): number; random128(): string; randomSeed(): number;
-  createRematchRoom(opts: { hostToken: string }): Promise<string>;
+  createRematchRoom(opts: { hostToken: string; keepOpenMs: number }): Promise<string>;
   setAutoDispose(v: boolean): void; dispose(): void; dev: boolean;
 }
-export interface RoomOptions { seed?: number; hostToken?: string; devJumpTick?: number; devNoElimination?: boolean }
+/** keepOpenMs: a rematch lobby stays open while empty for this long (the rest of the old room's result hold, capped at the full hold). */
+export interface RoomOptions { seed?: number; hostToken?: string; devJumpTick?: number; devNoElimination?: boolean; keepOpenMs?: number }
 export interface JoinOptions { name?: unknown; rejoinKey?: unknown; hostToken?: unknown }
 
 export class JoinError extends Error {
@@ -54,8 +55,21 @@ export class RoomCore {
   private awaitingFull = new Set<string>();
   /** The one rematch room, created on the first press. */
   private rematch: { hostSeat: number; hostToken: string; roomId: Promise<string> } | null = null;
+  /**
+   * Seat -> the key that seat used for its last rejoin, still accepted until the new link sends a message after its
+   * `full` (the browser stores the new key only on that `full`, so a drop before it must not lose the seat).
+   */
+  private readonly prevKeys = new Map<number, { key: string; linkId: string }>();
+  /** A rematch lobby does not close when empty before this time (it must still be there for later pressers). */
+  private keepOpenUntil: number | null = null;
 
-  constructor(readonly roomId: string, readonly deps: RoomDeps, readonly options: RoomOptions = {}) {}
+  constructor(readonly roomId: string, readonly deps: RoomDeps, readonly options: RoomOptions = {}) {
+    const keep = options.keepOpenMs;
+    if (keep !== undefined && keep > 0) {
+      this.keepOpenUntil = deps.now() + Math.min(keep, loadGameData('stage2').coop!.resultSeconds * 1000);
+      deps.setAutoDispose(false);
+    }
+  }
 
   join(link: ClientLink, opts: JoinOptions): void {
     if (this.phase !== 'lobby') {
@@ -88,7 +102,7 @@ export class RoomCore {
     this.seats.delete(entry.seat);
     if (this.seats.size === 0) {
       this.hostSeat = null;
-      this.deps.dispose();
+      if (this.keepOpenUntil === null) this.deps.dispose();
       return;
     }
     if (this.hostSeat === entry.seat) this.hostSeat = Math.min(...this.seats.keys());
@@ -98,6 +112,8 @@ export class RoomCore {
   message(linkId: string, type: string, payload: unknown): void {
     const entry = this.links.get(linkId);
     if (!entry) return;
+    // The new link has its snapshot (and so its new key) and is talking: the old key is done.
+    if (this.prevKeys.get(entry.seat)?.linkId === linkId && !this.awaitingFull.has(linkId)) this.prevKeys.delete(entry.seat);
     if (type === 'ready' || type === 'start') {
       if (this.phase !== 'lobby') return this.notice(entry.link, { kind: 'roomError', reason: 'notInLobby' });
       if (type === 'ready') return this.onReady(entry.seat, payload);
@@ -115,6 +131,11 @@ export class RoomCore {
   /** Server clock driver: runs every 50 ms tick that has come due (none are skipped), then closes the room after the result hold. */
   advance(): void {
     const now = this.deps.now();
+    if (this.phase === 'lobby' && this.keepOpenUntil !== null && now >= this.keepOpenUntil) {
+      this.keepOpenUntil = null;
+      if (this.seats.size === 0) this.deps.dispose();
+      else this.deps.setAutoDispose(true);
+    }
     if (this.phase === 'playing') {
       while (this.phase === 'playing' && now - this.lastTickAt >= TICK_MS) {
         this.lastTickAt += TICK_MS;
@@ -142,9 +163,13 @@ export class RoomCore {
   private rejoin(link: ClientLink, rejoinKey: unknown): void {
     if (this.phase !== 'playing' && this.phase !== 'result') throw new JoinError('badKey');
     let seat = 0;
-    if (typeof rejoinKey === 'string') for (const s of this.seats.keys()) if (this.keys[s] === rejoinKey) { seat = s; break; }
+    if (typeof rejoinKey === 'string') {
+      for (const s of this.seats.keys()) if (this.keys[s] === rejoinKey || this.prevKeys.get(s)?.key === rejoinKey) { seat = s; break; }
+    }
     if (seat === 0) throw new JoinError('badKey');
 
+    // The tab keeps the key it came with until this link's first message after its full.
+    this.prevKeys.set(seat, { key: rejoinKey as string, linkId: link.id });
     this.keys[seat] = this.deps.random128();
     let wasLinked = false;
     for (const [id, entry] of this.links) {
@@ -167,7 +192,9 @@ export class RoomCore {
     if (this.phase !== 'result') return;
     if (!this.rematch) {
       const hostToken = this.deps.random128();
-      const roomId = this.deps.createRematchRoom({ hostToken });
+      // The new lobby outlives an early empty spell: everyone who presses within this room's hold is sent there.
+      const keepOpenMs = this.match!.data.coop!.resultSeconds * 1000 - (this.deps.now() - this.resultAt);
+      const roomId = this.deps.createRematchRoom({ hostToken, keepOpenMs });
       this.rematch = { hostSeat: seat, hostToken, roomId };
       // A failed create lets the next press try again.
       roomId.catch(() => { if (this.rematch?.roomId === roomId) this.rematch = null; });
