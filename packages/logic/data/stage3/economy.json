@@ -2,7 +2,7 @@
   "ledger": { "tokenValue": 4, "storyCap": 16, "totalCap": 20, "ratio": 3 },
   "market": {
     "dayRounds": 10, "jigeChance": 0.08,
-    "bundle": { "price": 55, "perDay": 7, "deck": [4, 4, 3] },
+    "bundle": { "price": 55, "perDay": 8, "deck": [4, 4, 3] },
     "jar": { "price": 35, "firstChance": 0.5, "periodRounds": 10, "perPeriod": 1 }
   },
   "drops": [ { "round": 20, "grade": 3 }, { "round": 40, "grade": 3 }, { "round": 50, "grade": 2 } ],

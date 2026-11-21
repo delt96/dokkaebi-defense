@@ -39,17 +39,17 @@ function pullBundle(s: GameState): number {
 }
 
 describe('bundle', () => {
-  test('bundle: closed in prep, 55 coins per pull, seven per market day, resets on day 2', () => {
+  test('bundle: closed in prep, 55 coins per pull, eight per market day, resets on day 2', () => {
     const s = lane(0);
     expect(step(s, [{ type: 'buy', item: 'bundle' }]).rejected[0]!.reason).toBe('marketClosed');
     forceRound(s, 1);
     expect(marketDay(s)).toBe(1);
-    const r = step(s, Array.from({ length: 8 }, () => ({ type: 'buy', item: 'bundle' }) as const));
+    const r = step(s, Array.from({ length: 9 }, () => ({ type: 'buy', item: 'bundle' }) as const));
     expect(r.rejected.map(x => x.reason)).toEqual(['soldOut']);
     const kills = r.events.filter(e => e.type === 'kill').length;
-    expect(s.coins).toBe(1000 - 7 * 55 + kills * s.data.balance.coins.perKill);
-    expect(r.events.filter(e => e.type === 'buy').length).toBe(7);
-    expect(r.events.filter(e => e.type === 'summon').length).toBe(7);
+    expect(s.coins).toBe(1000 - 8 * 55 + kills * s.data.balance.coins.perKill);
+    expect(r.events.filter(e => e.type === 'buy').length).toBe(8);
+    expect(r.events.filter(e => e.type === 'summon').length).toBe(8);
     forceRound(s, 10);
     expect(step(s, [{ type: 'buy', item: 'bundle' }]).rejected[0]!.reason).toBe('soldOut');
     forceRound(s, 11);
@@ -261,7 +261,7 @@ describe('market in a match and boss drops', () => {
 
   test('marketView shows real remaining odds and the 60-coin shortfall for a story target', () => {
     const s = lane(1, 100);
-    expect(marketView(s)).toMatchObject({ bundle: { price: 55, left: 7, odds: { 4: 2 / 3, 3: 1 / 3 } }, jar: { price: 35, left: 1, chance: 0.5 }, shortAfter: null });
+    expect(marketView(s)).toMatchObject({ bundle: { price: 55, left: 8, odds: { 4: 2 / 3, 3: 1 / 3 } }, jar: { price: 35, left: 1, chance: 0.5 }, shortAfter: null });
     s.econ!.bundle.left = [4, 4];
     expect(marketView(s)!.bundle.odds).toEqual({ 4: 1, 3: 0 });
     s.econ!.story.target = 'cheonnyeonjing';
