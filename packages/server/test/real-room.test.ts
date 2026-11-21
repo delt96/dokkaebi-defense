@@ -21,7 +21,8 @@ afterAll(async () => {
 type SdkRoom = Awaited<ReturnType<ColyseusTestServer['sdk']['create']>>;
 
 const wait = (ms: number) => new Promise(res => setTimeout(res, ms));
-const next = <T>(room: SdkRoom, type: string): Promise<T> => new Promise(res => room.onMessage(type, res as (m: unknown) => void));
+const next = <T>(room: SdkRoom, type: string, accepts: (msg: T) => boolean = () => true): Promise<T> =>
+  new Promise(res => room.onMessage(type, (msg: T) => { if (accepts(msg)) res(msg); }));
 /** Swallows every message type the server streams, so the SDK does not warn about missing handlers. */
 function quiet(room: SdkRoom): SdkRoom {
   for (const type of ['lobby', 'full', 'tick', 'lane', 'mine', 'notice', 'result']) room.onMessage(type, () => {});
@@ -73,7 +74,7 @@ test('the rematch room still takes later pressers after the first presser left i
   a.send('cmd', { seq: 1, type: 'forfeit' }); b.send('cmd', { seq: 1, type: 'forfeit' });
   await Promise.all([resultA, resultB]);
 
-  const noticeA = next<{ kind: string; roomId: string; hostToken?: string }>(a, 'notice');
+  const noticeA = next<{ kind: string; roomId: string; hostToken?: string }>(a, 'notice', m => m.kind === 'rematch');
   a.send('rematch', {});
   const ra = await noticeA;
   expect(ra).toMatchObject({ kind: 'rematch', hostToken: expect.any(String) });
@@ -82,7 +83,7 @@ test('the rematch room still takes later pressers after the first presser left i
   await a2.leave(true);
   await wait(100);
 
-  const noticeB = next<{ kind: string; roomId: string }>(b, 'notice');
+  const noticeB = next<{ kind: string; roomId: string }>(b, 'notice', m => m.kind === 'rematch');
   b.send('rematch', {});
   const rb = await noticeB;
   expect(rb).toEqual({ kind: 'rematch', roomId: ra.roomId });

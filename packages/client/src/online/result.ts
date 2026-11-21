@@ -1,4 +1,4 @@
-import { unitDefFast, type EliminationCause, type GameData, type MatchResult, type SeatOutcome, type TeamOutcome } from '@dorandi/logic';
+import { unitDefFast, type EliminationCause, type GameData, type MatchResult, type NoticeMsg, type SeatOutcome, type TeamOutcome } from '@dorandi/logic';
 import type { NetClient } from '../net/NetClient';
 import { esc } from '../ui/dom';
 import { TEXT } from './text';
@@ -40,9 +40,9 @@ export function teamResultModel(result: MatchResult, names: Record<number, strin
   };
 }
 
-export interface ResultActions { rematch(): void; leave(): void }
+export interface ResultActions { rematch(): void; leave(): void; enterRematch?(): void }
 /** `closed`: the server closed the room (result hold over), so rematch can no longer be sent. */
-export interface ResultUi { opened: number | null; rematching: boolean; closed?: boolean }
+export interface ResultUi { opened: number | null; rematching: boolean; closed?: boolean; readySeats?: number[] }
 
 /** Without a rematch notice in this time the rematch button can be pressed again (the server retries on the next press). */
 export const REMATCH_RETRY_MS = 5000;
@@ -89,7 +89,7 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
   const again = document.createElement('button');
   again.type = 'button';
   again.className = 'big';
-  again.textContent = ui.rematching && !ui.closed ? '새 방으로 가는 중' : '다시 하기';
+  again.textContent = ui.rematching && !ui.closed ? (actions.enterRematch ? '준비 완료' : '준비 요청 중…') : '다시 하기';
   again.disabled = ui.rematching || ui.closed === true;
   again.addEventListener('click', () => { if (ui.rematching || ui.closed) return; ui.rematching = true; actions.rematch(); redraw(); });
   const leave = document.createElement('button');
@@ -99,7 +99,26 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
   leave.addEventListener('click', () => actions.leave());
   const controls = div('screen-actions');
   controls.append(again, leave);
+  if (actions.enterRematch && !ui.closed) {
+    const enter = document.createElement('button');
+    enter.type = 'button';
+    enter.className = 'big';
+    enter.textContent = '새 대기실로 이동';
+    enter.addEventListener('click', actions.enterRematch);
+    controls.prepend(enter);
+  }
   box.append(controls);
+  if (!ui.closed && (ui.rematching || ui.readySeats?.length)) {
+    const ready = m.rows.filter(row => ui.readySeats?.includes(row.seat));
+    const waiting = m.rows.filter(row => !ui.readySeats?.includes(row.seat));
+    const status = div('result-sub');
+    status.setAttribute('role', 'status');
+    const lines = [`재경기 준비 ${ready.length}/6명`];
+    if (ready.length) lines.push(`준비 완료 · ${ready.map(row => row.name).join(', ')}`);
+    if (waiting.length) lines.push(`응답 대기 · ${waiting.map(row => row.name).join(', ')}`);
+    status.textContent = lines.join(' / ');
+    box.append(status);
+  }
   if (ui.closed) {
     const link = document.createElement('a');
     link.className = 'entry-link';
@@ -112,9 +131,23 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
 
 
 /** Shows the team result in `root` when it arrives (also when a rejoin snapshot already carries it). */
-export function mountResult(net: NetClient, root: HTMLElement, data: GameData, go: (href: string) => void = href => location.assign(href)): void {
+export function mountResult(net: NetClient, root: HTMLElement, data: GameData,
+  go: (href: string) => void = href => location.assign(href),
+  goRematch?: (roomId: string, hostToken?: string) => void): void {
   const ui: ResultUi = { opened: null, rematching: false, closed: false };
   let retry: ReturnType<typeof setTimeout> | undefined;
+  let destination: Extract<NoticeMsg, { kind: 'rematch' }> | undefined;
+  let moving = false;
+  const enter = (): void => {
+    if (!destination || moving || ui.closed) return;
+    moving = true;
+    goRematch?.(destination.roomId, destination.hostToken);
+  };
+  const updateRematch = (): void => {
+    const seats = net.view?.result?.seats;
+    if (destination && seats?.every(seat => ui.readySeats?.includes(seat.seat))) enter();
+    show();
+  };
   const show = (): void => {
     const result = net.view?.result;
     if (!result) return;
@@ -126,13 +159,21 @@ export function mountResult(net: NetClient, root: HTMLElement, data: GameData, g
         clearTimeout(retry);
         retry = setTimeout(() => { ui.rematching = false; show(); }, REMATCH_RETRY_MS);
       },
+      ...(destination ? { enterRematch: enter } : {}),
       leave: () => { void net.leave().catch(() => undefined).finally(() => go('/')); },
     }, ui);
   };
   net.on(e => {
     if (e.kind === 'result' || (e.kind === 'view' && e.view.result && !root.querySelector('.result-screen'))) show();
-    else if (e.kind === 'notice' && e.msg.kind === 'rematch') clearTimeout(retry);
-    else if (e.kind === 'left' && e.code === CLOSE_CONSENTED && !net.leaving && net.view?.result) {
+    else if (e.kind === 'notice' && e.msg.kind === 'rematchReady') {
+      ui.readySeats = e.msg.seats;
+      updateRematch();
+    } else if (e.kind === 'notice' && e.msg.kind === 'rematch') {
+      clearTimeout(retry);
+      destination = e.msg;
+      ui.rematching = true;
+      updateRematch();
+    } else if (e.kind === 'left' && e.code === CLOSE_CONSENTED && !net.leaving && net.view?.result) {
       clearTimeout(retry);
       ui.closed = true;
       show();

@@ -10,7 +10,7 @@ import { mountResult } from './result';
 import '../ui/style.css';
 
 /** The online battle screen: the 1-player stage in layout A, drawn from the server's view. */
-export function startBattle(net: NetClient, data: GameData): void {
+export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: string, hostToken?: string) => void): void {
   document.body.classList.add('online');
   const driver = new NetDriver(net, data);
   watchSupport(net);
@@ -54,7 +54,7 @@ export function startBattle(net: NetClient, data: GameData): void {
 
   // the team result (also carried by a rejoin snapshot) covers the stage
   const screen = document.getElementById('screen');
-  if (screen) mountResult(net, screen, data);
+  if (screen) mountResult(net, screen, data, undefined, goRematch);
 
   if (import.meta.env.DEV) Object.assign(window, { __net: net, __driver: driver, __scene: scene });
 }

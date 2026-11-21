@@ -54,6 +54,7 @@ export class RoomCore {
   private resultAt = 0;
   /** Link ids that get a `full` at the end of the next tick (rejoins during play); they get no stream messages before it. */
   private awaitingFull = new Set<string>();
+  private readonly rematchReady = new Set<number>();
   /** The one rematch room, created on the first press. */
   private rematch: { hostSeat: number; hostToken: string; roomId: Promise<string> } | null = null;
   /**
@@ -187,7 +188,12 @@ export class RoomCore {
     }
     this.links.set(link.id, { link, seat });
     this.seats.get(seat)!.linkId = link.id;
-    if (this.phase === 'result') return this.sendFull(link, seat);
+    if (this.phase === 'result') {
+      this.sendFull(link, seat);
+      this.notice(link, { kind: 'rematchReady', seats: [...this.rematchReady] });
+      if (this.rematchReady.has(seat)) this.onRematch(link, seat);
+      return;
+    }
     if (!wasLinked) this.queue.push({ seat, seq: 0, cmd: { type: 'reconnect' } });
     // Inputs already received are stepped first; the snapshot follows at the end of the next tick.
     this.awaitingFull.add(link.id);
@@ -206,7 +212,13 @@ export class RoomCore {
     }
     const { hostSeat, hostToken, roomId: pending } = this.rematch;
     pending.then(roomId => {
+      if (this.phase !== 'result') return;
       if (this.links.get(link.id)?.link !== link) return;
+      if (!this.rematchReady.has(seat)) {
+        this.rematchReady.add(seat);
+        const status: NoticeMsg = { kind: 'rematchReady', seats: [...this.rematchReady] };
+        for (const { link: peer } of this.links.values()) this.notice(peer, status);
+      }
       this.notice(link, seat === hostSeat ? { kind: 'rematch', roomId, hostToken } : { kind: 'rematch', roomId });
     }, () => {});
   }

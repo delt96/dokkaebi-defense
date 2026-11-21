@@ -83,7 +83,7 @@ export function startOnline(opts: { roomId?: string }): void {
     screen = 'battle';
     // an empty #screen is hidden, which uncovers the stage underneath
     root.replaceChildren();
-    startBattle(n, loadGameData('stage2'));
+    startBattle(n, loadGameData('stage2'), goRematch);
   };
 
   let stopped = false;
@@ -168,7 +168,6 @@ export function startOnline(opts: { roomId?: string }): void {
         break;
       case 'notice':
         if (e.msg.kind === 'replaced') { showMessage(TEXT.replaced); break; }
-        if (e.msg.kind === 'rematch') { goRematch(e.msg.roomId, e.msg.hostToken); break; }
         // a second "start" answers notInLobby; once the match runs it is not worth a message
         if (e.msg.kind === 'roomError' && e.msg.reason === 'notReady' && screen === 'lobby') flashNotice(TEXT.notReady);
         break;
