@@ -31,6 +31,12 @@ describe('stage 3 data, grades 1-4', () => {
     expect(loadGameData('stage2').balance.pityEvery).toBe(7);
   });
 
+  test('stage 3 has its own slots upgrade (4 levels of 4 cells, 50 coins a level); stages 1 and 2 keep 3 of 2', () => {
+    expect(d3.upgrades.find(u => u.id === 'slots')).toMatchObject({ max: 4, costPerLevel: 50, openCount: 4 });
+    expect(d3.upgrades.filter(u => u.id !== 'slots')).toEqual(loadGameData().upgrades.filter(u => u.id !== 'slots'));
+    for (const stage of ['stage1', 'stage2'] as const) expect(loadGameData(stage).upgrades.find(u => u.id === 'slots')).toMatchObject({ max: 3, openCount: 2 });
+  });
+
   test('stage 1 and stage 2 untouched', () => {
     expect(loadGameData().units.length).toBe(22);
     expect(loadGameData('stage2').units.length).toBe(40);
@@ -134,7 +140,7 @@ describe('stage 3 balance stands on its own', () => {
         { fromRound: 10, odds: [0.7, 0.25, 0.05] },
       ],
       summonOdds: [0.7, 0.25, 0.05], pityEvery: 5,
-      grid: { cols: 8, rows: 5, initialOpenRows: 4, frame: { cols: 6, rows: 4 }, openPerLevel: 3 },
+      grid: { cols: 8, rows: 5, initialOpenRows: 3, frame: { cols: 6, rows: 4 } },
       bossCcFactor: 0.5, vulnCap: 0.5, auraRadius: 1.5, pulseSeconds: 0.5,
       onBasicHitRadius: 3,
       auraCaps: { attackSpeed: 0.5, attackPower: 0.4 },
