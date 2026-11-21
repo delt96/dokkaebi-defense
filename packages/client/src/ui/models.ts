@@ -262,6 +262,20 @@ const REJECT_TEXT: Record<string, string> = {
   targetNotAlive: '그 고개는 이미 뚫렸습니다',
   targetAlreadyReceived: '이번 라운드에 이미 지원을 받았습니다',
   badArgs: '잘못된 입력입니다',
+  // stage 3 economy
+  marketClosed: '장터는 1라운드부터 엽니다',
+  soldOut: '이번 장날 몫을 다 샀습니다',
+  badTarget: '목표로 고를 수 없는 유닛입니다',
+  notOffered: '받은 설화 의뢰가 없습니다',
+  missionClosed: '입장 시간이 지났습니다',
+  noTarget: '길들일 대상이 사라졌습니다',
+  tameHp: '아직 체력이 높습니다',
+  tameCondition: '길들이기 조건이 풀렸습니다',
+  locked: '배달 중인 유닛은 쓸 수 없습니다',
+  busy: '그 고개는 이미 배달을 주고받는 중입니다',
+  cooldown: '아직 다음 배달을 할 수 없습니다',
+  noJige: '지게 도깨비가 없습니다',
+  noOffer: '받을 배달이 없습니다',
 };
 
 export function rejectText(reason: string): string | null {

@@ -6,6 +6,7 @@ import { GameDriver } from '../src/driver';
 import {
   incomingModel, josa, marketModel, noteText, questChips, shipModel, storyModel, tameModel, tameRejectText,
 } from '../src/ui/econ';
+import { rejectText } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
 import { STAGE_HTML } from './fixtures/net';
 
@@ -188,6 +189,14 @@ describe('story request page', () => {
     expect(m.shortfalls).toContain(`엽전 ${fee.coins - 40}냥 부족`);
     expect(m.shortfalls).toContain(`메밀묵 ${fee.buckwheat}개 부족`);
     expect(m.shortfalls.some(x => /^유닛 값 \d+ 부족$/.test(x))).toBe(true);
+  });
+});
+
+describe('refusals', () => {
+  test('every economy refusal has a line', () => {
+    for (const r of ['marketClosed', 'soldOut', 'badTarget', 'notOffered', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'locked', 'busy', 'cooldown', 'noJige', 'noOffer']) {
+      expect(rejectText(r), r).toBeTruthy();
+    }
   });
 });
 
