@@ -1,9 +1,11 @@
-import type { Command, GameState, UpgradeId } from '../types';
+import type { Command, EconItem, GameState, UpgradeId } from '../types';
 import type { MatchCommand } from './types';
 import type { WireCommand } from './wire';
 
 const INVALID: MatchCommand = { type: 'invalid' };
 const UPGRADE_IDS: ReadonlySet<string> = new Set<UpgradeId>(['physical', 'magical', 'polish', 'slots']);
+const ECON_ITEMS: ReadonlySet<string> = new Set<EconItem>(['bundle', 'jar']);
+const MAX_PINNED = 3;
 const TOP_KEYS: ReadonlySet<string> = new Set(['seq', 'type', 'args']);
 const MAX_SEAT = 6;
 const MAX_RESULT_LENGTH = 32;
@@ -18,7 +20,7 @@ const hasAll = (args: Args, keys: readonly string[]): boolean => keys.every(k =>
 
 type Parser = (args: Args, slotCount: number) => MatchCommand | null;
 
-const noArgs = (type: 'summon' | 'convertToken' | 'helperOpened' | 'forfeit'): Parser =>
+const noArgs = (type: 'summon' | 'convertToken' | 'helperOpened' | 'forfeit' | 'storyDecline' | 'missionEnter' | 'transferDecline'): Parser =>
   args => (Object.keys(args).length === 0 ? { type } : null);
 
 const PARSERS: Record<string, Parser> = {
@@ -26,6 +28,39 @@ const PARSERS: Record<string, Parser> = {
   convertToken: noArgs('convertToken'),
   helperOpened: noArgs('helperOpened'),
   forfeit: noArgs('forfeit'),
+  storyDecline: noArgs('storyDecline'),
+  missionEnter: noArgs('missionEnter'),
+  transferDecline: noArgs('transferDecline'),
+  buy: args => {
+    const keys = ['item'];
+    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
+    return typeof args.item === 'string' && ECON_ITEMS.has(args.item) ? { type: 'buy', item: args.item as EconItem } : null;
+  },
+  storyTarget: args => {
+    if (!onlyKeys(args, ['id', 'unitIds']) || !hasAll(args, ['id'])) return null;
+    const { id, unitIds } = args;
+    if (id !== null && (typeof id !== 'string' || id.length < 1 || id.length > MAX_RESULT_LENGTH)) return null;
+    if (!Object.hasOwn(args, 'unitIds')) return { type: 'storyTarget', id };
+    if (!Array.isArray(unitIds) || unitIds.length > MAX_PINNED || !unitIds.every(isInt)) return null;
+    return { type: 'storyTarget', id, unitIds: [...unitIds] };
+  },
+  tame: args => {
+    const keys = ['enemyId'];
+    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
+    return isInt(args.enemyId) ? { type: 'tame', enemyId: args.enemyId } : null;
+  },
+  transferOffer: (args, slotCount) => {
+    const keys = ['target', 'slot', 'unitId'];
+    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
+    const { target, slot, unitId } = args;
+    if (!inRange(target, 1, MAX_SEAT) || !inRange(slot, 0, slotCount - 1) || !isInt(unitId)) return null;
+    return { type: 'transferOffer', target, slot, unitId };
+  },
+  transferAccept: (args, slotCount) => {
+    const keys = ['slot'];
+    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
+    return inRange(args.slot, 0, slotCount - 1) ? { type: 'transferAccept', slot: args.slot } : null;
+  },
   upgrade: args => {
     const keys = ['id'];
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
@@ -82,7 +117,9 @@ export function parseClientCommand(raw: unknown, slotCount = 24): { seq: number;
   return cmd ? { seq, cmd } : invalid;
 }
 
-type OutgoingCommand = Command | { type: 'support'; target: number } | { type: 'forfeit' };
+type OutgoingCommand = Command | { type: 'support'; target: number } | { type: 'forfeit' }
+  | { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; slot: number }
+  | { type: 'transferDecline' };
 
 /** Turns a local command into its wire form, filling the unit ids the player saw from `lane`. */
 export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand, 'seq'> {
@@ -106,6 +143,16 @@ export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand
       return { type: 'upgrade', args: { id: cmd.id } };
     case 'support':
       return { type: 'support', args: { target: cmd.target } };
+    case 'buy':
+      return { type: 'buy', args: { item: cmd.item } };
+    case 'storyTarget':
+      return { type: 'storyTarget', args: cmd.unitIds === undefined ? { id: cmd.id } : { id: cmd.id, unitIds: [...cmd.unitIds] } };
+    case 'tame':
+      return { type: 'tame', args: { enemyId: cmd.enemyId } };
+    case 'transferOffer':
+      return { type: 'transferOffer', args: { target: cmd.target, slot: cmd.slot, unitId: cmd.unitId } };
+    case 'transferAccept':
+      return { type: 'transferAccept', args: { slot: cmd.slot } };
     default:
       return { type: cmd.type };
   }
