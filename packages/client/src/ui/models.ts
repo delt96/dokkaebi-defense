@@ -3,7 +3,7 @@ import {
   upgradeCost, summonOddsForRound,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
-import { unitRoles, type RoleTag } from './dex-roles';
+import { ROLE_LABEL, unitRoles, type RoleTag } from './dex-roles';
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const typeName = (t: string) => (t === 'physical' ? '물딜' : t === 'magical' ? '마딜' : '피해');
@@ -398,8 +398,19 @@ export function unitCard(state: GameState, slot: number): { name: string; grade:
 export interface DexEntry {
   id: string; name: string; grade: number; recipe: string[]; recipeIds: string[]; hidden: boolean;
   typeText: string; range: number; skillText: string; cost: string | null; notes: string[];
+  /** what 기술로 찾기 reads: the skill text, the role names and a few plain-word aliases (no spaces) */
+  search: string;
   /** the unit's own damage type and the roles read from its skills (dex-roles) */
   kind: DamageType; roles: RoleTag[];
+}
+
+/** Words people search by that the skill text spells another way. */
+const SEARCH_ALIAS: [text: string, alias: string][] = [['스턴', '기절'], ['관통', '꿰뚫']];
+
+/** The string 기술로 찾기 looks in: the skill text a card shows, the role names (물깎 …) and the aliases it needs. */
+export function skillSearchText(skillText: string, roles: readonly RoleTag[]): string {
+  const aliases = SEARCH_ALIAS.filter(([t]) => skillText.includes(t)).map(([, a]) => a);
+  return [skillText, ...roles.map(t => ROLE_LABEL[t.role]), ...aliases].join(' ').replace(/\s+/g, '');
 }
 
 export function dexEntries(data: GameData): DexEntry[] {
@@ -411,6 +422,7 @@ export function dexEntries(data: GameData): DexEntry[] {
       recipe: (recipe?.materials ?? []).map(name), recipeIds: [...(recipe?.materials ?? [])],
       kind: u.damageType, roles: unitRoles(u),
       typeText: typeName(u.damageType), range: u.range, skillText: unitSkillText(data, u), cost: costText(recipe),
+      search: skillSearchText(unitSkillText(data, u), unitRoles(u)),
       // the combine card's first line (lines and range) is already in the row
       notes: [...combineNoteLines(data, u.id).slice(1), ...unitNotes(data, u)],
     };
@@ -519,22 +531,50 @@ export interface DexStep { id: string; filter: string; query: string }
  * the entry to scroll to and flash after the next draw, the entries whose material tree is open, and the branches
  * under a ✓ material the player unfolded (`entry:path`; those branches start folded).
  */
-export interface DexNav { filter: string; kind: string; role: string; query: string; back: DexStep[]; focus: string | null; open: string[]; unfold: string[] }
+export interface DexNav { filter: string; kind: string; role: string; query: string; back: DexStep[]; focus: string | null; open: string[]; unfold: string[]; /** 상세검색: open/closed, the 기술로 찾기 text, the 내 판 chips on */ adv: boolean; skill: string; mine: string[] }
 
 const DEX_BACK_MAX = 10;
 
 export function dexNavStart(filter = 'all'): DexNav {
-  return { filter, kind: 'all', role: 'all', query: '', back: [], focus: null, open: [], unfold: [] };
+  return { filter, kind: 'all', role: 'all', query: '', back: [], focus: null, open: [], unfold: [], adv: false, skill: '', mine: [] };
 }
 
 /** Whether a dex entry shows under a filter and search (stage 1-2 data has neither, so everything shows). */
+/** The criteria of the dex besides grade and name search; `state` is needed for `mine`. */
+export interface DexMore { kind?: string; role?: string; skill?: string; mine?: readonly string[]; state?: GameState }
+
+/** `DexNav.role` holds one role, several joined by commas ("slow,stun"), or 'all'. */
+export function roleList(role: string | undefined): string[] {
+  return !role || role === 'all' ? [] : role.split(',').filter(Boolean);
+}
+
+/** The 내 판 기준 chips: 조합 가능 (every material owned), 재료 1개 부족, 보유 재료 사용 (a material I own). */
+export const MINE_KEYS = ['ready', 'one', 'uses'] as const;
+export const MINE_LABEL: Record<string, string> = { ready: '조합 가능', one: '재료 1개 부족', uses: '보유 재료 사용' };
+
+/** Whether a unit's recipe fits a 내 판 chip on this board (units without a recipe fit none). Board and storage both count. */
+export function mineMatches(state: GameState, id: string, key: string): boolean {
+  const recipe = state.data.recipes.find(r => r.result === id);
+  if (!recipe) return false;
+  if (key === 'uses') {
+    const owned = new Set(boardUnits(state));
+    return recipe.materials.some(m => owned.has(m));
+  }
+  const missing = missingMaterials(state, id).length;
+  return key === 'ready' ? missing === 0 : key === 'one' ? missing === 1 : false;
+}
+
 export function dexShows(
-  data: GameData, entry: Pick<DexEntry, 'grade' | 'hidden' | 'name' | 'recipe'> & Partial<Pick<DexEntry, 'kind' | 'roles'>>,
-  filter: string, query: string, more: { kind?: string; role?: string } = {},
+  data: GameData, entry: Pick<DexEntry, 'grade' | 'hidden' | 'name' | 'recipe'> & Partial<Pick<DexEntry, 'kind' | 'roles' | 'search' | 'id'>>,
+  filter: string, query: string, more: DexMore = {},
 ): boolean {
   // 계열 and 역할 apply to every unit set; grade and search only where the dex has them (stage 3 data)
   if (more.kind && more.kind !== 'all' && entry.kind !== more.kind) return false;
-  if (more.role && more.role !== 'all' && !entry.roles?.some(t => t.role === more.role)) return false;
+  // several roles ("slow,stun") must all be there
+  if (!roleList(more.role).every(r => entry.roles?.some(t => t.role === r))) return false;
+  const skill = (more.skill ?? '').replace(/\s+/g, '');
+  if (skill && !entry.search?.includes(skill)) return false;
+  if (more.mine?.length && !(entry.id && more.state && more.mine.every(k => mineMatches(more.state!, entry.id!, k)))) return false;
   if (!data.balance.extendedCombat) return true;
   if (filter === 'hidden' && !entry.hidden) return false;
   if (filter !== 'all' && filter !== 'hidden' && String(entry.grade) !== filter) return false;
@@ -546,16 +586,16 @@ export function dexShows(
  * Follows a material link from `from` to `target`. When the filter or search would hide the target, the search is
  * dropped first, then the filter goes back to 전체, keeping whichever of the two still lets it show.
  */
-export function dexGo(data: GameData, nav: DexNav, target: string, from: string): DexNav {
+export function dexGo(data: GameData, nav: DexNav, target: string, from: string, state?: GameState): DexNav {
   const entry = dexEntries(data).find(e => e.id === target);
   if (!entry) return nav;
   const back = [...nav.back, { id: from, filter: nav.filter, query: nav.query }].slice(-DEX_BACK_MAX);
   const tries: [string, string][] = [[nav.filter, nav.query], [nav.filter, ''], ['all', nav.query], ['all', '']];
   // 계열/역할 stay when they show the target; otherwise they are cleared before the grade and search are given up
-  const found = tries.find(([f, q]) => dexShows(data, entry, f, q, nav));
+  const found = tries.find(([f, q]) => dexShows(data, entry, f, q, { ...nav, state }));
   if (found) return { ...nav, filter: found[0], query: found[1], back, focus: target };
   const [filter, query] = tries.find(([f, q]) => dexShows(data, entry, f, q)) ?? ['all', ''];
-  return { ...nav, filter, query, kind: 'all', role: 'all', back, focus: target };
+  return { ...nav, filter, query, kind: 'all', role: 'all', skill: '', mine: [], back, focus: target };
 }
 
 /** Goes back to the entry the last material link was followed from, with its filter and search. */

@@ -382,3 +382,16 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .recent-chip .recent-run { min-width: 0; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recent-chip .recent-del { flex: none; color: var(--ink-dim); padding: 0 4px 0 1px; }
 .recent-chip .recent-del:hover { color: var(--danger); }
+.dex-advbar { display: flex; align-items: center; gap: 6px; padding-bottom: 3px; }
+.dex-advbar button { min-height: 17px; padding: 0 6px; font-size: 10px; color: var(--ink-dim); }
+.dex-advbar button[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+.dex-mode { color: var(--accent); font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dex-adv { display: flex; flex-direction: column; gap: 3px; margin-bottom: 3px; }
+.dex-skillsearch { display: flex; gap: 4px; }
+.dex-skillsearch input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid #55485f; color: var(--ink); font: inherit; padding: 2px 5px; }
+.dex-skillsearch input::placeholder { color: #b4aabe; }
+.dex-skillsearch button { min-height: 17px; padding: 0 6px; }
+.dex-advanced .dex-odds, .dex-advanced .dex-recent { display: none; }
+/* open 상세검색 adds two rows: the window grows upward so the list keeps some room */
+#modal .dex-advanced { top: 28px; max-height: 300px; }
+.dex-advanced .dex-advbar, .dex-advanced .dex-adv, .dex-advanced .dex-filters, .dex-advanced .dex-chips, .dex-advanced .dex-top { padding-bottom: 2px; margin-bottom: 0; }

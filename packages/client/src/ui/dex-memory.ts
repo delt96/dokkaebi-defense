@@ -3,7 +3,7 @@ export const RECENT_KEY = 'dorandi.dexRecent';
 export const VIEW_KEY = 'dorandi.dexView';
 export const RECENT_MAX = 5;
 
-export interface DexView { filter: string; kind: string; role: string; query: string }
+export interface DexView { filter: string; kind: string; role: string; query: string; adv: boolean; skill: string; mine: string[] }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
 
 /** localStorage, or null when the browser denies it (private mode, blocked site data). */
@@ -42,7 +42,8 @@ export function loadView(store: Store | null = defaultStore()): DexView {
   const v = read(VIEW_KEY, store);
   const o = v && typeof v === 'object' ? v as Record<string, unknown> : {};
   const str = (x: unknown, d: string) => (typeof x === 'string' ? x : d);
-  return { filter: str(o.filter, 'all'), kind: str(o.kind, 'all'), role: str(o.role, 'all'), query: str(o.query, '') };
+  const mine = Array.isArray(o.mine) ? o.mine.filter((x): x is string => typeof x === 'string') : [];
+  return { filter: str(o.filter, 'all'), kind: str(o.kind, 'all'), role: str(o.role, 'all'), query: str(o.query, ''), adv: o.adv === true, skill: str(o.skill, ''), mine };
 }
 
 export const saveView = (view: DexView, store: Store | null = defaultStore()): void => write(VIEW_KEY, view, store);

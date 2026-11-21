@@ -162,16 +162,16 @@ describe('dex memory', () => {
   test('recent searches and the view survive a reload through storage', () => {
     const s = fake();
     saveRecent(['x', 'y'], s);
-    saveView({ filter: '5', kind: 'magical', role: 'slow', query: '짚' }, s);
+    saveView({ filter: '5', kind: 'magical', role: 'slow', query: '짚', adv: true, skill: '폭발', mine: ['ready'] }, s);
     expect(loadRecent(s)).toEqual(['x', 'y']);
-    expect(loadView(s)).toEqual({ filter: '5', kind: 'magical', role: 'slow', query: '짚' });
+    expect(loadView(s)).toEqual({ filter: '5', kind: 'magical', role: 'slow', query: '짚', adv: true, skill: '폭발', mine: ['ready'] });
   });
 
   test('without usable storage everything falls back and nothing throws', () => {
     expect(() => saveRecent(['x'], broken)).not.toThrow();
-    expect(() => saveView({ filter: 'all', kind: 'all', role: 'all', query: '' }, broken)).not.toThrow();
+    expect(() => saveView({ filter: 'all', kind: 'all', role: 'all', query: '', adv: false, skill: '', mine: [] }, broken)).not.toThrow();
     expect(loadRecent(broken)).toEqual([]);
-    expect(loadView(broken)).toEqual({ filter: 'all', kind: 'all', role: 'all', query: '' });
+    expect(loadView(broken)).toEqual({ filter: 'all', kind: 'all', role: 'all', query: '', adv: false, skill: '', mine: [] });
     expect(loadRecent(null)).toEqual([]);
     const bad = fake();
     bad.m.set(RECENT_KEY, '{oops'); bad.m.set(VIEW_KEY, '7');
