@@ -47,6 +47,10 @@ describe('20 or 60 rounds', () => {
     const net = new NetClient(room, knownDataVersions());
     net.setStage('stage3');
     expect(room.sent).toEqual([{ type: 'stage', msg: { stage: 'stage3' } }]);
+    // a ready names the round count it was pressed for, so the server can drop one that crossed a switch
+    net.ready(true, 'stage3');
+    net.ready(false);
+    expect(room.sent.slice(1)).toEqual([{ type: 'ready', msg: { ready: true, stage: 'stage3' } }, { type: 'ready', msg: { ready: false } }]);
     expect(knownDataVersions()).toEqual([stage2DataVersion(), matchDataVersion('stage3')]);
     expect(stageOfVersion(stage2DataVersion())).toBe('stage2');
     expect(stageOfVersion(matchDataVersion('stage3'))).toBe('stage3');

@@ -91,7 +91,8 @@ export class NetClient {
     return true;
   }
 
-  ready(v: boolean): void { this.room.send('ready', { ready: v }); }
+  /** `stage`: the round count shown when the button was pressed; the server drops a ready given for an old choice. */
+  ready(v: boolean, stage?: MatchStage): void { this.room.send('ready', stage ? { ready: v, stage } : { ready: v }); }
   start(): void { this.room.send('start', {}); }
   /** Host in the lobby: play 20 rounds ('stage2') or the 60-round trial ('stage3'). */
   setStage(stage: MatchStage): void { this.room.send('stage', { stage }); }

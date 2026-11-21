@@ -66,7 +66,7 @@ export function startOnline(opts: { roomId?: string }): void {
     const n = net;
     screen = 'lobby';
     renderLobby(root, msg, {
-      ready: v => n.ready(v),
+      ready: v => n.ready(v, msg.stage),
       start: () => n.start(),
       stage: s => n.setStage(s),
       copy: () => { void navigator.clipboard?.writeText(location.href).catch(() => undefined); },
