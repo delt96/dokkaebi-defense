@@ -29,6 +29,27 @@ describe('round count choice', () => {
     for (const l of [a!, b!]) expect(l.last('lobby')).toMatchObject({ stage: 'stage3', seats: [{ ready: false }, { ready: false }] });
   });
 
+  test('the switch and the cleared readies arrive in one lobby message; a ready sent for the old choice is dropped', () => {
+    const { core, links: [a, b] } = lobby(2);
+    core.message('a', 'ready', { ready: true, stage: 'stage2' });
+    core.message('b', 'ready', { ready: true, stage: 'stage2' });
+    const before = b!.all('lobby').length;
+    core.message('a', 'stage', { stage: 'stage3' });
+    expect(b!.all('lobby').length).toBe(before + 1);
+    expect(b!.last('lobby')).toMatchObject({ stage: 'stage3', seats: [{ ready: false }, { ready: false }] });
+    // the guest pressed while the switch was on its way: that press named 20 rounds
+    core.message('b', 'ready', { ready: true, stage: 'stage2' });
+    expect(core.seats.get(2)!.ready).toBe(false);
+    expect(b!.last('lobby')).toMatchObject({ stage: 'stage3', seats: [{ ready: false }, { ready: false }] });
+    core.message('b', 'ready', { ready: true, stage: 'stage3' });
+    expect(core.seats.get(2)!.ready).toBe(true);
+    // un-ready never needs the stage to match
+    core.message('b', 'ready', { ready: false, stage: 'stage2' });
+    expect(core.seats.get(2)!.ready).toBe(false);
+    core.message('a', 'start', {});
+    expect(a!.last('notice')).toEqual({ kind: 'roomError', reason: 'notReady' });
+  });
+
   test('a 60-round room starts on stage 3 data and a rejoin gets the same data version', () => {
     const { core, deps, links: [a] } = lobby(2);
     core.message('a', 'stage', { stage: 'stage3' });

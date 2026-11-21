@@ -301,16 +301,31 @@ export class RoomCore {
     link.send('full', buildFull(match, seat, { watching: this.watching[seat] ?? seat, names: this.names, key: this.keys[seat]!, n: this.n }));
   }
 
+  /**
+   * A ready sent with the round count the player saw is taken only while that is still the room's choice: a press that
+   * crosses the host's switch in flight must not mark the guest ready for a mode they never saw. A ready without
+   * `stage` (older page) keeps the old behaviour.
+   */
   private onReady(seat: number, payload: unknown): void {
-    const ready = (payload as { ready?: unknown } | null)?.ready;
+    const p = payload as { ready?: unknown; stage?: unknown } | null;
+    const ready = p?.ready;
     if (typeof ready !== 'boolean') return;
     const s = this.seats.get(seat);
-    if (!s || s.ready === ready) return;
+    if (!s) return;
+    if (ready && p?.stage !== undefined && p.stage !== this.stage) {
+      // tell the sender the current choice again; its button still says "준비"
+      this.broadcastLobby();
+      return;
+    }
+    if (s.ready === ready) return;
     s.ready = ready;
     this.broadcastLobby();
   }
 
-  /** Host only: switch the rule data. Everyone's ready is cleared, so nobody starts a mode they did not see. */
+  /**
+   * Host only: switch the rule data. The new choice and every cleared ready go out in one lobby message, so no one
+   * ever sees the new mode next to a ready given for the old one.
+   */
   private onStage(link: ClientLink, seat: number, payload: unknown): void {
     if (seat !== this.hostSeat) return this.notice(link, { kind: 'roomError', reason: 'notHost' });
     const stage = (payload as { stage?: unknown } | null)?.stage;
