@@ -33,7 +33,7 @@ describe('econView', () => {
     s.slots[0] = null;
     step(s, [{ type: 'buy', item: 'bundle' }]);
     v = econView(s)!.market!;
-    expect(v.bundle.left).toBe(1);
+    expect(v.bundle.left).toBe(d3.economy!.market!.bundle.perDay - 1);
     expect(v.deck.reduce((a, d) => a + d.left, 0)).toBe(2);
   });
 
