@@ -8,6 +8,10 @@ import {
 } from '../src/stage3/econBot';
 import { EconDriver } from '../src/stage3/econDriver';
 import { expandTree, targetBot } from '../src/stage3/targetBot';
+import {
+  configData, econMatchRun, econSummary, parseEconCsv, parseYeoksinCsv, questPair, STANDARD_CONFIGS, type EconRow,
+} from '../src/stage3/econRun';
+import { toCsvRows } from '../src/stage3/report';
 
 const d3 = loadGameData('stage3');
 const ALL: EconPolicy = { market: true, quests: true, tame: true };
@@ -161,4 +165,76 @@ function expandHas(target: string, id: string): boolean {
   const recipeOf = new Map(d3.recipes.map(r => [r.result, r]));
   const walk = (x: string): boolean => x === id || (recipeOf.get(x)?.materials ?? []).some(walk);
   return walk(target);
+}
+
+describe('six-seat grade 6 measurement', () => {
+  test('questPair cycles the six pairs of four quests', () => {
+    const pairs = [1, 2, 3, 4, 5, 6].map(s => questPair(s).join('+'));
+    expect(new Set(pairs).size).toBe(6);
+    expect(questPair(7)).toEqual(questPair(1));
+    for (const p of pairs) expect(p.split('+').length).toBe(2);
+  });
+
+  test('configData switches sections off', () => {
+    const base = configData(d3, STANDARD_CONFIGS.find(c => c.name === 'target-base')!, 1).economy!;
+    for (const k of ['market', 'drops', 'story', 'mission', 'collection', 'team', 'ssireum', 'shadow', 'tame', 'transfer'] as const) {
+      expect(base[k]).toBeUndefined();
+    }
+    expect(base.ledger).toBeDefined();
+    const q2 = configData(d3, STANDARD_CONFIGS.find(c => c.name === 'target-full-q2')!, 1).economy!;
+    const general = (['mission', 'collection', 'team', 'ssireum'] as const).filter(k => q2[k] !== undefined);
+    expect(general).toEqual(questPair(1));
+    expect(q2.market && q2.story && q2.tame && q2.transfer).toBeTruthy();
+    const nd = configData(d3, { ...STANDARD_CONFIGS[0]!, noDefeat: true }, 1);
+    expect(nd.balance.limit).toBe(1e9);
+    expect(d3.balance.limit).not.toBe(1e9);
+  });
+
+  test('econMatchRun is deterministic and counts only normal grade 6', () => {
+    const c = { ...STANDARD_CONFIGS.find(x => x.name === 'target-full')!, noDefeat: true };
+    const a = econMatchRun(d3, 1, c);
+    const b = econMatchRun(d3, 1, c);
+    expect(a).toEqual(b);
+    expect(a.rows.length).toBe(6);
+    for (const r of a.rows) {
+      expect(r.finished).toBe(true);
+      expect(r.grade6AtEnd).toBeGreaterThanOrEqual(0);
+      expect(r.endRound).toBe(60);
+    }
+    expect(a.rows.some(r => r.bundles > 0)).toBe(true);
+  }, 120_000);
+
+  test('econSummary applies the pass line on finishers only', () => {
+    const row = (g: number, finished = true, first: number | null = 30) =>
+      ({ finished, grade6AtFinal: g, firstGrade6Round: first }) as EconRow;
+    const pass = [3, 3, 3, 3, 3, 4, 4, 2, 5, 3].map(g => row(g));
+    const s = econSummary([...pass, row(0, false, null), row(0, false, null)]);
+    expect([s.finishers, s.share34, s.neverRate, s.medianCount, s.pass]).toEqual([10, 0.8, 0, 3, true]);
+    expect(s.dist).toEqual([0, 0, 1, 6, 2, 1]);
+    const fail = [3, 3, 3, 3, 4, 4, 2, 2, 5, 5].map(g => row(g));
+    expect(econSummary(fail).pass).toBe(false);
+    const never = [...pass.slice(0, 9), row(0, true, null)];
+    expect(econSummary(never).pass).toBe(false);
+  });
+
+  test('econ rows survive a CSV round trip', () => {
+    const rows = econMatchRunStub();
+    expect(parseEconCsv(toCsvRows(rows))).toEqual(rows);
+    expect(parseYeoksinCsv('seed,stage1,stage2\n1,12.5,\n2,,30\n')).toEqual([[12.5, null], [null, 30]]);
+  });
+});
+
+function econMatchRunStub(): EconRow[] {
+  return [{
+    seed: 1, config: 'target-full', bot: 'target', seat: 2, finished: true, teamOutcome: 'clear', endRound: 60,
+    grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, firstGrade6Round: 33, firstSource: 'story', storyOffers: 1, storyAward: 1,
+    buckwheat9Round: 30, buckwheat12Round: null, coins180Round: 6, coins240Round: 8,
+    bundles: 12, jars: 6, questWins: 'mission+team', tames: 1, transfersSent: 1, transfersReceived: 0, sold: 30,
+    missingAtEnd: 'moru', yeoksinKills: 4,
+  }, {
+    seed: 1, config: 'target-full', bot: 'target', seat: 3, finished: false, teamOutcome: 'clear', endRound: 41,
+    grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, firstGrade6Round: null, firstSource: null, storyOffers: 0, storyAward: 0,
+    buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
+    bundles: 0, jars: 0, questWins: '', tames: 0, transfersSent: 0, transfersReceived: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
+  }];
 }
