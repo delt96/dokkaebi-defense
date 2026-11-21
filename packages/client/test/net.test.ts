@@ -126,6 +126,16 @@ describe('NetClient', () => {
     const { full } = connected();
     expect(loadSession('room-1')).toMatchObject({ key: full.me.key });
   });
+  test('the first full tells the server the new key is stored, once per connection (final review 1)', () => {
+    const { room, full } = connected();
+    expect(room.sent).toEqual([{ type: 'keySaved', msg: {} }]);
+    room.emit('full', full);
+    expect(room.sent.filter(s => s.type === 'keySaved')).toHaveLength(1);
+    const other = new FakeRoom();
+    new NetClient(other, 'other-version');
+    other.emit('full', baseFull());
+    expect(other.sent).toEqual([{ type: 'keySaved', msg: {} }]);
+  });
   test('a resync full built before a sent command arrived does not reuse its seq', () => {
     const { room, net, full } = connected();
     net.send({ type: 'convertToken' });

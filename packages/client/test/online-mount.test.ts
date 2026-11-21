@@ -103,8 +103,63 @@ describe('online mountUi', () => {
     expect(actions.watch).toHaveBeenCalledWith(2);
   });
 
+  test('opening the helper from the menu keeps an already open helper visible', () => {
+    mountOnline();
+    key('KeyQ');
+    press(document.querySelector('[data-action="openMenu"]'));
+    press(document.querySelector('#modal [data-action="toggleHelper"]'));
+    expect(document.querySelector('.helper-pop')).not.toBeNull();
+  });
+
+  test('spectators see watch instructions instead of unusable battle controls', () => {
+    const full = fixtureFull([1, 2]);
+    full.rows[0]!.status = 'spirit';
+    mountOnline(full);
+    expect(document.querySelector('#right [data-action]')).toBeNull();
+    expect(document.querySelector('#right')!.textContent).toContain('관전');
+  });
+
+  test('the online card keeps three quick recipes and makes every recipe reachable in details', () => {
+    const full = fixtureFull();
+    ['bujigaengi', 'sotlid', 'horong', 'buchae', 'jipsin'].forEach((defId, i) => {
+      full.mine.units[i] = { id: 30 + i, defId };
+    });
+    const { room, scene } = mountOnline(full);
+    scene.select(0);
+    expect(document.querySelectorAll('#bottom [data-action="combine"]')).toHaveLength(3);
+    press(document.querySelector('#bottom [data-action="unitDetails"]'));
+    const options = document.querySelectorAll('#modal [data-action="combine"]');
+    expect(options.length).toBeGreaterThan(3);
+    press(options[3]!);
+    expect(room.cmds('combine')[0]?.args).toMatchObject({ slot: 0, unitId: 30 });
+    expect(document.querySelector('#modal .modal')).toBeNull();
+  });
+
+  test('a spirit round banner does not promise the survivor coin reward', () => {
+    const full = fixtureFull();
+    full.rows[0]!.status = 'spirit';
+    const { net, frame } = mountOnline(full);
+    net.view!.clock.round++;
+    frame();
+    const banner = document.querySelector('#round-banner')!.textContent;
+    expect(banner).toContain('2라운드');
+    expect(banner).not.toContain('냥');
+  });
+
   test('a survivor gets no watch rows (checkpoint 17-19, finding 7)', () => {
     mountOnline(fixtureFull([1, 2, 3]));
     expect(document.querySelectorAll('#left [data-action="watch"]')).toHaveLength(0);
+  });
+
+  test('the menu holds the reduce-effects switch and pressing it flips the scene setting', () => {
+    const { scene } = mountOnline();
+    const fx = Object.assign(scene, { reduceEffects: false, setReduceEffects(on: boolean) { this.reduceEffects = on; } });
+    press(document.querySelector('#top [data-action="openMenu"]'));
+    const toggle = () => document.querySelector<HTMLButtonElement>('#modal [data-action="toggleFx"]')!;
+    expect(toggle().getAttribute('aria-pressed')).toBe('false');
+    press(toggle());
+    expect(fx.reduceEffects).toBe(true);
+    expect(toggle().getAttribute('aria-pressed')).toBe('true');
+    expect(toggle().textContent).toContain('켬');
   });
 });

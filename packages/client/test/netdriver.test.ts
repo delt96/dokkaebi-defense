@@ -64,6 +64,15 @@ describe('NetDriver', () => {
     expect(s.enemies.map(e => e.id)).toEqual(view.lane.enemies.map(e => e.id));
     expect(s.enemies[0]!.d).toBeCloseTo(view.lane.enemies[0]!.d, 9);
   });
+  test('an enemy moving below its own speed reads as slowed, a stopped one as stunned (drawn by the effect layer)', () => {
+    const { view, data } = fixtureView();
+    const e = view.lane.enemies[0]!;
+    const base = data.enemies.find(d => d.id === e.defId)!.speed;
+    const at = (speed: number) => viewToGameState({ ...view, lane: { ...view.lane, enemies: [{ ...e, speed }] } }, data, view.mine.units, view.clock.tick).enemies[0]!;
+    expect(at(base).slow).toBeNull();
+    expect(at(base * 0.7).slow!.pct).toBeCloseTo(0.3, 9);
+    expect(at(0)).toMatchObject({ slow: null, stunTicks: 1 });
+  });
   test('render tick lags 2 ticks, runs at most 100 ms past schedule, never goes back', () => {
     expect(renderTickAt(1000, 50, 1000, 0)).toBe(48);
     expect(renderTickAt(1050, 50, 1000, 48)).toBe(49);

@@ -37,6 +37,8 @@ export interface Driver {
   onRemap?(cb: (ids: Map<number, number>) => void): void;
   update(elapsedMs: number): void;
   enemyDistance(id: number, d: number): number;
+  /** Online only: the drawn lane's seat is out (a spirit), so the scene greys it. */
+  laneEliminated?(): boolean;
 }
 
 export class GameDriver implements Driver {

@@ -1,8 +1,7 @@
-import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
+import { afterAll, afterEach, beforeAll, expect, test, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { performance } from 'node:perf_hooks';
 import { ColyseusTestServer } from '@colyseus/testing';
 import type { MatchRoom } from '../src/MatchRoom';
 import { createGameServer } from '../src/server';
@@ -54,24 +53,60 @@ test('unknown paths serve index.html even when the build sits under a dot folder
   expect(a.roomId).toBeTruthy();
 });
 
-test('the match runs on its own 10 ms loop: numbered updates arrive about every 100 ms', async () => {
-  const a = await colyseus.sdk.create('match', { name: '라' });
+test('the match runs on its own 10 ms loop: numbered updates go out every 100 ms of room time', async () => {
+  // Capture the room's timers so the test drives its clock itself: wall time under a busy machine says nothing.
+  const realSetInterval = globalThis.setInterval;
+  const loops: { fn: () => void; handle: ReturnType<typeof setInterval> }[] = [];
+  const spy = vi.spyOn(globalThis, 'setInterval').mockImplementation(((fn: () => void, ms?: number) => {
+    const handle = realSetInterval(fn, ms);
+    if (ms === 10) loops.push({ fn, handle });
+    return handle;
+  }) as typeof setInterval);
+  let a: Awaited<ReturnType<typeof colyseus.sdk.create>>;
+  try {
+    a = await colyseus.sdk.create('match', { name: '라' });
+  } finally {
+    spy.mockRestore();
+  }
+  // Exactly one 10 ms loop: the 50 ms patch clock is not what drives the match.
+  expect(loops).toHaveLength(1);
+  const loop = loops[0]!;
+  clearInterval(loop.handle);
+
   const room = colyseus.getRoomById<MatchRoom>(a.roomId);
+  let now = 0;
+  room.core.deps.now = () => now;
   let calls = 0;
   const advance = room.core.advance.bind(room.core);
   room.core.advance = () => { calls++; advance(); };
-  const updates: { n: number; at: number }[] = [];
-  for (const type of ['lobby', 'full', 'lane', 'mine']) a.onMessage(type, () => {});
-  a.onMessage('tick', (m: { n: number }) => updates.push({ n: m.n, at: performance.now() }));
-  a.send('ready', { ready: true }); a.send('start', {});
-  await new Promise(res => setTimeout(res, 50));
-  calls = 0;
-  await new Promise(res => setTimeout(res, 1000));
+  const sent: { n: number; at: number }[] = [];
+  const server = room.clients.getById(a.sessionId)!;
+  const send = server.send.bind(server);
+  server.send = ((type: string, msg: { n: number }, ...rest: unknown[]) => {
+    if (type === 'tick') sent.push({ n: msg.n, at: now });
+    return (send as (...args: unknown[]) => void)(type, msg, ...rest);
+  }) as typeof server.send;
 
-  // A 10 ms loop calls advance() well over 40 times a second; riding the 50 ms patch clock gives about 20.
-  expect(calls).toBeGreaterThanOrEqual(40);
-  expect(updates.length).toBeGreaterThanOrEqual(8);
-  expect(updates.map(u => u.n)).toEqual(updates.map((_, i) => i + 1));
-  const gaps = updates.slice(1).map((u, i) => u.at - updates[i]!.at);
-  expect(Math.max(...gaps)).toBeLessThanOrEqual(160);
+  const received: number[] = [];
+  for (const type of ['lobby', 'lane', 'mine']) a.onMessage(type, () => {});
+  const full = new Promise(res => a.onMessage('full', res));
+  a.onMessage('tick', (m: { n: number }) => received.push(m.n));
+  a.send('ready', { ready: true }); a.send('start', {});
+  await full;
+
+  // Nothing ticks the match while its loop is stopped.
+  await new Promise(res => setTimeout(res, 120));
+  expect(calls).toBe(0);
+  expect(sent).toHaveLength(0);
+
+  // One second of room time: 100 loop steps, 20 ticks, one numbered update every second tick.
+  for (let i = 0; i < 100; i++) { now += 10; loop.fn(); }
+  expect(calls).toBe(100);
+  expect(sent.map(u => u.n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  expect(sent.slice(1).map((u, i) => u.at - sent[i]!.at)).toEqual(Array(9).fill(100));
+
+  // And every one of them reaches the client, in order.
+  const until = Date.now() + 2000;
+  while (received.length < sent.length && Date.now() < until) await new Promise(res => setTimeout(res, 10));
+  expect(received).toEqual(sent.map(u => u.n));
 });

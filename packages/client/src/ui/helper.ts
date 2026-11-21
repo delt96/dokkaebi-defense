@@ -16,11 +16,17 @@ export function helperPopHtml(state: GameState): string {
     <ul class="helper">${helperItems(state)}</ul></div>`;
 }
 
-export function renderHelper(state: GameState, expanded: boolean): void {
+/** The 'reduce effects' switch (stored per browser); in the left panel alone, in the online menu. */
+export function fxToggleHtml(reduced: boolean): string {
+  return `<button class="fx-toggle" data-action="toggleFx" aria-pressed="${reduced}">효과 줄이기 ${reduced ? '켬' : '끔'}</button>`;
+}
+
+export function renderHelper(state: GameState, expanded: boolean, reducedFx = false): void {
   const items = helperModel(state);
   const list = expanded ? helperItems(state) : '';
   setHtml(el('left'), `
     <button class="panel-title" data-action="toggleHelper">조합 도우미 ${expanded ? '▾' : '▸'} <em>${items.length}</em></button>
     <ul class="helper">${list}</ul>
-    <button class="dex-open" data-action="openDex">도감</button>`);
+    <button class="dex-open" data-action="openDex">도감</button>
+    ${fxToggleHtml(reducedFx)}`);
 }

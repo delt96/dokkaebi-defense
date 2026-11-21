@@ -32,7 +32,7 @@ describe('stage 2 data', () => {
     expect(d2.recipes.find(r => r.result === 'dadeumitdol')!.materials).toEqual(['dadeumi', 'dadeumi']);
     expect(d2.enemies.find(e => e.id === 'yeoksin2')).toMatchObject({ shared: true, boss: false, speed: 2 });
     expect(d2.coop).toMatchObject({ hpPerExtraPlayer: 0.1, staySeconds: 12, topDamageBonus: 10, danger: 48,
-      yeoksin: [{ stage: 1, startRound: 6, deadlineRound: 9, baseHp: 8000, startIndex: 0 }, { stage: 2, startRound: 15, deadlineRound: 19, baseHp: 30000, startIndex: 1 }] });
+      yeoksin: [{ stage: 1, startRound: 6, deadlineRound: 9, baseHp: 10700, startIndex: 0 }, { stage: 2, startRound: 15, deadlineRound: 19, baseHp: 33000, startIndex: 1 }] });
   });
   test('plan Task 3 table: every added unit and recipe', () => {
     const T: [string, number, string, number, number, number, Array<{ kind: string; p?: number; n?: number }>, string[]][] = [

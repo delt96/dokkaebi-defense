@@ -11,7 +11,7 @@ import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
 import { renderAlert, renderHud } from './hud';
 import { activeNotice, nextUnitId, rejectText, selectedSlot, type Notice } from './models';
-import { renderBottom, renderRight, upgradesHtml } from './panels';
+import { renderBottom, renderRight, unitDetailsHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
@@ -36,7 +36,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let displayedCard: ReturnType<typeof renderBottom> | null = null;
   let banner: Notice | null = null;
   let helperOpen = false;
-  let modal: 'dex' | 'upgrades' | 'menu' | 'forfeit' | null = null;
+  let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | null = null;
   let best: { id: string; grade: number } | null = null;
   let notice: Notice | null = null;
 
@@ -52,6 +52,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       case 'convert': driver.queue({ type: 'convertToken' }); break;
       case 'combine': {
+        if (modal === 'unitDetails') modal = null;
         const [result = '', target] = arg.split('@');
         if (target === undefined) driver.queue({ type: 'combine', result });
         else {
@@ -67,6 +68,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       }
       case 'upgrade': driver.queue({ type: 'upgrade', id: arg as UpgradeId }); break;
       case 'toggleHelper':
+        if (modal === 'menu' && helperOpen) { modal = null; break; }
         helperOpen = !helperOpen;
         if (modal === 'menu') modal = null;
         if (helperOpen && !driver.readOnly) driver.queue({ type: 'helperOpened' });
@@ -76,9 +78,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'openMenu': modal = 'menu'; break;
       case 'askForfeit': modal = 'forfeit'; break;
       case 'forfeit': opts.actions?.forfeit(); modal = null; break;
+      case 'unitDetails': modal = 'unitDetails'; break;
       case 'openDex': modal = 'dex'; break;
       case 'openUpgrades': modal = 'upgrades'; break;
       case 'closeModal': modal = null; break;
+      case 'toggleFx': scene.setReduceEffects(!scene.reduceEffects); break;
       case 'restart': hooks.onRestart?.(); break;
     }
     render();
@@ -104,7 +108,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (event.type === 'roundStart') {
         const wave = driver.state.data.waves.find(w => w.round === event.round);
         const boss = wave?.type === 'boss' && driver.state.data.enemies.find(e => e.id === wave.boss);
-        const reward = event.round > 1 ? `${event.round - 1}라운드 종료 · +${driver.state.data.balance.coins.roundEnd}냥` : '';
+        const reward = event.round > 1 && !driver.readOnly ? `${event.round - 1}라운드 종료 · +${driver.state.data.balance.coins.roundEnd}냥` : '';
         const title = `${event.round}라운드${boss ? ' · 고개 보스: ' + boss.name : ''}`;
         banner = { text: [reward, title].filter(Boolean).join('\n'), until: performance.now() + 1800 };
       }
@@ -172,21 +176,24 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      renderHelper(s, helperOpen);
+      renderHelper(s, helperOpen, scene.reduceEffects);
     }
     el('round-banner').textContent = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? (view ? activeNotice(notice, now) ?? '' : '');
-    renderRight(s, view ? { online: !driver.readOnly, notices: rightNotices(now) } : {});
+    if (view && driver.readOnly) {
+      setHtml(el('right'), '<b class="watch-heading">고개 관전</b><p class="watch-hint">왼쪽에서 살아 있는 고개를 고르세요. 아래 카드로 엽전을 보낼 수 있습니다.</p>');
+    } else renderRight(s, view ? { online: true, notices: rightNotices(now) } : {});
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');
     const spiritCard = view && opts.data ? spiritCardHtml(view, opts.data) : null;
     if (spiritCard) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), spiritCard);
-    } else displayedCard = renderBottom(s, selected);
+    } else displayedCard = renderBottom(s, selected, online);
+    if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
     const dialogOpen = modal !== null || soloResult;
     for (const id of ['top', 'left', 'right', 'bottom', 'lane']) el(id).inert = dialogOpen;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
     hooks.onRender?.();
   }
 

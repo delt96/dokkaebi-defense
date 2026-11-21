@@ -1,7 +1,7 @@
 {
   "yeoksin": [
-    {"stage": 1, "enemy": "yeoksin1", "startRound": 6, "deadlineRound": 9, "baseHp": 8000, "startIndex": 0},
-    {"stage": 2, "enemy": "yeoksin2", "startRound": 15, "deadlineRound": 19, "baseHp": 30000, "startIndex": 1}
+    {"stage": 1, "enemy": "yeoksin1", "startRound": 6, "deadlineRound": 9, "baseHp": 10700, "startIndex": 0},
+    {"stage": 2, "enemy": "yeoksin2", "startRound": 15, "deadlineRound": 19, "baseHp": 33000, "startIndex": 1}
   ],
   "hpPerExtraPlayer": 0.1, "staySeconds": 12,
   "killReward": {"coins": 15, "buckwheat": 1}, "topDamageBonus": 10,
