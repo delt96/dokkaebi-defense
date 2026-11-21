@@ -301,7 +301,7 @@ describe('market hotkey', () => {
     frame();
     // the open helper stays; the request waits behind a mark
     expect(panel()).toBe('');
-    expect(document.getElementById('left')!.textContent).toContain('조합 도우미 ▾');
+    expect(document.getElementById('left')!.textContent).toContain('조합 도우미 (Q) ▾');
     expect(document.querySelector('.market-btn .badge')?.textContent).toBe('의뢰');
     press(document.querySelector('.market-btn'));
     expect(document.querySelector('.econ-head .unread')?.textContent).toBe('의뢰 !');

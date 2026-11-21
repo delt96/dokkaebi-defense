@@ -47,6 +47,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   scene.selectedId = null;
   let displayedCard: ReturnType<typeof renderBottom> | null = null;
   let banner: Notice | null = null;
+  let dexQuery = '';
+  let dexFilter = 'all';
   let helperOpen = false;
   let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | null = null;
   let best: { id: string; grade: number } | null = null;
@@ -140,17 +142,30 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'askForfeit': modal = 'forfeit'; break;
       case 'forfeit': opts.actions?.forfeit(); modal = null; break;
       case 'unitDetails': modal = 'unitDetails'; break;
-      case 'openDex': modal = 'dex'; break;
+      case 'openDex': dexQuery = ''; dexFilter = arg === 'story' ? '6' : 'all'; modal = 'dex'; break;
+      case 'dexFilter':
+        dexQuery = el('modal').querySelector<HTMLInputElement>('.dex-search input')?.value.trim() ?? '';
+        dexFilter = arg;
+        break;
       case 'openUpgrades': modal = 'upgrades'; break;
       case 'closeModal': modal = null; break;
       case 'toggleFx': scene.setReduceEffects(!scene.reduceEffects); break;
       case 'restart': hooks.onRestart?.(); break;
     }
     render();
+    if (action === 'dexFilter') el('modal').querySelector<HTMLButtonElement>('.dex-filters [aria-pressed="true"]')?.focus();
     if (modal && modal !== previousModal) el('modal').querySelector<HTMLButtonElement>('button')?.focus();
   };
 
   for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-panel', 'econ-top', 'econ-bottom']) onAction(el(id), act);
+  el('modal').addEventListener('submit', ev => {
+    const form = ev.target as HTMLFormElement;
+    if (!form.matches('.dex-search')) return;
+    ev.preventDefault();
+    dexQuery = String(new FormData(form).get('query') ?? '').trim();
+    render();
+    el('modal').querySelector<HTMLInputElement>('.dex-search input')?.focus();
+  });
   scene.onSelect(slot => {
     if (modal || driver.failed || driver.state.phase === 'ended') return;
     // while a delivery waits, a press on an empty cell picks where it lands
@@ -220,6 +235,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   });
 
   window.addEventListener('keydown', ev => {
+    if (modal === 'dex' && ev.code === 'Escape' && !ev.isComposing && (ev.target as HTMLElement)?.closest?.('.dex-search')) {
+      ev.preventDefault();
+      act('closeModal', '');
+      return;
+    }
     if (isTypingTarget(ev)) return;
     if (driver.failed || ev.defaultPrevented || ev.isComposing || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
     const target = ev.target as HTMLElement | null;
@@ -293,7 +313,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const soloResult = !online && s.phase === 'ended';
     const dialogOpen = modal !== null || soloResult;
     for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom']) el(id).inert = dialogOpen;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : modal === 'dex' ? dexHtml(s.data, dexStory()) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : modal === 'dex' ? dexHtml(s.data, dexStory(), dexFilter, dexQuery) : modal === 'upgrades' ? upgradesHtml(s) : '');
     hooks.onRender?.();
   }
 
