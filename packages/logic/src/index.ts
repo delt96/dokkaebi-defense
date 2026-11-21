@@ -12,6 +12,7 @@ export { spawnEventEnemy, type EventKind } from './econ/events';
 export { onCollectionCombine } from './econ/quests';
 export { storySlots, storyView, type StoryView } from './econ/story';
 export { pickResultSlot } from './combine';
+export { tameCheck } from './econ/tame';
 export { createGame, step, laneOf, applyCommand, runAfterCommandHooks, runCombat } from './game';
 export {
   spawnDue, payRoundEnd, trackLimit, startRound, spawnEnemy, moveEnemies, finishGame,

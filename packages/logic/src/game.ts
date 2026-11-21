@@ -13,6 +13,7 @@ import './upgrades';
 import './econ/market';
 import './econ/quests';
 import './econ/story';
+import './econ/tame';
 
 export { laneOf } from './lane';
 export { registerAfterCommands, registerCommand, registerPhase } from './registry';
