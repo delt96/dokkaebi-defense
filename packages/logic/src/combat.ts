@@ -119,7 +119,7 @@ export function resolveKills(state: GameState, events: GameEvent[], opts: { fina
       const st = statsForRound(state, state.round);
       if (st) st.bossKillSeconds = (state.tick - state.roundStartTick) / TICKS_PER_SECOND;
       if (finalClear && state.round >= b.rounds) finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
-      if (state.econ) econBossKill(state, events);
+      if (state.econ) econBossKill(state, e.round, events);
     } else {
       state.coins += b.coins.perKill;
       if (state.econ) state.econ.roundKills++;

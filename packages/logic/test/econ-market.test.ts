@@ -3,7 +3,7 @@ import {
   applyCommand, canonicalJson, createGame, createMatch, loadGameData, marketDay, marketView, roundStartTick, step, stepMatch,
   type GameData, type GameState,
 } from '../src/index';
-import { forceRound, makeData, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
+import { forceRound, jumpToTick, makeData, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
 
 const d3 = loadGameData('stage3');
 const gradeOf = (d: GameData, id: string) => d.units.find(u => u.id === id)!.grade;
@@ -234,6 +234,22 @@ describe('market in a match and boss drops', () => {
     step(full, [{ type: 'sell', slot: 0 }]);
     expect(full.econ!.pendingDrops.length).toBe(0);
     expect(gradeOf(d3, full.slots[0]!.defId)).toBe(3);
+  });
+
+  test('a round 20 boss killed after the shared clock enters 21 still drops its material', () => {
+    const m = createMatch(d3, 1, [1, 2]);
+    jumpToTick(m, roundStartTick(d3, 20));
+    stepMatch(m, []);
+    const lane = m.lanes[1]!;
+    const boss = lane.enemies.find(e => e.boss)!;
+    m.tick = roundStartTick(d3, 21) - 1;
+    m.seats[1]!.bosses[20]!.ticksLeft = 1;
+    stepMatch(m, [{ seat: 1, seq: 0, cmd: { type: 'disconnect' } }]);
+    boss.hp = 0;
+    const r = stepMatch(m, []);
+    expect(m.round).toBe(21);
+    expect(r.events).toContainEqual({ type: 'bossKilled', seat: 1, round: 20 });
+    expect(units(lane).map(u => gradeOf(d3, u.defId))).toEqual([3]);
   });
 
   test('round 50 drops a grade-2 unit', () => {

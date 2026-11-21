@@ -101,10 +101,10 @@ registerCommand('buy', (state, cmd, events) => {
   return 'badArgs';
 });
 
-/** Boss-kill drop for the current round, placed now or queued for the next free slot. */
-export function bossDrop(state: GameState, events: GameEvent[]): void {
+/** Boss-kill drop for the boss's spawn round, placed now or queued for the next free slot. */
+export function bossDrop(state: GameState, events: GameEvent[], round = state.round): void {
   const econ = state.econ!;
-  const drop = state.data.economy?.drops?.find(d => d.round === state.round);
+  const drop = state.data.economy?.drops?.find(d => d.round === round);
   if (!drop) return;
   const defId = pickNormal(state, drop.grade, econ.rng.drop);
   if (!receive(state, defId, events, gradeValue(drop.grade))) econ.pendingDrops.push(defId);

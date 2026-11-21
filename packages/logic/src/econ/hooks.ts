@@ -31,6 +31,6 @@ export function econEventKill(state: GameState, enemy: Enemy, events: GameEvent[
   return true;
 }
 
-export function econBossKill(state: GameState, events: GameEvent[]): void {
-  bossDrop(state, events);
+export function econBossKill(state: GameState, round: number, events: GameEvent[]): void {
+  bossDrop(state, events, round);
 }
