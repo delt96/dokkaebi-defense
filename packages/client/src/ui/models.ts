@@ -379,7 +379,16 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
   });
 }
 
-export function unitCard(state: GameState, slot: number): { name: string; grade: number; typeText: '물딜' | '마딜'; skillText: string; notes: string[]; usedIn: string[]; attack: number; interval: number; range: number; sellPrice: number } | null {
+/**
+ * What the bottom card and the 상세 window show for a board unit. `attack` and `interval` already count upgrades and auras;
+ * `attackBonus` / `speedBonus` are those bonuses as fractions (0.3 = +30%). `hidden`: a stage 3 unit tamed from a boss.
+ */
+export interface UnitCard {
+  name: string; grade: number; hidden: boolean; typeText: '물딜' | '마딜'; skillText: string; notes: string[]; usedIn: string[]; roles: RoleTag[];
+  attack: number; attackBonus: number; interval: number; speedBonus: number; range: number; sellPrice: number;
+}
+
+export function unitCard(state: GameState, slot: number): UnitCard | null {
   const unit = state.slots[slot];
   if (!unit) return null;
   const def = unitDefFast(state.data, unit.defId);
@@ -389,11 +398,14 @@ export function unitCard(state: GameState, slot: number): { name: string; grade:
     const name = unitDefFast(state.data, r.result).name;
     if (!usedIn.includes(name)) usedIn.push(name);
   }
+  const attackBonus = damageBonus(state, slot);
+  const fast = speedBonus(state, slot);
   return {
-    name: def.name, grade: def.grade, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
-    attack: Math.round(unitAttack(def, state.data.balance) * (1 + damageBonus(state, slot))),
-    interval: attackIntervalTicks(def.interval, speedBonus(state, slot)) * state.data.balance.tickMs / 1000,
-    range: def.range, skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
+    name: def.name, grade: def.grade, hidden: def.hidden === true, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
+    attack: Math.round(unitAttack(def, state.data.balance) * (1 + attackBonus)), attackBonus,
+    interval: attackIntervalTicks(def.interval, fast) * state.data.balance.tickMs / 1000, speedBonus: fast,
+    range: def.range, skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, roles: unitRoles(def),
+    sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
   };
 }
 
