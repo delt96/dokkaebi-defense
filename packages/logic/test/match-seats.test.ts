@@ -25,7 +25,7 @@ describe('elimination', () => {
     const a = createMatch(data, 1, [1]); jumpToTick(a, 7800); stepMatch(a, []);
     expect(a.seats[1]!.bosses[10]).toMatchObject({ status: 'fighting', ticksLeft: 1499 });
     stepMatchUntil(a, 9299);
-    expect(a.seats[1]!.bosses[10].ticksLeft).toBe(1);
+    expect(a.seats[1]!.bosses[10]!.ticksLeft).toBe(1);
     killBoss(a, 1); stepMatch(a, []);
     expect(a.seats[1]).toMatchObject({ alive: true, bosses: { 10: { status: 'killed', ticksLeft: 1 } } });
     const b = createMatch(data, 1, [1]); jumpToTick(b, 7800);
@@ -159,7 +159,7 @@ describe('support', () => {
 describe('team result', () => {
   const atFinal = (seats: number[]) => {
     const m = createMatch(data, 1, seats);
-    for (const s of seats) m.seats[s]!.bosses[10].status = 'killed';
+    for (const s of seats) m.seats[s]!.bosses[10]!.status = 'killed';
     jumpToTick(m, 16500); stepMatch(m, []);
     return m;
   };

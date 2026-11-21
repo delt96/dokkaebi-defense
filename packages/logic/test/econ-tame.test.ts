@@ -167,13 +167,13 @@ describe('taming', () => {
     stepMatch(m, []);
     const lane1 = m.lanes[1]!;
     const boss = lane1.enemies.find(e => e.defId === 'gangcheori')!;
-    expect(m.seats[1]!.bosses[20].status).toBe('fighting');
+    expect(m.seats[1]!.bosses[20]!.status).toBe('fighting');
     boss.hp = 3000;
     boss.slow = { pct: 0.3, ticks: 40 };
     lane1.buckwheat = 1;
     const r = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'tame', enemyId: boss.id } }]);
     expect(r.acks[0]).toMatchObject({ ok: true });
-    expect(m.seats[1]!.bosses[20].status).toBe('killed');
+    expect(m.seats[1]!.bosses[20]!.status).toBe('killed');
     expect(r.events).toContainEqual({ type: 'bossKilled', seat: 1, round: 20 });
   });
 });

@@ -4,6 +4,8 @@ import { createGame } from '../game';
 import { deriveSeed } from '../rng';
 import { canonicalJson, fnv1a } from '../hash';
 import { roundStartTick } from './schedule';
+import { bossRounds } from './seats';
+import { createMatchEcon } from './econ';
 
 const MAX_SEAT = 6;
 
@@ -13,13 +15,15 @@ export function laneSeed(seed: number, seat: number): number {
 
 const freshBoss = (): BossClock => ({ status: 'pending', ticksLeft: 0, pausedTicks: 0, enemyId: null });
 
-function freshSeat(seat: number): SeatState {
+function freshSeat(seat: number, data: GameData): SeatState {
+  const bosses: Record<number, BossClock> = {};
+  for (const r of bossRounds(data)) bosses[r] = freshBoss();
   return {
     seat, alive: true, connected: true, disconnectTick: null,
-    bosses: { 10: freshBoss(), 20: freshBoss() },
+    bosses,
     supportTokens: 0, receivedThisRound: false, supportSent: 0, supportReceived: 0,
     bestUnit: null, record: null,
-    yeoksinDamage: [0, 0],
+    yeoksinDamage: (data.coop?.yeoksin ?? []).map(() => 0),
     lastSeq: 0,
   };
 }
@@ -34,14 +38,16 @@ export function createMatch(data: GameData, seed: number, seats: number[], optio
   const seatStates: Record<number, SeatState> = {};
   for (const s of ring) {
     lanes[s] = createGame(data, laneSeed(seed, s));
-    seatStates[s] = freshSeat(s);
+    seatStates[s] = freshSeat(s, data);
   }
-  return {
+  const match: MatchState = {
     data, dataVersion: fnv1a(canonicalJson(data, new Set())), seed, ring,
     tick: 0, phase: 'prep', round: 0, roundStartTick: 0, roundEndTick: roundStartTick(data, 1),
     lanes, seats: seatStates,
     yeoksin: null, yeoksinKills: 0, result: null, options,
   };
+  if (data.economy) match.econ = createMatchEcon(seed);
+  return match;
 }
 
 export function matchHash(match: MatchState): string {

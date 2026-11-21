@@ -1,4 +1,4 @@
-import type { CoopDef, GameState, RejectReason } from '../types';
+import type { CoopDef, GameData, GameState, RejectReason } from '../types';
 import type {
   BossClock, EliminationCause, MatchInput, MatchResult, MatchState, SeatRecord, SeatResult, SeatState, StepMatchResult,
   TeamOutcome,
@@ -8,16 +8,30 @@ import { countNormalEnemies, currentStats } from '../stats';
 import { roundStartTick } from './schedule';
 import { gateFailed } from './yeoksin';
 
-const BOSS_ROUNDS = [10, 20] as const;
-
 const coopOf = (match: MatchState): CoopDef => match.data.coop!;
 
-function bossClocks(seat: SeatState): BossClock[] {
-  return BOSS_ROUNDS.map(r => seat.bosses[r]);
+const bossRoundCache = new WeakMap<GameData, number[]>();
+
+/** Rounds whose wave is a lane boss, ascending (stage 2: [10, 20]). */
+export function bossRounds(data: GameData): number[] {
+  let rounds = bossRoundCache.get(data);
+  if (!rounds) {
+    rounds = data.waves.filter(w => w.type === 'boss').map(w => w.round).sort((a, b) => a - b);
+    bossRoundCache.set(data, rounds);
+  }
+  return rounds;
 }
 
-function bothBossesKilled(seat: SeatState): boolean {
+function bossClocks(seat: SeatState): BossClock[] {
+  return Object.values(seat.bosses);
+}
+
+function seatBossesKilled(seat: SeatState): boolean {
   return bossClocks(seat).every(c => c.status === 'killed');
+}
+
+export function allBossesKilled(match: MatchState, seat: number): boolean {
+  return seatBossesKilled(match.seats[seat]!);
 }
 
 function aliveCount(match: MatchState): number {
@@ -132,7 +146,7 @@ export function seatsOnRoundStart(match: MatchState): void {
   }
 }
 
-export function onBossSpawned(match: MatchState, seat: number, round: 10 | 20, enemyId: number, ctx: StepMatchResult): void {
+export function onBossSpawned(match: MatchState, seat: number, round: number, enemyId: number, ctx: StepMatchResult): void {
   match.seats[seat]!.bosses[round] = {
     status: 'fighting', ticksLeft: toTicks(match.data.balance.bossRoundSeconds), pausedTicks: 0, enemyId,
   };
@@ -146,8 +160,8 @@ export function seatsAfterLane(match: MatchState, seat: number, ctx: StepMatchRe
   for (let i = step.combatStart; i < step.events.length; i++) {
     const e = step.events[i]!;
     if (e.type !== 'kill') continue;
-    for (const round of BOSS_ROUNDS) {
-      const clock = st.bosses[round];
+    for (const [key, clock] of Object.entries(st.bosses)) {
+      const round = Number(key);
       if (clock.status === 'fighting' && clock.enemyId === e.enemyId) {
         clock.status = 'killed';
         ctx.events.push({ type: 'bossKilled', seat, round });
@@ -189,19 +203,19 @@ function seatResult(match: MatchState, seat: number, outcome: TeamOutcome): Seat
   const r = seatRecord(match, seat);
   return {
     seat,
-    outcome: outcome === 'gate' ? 'aliveTeamLoss' : bothBossesKilled(st) ? 'finished' : 'unfinished',
+    outcome: outcome === 'gate' ? 'aliveTeamLoss' : seatBossesKilled(st) ? 'finished' : 'unfinished',
     cause: null, round: r.round, lastEnemies: r.lastEnemies, maxEnemies: r.maxEnemies,
     series: r.series, bestUnit: st.bestUnit, yeoksinDamage, helperOpens: r.helperOpens,
   };
 }
 
 function teamOutcome(match: MatchState, t: number): TeamOutcome | null {
-  if (gateFailed(match, t)) return 'gate';
+  if (!match.options.noGate && gateFailed(match, t)) return 'gate';
   const alive = match.ring.filter(s => match.seats[s]!.alive);
   if (alive.length === 0) return 'wipe';
-  if (alive.every(s => bothBossesKilled(match.seats[s]!))) return 'clear';
+  if (alive.every(s => seatBossesKilled(match.seats[s]!))) return 'clear';
   if (t === roundStartTick(match.data, match.data.balance.rounds + 1) - 1) {
-    return alive.some(s => bothBossesKilled(match.seats[s]!)) ? 'clear' : 'wipe';
+    return alive.some(s => seatBossesKilled(match.seats[s]!)) ? 'clear' : 'wipe';
   }
   return null;
 }

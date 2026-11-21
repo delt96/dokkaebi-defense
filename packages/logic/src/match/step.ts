@@ -9,6 +9,8 @@ import {
   applySeatCommand, decideResult, expireDisconnects, judgeSeats, onBossSpawned, seatsAfterLane, seatsOnRoundStart,
 } from './seats';
 import { yeoksinAfterLane, yeoksinPosition, yeoksinStep2 } from './yeoksin';
+import { matchEconRoundEnd, matchEconRoundStart } from './econ';
+import { econRoundEnd } from '../econ/hooks';
 
 const SEAT_COMMANDS: ReadonlySet<string> = new Set(['support', 'forfeit', 'disconnect', 'reconnect']);
 
@@ -113,6 +115,7 @@ export function stepMatch(match: MatchState, inputs: MatchInput[]): StepMatchRes
     seatsOnRoundStart(match);
     for (const seat of aliveSeats(match)) startRound(match.lanes[seat]!, round, laneStep(ctx, seat).events);
     ctx.events.push({ type: 'roundStart', round });
+    if (match.econ) matchEconRoundStart(match, ctx);
   }
   if (match.phase === 'round') {
     for (const seat of aliveSeats(match)) {
@@ -125,7 +128,7 @@ export function stepMatch(match: MatchState, inputs: MatchInput[]): StepMatchRes
         const e = events[i]!;
         if (e.type !== 'spawn') continue;
         const enemy = lane.enemies.find(x => x.id === e.enemyId);
-        if (enemy?.boss) onBossSpawned(match, seat, match.round as 10 | 20, enemy.id, ctx);
+        if (enemy?.boss) onBossSpawned(match, seat, match.round, enemy.id, ctx);
       }
     }
   }
@@ -156,6 +159,13 @@ export function stepMatch(match: MatchState, inputs: MatchInput[]): StepMatchRes
     }
   }
   judgeSeats(match, overLimit, ctx);
+  if (lastTickOfRound) {
+    for (const seat of aliveSeats(match)) {
+      const lane = match.lanes[seat]!;
+      if (lane.econ) econRoundEnd(lane, laneStep(ctx, seat).events);
+    }
+    if (match.econ) matchEconRoundEnd(match, ctx);
+  }
 
   // 5. round-end income, team result, advance the shared clock
   if (lastTickOfRound) for (const seat of aliveSeats(match)) match.lanes[seat]!.coins += b.coins.roundEnd;

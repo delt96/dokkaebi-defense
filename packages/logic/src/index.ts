@@ -27,6 +27,8 @@ export * from './hash';
 export * from './match/types';
 export { roundStartTick } from './match/schedule';
 export { createMatch, laneSeed, matchHash } from './match/create';
+export { bossRounds, allBossesKilled } from './match/seats';
+export { createMatchEcon, matchEconRoundStart, matchEconRoundEnd } from './match/econ';
 export { stepMatch } from './match/step';
 export { replayMatch, type InputLogEntry } from './match/replay';
 export { gateDeadlineTick, nextAliveSeat } from './match/yeoksin';

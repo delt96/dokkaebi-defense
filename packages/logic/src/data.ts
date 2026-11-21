@@ -17,6 +17,7 @@ import waves3 from '../data/stage3/waves.json';
 import balance3 from '../data/stage3/balance.json';
 import onBasicHit3 from '../data/stage3/onBasicHit.json';
 import economy3 from '../data/stage3/economy.json';
+import coop3 from '../data/stage3/coop.json';
 
 export function loadGameData(stage: 'stage1' | 'stage2' | 'stage3' = 'stage1'): GameData {
   if (stage === 'stage1') return structuredClone({ units, recipes, enemies, waves, balance, upgrades }) as GameData;
@@ -32,7 +33,7 @@ export function loadGameData(stage: 'stage1' | 'stage2' | 'stage3' = 'stage1'): 
     waves: three ? waves3 : waves,
     balance: three ? { ...balance, ...balance2, ...balance3 } : { ...balance, ...balance2 },
     upgrades,
-    coop: coop2 as CoopDef,
+    coop: (three ? { ...coop2, ...coop3 } : coop2) as CoopDef,
   }) as GameData;
   if (three) {
     const byId = new Map(data.units.map(u => [u.id, u]));
