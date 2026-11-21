@@ -8,7 +8,7 @@ function helperItems(state: GameState): string {
   return items.length
     ? items.map(i => {
       const note = i.short ? `<small class="combine-short">${esc(i.short)}</small>` : i.cost ? `<small class="combine-cost">${esc(i.cost)}</small>` : '';
-      return `<li><span class="dot" style="background:${GRADE_COLOR[i.grade]}"></span>${esc(i.name)}${note}<button data-action="combine" data-arg="${esc(i.recipe)}"${i.short ? ` disabled title="${esc(i.short)}"` : ''}>조합</button></li>`;
+      return `<li><span class="dot" style="background:${GRADE_COLOR[i.grade]}"></span>${esc(i.name)}<button data-action="combine" data-arg="${esc(i.recipe)}"${i.short ? ` disabled title="${esc(i.short)}"` : ''}>조합</button>${note}</li>`;
     }).join('')
     : '<li class="empty">지금 만들 수 있는 것이 없습니다</li>';
 }

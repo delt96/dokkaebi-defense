@@ -28,7 +28,7 @@ function recipeHtml(option: CombineOption, unitId: number | null): string {
   }
   // every material is there but not the cost: the button stays, disabled, and says what is missing
   if (option.short) {
-    return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" disabled title="${esc(option.short)}">${esc(option.name)} · <span class="combine-short">${esc(option.short)}</span></button>`;
+    return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="combine-blocked" disabled title="${esc(option.short)}">${esc(option.name)} · <span class="combine-short">${esc(option.short)}</span></button>`;
   }
   const cost = option.cost ? ` · <span class="combine-cost">${esc(option.cost)}</span>` : '';
   return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}"${option.cost ? ` title="비용 ${esc(option.cost)}"` : ''}>${option.key ? `[${option.key}] ` : ''}${esc(option.name)}${cost}</button>`;
@@ -51,7 +51,8 @@ export function renderBottom(state: GameState, selected: number | null, online =
   const card = selected === null ? null : unitCard(state, selected);
   const unitId = selected === null ? null : state.slots[selected]?.id ?? null;
   const recipes = selected === null ? [] : combineOptions(state, selected);
-  const quick = online ? recipes.filter(option => option.key !== null) : recipes;
+  // online, and solo on the 60-round data (its card has 상세), the card lists only what can be pressed now or is short of its cost
+  const quick = online || state.data.balance.extendedCombat ? recipes.filter(option => option.key !== null || option.short) : recipes;
   const options = quick.map(option => recipeHtml(option, unitId)).join('');
   setHtml(el('bottom'), card
     ? `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>

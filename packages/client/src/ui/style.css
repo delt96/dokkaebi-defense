@@ -209,8 +209,12 @@ body.online #right .notices { border-left: 2px solid var(--accent); padding: 4px
 .card-notes li { margin: 0; }
 .combine-cost { color: #c9b98a; }
 .combine-short { color: #ffab99; }
-.helper li small { font-size: 9px; margin-left: 2px; white-space: nowrap; }
+button.combine-blocked[disabled] { opacity: 0.85; border-style: dashed; color: var(--ink-dim); }
+.helper li:has(small) { flex-wrap: wrap; white-space: nowrap; row-gap: 0; }
+.helper li small { flex-basis: 100%; padding-left: 9px; font-size: 9px; line-height: 1.2; white-space: normal; }
 .dex td { vertical-align: top; padding-block: 3px; }
+.dex th, .dex td:nth-child(-n + 2) { white-space: nowrap; }
+.card-notes + .recipe-list { margin-top: 6px; }
 .dex .dex-skill { margin-top: 1px; color: var(--ink-dim); line-height: 1.45; word-break: keep-all; }
 body.online #bottom [data-action="unitDetails"] { margin-left: auto; }
 body.online #bottom [data-action="sell"] { margin-left: 0; }

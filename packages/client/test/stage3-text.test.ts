@@ -77,6 +77,10 @@ describe('combine cost', () => {
     const top = () => combineOptions(s, 7).find(o => o.result === 'top')!;
     expect(top()).toMatchObject({ missing: [], key: null, cost: '메밀묵 1개', short: '메밀묵 1개 모자람' });
     expect(helperModel(s)).toContainEqual({ recipe: 'top', name: '톱', grade: 5, cost: '메밀묵 1개', short: '메밀묵 1개 모자람' });
+    // a recipe still missing materials only says what it costs
+    const heobeok = combineOptions(s, 0).find(o => o.result === 'jejuheobeok')!;
+    expect(heobeok).toMatchObject({ missing: ['옹기가마'], cost: '메밀묵 1개', key: null });
+    expect(heobeok.short).toBeUndefined();
     s.buckwheat = 1;
     expect(top()).toEqual({ result: 'top', name: '톱', grade: 5, missing: [], key: 'Z', cost: '메밀묵 1개' });
     expect(helperModel(s)).toContainEqual({ recipe: 'top', name: '톱', grade: 5, cost: '메밀묵 1개' });

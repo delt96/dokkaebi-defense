@@ -294,7 +294,7 @@ export function helperModel(state: GameState): HelperItem[] {
 
 const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
 
-/** `cost` and `short` are only set on recipes with a cost (stage 3 grades 5 and 6). */
+/** `cost` is only set on recipes with a cost (stage 3 grades 5 and 6); `short` when every material is there but not the cost. */
 export interface CombineOption { result: string; name: string; grade: number; missing: string[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
 
 export function combineOptions(state: GameState, slot: number): CombineOption[] {
@@ -305,7 +305,7 @@ export function combineOptions(state: GameState, slot: number): CombineOption[] 
     const { name, grade } = unitDefFast(state.data, result);
     const recipe = state.data.recipes.find(r => r.result === result);
     const cost = costText(recipe);
-    const short = cost ? costShortText(state, recipe) : null;
+    const short = cost && missing.length === 0 ? costShortText(state, recipe) : null;
     return {
       result, name, grade,
       missing: missing.map(id => unitDefFast(state.data, id).name),
