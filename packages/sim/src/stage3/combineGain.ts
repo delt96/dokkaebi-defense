@@ -5,8 +5,20 @@ import {
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
 import { probeData, PROBE_SCENARIOS, type ProbeScenario } from './probe';
 
+/**
+ * How B places the combined unit. `plain` is the plan's measure: the combine command alone, leaving the result
+ * where the command puts it. `fit` puts it on a material cell on the side that suits its range (melee on the edge),
+ * else moves it to an empty cell on that side, as a player would.
+ */
+export type CombinePlacement = 'fit' | 'plain';
+
+export function parseCombinePlacement(value: string): CombinePlacement {
+  if (value === 'fit' || value === 'plain') return value;
+  throw new Error(`unknown combine placement: ${value} (fit | plain)`);
+}
+
 export interface CombineGainRow {
-  result: string; grade: number; scenario: ProbeScenario; hp: number; seeds: number;
+  result: string; grade: number; scenario: ProbeScenario; placement: CombinePlacement; hp: number; seeds: number;
   aMean: number; bMean: number; worstDelta: number; pass: boolean;
 }
 
@@ -40,8 +52,10 @@ function moveToFittingSide(state: GameState, result: string): void {
   if (to !== null) applyCommand(state, { type: 'move', from, to }, []);
 }
 
-/** Plays round 1 with `units` placed (and optionally combined into `combineInto`), returning the enemies left at the end. */
-export function survivorsAfterRound(data: GameData, units: string[], seed: number, combineInto?: string): number {
+/** Places `units` (and optionally combines them into `combineInto`) on a fresh game, before round 1 starts. */
+export function prepareRound(
+  data: GameData, units: string[], seed: number, combineInto?: string, placement: CombinePlacement = 'fit',
+): GameState {
   const state = createGame(data, seed);
   state.open = state.open.map(() => true);
   for (const id of units) {
@@ -52,10 +66,19 @@ export function survivorsAfterRound(data: GameData, units: string[], seed: numbe
   if (combineInto) {
     state.coins = 1000;
     state.buckwheat = 10;
-    const reason = applyCommand(state, { type: 'combine', result: combineInto, slot: resultSlot(state, units, combineInto) }, []);
+    const slot = placement === 'fit' ? resultSlot(state, units, combineInto) : undefined;
+    const reason = applyCommand(state, { type: 'combine', result: combineInto, slot }, []);
     if (reason) throw new Error(`combine ${combineInto} rejected: ${reason}`);
-    moveToFittingSide(state, combineInto);
+    if (placement === 'fit') moveToFittingSide(state, combineInto);
   }
+  return state;
+}
+
+/** Plays round 1 with `units` placed (and optionally combined into `combineInto`), returning the enemies left at the end. */
+export function survivorsAfterRound(
+  data: GameData, units: string[], seed: number, combineInto?: string, placement: CombinePlacement = 'fit',
+): number {
+  const state = prepareRound(data, units, seed, combineInto, placement);
   forceRound(state, 1);
   while (state.tick < state.roundEndTick && state.phase !== 'ended') step(state, []);
   return countNormalEnemies(state);
@@ -79,7 +102,10 @@ export function calibrateHp(data: GameData, recipe: RecipeDef, scenario: ProbeSc
   return best.hp;
 }
 
-export function combineGainCase(data: GameData, recipe: RecipeDef, scenario: ProbeScenario, opts: { seeds: number; steps?: number }): CombineGainRow {
+export function combineGainCase(
+  data: GameData, recipe: RecipeDef, scenario: ProbeScenario, opts: { seeds: number; steps?: number; placement?: CombinePlacement },
+): CombineGainRow {
+  const placement = opts.placement ?? 'fit';
   const hp = calibrateHp(data, recipe, scenario, opts.steps);
   const probe = probeData(data, scenario, hp);
   let aSum = 0;
@@ -87,25 +113,26 @@ export function combineGainCase(data: GameData, recipe: RecipeDef, scenario: Pro
   let worstDelta = -Infinity;
   for (let seed = 1; seed <= opts.seeds; seed++) {
     const a = survivorsAfterRound(probe, recipe.materials, seed);
-    const b = survivorsAfterRound(probe, recipe.materials, seed, recipe.result);
+    const b = survivorsAfterRound(probe, recipe.materials, seed, recipe.result, placement);
     aSum += a;
     bSum += b;
     worstDelta = Math.max(worstDelta, b - a);
   }
   return {
-    result: recipe.result, grade: unitDefFast(data, recipe.result).grade, scenario, hp, seeds: opts.seeds,
+    result: recipe.result, grade: unitDefFast(data, recipe.result).grade, scenario, placement, hp, seeds: opts.seeds,
     aMean: aSum / opts.seeds, bMean: bSum / opts.seeds, worstDelta, pass: worstDelta <= 0,
   };
 }
 
 export function combineGainAll(
-  data: GameData, opts: { seeds: number; scenarios?: ProbeScenario[]; results?: string[]; steps?: number },
+  data: GameData,
+  opts: { seeds: number; scenarios?: ProbeScenario[]; results?: string[]; steps?: number; placement?: CombinePlacement },
 ): CombineGainRow[] {
   const scenarios = opts.scenarios ?? (Object.keys(PROBE_SCENARIOS) as ProbeScenario[]);
   const rows: CombineGainRow[] = [];
   for (const recipe of data.recipes) {
     if (opts.results && !opts.results.includes(recipe.result)) continue;
-    for (const scenario of scenarios) rows.push(combineGainCase(data, recipe, scenario, { seeds: opts.seeds, steps: opts.steps }));
+    for (const scenario of scenarios) rows.push(combineGainCase(data, recipe, scenario, { seeds: opts.seeds, steps: opts.steps, placement: opts.placement }));
   }
   return rows;
 }

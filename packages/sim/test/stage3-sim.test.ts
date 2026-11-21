@@ -3,7 +3,8 @@ import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { makeData, placeUnitForTest } from '@dorandi/logic/testing';
 import { grade6Run, grade6Summary } from '../src/stage3/grade6';
 import { expandTree, targetBot } from '../src/stage3/targetBot';
-import { combineGainCase } from '../src/stage3/combineGain';
+import { combineGainCase, parseCombinePlacement, prepareRound } from '../src/stage3/combineGain';
+import { laneOf } from '@dorandi/logic';
 import { controlTrial } from '../src/stage3/control';
 
 const d3 = loadGameData('stage3');
@@ -32,6 +33,33 @@ describe('stage 3 sim checks', () => {
     const row = combineGainCase(d3, recipe, 'flow128', { seeds: 1, steps: 10 });
     expect(row.bMean).toBeLessThan(30);
   }, 60_000);
+
+  test('plain placement only combines; fit moves an inner melee result to the edge (maksabal)', () => {
+    const recipe = d3.recipes.find(r => r.result === 'maksabal')!;
+    const cellOf = (placement: 'fit' | 'plain') => {
+      const state = prepareRound(d3, recipe.materials, 1, recipe.result, placement);
+      const i = state.slots.findIndex(u => u?.defId === 'maksabal');
+      return { slot: i, edge: laneOf(state).cells[i]!.isEdge };
+    };
+    const plain = cellOf('plain');
+    const fit = cellOf('fit');
+    expect(plain.edge).toBe(false);
+    expect(fit.edge).toBe(true);
+    expect(plain.slot).not.toBe(fit.slot);
+  });
+
+  test('combine gain rows record the placement used', () => {
+    const recipe = d3.recipes.find(r => r.result === 'hwaetbul')!;
+    const row = combineGainCase(d3, recipe, 'flow128', { seeds: 1, steps: 6, placement: 'plain' });
+    expect(row.placement).toBe('plain');
+    expect(combineGainCase(d3, recipe, 'flow128', { seeds: 1, steps: 6 }).placement).toBe('fit');
+  }, 60_000);
+
+  test('parseCombinePlacement accepts fit and plain only', () => {
+    expect(parseCombinePlacement('fit')).toBe('fit');
+    expect(parseCombinePlacement('plain')).toBe('plain');
+    expect(() => parseCombinePlacement('edge')).toThrow();
+  });
 
   test('control trial with cap3 stays under 30% and none stops at least as long', () => {
     const capped = controlTrial(d3, { lineup: 'saw2pot', boss: 'jinegaksi', cap: 'cap3', seed: 1 });
