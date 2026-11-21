@@ -348,4 +348,3 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 #storage .stack-sell:hover { opacity: 1; border-color: #fff2c0; }
 .storage-empty { margin: 6px 2px 0; color: var(--ink-dim); line-height: 1.45; text-align: center; word-break: keep-all; }
 .stack-ghost { position: absolute; z-index: 3; width: 24px; height: 24px; pointer-events: none; opacity: 0.85; }
-.helper li small.combine-stored { color: #9bbdcf; }

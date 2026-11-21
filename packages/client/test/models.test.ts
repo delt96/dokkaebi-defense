@@ -95,7 +95,7 @@ function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void) {
   vi.stubGlobal('document', {
     getElementById: (id: string) => {
       if (!panels.has(id)) panels.set(id, Object.assign(new EventTarget(), {
-        innerHTML: '', querySelector: () => null, classList: { toggle: () => {} }, contains: () => true,
+        innerHTML: '', querySelector: () => null, querySelectorAll: () => [], classList: { toggle: () => {} }, contains: () => true,
       }));
       return panels.get(id);
     },
@@ -254,7 +254,7 @@ describe('final review fixes: right panel and reject notices', () => {
     const s = createGame(data, 1);
     s.tokens = 3;
     s.grade1Summons = 3;
-    const panel = { innerHTML: '' };
+    const panel = { innerHTML: '', querySelectorAll: () => [] };
     vi.stubGlobal('document', { getElementById: () => panel });
     try {
       renderRight(s);
