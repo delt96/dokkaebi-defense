@@ -6,7 +6,7 @@ import { esc } from './dom';
 const W = 300;
 const H = 90;
 
-function graph(series: number[], limit: number): string {
+export function graph(series: number[], limit: number): string {
   if (!series.length) return '';
   const max = Math.max(limit, ...series);
   const x = (i: number) => (series.length === 1 ? W / 2 : (i / (series.length - 1)) * W);

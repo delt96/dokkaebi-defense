@@ -161,3 +161,15 @@ body.online #right .notices { margin-top: auto; color: var(--accent); }
 .modal-actions { display: flex; gap: 6px; }
 #conn-band { position: fixed; left: 0; right: 0; top: 0; z-index: 20; padding: 6px 12px; text-align: center; font-size: 14px; background: #5a2230; color: #fff; }
 #conn-band:empty { display: none; }
+
+.result-screen { width: min(560px, 100% - 32px); gap: 6px; }
+.result-title { font-size: 24px; font-weight: bold; color: var(--accent); text-align: center; }
+.result-sub { font-size: 13px; color: var(--ink-dim); text-align: center; margin-bottom: 6px; }
+.result-head, .result-row { display: grid; grid-template-columns: 74px 1.3fr 74px 1fr 64px; gap: 6px; align-items: center; font-size: 12px; text-align: left; }
+.result-head { color: var(--ink-dim); padding: 0 8px; font-size: 11px; }
+.result-row { min-height: 34px; padding: 0 8px; background: var(--panel); border: 1px solid var(--panel-edge); color: inherit; cursor: pointer; }
+.result-row.open { border-color: var(--accent); }
+.result-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result-detail { padding: 4px 8px 8px; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 12px; }
+.result-detail p { margin: 3px 0; }
+.result-detail .graph { width: 100%; height: auto; }

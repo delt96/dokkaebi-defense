@@ -12,6 +12,19 @@ const RETRY_MS = 2000;
 const LEAVE_CONSENTED = 4000;
 const LEAVE_REPLACED = 4001;
 
+const REMATCH_KEY = 'dorandi.rematch';
+
+/** The rematch room is entered on a fresh page load, so the battle screen's handlers are never mounted twice. */
+function takeRematch(roomId: string): { hostToken?: string } | null {
+  try {
+    const raw = sessionStorage.getItem(REMATCH_KEY);
+    sessionStorage.removeItem(REMATCH_KEY);
+    const v = raw ? JSON.parse(raw) as { roomId?: unknown; hostToken?: unknown } : null;
+    if (!v || v.roomId !== roomId) return null;
+    return typeof v.hostToken === 'string' ? { hostToken: v.hostToken } : {};
+  } catch { return null; }
+}
+
 type Screen = 'entry' | 'connecting' | 'lobby' | 'battle';
 
 function errorCode(err: unknown): number {
@@ -119,6 +132,15 @@ export function startOnline(opts: { roomId?: string }): void {
     setTimeout(attempt, RETRY_MS);
   };
 
+  // Leave the finished room and open the new one (the first presser carries the host token).
+  const goRematch = (roomId: string, hostToken?: string): void => {
+    if (stopped) return;
+    stopped = true;
+    try { sessionStorage.setItem(REMATCH_KEY, JSON.stringify({ roomId, hostToken })); } catch { /* the entry screen takes over */ }
+    const go = (): void => location.assign(`/room/${roomId}`);
+    if (net) void net.leave().catch(() => undefined).then(go); else go();
+  };
+
   const onEvent = (e: NetEvent): void => {
     switch (e.kind) {
       case 'lobby':
@@ -133,6 +155,7 @@ export function startOnline(opts: { roomId?: string }): void {
         break;
       case 'notice':
         if (e.msg.kind === 'replaced') { showMessage(TEXT.replaced); break; }
+        if (e.msg.kind === 'rematch') { goRematch(e.msg.roomId, e.msg.hostToken); break; }
         // a second "start" answers notInLobby; once the match runs it is not worth a message
         if (e.msg.kind === 'roomError' && e.msg.reason === 'notReady' && screen === 'lobby') flashNotice(TEXT.notReady);
         break;
@@ -163,7 +186,16 @@ export function startOnline(opts: { roomId?: string }): void {
   }
 
   const stored = opts.roomId ? loadSession(opts.roomId) : null;
-  if (opts.roomId && stored?.key) {
+  const rematch = opts.roomId ? takeRematch(opts.roomId) : null;
+  if (opts.roomId && rematch) {
+    const roomId = opts.roomId;
+    const name = lastName() ?? '';
+    showConnecting();
+    connectJoin(roomId, { name, ...(rematch.hostToken ? { hostToken: rematch.hostToken } : {}) }).then(attach, (err: unknown) => {
+      const code = errorCode(err);
+      showEntry(joinErrorText(code), name, code === NO_ROOM_CODE);
+    });
+  } else if (opts.roomId && stored?.key) {
     // a reload or a duplicated tab: take the seat back with the stored key, no nickname prompt
     const roomId = opts.roomId;
     showConnecting();

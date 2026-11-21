@@ -16,7 +16,18 @@ function triggerText(t: Trigger): string {
   }
 }
 
-function effectText(e: Effect): string {
+export interface SkillCtx { interval: number; pulseSeconds: number }
+
+function dotText(e: Extract<Effect, { kind: 'dot' }>, trigger: Trigger, ctx?: SkillCtx): string {
+  const base = `${e.seconds}초 동안 공격력 ${pct(e.mult)} 지속 피해`;
+  if (!ctx || trigger.kind !== 'always' || ctx.interval >= e.seconds) return base;
+  // a dot re-applied before it ends only lands the pulses that fit between two attacks
+  const pulses = Math.max(1, Math.round(e.seconds / ctx.pulseSeconds));
+  const landed = Math.min(pulses, Math.floor(ctx.interval / ctx.pulseSeconds));
+  return `${base} (다시 걸려 실제 ${pct((e.mult * landed) / pulses)})`;
+}
+
+function effectText(e: Effect, trigger: Trigger, ctx?: SkillCtx): string {
   switch (e.kind) {
     case 'extraAttack': return '한 번 더 공격';
     case 'crit': return `피해 ${e.mult}배`;
@@ -28,7 +39,7 @@ function effectText(e: Effect): string {
     case 'slow': return `${e.radius ? '주변 ' : ''}둔화 ${pct(e.pct)} ${e.seconds}초`;
     case 'knockback': return `${e.distance}칸 밀어냄`;
     case 'vuln': return `받는 ${typeName(e.damageType)} +${pct(e.pct)} ${e.seconds}초${e.maxStacks ? ` (최대 ${e.maxStacks}중첩)` : ''}`;
-    case 'dot': return `${e.seconds}초 동안 공격력 ${pct(e.mult)} 지속 피해`;
+    case 'dot': return dotText(e, trigger, ctx);
     case 'groundFire': return `경로 ${e.length}칸에 ${e.seconds}초 불길`;
     case 'onKillExplode': return `처치하면 주변 폭발 ${pct(e.mult)}`;
     case 'auraAttackSpeed': return `주변 아군 공격 속도 +${pct(e.pct)}`;
@@ -37,8 +48,8 @@ function effectText(e: Effect): string {
   }
 }
 
-export function skillText(skills: SkillDef[]): string {
-  return skills.map(s => triggerText(s.trigger) + s.effects.map(effectText).join(', ')).join(' / ');
+export function skillText(skills: SkillDef[], ctx?: SkillCtx): string {
+  return skills.map(s => triggerText(s.trigger) + s.effects.map(e => effectText(e, s.trigger, ctx)).join(', ')).join(' / ');
 }
 
 export function selectedSlot(state: GameState, id: number | null): number | null {
@@ -158,7 +169,7 @@ export function unitCard(state: GameState, slot: number): { name: string; grade:
     name: def.name, grade: def.grade, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
     attack: Math.round(unitAttack(def, state.data.balance) * (1 + damageBonus(state, slot))),
     interval: attackIntervalTicks(def.interval, speedBonus(state, slot)) * state.data.balance.tickMs / 1000,
-    range: def.range, skillText: skillText(def.skills), usedIn, sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
+    range: def.range, skillText: skillText(def.skills, { interval: def.interval, pulseSeconds: state.data.balance.pulseSeconds }), usedIn, sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
   };
 }
 

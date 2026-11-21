@@ -5,6 +5,7 @@ import { LANE_CANVAS_ONLINE, stagePlacement } from '../layout';
 import type { NetClient } from '../net/NetClient';
 import { NetDriver } from '../net/NetDriver';
 import { mountUi } from '../ui/mount';
+import { renderResult, type ResultUi } from './result';
 import '../ui/style.css';
 
 /** The online battle screen: the 1-player stage in layout A, drawn from the server's view. */
@@ -43,6 +44,22 @@ export function startBattle(net: NetClient, data: GameData): void {
       forfeit: () => { net.send({ type: 'forfeit' }); },
     },
   });
+
+  // the team result (also carried by a rejoin snapshot) covers the stage
+  const screen = document.getElementById('screen');
+  const resultUi: ResultUi = { opened: null, rematching: false };
+  const showResult = (): void => {
+    const result = net.view?.result;
+    if (!screen || !result) return;
+    const names: Record<number, string> = {};
+    for (const r of net.view?.rows ?? []) names[r.seat] = r.name;
+    renderResult(screen, result, names, data, {
+      rematch: () => net.rematch(),
+      leave: () => { void net.leave().catch(() => undefined).finally(() => location.assign('/')); },
+    }, resultUi);
+  };
+  net.on(e => { if (e.kind === 'result' || (e.kind === 'view' && e.view.result && !screen?.querySelector('.result-screen'))) showResult(); });
+  showResult();
 
   if (import.meta.env.DEV) Object.assign(window, { __net: net, __driver: driver, __scene: scene });
 }
