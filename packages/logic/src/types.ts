@@ -100,10 +100,11 @@ export interface EconomyDef {
   team?: { fromRound: number; toRound: number; perSurvivor: number; nights: number; tokens: number };
   ssireum?: { round: number; enemy: string; seconds: number; buckwheat: number };
   shadow?: { round: number; enemy: string; growSeconds: number; grownHp: number; coins: number; grownCoins: number };
-  tame?: { hpPct: number; targets: TameTargetDef[] };
+  /** hpBands: ascending inclusive upper bounds of remaining HP / max HP, the last one 1. */
+  tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[] };
 }
 export interface EconState {
-  rng: { marketGrade: RngState; marketUnit: RngState; jige: RngState; drop: RngState };
+  rng: { marketGrade: RngState; marketUnit: RngState; jige: RngState; drop: RngState; tame: RngState };
   roundKills: number; questTokens: number;
   ledger: { tokens: number };
   pendingDrops: string[];
@@ -113,6 +114,8 @@ export interface EconState {
   collection: { done: string[]; paid: boolean };
   events: { id: number; kind: 'beast' | 'ssireum' | 'shadow'; spawnTick: number; grown: boolean }[];
   tamed: string[];
+  /** Targets that refused a recruit: the tick a new attempt opens. */
+  tameReady: { enemyId: number; tick: number }[];
 }
 
 export interface RngState { s: number }
@@ -163,7 +166,7 @@ export type Command =
   | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string };
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
-  | 'marketClosed' | 'soldOut' | 'missionClosed' | 'noTarget' | 'tameHp' | 'tameCondition'
+  | 'marketClosed' | 'soldOut' | 'missionClosed' | 'noTarget' | 'tameCondition'
   | 'cooldown' | 'noJige'
   | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
@@ -180,5 +183,7 @@ export type GameEvent =
   | { type: 'buy'; item: EconItem; defId: string; spentBuckwheat: number; jige: boolean }
   | { type: 'questReward'; quest: GeneralQuestId; coins: number; buckwheat: number; tokens: number }
   | { type: 'tame'; enemyId: number; defId: string; unitId: number; slot: number }
+  /** One paid attempt: the odds shown before the roll, what was spent, and whether it worked. */
+  | { type: 'tameTry'; enemyId: number; defId: string; chance: number; success: boolean; buckwheat: number; coins: number; tokens: number }
   | { type: 'grow'; enemyId: number; hp: number } | { type: 'flee'; enemyId: number };
 export interface StepResult { events: GameEvent[]; rejected: { command: Command; reason: RejectReason }[] }

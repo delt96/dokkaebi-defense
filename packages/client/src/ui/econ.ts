@@ -5,7 +5,7 @@ import { esc } from './dom';
 import { unitSkillText } from './models';
 import { withJosa } from './josa';
 
-// Stage 3 economy on screen: the market panel (B), the tame prompt over the top of the lane and the
+// Stage 3 economy on screen: the market panel (B), the T button under a target's health bar and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -101,38 +101,41 @@ export function jigeListHtml(data: GameData, list: JigeList, held: number): stri
 
 // ---------- taming ----------
 
-export interface TamePart { text: string; ok: boolean }
-export interface TameModel { enemyId: number; title: string; parts: TamePart[]; ready: boolean; why: string | null }
+/**
+ * The T button under a target's health bar. Ready: price and odds at the current HP. Not ready: what is missing, in
+ * the order the server checks it (extra condition, wait after a failure, a free cell, then every short currency).
+ */
+export interface TameModel { enemyId: number; hp: string; label: string; ready: boolean }
 
-const TAME_WHY: Partial<Record<RejectReason, string>> = {
-  noSlot: '빈칸이 없습니다', noBuckwheat: '메밀묵이 모자랍니다', noCoins: '엽전이 모자랍니다', noToken: '도깨비불이 모자랍니다',
-};
-
-/** The first tame target at or below its tame HP, with every condition and cost ticked off. */
 export function tameModel(econ: EconMine, state: GameState): TameModel | null {
-  const list = econ.tame.filter(t => t.why !== 'tameHp' && t.why !== 'noTarget');
+  const list = econ.tame.filter(t => t.why !== 'noTarget');
   const t = list.find(x => x.why === null) ?? list[0];
   if (!t) return null;
   const enemy = state.enemies.find(e => e.id === t.enemyId);
   if (!enemy || enemy.hp <= 0) return null;
   const data = state.data;
-  const parts: TamePart[] = [{ text: `체력 ${Math.max(1, Math.floor((enemy.hp / enemy.maxHp) * 100))}% ✓`, ok: true }];
-  const condOk = t.why !== 'tameCondition';
-  if (t.needs === 'slowed') parts.push({ text: condOk ? '둔화 ✓' : '둔화 필요', ok: condOk });
-  else if (t.needs) {
-    const src = nameOf(data, t.needs.vulnSource);
-    parts.push({ text: condOk ? `${src} 약화 ${t.needs.stacks}중첩 ✓` : `${src} 약화 ${t.needs.stacks}중첩 필요`, ok: condOk });
-  }
+  const hp = `체력 ${Math.max(1, Math.ceil((enemy.hp / enemy.maxHp) * 100))}%`;
   const c = t.cost;
-  if (c.buckwheat) parts.push({ text: `묵 ${Math.min(state.buckwheat, c.buckwheat)}/${c.buckwheat}`, ok: state.buckwheat >= c.buckwheat });
-  if (c.coins) parts.push({ text: `${c.coins}냥`, ok: state.coins >= c.coins });
-  if (c.tokens) parts.push({ text: `불 ${Math.min(state.tokens, c.tokens)}/${c.tokens}`, ok: state.tokens >= c.tokens });
-  const free = freeSlots(state).length;
-  parts.push({ text: free ? `빈칸 ${free}` : '빈칸 없음', ok: free > 0 });
-  return {
-    enemyId: t.enemyId, title: `${nameOf(data, t.defId)} 길들이기`, parts, ready: t.why === null,
-    why: t.why === null ? null : t.why === 'tameCondition' ? null : TAME_WHY[t.why] ?? null,
-  };
+  if (t.why === null) {
+    const price = [c.buckwheat ? `묵 ${c.buckwheat}` : '', c.coins ? `${c.coins}냥` : '', c.tokens ? `불 ${c.tokens}` : ''].filter(Boolean);
+    return { enemyId: t.enemyId, hp, ready: true, label: ['T 우리 편으로', ...price, `성공 ${pct(t.chance)}`].join(' · ') };
+  }
+  let label: string;
+  if (t.why === 'tameCondition') {
+    label = t.needs === 'slowed' ? '둔화 필요' : t.needs ? `${nameOf(data, t.needs.vulnSource)} 약화 ${t.needs.stacks}중첩 필요` : '조건 필요';
+  } else if (t.why === 'cooldown') {
+    label = `다시 시도 ${secondsOf(data, t.readyTick - state.tick)}초`;
+  } else if (t.why === 'noSlot') {
+    label = '진영 한 칸 비우기';
+  } else {
+    const short = [
+      (c.buckwheat ?? 0) > state.buckwheat ? `묵 ${(c.buckwheat ?? 0) - state.buckwheat}개 부족` : '',
+      (c.coins ?? 0) > state.coins ? `${(c.coins ?? 0) - state.coins}냥 부족` : '',
+      (c.tokens ?? 0) > state.tokens ? `불 ${(c.tokens ?? 0) - state.tokens}개 부족` : '',
+    ].filter(Boolean);
+    label = short.join(' · ') || '길들일 수 없음';
+  }
+  return { enemyId: t.enemyId, hp, ready: false, label };
 }
 
 /** The message for a refused tame: the condition that fell away is named (초안 4장 "둔화가 풀렸습니다"). */
@@ -219,6 +222,9 @@ export function noteText(ev: EconNote, data: GameData): string | null {
       return gain ? `${title} · ${gain}` : title;
     }
     case 'jigeSwap': return `지게로 ${withJosa(nameOf(data, ev.defId), '을/를')} 받았습니다`;
+    case 'tameTry':
+      if (ev.success) return null;
+      return `길들이기 실패 · ${[ev.buckwheat ? `묵 ${ev.buckwheat}` : '', ev.coins ? `${ev.coins}냥` : '', ev.tokens ? `불 ${ev.tokens}` : ''].filter(Boolean).join(' · ')}을 잃었습니다`;
     case 'tame': return `길들이기 성공 · ${withJosa(nameOf(data, ev.defId), '이/가')} 우리 편이 됐습니다`;
   }
 }
@@ -243,11 +249,10 @@ export function econPanelHtml(market: MarketModel | null): string {
   return `<div class="econ-panel">${head}<div class="econ-body">${body}</div></div>`;
 }
 
-/** The tame chance over the top of the lane. */
-export function econTopHtml(tame: TameModel | null): string {
+/** The T button under the target's health bar (placed by mount from the scene's bar anchor). */
+export function tameButtonHtml(tame: TameModel | null): string {
   if (!tame) return '';
-  const ticks = tame.parts.map(p => `<span class="${p.ok ? 'ok' : 'no'}">${esc(p.text)}</span>`).join('');
-  return `<div class="prompt tame"><div class="prompt-line"><b>${esc(tame.title)}</b>${ticks}${button('tame', String(tame.enemyId), 'T 길들이기', !tame.ready)}</div></div>`;
+  return `<span class="tame-hp">${esc(tame.hp)}</span>${button('tame', String(tame.enemyId), tame.label, !tame.ready)}`;
 }
 
 export function econBottomHtml(chips: Chip[]): string {

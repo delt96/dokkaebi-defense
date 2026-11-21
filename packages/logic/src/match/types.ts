@@ -1,7 +1,8 @@
 import type { Command, Enemy, GameData, GameEvent, GameState, GroundFire, RejectReason, RngState } from '../types';
 
 export type EliminationCause = 'limit' | 'boss' | 'forfeit' | 'disconnect';
-export type BossStatus = 'pending' | 'fighting' | 'killed' | 'failed';
+/** 'tamed': the boss joined the seat (stage 3); it counts as dealt with, never as a kill. */
+export type BossStatus = 'pending' | 'fighting' | 'killed' | 'tamed' | 'failed';
 export interface BossClock { status: BossStatus; ticksLeft: number; pausedTicks: number; enemyId: number | null }
 export interface SeatRecord { round: number; cause: EliminationCause | null; tick: number | null; lastEnemies: number; maxEnemies: number; series: number[]; helperOpens: number }
 export interface SeatState {

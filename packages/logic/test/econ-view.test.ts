@@ -35,18 +35,23 @@ describe('econView', () => {
     expect(v.draw.left).toBe(d3.economy!.market!.draw.perDay - 1);
   });
 
-  test('tame part lists living targets with their limit and tameCheck reason', () => {
+  test('tame part lists living targets with odds, wait, leave tick and tameCheck reason', () => {
     const s = createGame(d3, 1);
     forceRound(s, 20);
     const boss = spawnEnemyForTest(s, 'gangcheori', 1, 1000);
     boss.maxHp = 10000;
-    s.buckwheat = 1;
+    s.buckwheat = 2; s.coins = 75;
     let t = econView(s)!.tame;
-    expect(t).toEqual([{ enemyId: boss.id, defId: 'gangcheori', unit: 'gangcheori', cost: { buckwheat: 1 }, needs: 'slowed', hpLimit: 1500, why: 'tameCondition' }]);
+    expect(t).toEqual([{
+      enemyId: boss.id, defId: 'gangcheori', unit: 'gangcheori', cost: { buckwheat: 2, coins: 75 }, needs: 'slowed',
+      chance: 0.7, readyTick: 0, deadlineTick: s.roundEndTick, why: 'tameCondition',
+    }]);
     boss.slow = { pct: 0.3, ticks: 10 };
     expect(econView(s)!.tame[0]!.why).toBeNull();
     boss.hp = 1501;
-    expect(econView(s)!.tame[0]!.why).toBe('tameHp');
+    expect(econView(s)!.tame[0]!.chance).toBe(0.5);
+    s.econ!.tameReady = [{ enemyId: boss.id, tick: s.tick + 5 }];
+    expect(econView(s)!.tame[0]).toMatchObject({ readyTick: s.tick + 5, why: 'cooldown' });
     boss.hp = 0;
     t = econView(s)!.tame;
     expect(t).toEqual([]);

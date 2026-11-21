@@ -23,6 +23,19 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     for (const grade of [2, 3]) if (!data.units.some(u => !u.hidden && u.grade === grade)) errors.push('empty market pool');
   }
 
+  const tame = eco?.tame;
+  if (tame) {
+    const b = tame.hpBands;
+    const sorted = Array.isArray(b) && b.length > 0 && b.every((x, i) => x.upTo > (i === 0 ? 0 : b[i - 1]!.upTo));
+    if (!sorted || b[b.length - 1]!.upTo !== 1 || !b.every(x => x.chance >= 0 && x.chance <= 1)) errors.push('invalid tame hpBands');
+    if (!(tame.failureHealPct >= 0 && tame.failureHealPct <= 1)) errors.push('invalid tame failureHealPct');
+    if (!(tame.cooldownSeconds > 0)) errors.push('invalid tame cooldownSeconds');
+    for (const t of tame.targets) {
+      if (!Object.values(t.cost).every(n => Number.isInteger(n) && n! >= 0)) errors.push(`invalid tame cost: ${t.enemy}`);
+      if (!data.units.some(u => u.id === t.unit)) errors.push(`unknown tame unit: ${t.unit}`);
+    }
+  }
+
   const warnings: string[] = [];
   const bands = data.balance.summonOddsByRound;
   if (bands !== undefined) {

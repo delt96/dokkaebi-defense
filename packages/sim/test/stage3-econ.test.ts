@@ -59,14 +59,14 @@ describe('stage 3 economy bot policies', () => {
   });
 
   test('tame policy keeps buckwheat for the target and caps hidden units at two', () => {
-    const st = lane(20);
+    const st = lane(20, 75);
     step(st, []);
     const b = st.enemies.find(x => x.boss)!;
     b.hp = Math.floor(b.maxHp * 0.15); b.slow = { pct: 0.3, ticks: 100 };
-    st.buckwheat = 1;
+    st.buckwheat = 2;
     expect(tameCommands(st, null)).toEqual([{ type: 'tame', enemyId: b.id }]);
     expect(tameCommands(st, T)).toEqual([]);
-    st.buckwheat = 4;
+    st.buckwheat = 5;
     expect(tameCommands(st, T)).toEqual([{ type: 'tame', enemyId: b.id }]);
     st.econ!.tamed = ['jinegaksi', 'bulgasari'];
     expect(tameCommands(st, T)).toEqual([]);

@@ -4,7 +4,7 @@ import {
 } from '@dorandi/logic';
 import { selectedSlot } from './ui/models';
 import type { Driver } from './driver';
-import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
+import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_KEYS, textureKey } from './fx/atlas';
 import { spriteKey, tameArt } from './sprites';
@@ -430,6 +430,13 @@ export class LaneScene extends Phaser.Scene {
     this.attachBar(view, boss ? 44 : 18, boss ? -28 : -15, boss ? 0xff715c : 0x83d5a3);
     this.enemies.set(id, view);
     return view;
+  }
+
+  /** Stage point just under an enemy's health bar (where the T button goes), or null when it is not drawn. */
+  enemyBarAnchor(enemyId: number): { x: number; y: number } | null {
+    const view = this.enemies.get(enemyId);
+    if (!view?.bar?.visible || !view.hp) return null;
+    return { x: view.bar.x + CENTER_X, y: view.bar.y + view.hp.y + 3 + CENTER_Y };
   }
 
   /** The HP bar lives in its own container above every effect (effects stay under the bars). */

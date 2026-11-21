@@ -27,7 +27,7 @@ function bossClocks(seat: SeatState): BossClock[] {
 }
 
 function seatBossesKilled(seat: SeatState): boolean {
-  return bossClocks(seat).every(c => c.status === 'killed');
+  return bossClocks(seat).every(c => c.status === 'killed' || c.status === 'tamed');
 }
 
 export function allBossesKilled(match: MatchState, seat: number): boolean {
@@ -163,6 +163,11 @@ export function seatsAfterLane(match: MatchState, seat: number, ctx: StepMatchRe
   const st = match.seats[seat]!;
   const step = ctx.lanes[seat];
   if (!step) return;
+  // a recruit happens in the command phase, before combatStart
+  for (const e of step.events) {
+    if (e.type !== 'tame') continue;
+    for (const clock of bossClocks(st)) if (clock.status === 'fighting' && clock.enemyId === e.enemyId) clock.status = 'tamed';
+  }
   for (let i = step.combatStart; i < step.events.length; i++) {
     const e = step.events[i]!;
     if (e.type !== 'kill') continue;

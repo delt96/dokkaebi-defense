@@ -63,13 +63,19 @@ export function questCommands(state: GameState, target: string | null): Command[
   return cmds;
 }
 
-/** One tame per decision while fewer than two hidden units are tamed and the cost leaves the target's needs intact. */
+/** The share of max HP at or under which the measurement bots pay for an attempt (the best band). */
+export const BOT_TAME_HP = 0.15;
+
+/**
+ * One paid attempt per decision while fewer than two hidden units are tamed, the target is at or under BOT_TAME_HP
+ * and the cost leaves the target's needs intact.
+ */
 export function tameCommands(state: GameState, target: string | null): Command[] {
   const econ = state.econ;
   const tame = state.data.economy?.tame;
   if (!econ || !tame || econ.tamed.length >= MAX_TAMED) return [];
   for (const e of state.enemies) {
-    if (e.hp <= 0 || tameCheck(state, e.id) !== null) continue;
+    if (e.hp <= 0 || e.hp > e.maxHp * BOT_TAME_HP || tameCheck(state, e.id) !== null) continue;
     const def = tame.targets.find(t => t.enemy === e.defId)!;
     const cost = def.cost;
     if (cost.buckwheat && state.buckwheat - cost.buckwheat < buckwheatNeed(state, target)) continue;

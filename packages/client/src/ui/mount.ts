@@ -11,8 +11,8 @@ import { playSfx } from '../sfx';
 import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
-  econBottomHtml, econPanelHtml, econTopHtml, marketModel, noteText, questChips, tameModel,
-  tameRejectText, jigeListHtml, jigeRowsHtml, type DrawReceipt, type JigeList,
+  econBottomHtml, econPanelHtml, tameButtonHtml, marketModel, noteText, questChips, tameModel,
+  tameRejectText, type TameModel, jigeListHtml, jigeRowsHtml, type DrawReceipt, type JigeList,
 } from './econ';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
@@ -31,7 +31,7 @@ const RENDER_MS = 100;
 const NOTICE_MS = 1500;
 /** Economy results (a purchase, a reward, a tame) stay a little longer than a refusal. */
 const NOTE_MS = 2500;
-const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'jigeSwap', 'questReward', 'tame']);
+const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'jigeSwap', 'questReward', 'tame', 'tameTry']);
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void }
 
@@ -70,7 +70,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let lastDraw: DrawReceipt | null = null;
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
-  for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage']) {
+  for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor']) {
     if (document.getElementById(id)) continue;
     const node = document.createElement('div');
     node.id = id;
@@ -124,7 +124,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const t = e ? tameModel(e, driver.state) : null;
         if (!t) break;
         // the hotkey on a chance that is not ready says what is missing instead of sending a doomed command
-        if (!t.ready) { say(t.why ?? t.parts.find(p => !p.ok)?.text ?? '아직 길들일 수 없습니다'); break; }
+        if (!t.ready) { say(t.label); break; }
         driver.queue({ type: 'tame', enemyId: t.enemyId });
         break;
       }
@@ -233,7 +233,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (modal && modal !== previousModal) el('modal').querySelector<HTMLButtonElement>('button')?.focus();
   };
 
-  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-panel', 'econ-top', 'econ-bottom', 'storage']) onAction(el(id), act);
+  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor']) onAction(el(id), act);
   // the storage column belongs to the own living lane; it takes presses while no window is open
   const storageVisible = () => !driver.readOnly && driver.state.phase !== 'ended';
   const storageLive = () => storageVisible() && !driver.failed && modal === null;
@@ -412,7 +412,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
     const dialogOpen = modal !== null || soloResult;
-    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage']) el(id).inert = dialogOpen;
+    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor']) el(id).inert = dialogOpen;
     // a redraw of the dex (a board change moves the tree marks) keeps its scroll position
     const dexShown = !soloResult && modal === 'dex';
     const listKey = `${dex.filter}
@@ -472,11 +472,12 @@ ${dex.mine.join()}`;
     const s = driver.state;
     const e = s.phase === 'ended' ? null : econ();
     const tame = e ? tameModel(e, s) : null;
-    setHtml(el('econ-top'), e ? econTopHtml(tame) : '');
+    setHtml(el('econ-top'), '');
+    placeTame(tame);
     setHtml(el('econ-bottom'), e ? econBottomHtml(questChips(e, s, view)) : '');
     if (!e || !econTab) setHtml(el('econ-panel'), '');
     else setHtml(el('econ-panel'), econPanelHtml(marketModel(e, s, lastDraw)));
-    return tame ? 1 : 0;
+    return 0;
   }
 
   let pressedUntil = 0;
@@ -487,8 +488,27 @@ ${dex.mine.join()}`;
     pressTimer = setTimeout(() => el('right').querySelector('[data-action="summon"]')?.classList.remove('pressed'), PRESS_MS);
   }
 
+  /** The T button follows its target's health bar every frame; without a bar on screen it sits over the lane's top. */
+  let shownTame: TameModel | null = null;
+  function placeTame(tame: TameModel | null): void {
+    shownTame = tame;
+    const box = el('tame-anchor');
+    setHtml(box, tameButtonHtml(tame));
+    moveTame();
+  }
+  function moveTame(): void {
+    const box = el('tame-anchor');
+    // test doubles of the page may not draw at all
+    if (!box.style) return;
+    const at = shownTame ? scene.enemyBarAnchor?.(shownTame.enemyId) ?? null : null;
+    box.classList.toggle('floating', at !== null);
+    box.style.left = at ? `${Math.round(at.x)}px` : '';
+    box.style.top = at ? `${Math.round(at.y)}px` : '';
+  }
+
   let lastRender = 0;
   scene.onFrame = () => {
+    moveTame();
     const now = performance.now();
     if (now - lastRender < RENDER_MS) return;
     lastRender = now;

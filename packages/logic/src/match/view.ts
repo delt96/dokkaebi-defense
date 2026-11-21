@@ -179,7 +179,7 @@ function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {
     case 'combine': return { t: 'combine', unitId: e.unitId, defId: e.defId, slot: e.slot };
     case 'flee': return { t: 'flee', id: e.enemyId };
     case 'grow': return { t: 'grow', id: e.enemyId, hp: e.hp };
-    case 'buy': case 'jigeSwap': case 'questReward': case 'tame':
+    case 'buy': case 'jigeSwap': case 'questReward': case 'tame': case 'tameTry':
       return { t: 'note', ev: structuredClone(e) };
     default: return null;
   }

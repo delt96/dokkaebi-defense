@@ -130,24 +130,38 @@ describe('quest tracker text', () => {
   });
 });
 
-describe('tame prompt', () => {
-  test('appears at the tame HP with every condition ticked; a lost slow is named', () => {
+describe('tame button', () => {
+  test('shows from spawn with the price and odds; the missing condition, deficits, slot and wait are named', () => {
     const s = lane(20);
-    s.buckwheat = 1;
+    s.buckwheat = 2; s.coins = 75;
     const boss = spawnEnemyForTest(s, 'gangcheori', 3, 20000);
     boss.maxHp = 100000;
-    expect(tameModel(econOf(s), s)).toBeNull();
-    boss.hp = Math.floor(boss.maxHp * eco.tame!.hpPct);
+    boss.hp = 100000;
     let m = tameModel(econOf(s), s)!;
-    expect(m).toMatchObject({ enemyId: boss.id, title: '강철이 길들이기', ready: false });
-    expect(m.parts.map(p => p.text)).toEqual(['체력 15% ✓', '둔화 필요', '묵 1/1', `빈칸 ${s.open.filter(Boolean).length}`]);
+    expect(m).toMatchObject({ enemyId: boss.id, ready: false, label: '둔화 필요', hp: '체력 100%' });
     boss.slow = { pct: 0.3, ticks: 20 };
     m = tameModel(econOf(s), s)!;
-    expect(m.ready).toBe(true);
-    expect(m.parts[1]).toEqual({ text: '둔화 ✓', ok: true });
+    expect(m).toMatchObject({ ready: true, label: 'T 우리 편으로 · 묵 2 · 75냥 · 성공 10%' });
+    boss.hp = 50000;
+    expect(tameModel(econOf(s), s)!.label).toBe('T 우리 편으로 · 묵 2 · 75냥 · 성공 35%');
+    boss.hp = 50001;
+    expect(tameModel(econOf(s), s)!.label).toBe('T 우리 편으로 · 묵 2 · 75냥 · 성공 25%');
+    s.buckwheat = 1; s.coins = 67;
+    expect(tameModel(econOf(s), s)).toMatchObject({ ready: false, label: '묵 1개 부족 · 8냥 부족' });
+    s.buckwheat = 2; s.coins = 75;
+    fill(s);
+    expect(tameModel(econOf(s), s)).toMatchObject({ ready: false, label: '진영 한 칸 비우기' });
+    s.slots[0] = null;
+    s.econ!.tameReady = [{ enemyId: boss.id, tick: s.tick + 60 }];
+    expect(tameModel(econOf(s), s)).toMatchObject({ ready: false, label: '다시 시도 3초' });
     expect(tameRejectText(econOf(s), boss.id, 'tameCondition', d3)).toBe('둔화가 풀렸습니다');
-    s.buckwheat = 0;
-    expect(tameModel(econOf(s), s)).toMatchObject({ ready: false, why: '메밀묵이 모자랍니다' });
+  });
+
+  test('R10 지네각시 asks only for coins', () => {
+    const s = lane(10);
+    s.buckwheat = 0; s.coins = 30;
+    spawnEnemyForTest(s, 'jinegaksi', 3, 5000);
+    expect(tameModel(econOf(s), s)!.label).toBe('T 우리 편으로 · 30냥 · 성공 10%');
   });
 });
 
@@ -234,4 +248,46 @@ describe('market hotkey', () => {
     expect(panel()).toBe('');
   });
 
+});
+
+describe('T under the health bar', () => {
+  beforeEach(() => { document.body.innerHTML = STAGE_HTML; });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  test('the button follows the bar, and click and T address the displayed target', () => {
+    const s = lane(10, 30);
+    s.buckwheat = 0;
+    const driver = new GameDriver(s);
+    const at = { x: 300, y: 120 };
+    const scene = {
+      selectedId: null as number | null, onFrame: undefined as (() => void) | undefined,
+      onSelect() {}, onEvents() {}, enemyBarAnchor: (id: number) => (id === boss.id ? { ...at } : null),
+    };
+    const boss = spawnEnemyForTest(s, 'jinegaksi', 3, 5000);
+    mountUi(driver, scene as never);
+    const box = document.getElementById('tame-anchor')!;
+    expect(box.textContent).toContain('T 우리 편으로 · 30냥 · 성공 10%');
+    expect(box.textContent).toContain('체력 100%');
+    expect([box.style.left, box.style.top]).toEqual(['300px', '120px']);
+    at.x = 260; at.y = 140;
+    scene.onFrame!();
+    expect([box.style.left, box.style.top]).toEqual(['260px', '140px']);
+    at.x = 200;
+    scene.onFrame!();
+    expect(box.style.left).toBe('200px');
+    const queued: unknown[] = [];
+    const queue = driver.queue.bind(driver);
+    vi.spyOn(driver, 'queue').mockImplementation(cmd => { queued.push(cmd); queue(cmd); });
+    press(box.querySelector('[data-action="tame"]'));
+    expect(queued).toEqual([{ type: 'tame', enemyId: boss.id }]);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT', bubbles: true }));
+    expect(queued).toEqual([{ type: 'tame', enemyId: boss.id }, { type: 'tame', enemyId: boss.id }]);
+    // the target gone: the button goes too
+    s.enemies = [];
+    scene.onFrame!();
+    driver.update(0);
+    vi.spyOn(performance, 'now').mockReturnValue(1e9);
+    scene.onFrame!();
+    expect(box.innerHTML).toBe('');
+  });
 });

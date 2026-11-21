@@ -12,13 +12,17 @@
   "ssireum": { "round": 32, "enemy": "ev_ssireum", "seconds": 20, "buckwheat": 1 },
   "shadow": { "round": 43, "enemy": "ev_shadow", "growSeconds": 10, "grownHp": 16000, "coins": 5, "grownCoins": 10 },
   "tame": {
-    "hpPct": 0.15,
+    "hpBands": [
+      { "upTo": 0.15, "chance": 0.7 }, { "upTo": 0.3, "chance": 0.5 }, { "upTo": 0.5, "chance": 0.35 },
+      { "upTo": 0.75, "chance": 0.25 }, { "upTo": 1, "chance": 0.1 }
+    ],
+    "failureHealPct": 0.25, "cooldownSeconds": 5,
     "targets": [
-      { "enemy": "jinegaksi", "unit": "jinegaksi", "cost": { "buckwheat": 1 } },
-      { "enemy": "gangcheori", "unit": "gangcheori", "cost": { "buckwheat": 1 }, "needs": "slowed" },
-      { "enemy": "ev_soebap", "unit": "bulgasari", "cost": { "coins": 60 }, "needs": { "vulnSource": "moru", "stacks": 5 } },
-      { "enemy": "ev_ssireum", "unit": "ssireumdokkaebi", "cost": { "buckwheat": 1 } },
-      { "enemy": "ev_shadow", "unit": "eoduksini", "cost": { "tokens": 2 } }
+      { "enemy": "jinegaksi", "unit": "jinegaksi", "cost": { "coins": 30 } },
+      { "enemy": "ev_soebap", "unit": "bulgasari", "cost": { "buckwheat": 2, "coins": 65 }, "needs": { "vulnSource": "moru", "stacks": 5 } },
+      { "enemy": "gangcheori", "unit": "gangcheori", "cost": { "buckwheat": 2, "coins": 75 }, "needs": "slowed" },
+      { "enemy": "ev_ssireum", "unit": "ssireumdokkaebi", "cost": { "buckwheat": 2, "coins": 90 } },
+      { "enemy": "ev_shadow", "unit": "eoduksini", "cost": { "buckwheat": 2, "coins": 105 } }
     ]
   }
 }
