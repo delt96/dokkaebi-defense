@@ -65,7 +65,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
         ${options ? `<div class="combine-options">${options}</div>` : ''}
         ${online || state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세</button>' : ''}
         <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`
-    : `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · E 강화 · ${STORE_ALL_KEY} 1·2등급 보관 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`);
+    : `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · E 강화 · D 도감 · ${STORE_ALL_KEY} 1·2등급 보관 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`);
   return { unitId, recipes };
 }
 

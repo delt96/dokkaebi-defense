@@ -377,3 +377,35 @@ describe('upgrade window keys', () => {
     expect(panels.get('bottom')!.innerHTML).toContain('E 강화');
   });
 });
+
+describe('dex hotkey', () => {
+  test('D opens and closes the dex, Esc closes it', () => {
+    const { press, panels, driver } = mountTestUi(createGame(data, 1));
+    const modal = () => panels.get('modal')!.innerHTML;
+    press('KeyD');
+    expect(modal()).toContain('class="dex"');
+    press('KeyD');
+    expect(modal()).toBe('');
+    press('KeyD');
+    press('Escape');
+    expect(modal()).toBe('');
+    expect(driver.paused).toBe(false);
+  });
+
+  test('D does not replace another window and is ignored while typing or composing', () => {
+    const { press, panels } = mountTestUi(createGame(data, 1));
+    const input = { tagName: 'INPUT', isContentEditable: false, closest: (sel: string) => (sel.includes('input') ? input : null) };
+    press('KeyD', { target: input as never });
+    press('KeyD', { isComposing: true });
+    expect(panels.get('modal')!.innerHTML).toBe('');
+    press('KeyE');
+    press('KeyD');
+    expect(panels.get('modal')!.innerHTML).toContain('class="upgrades"');
+  });
+
+  test('labels show the key', () => {
+    const { panels } = mountTestUi(createGame(data, 1));
+    expect(panels.get('left')!.innerHTML).toContain('도감 (D)');
+    expect(panels.get('bottom')!.innerHTML).toContain('D 도감');
+  });
+});

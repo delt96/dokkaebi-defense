@@ -31,6 +31,6 @@ export function renderHelper(state: GameState, expanded: boolean, reducedFx = fa
   setHtml(el('left'), `
     <button class="panel-title" data-action="toggleHelper">조합 도우미 ${state.data.balance.extendedCombat ? '(Q) ' : ''}${expanded ? '▾' : '▸'} <em>${items.length}</em></button>
     <ul class="helper">${list}</ul>
-    <button class="dex-open" data-action="openDex">도감</button>
+    <button class="dex-open" data-action="openDex">도감 (D)</button>
     ${fxToggleHtml(reducedFx)}`);
 }

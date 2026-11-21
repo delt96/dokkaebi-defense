@@ -294,11 +294,13 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       else if (open) act('upgrade', open);
       return;
     }
+    if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }
     if (modal || driver.state.phase === 'ended') return;
     if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button')) return;
     const card = displayedCard;
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (ev.code === 'KeyE') act('openUpgrades', '');
+    else if (ev.code === 'KeyD') act('openDex', '');
     else if (ev.code === 'KeyQ') act('toggleHelper', '');
     else if (ev.code === `Key${STORE_ALL_KEY}`) act('storeAll', '');
     else if (ev.code === 'KeyB' && driver.state.data.economy?.market) act('toggleMarket', '');
