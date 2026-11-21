@@ -9,6 +9,7 @@ import { enemySpeed, toTicks } from './flow';
 import { computeHitDamage, damageBonus, dealDamage, enemyResist, hitDamage, inRange, pickTarget } from './combat';
 import { unitDefFast } from './units';
 import { isShared } from './stats';
+import { payFirstHit } from './income';
 
 /** Auras of the same source and kind count once; the source defaults to the unit's own id. */
 function auraKey(defId: string, e: Effect): string {
@@ -140,6 +141,10 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
       if (cur && eff.maxStacks) { cur.stacks = Math.min(cur.stacks + 1, eff.maxStacks); cur.ticks = ticks; }
       else if (cur) { cur.ticks = ticks; }
       else target.vulns[key] = { pct: eff.pct, damageType: eff.damageType, ticks, stacks: 1 };
+      const def = unitDefFast(state.data, source);
+      if (def.skills.some(s => s.effects.some(x => x.kind === 'onVulnKillExplode'))) {
+        target.vulnCaster = { unitId: state.slots[slot]!.id, attack: unitAttack(def, b) * (1 + damageBonus(state, slot)), key };
+      }
       break;
     }
     case 'dot': {
@@ -150,6 +155,53 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
     }
     default:
       break;
+  }
+}
+
+/** A basic hit landed from `slot`: neighbours with a neighbour-hit trigger count it and fire on the last count. */
+function countNeighborHit(state: GameState, slot: number, target: Enemy, events: GameEvent[]): void {
+  const lane = laneOf(state);
+  const radius = state.data.balance.auraRadius;
+  for (let i = 0; i < state.slots.length; i++) {
+    const u = state.slots[i];
+    if (!u || i === slot || dist(lane.cells[slot]!, lane.cells[i]!) > radius + 1e-9) continue;
+    for (const skill of unitDefFast(state.data, u.defId).skills) {
+      const t = skill.trigger;
+      if (t.kind !== 'neighborHits') continue;
+      if (state.tick < (u.neighborLockUntil ?? 0)) continue;
+      u.neighborHits = (u.neighborHits ?? 0) + 1;
+      if (u.neighborHits < t.count) continue;
+      u.neighborHits = 0;
+      u.neighborLockUntil = state.tick + toTicks(t.lockoutSeconds);
+      applyPackage(state, i, target, skill.effects, { basic: false, mult: 1 }, events);
+    }
+  }
+}
+
+/** Kill step: a weakened enemy that dies explodes with the stored attack of the unit that last weakened it. */
+export function vulnKillExplosions(state: GameState, events: GameEvent[]): void {
+  const lane = laneOf(state);
+  for (const dead of state.enemies) {
+    const caster = dead.vulnCaster;
+    if (dead.hp > 0 || !caster) continue;
+    delete dead.vulnCaster;
+    if (!dead.vulns[caster.key]) continue;
+    const unit = state.slots.find(u => u?.id === caster.unitId);
+    if (!unit || state.tick < (unit.explodeReadyTick ?? 0)) continue;
+    const def = unitDefFast(state.data, unit.defId);
+    const eff = def.skills.flatMap(s => s.effects).find(e => e.kind === 'onVulnKillExplode');
+    if (eff?.kind !== 'onVulnKillExplode') continue;
+    unit.explodeReadyTick = state.tick + toTicks(eff.cooldownSeconds);
+    const at = lane.pointAt(dead.d);
+    for (const o of state.enemies) {
+      if (o.hp <= 0 || dist(lane.pointAt(o.d), at) > eff.radius + 1e-9) continue;
+      const amount = computeHitDamage({
+        attack: caster.attack, mult: eff.mult, bonus: 0,
+        resist: enemyResist(state, o, def.damageType), vuln: vulnOf(state, o, def.damageType),
+      });
+      dealDamage(state, o, amount, def.id, events, 'explosion');
+      if (o.hp <= 0) delete o.vulnCaster;
+    }
   }
 }
 
@@ -246,7 +298,10 @@ export function applyPackage(
     if (track && e.hp <= 0) killed.push(e);
   };
 
-  if (opts.basic) hit(target, opts.mult, true, opts.effect);
+  if (opts.basic) {
+    hit(target, opts.mult, true, opts.effect);
+    countNeighborHit(state, slot, target, events);
+  }
   const executeKill = executed && target.hp <= 0;
   const origin = lane.pointAt(target.d);
   for (const e of fired) {
@@ -272,6 +327,7 @@ export function applyPackage(
       }
     }
     if (e.kind === 'chain') chainHits(state, target, e, (o, m) => hit(o, m, true));
+    if (e.kind === 'coinOnFirstHit' && opts.basic) payFirstHit(state, def.id, e.coins);
   }
   const extra = opts.basic ? def.onBasicHit : undefined;
   if (extra) {

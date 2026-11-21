@@ -190,3 +190,87 @@ describe('stage 3 hit packages and target mechanics', () => {
     expect(s.enemies.every(e => !('stunEndTick' in e) && !('knockedRound' in e))).toBe(true);
   });
 });
+
+describe('stage 3 neighbor hits, weakened-kill explosions and coins', () => {
+  test('neighborHits: 8th neighbor basic hit fires a 935 pierce, then 40-tick lockout', () => {
+    const s = quiet3(); const g = placeUnitForTest(s, 'bihyeongrang', 7); const n = placeUnitForTest(s, 'dadeumitdol', 1);
+    const t = spawnEnemyForTest(s, 'japgwi', 3, 1e8); const f = spawnEnemyForTest(s, 'japgwi', 1, 1e8);
+    const pierce = Math.round(G6 * 1.2 * 0.82 * 0.8);
+    let attacks = 0; let fired = 0; let lockAt = -1;
+    for (let i = 0; i < 400 && attacks < 8; i++) {
+      const tick = s.tick;
+      const r = run(s, 1, [t, f])[0]!;
+      const mine = r.events.filter(e => e.type === 'attack' && e.unitId === n.id).length;
+      fired += dmgs(r).filter(e => e.enemyId === f.id && e.source === 'bihyeongrang' && e.amount === pierce).length;
+      if (!mine) continue;
+      attacks += mine;
+      if (attacks === 7) expect([g.neighborHits, fired]).toEqual([7, 0]);
+      if (attacks === 8) lockAt = tick;
+    }
+    expect([attacks, g.neighborHits, g.neighborLockUntil, fired]).toEqual([8, 0, lockAt + 40, 1]);
+  });
+
+  test('neighborHits are not counted during the lockout', () => {
+    const s = quiet3(); const g = placeUnitForTest(s, 'bihyeongrang', 7); placeUnitForTest(s, 'dadeumitdol', 1);
+    const t = spawnEnemyForTest(s, 'japgwi', 3, 1e8);
+    g.neighborHits = 7; g.neighborLockUntil = 10 ** 6;
+    run(s, 30, [t]);
+    expect(g.neighborHits).toBe(7);
+  });
+
+  test('duduri explosion on an ally kill, once per 1.1 s, no chain', () => {
+    const s = quiet3(); const u = placeUnitForTest(s, 'duduri', 2);
+    const a = spawnEnemyForTest(s, 'japgwi', 3, 1e8);
+    run(s, 1, [a]);
+    expect(a.vulnCaster).toMatchObject({ unitId: u.id, key: 'duduri' });
+    const b = spawnEnemyForTest(s, 'japgwi', 1.8, 1e8); // out of duduri's reach, 1.2 from a
+    const c = spawnEnemyForTest(s, 'japgwi', 1.7, 1);
+    c.vulns.duduri = { ...a.vulns.duduri! }; c.vulnCaster = { ...a.vulnCaster! };
+    a.hp = 0;
+    const tick = s.tick;
+    const r = run(s, 1, [a, b, c])[0]!;
+    const booms = dmgs(r).filter(e => e.source === 'duduri' && e.effect === 'explosion');
+    expect(booms.filter(e => e.enemyId === b.id).map(e => e.amount)).toEqual([Math.round(G6 * 1.1 * 1.09 * 0.8)]);
+    expect(booms.filter(e => e.enemyId === c.id).length).toBe(1);
+    expect(booms.length).toBe(2); // c died in the blast but does not explode again
+    expect([s.enemies.includes(c), u.explodeReadyTick]).toEqual([false, tick + 22]);
+
+    const caster = { unitId: u.id, attack: 1000, key: 'duduri' };
+    const weak = () => ({ pct: 0.08, damageType: 'physical' as const, ticks: 60, stacks: 1 });
+    const d = spawnEnemyForTest(s, 'japgwi', 1.5, 1e8); d.vulns.duduri = weak(); d.vulnCaster = { ...caster }; d.hp = 0;
+    expect(dmgs(run(s, 1, [b])[0]!).some(e => e.effect === 'explosion')).toBe(false);
+    run(s, 25, [b]);
+    const e2 = spawnEnemyForTest(s, 'japgwi', 1.5, 1e8); e2.vulns.duduri = weak(); e2.vulnCaster = { ...caster }; e2.hp = 0;
+    expect(dmgs(run(s, 1, [b])[0]!).filter(e => e.effect === 'explosion' && e.enemyId === b.id).map(e => e.amount)).toEqual([800]);
+  });
+
+  test('coinOnFirstHit pays 4 once per round per type', () => {
+    const s = quiet3(); placeUnitForTest(s, 'bangmangidokkaebi', 2); placeUnitForTest(s, 'bangmangidokkaebi', 3);
+    let t = spawnEnemyForTest(s, 'japgwi', 3, 1e8);
+    run(s, 60, [t]);
+    expect(s.coins).toBe(4);
+    forceRound(s, 2); s.spawned = 30; s.roundEndTick = 10 ** 9;
+    t = spawnEnemyForTest(s, 'japgwi', 3, 1e8);
+    run(s, 60, [t]);
+    expect(s.coins).toBe(8);
+  });
+
+  test('coinTimer pays 2 every 10 s up to 6 per round, stops when removed', () => {
+    const s = quiet3(); placeUnitForTest(s, 'bitdondokkaebi', 2);
+    const seen: number[] = [];
+    for (const n of [199, 1, 200, 200, 200]) { run(s, n); seen.push(s.coins); }
+    expect(seen).toEqual([0, 2, 4, 6, 6]);
+    const t = quiet3(); placeUnitForTest(t, 'bitdondokkaebi', 2);
+    run(t, 150); t.slots[2] = null; run(t, 300);
+    expect(t.coins).toBe(0);
+    placeUnitForTest(t, 'bitdondokkaebi', 2); run(t, 50);
+    expect(t.coins).toBe(2);
+  });
+
+  test('stage 1 state never gets income', () => {
+    const s = quietOf(loadGameData()); placeUnitForTest(s, 'jipsin', 2); placeUnitForTest(s, 'horong', 7);
+    spawnEnemyForTest(s, 'japgwi', 3, 1e6);
+    run(s, 100);
+    expect('income' in s).toBe(false);
+  });
+});

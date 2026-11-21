@@ -6,7 +6,8 @@ import { laneOf } from './lane';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
 import { currentStats, isShared, statsForRound } from './stats';
 import { unitDefFast } from './units';
-import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnOf } from './effects';
+import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnKillExplosions, vulnOf } from './effects';
+import { runIncome } from './income';
 
 export function computeHitDamage(a: { attack: number; mult: number; bonus: number; resist: number; vuln: number }): number {
   return Math.max(1, Math.round(a.attack * a.mult * (1 + a.bonus) * (1 - a.resist) * (1 + a.vuln)));
@@ -81,6 +82,7 @@ export function hitDamage(state: GameState, slot: number, enemy: Enemy, mult: nu
 }
 
 export function unitAttacks(state: GameState, events: GameEvent[]): void {
+  runIncome(state);
   for (let slot = 0; slot < state.slots.length; slot++) {
     const unit = state.slots[slot];
     if (!unit) continue;
@@ -103,6 +105,7 @@ export function unitAttacks(state: GameState, events: GameEvent[]): void {
 export function resolveKills(state: GameState, events: GameEvent[], opts: { finalClear?: boolean } = {}): void {
   const finalClear = opts.finalClear ?? true;
   const b = state.data.balance;
+  vulnKillExplosions(state, events);
   const alive = [];
   for (const e of state.enemies) {
     if (e.hp > 0) { alive.push(e); continue; }
