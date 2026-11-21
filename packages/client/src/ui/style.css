@@ -176,7 +176,7 @@ body.online #right .notices { margin-top: auto; color: var(--accent); }
 .modal-text { margin: 6px 0; font-size: 11px; }
 .modal-actions { display: flex; gap: 6px; }
 .modal-actions button.danger { color: #ffb3a8; border-color: #8a3a34; background: #3a1f24; }
-#conn-band { position: fixed; left: 0; right: 0; top: 0; z-index: 20; padding: 6px 12px; text-align: center; font-size: 14px; background: #5a2230; color: #fff; }
+#conn-band { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 6px 12px; text-align: center; font-size: 14px; background: #5a2230; color: #fff; }
 #conn-band:empty { display: none; }
 
 .result-screen { width: min(560px, 100% - 32px); gap: 6px; }

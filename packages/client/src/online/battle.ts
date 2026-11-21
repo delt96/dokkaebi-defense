@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { GameData } from '@dorandi/logic';
 import { LaneScene } from '../LaneScene';
-import { LANE_CANVAS_ONLINE, stagePlacement } from '../layout';
+import { LANE_CANVAS_ONLINE, STAGE_H, STAGE_W, stagePlacement } from '../layout';
 import type { NetClient } from '../net/NetClient';
 import { NetDriver } from '../net/NetDriver';
 import { mountUi } from '../ui/mount';
@@ -28,14 +28,19 @@ export function startBattle(net: NetClient, data: GameData): void {
   });
 
   const stage = document.getElementById('stage')!;
+  const band = document.getElementById('conn-band');
   function fit(): void {
-    const p = stagePlacement(window.innerWidth, window.innerHeight);
-    stage.style.transform = `scale(${p.zoom})`;
-    stage.style.left = `${p.left}px`;
-    stage.style.top = `${p.top}px`;
+    const { innerWidth: width, innerHeight: height } = window;
+    const available = height - (band?.offsetHeight ?? 0);
+    const p = stagePlacement(width, height);
+    const zoom = band?.offsetHeight ? Math.min(p.zoom, available / STAGE_H) : p.zoom;
+    stage.style.transform = `scale(${zoom})`;
+    stage.style.left = `${Math.max(0, Math.floor((width - STAGE_W * zoom) / 2))}px`;
+    stage.style.top = `${Math.floor(Math.max(0, available - STAGE_H * zoom) / 2)}px`;
     game.scale.refresh();
   }
   window.addEventListener('resize', fit);
+  if (band) new ResizeObserver(fit).observe(band);
   fit();
 
   mountUi(driver, scene, {}, {
