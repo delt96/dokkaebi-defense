@@ -94,6 +94,7 @@ const REJECT_TEXT: Record<string, string> = {
   noSlot: '빈 칸이 없습니다',
   noToken: '도깨비불이 없습니다',
   noCoins: '엽전이 모자랍니다',
+  noBuckwheat: '메밀묵이 모자랍니다',
   maxed: '이미 최대 단계입니다',
   missingMaterials: '재료가 모자랍니다',
   notAlive: '넋은 할 수 없습니다',

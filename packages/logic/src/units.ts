@@ -53,8 +53,9 @@ export function pityPick(state: GameState): string {
 
 export function addUnit(state: GameState, defId: string, slot: number, _events: GameEvent[]): Unit {
   const def = unitDefFast(state.data, defId);
+  const ready = state.data.balance.periodicReady === true;
   const periodic = def.skills.filter(s => s.trigger.kind === 'periodic')
-    .map(s => toTicks((s.trigger as { seconds: number }).seconds));
+    .map(s => (ready ? 0 : toTicks((s.trigger as { seconds: number }).seconds)));
   const unit: Unit = { id: state.nextId++, defId, cooldown: 0, attackCount: 0, periodic };
   state.slots[slot] = unit;
   return unit;

@@ -28,7 +28,10 @@ export function damageBonus(state: GameState, slot: number): number {
   if (!unit) return 0;
   const def = unitDefFast(state.data, unit.defId);
   const polish = def.grade <= 4 ? upgradePct(state, 'polish') : 0;
-  return upgradePct(state, def.damageType) + polish + auraAttackPower(state, slot);
+  const line = state.data.balance.inheritUpgrades && def.lineage
+    ? Math.max(...def.lineage.map(t => upgradePct(state, t)))
+    : upgradePct(state, def.damageType);
+  return line + polish + auraAttackPower(state, slot);
 }
 
 export function enemyResist(state: GameState, enemy: Enemy, damageType: DamageType): number {

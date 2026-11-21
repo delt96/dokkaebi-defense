@@ -29,14 +29,18 @@ function auraSum(state: GameState, slot: number, pick: (e: Effect) => number): n
 
 export function speedBonus(state: GameState, slot: number): number {
   if (!state.slots[slot]) return 0;
-  return auraSum(state, slot, e => (e.kind === 'auraAttackSpeed' ? e.pct : 0));
+  const v = auraSum(state, slot, e => (e.kind === 'auraAttackSpeed' ? e.pct : 0));
+  const caps = state.data.balance.auraCaps;
+  return caps ? Math.min(v, caps.attackSpeed) : v;
 }
 
 export function auraAttackPower(state: GameState, slot: number): number {
   const unit = state.slots[slot];
   if (!unit) return 0;
   const type = unitDefFast(state.data, unit.defId).damageType;
-  return auraSum(state, slot, e => (e.kind === 'auraAttackPower' && (e.damageType === 'all' || e.damageType === type) ? e.pct : 0));
+  const v = auraSum(state, slot, e => (e.kind === 'auraAttackPower' && (e.damageType === 'all' || e.damageType === type) ? e.pct : 0));
+  const caps = state.data.balance.auraCaps;
+  return caps ? Math.min(v, caps.attackPower) : v;
 }
 
 export function vulnOf(state: GameState, enemy: Enemy, damageType: DamageType): number {

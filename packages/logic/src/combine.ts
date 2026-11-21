@@ -1,4 +1,4 @@
-import type { GameState } from './types';
+import type { GameState, RecipeDef } from './types';
 import { registerCommand } from './registry';
 import { addUnit, unitDefFast } from './units';
 
@@ -24,8 +24,16 @@ export function missingMaterials(state: GameState, result: string): string[] {
   return recipe ? missingFrom(state, recipe.materials) : [];
 }
 
+function costShortfall(state: GameState, recipe: RecipeDef): 'noBuckwheat' | 'noCoins' | null {
+  if ((recipe.cost?.buckwheat ?? 0) > state.buckwheat) return 'noBuckwheat';
+  if ((recipe.cost?.coins ?? 0) > state.coins) return 'noCoins';
+  return null;
+}
+
 export function availableRecipes(state: GameState): string[] {
-  return state.data.recipes.filter(r => missingMaterials(state, r.result).length === 0).map(r => r.result);
+  return state.data.recipes
+    .filter(r => missingMaterials(state, r.result).length === 0 && costShortfall(state, r) === null)
+    .map(r => r.result);
 }
 
 export function recipesUsing(state: GameState, slot: number): { result: string; missing: string[] }[] {
@@ -45,6 +53,8 @@ registerCommand('combine', (state, cmd, events) => {
   if (!recipe) return 'unknown';
   if (chosen && !recipe.materials.includes(chosen.defId)) return 'missingMaterials';
   if (missingFrom(state, recipe.materials).length) return 'missingMaterials';
+  const short = costShortfall(state, recipe);
+  if (short) return short;
 
   let resultSlot = cmd.slot;
   if (resultSlot === undefined) {
@@ -65,6 +75,8 @@ registerCommand('combine', (state, cmd, events) => {
     }
   }
   const replacedUnitId = state.slots[resultSlot]!.id;
+  if (recipe.cost?.buckwheat) state.buckwheat -= recipe.cost.buckwheat;
+  if (recipe.cost?.coins) state.coins -= recipe.cost.coins;
   for (const i of used) state.slots[i] = null;
   const unit = addUnit(state, recipe.result, resultSlot, events);
   events.push({ type: 'combine', replacedUnitId, unitId: unit.id, defId: unit.defId, slot: resultSlot });
