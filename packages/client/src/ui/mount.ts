@@ -195,6 +195,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (hover) el('storage').dataset.drop = hover;
     else delete el('storage').dataset.drop;
   };
+  scene.onBoardDrag = on => el('storage').classList.toggle('board-drag', on);
   el('modal').addEventListener('submit', ev => {
     const form = ev.target as HTMLFormElement;
     if (!form.matches('.dex-search')) return;

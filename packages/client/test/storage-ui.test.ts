@@ -58,7 +58,7 @@ describe('storage view models', () => {
     expect(stack.querySelector('img')!.getAttribute('src')).toBe('/sprites/ki.png');
     expect(stack.querySelector('.stack-n')!.textContent).toBe('×3');
     expect(stack.querySelector('[data-action="sellStored"]')!.getAttribute('title')).toBe(`키 1개 판매 +${d2.balance.sellPrice[0]}냥`);
-    expect(document.querySelector('[data-action="storeAll"]')!.textContent).toBe('1·2등급 모두 보관');
+    expect(document.querySelector('[data-action="storeAll"]')!.textContent).toBe('1·2등급모두 보관');
     expect(document.querySelector('.stacks.dense')).toBeNull();
     const kinds = d2.units.filter(u => u.grade <= 2).slice(0, 13).map(u => u.id);
     s.storage = kinds.map((defId, i) => ({ id: 100 + i, defId, cooldown: 0, attackCount: 0, periodic: [] }));

@@ -26,7 +26,7 @@ export function storageHtml(state: GameState): string {
       <button class="stack-sell" data-action="sellStored" data-arg="${esc(s.defId)}" title="${esc(s.name)} 1개 판매 +${s.sellPrice}냥" aria-label="${esc(s.name)} 1개 판매 +${s.sellPrice}냥">냥</button>
     </div>`).join('');
   return `<div class="storage-head"><b>보관함</b>${total ? `<span>${total}</span>` : ''}</div>
-    <button class="storage-all" data-action="storeAll" title="판 위의 1·2등급을 모두 보관 (${STORE_ALL_KEY})">1·2등급 모두 보관</button>
+    <button class="storage-all" data-action="storeAll" title="판 위의 1·2등급을 모두 보관 (${STORE_ALL_KEY})">1·2등급<br>모두 보관</button>
     ${list ? `<div class="stacks${stacks.length > ROOMY_STACKS ? ' dense' : ''}">${list}</div>` : '<p class="storage-empty">1·2등급 유닛을 여기로 끌어 놓으세요</p>'}`;
 }
 

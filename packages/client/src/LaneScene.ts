@@ -56,6 +56,8 @@ export class LaneScene extends Phaser.Scene {
   private storageKey = '';
   /** Told while a dragged board unit is over the storage column: 'ok' when it may go in, 'no' when not (grade 3+). */
   onStorageHover?: (hover: 'ok' | 'no' | null) => void;
+  /** Told when a board unit drag starts and ends (the page lets the pointer through its storage column meanwhile). */
+  onBoardDrag?: (on: boolean) => void;
   private storageHover: 'ok' | 'no' | null = null;
   private reduceFx = readReduceFx();
   private wasRound = false;
@@ -160,7 +162,7 @@ export class LaneScene extends Phaser.Scene {
     for (const v of this.enemies.values()) v.destroy();
     this.tweens.killAll();
     this.effects.clear(true, true);
-    this.dragging = null;
+    if (this.dragging) this.endBoardDrag();
     this.hoveredId = null;
     this.selectedId = null;
     this.overlay.clear();
@@ -198,6 +200,13 @@ export class LaneScene extends Phaser.Scene {
   /** The storage column is drawn (by the page) for the own living lane only. */
   private storageOpen(): boolean {
     return !this.driver.readOnly && this.state.phase !== 'ended';
+  }
+
+  /** A dragged unit's view went away (sold, combined, another lane): the drag ends without a drop. */
+  private endBoardDrag(): void {
+    this.dragging = null;
+    this.setStorageHover(null);
+    this.onBoardDrag?.(false);
   }
 
   private setStorageHover(hover: 'ok' | 'no' | null): void {
@@ -299,6 +308,7 @@ export class LaneScene extends Phaser.Scene {
       view.motion?.stop();
       this.dragging = view;
       view.setDepth(10);
+      this.onBoardDrag?.(true);
     });
     view.on('drag', (_p: Phaser.Input.Pointer, x: number, y: number) => {
       if (this.dragging !== view) return;
@@ -309,6 +319,7 @@ export class LaneScene extends Phaser.Scene {
     view.on('dragend', () => {
       if (this.dragging !== view) return;
       this.setStorageHover(null);
+      this.onBoardDrag?.(false);
       const cell = canvasToCell(view.x, view.y);
       const from = selectedSlot(this.state, unitId);
       const live = !this.driver.paused && !this.driver.readOnly;
@@ -343,7 +354,7 @@ export class LaneScene extends Phaser.Scene {
       let view = this.units.get(u.id);
       if (view && view.defId !== u.defId) {
         // the same id now names another unit (another lane): never reuse the old drawing
-        if (this.dragging === view) this.dragging = null;
+        if (this.dragging === view) this.endBoardDrag();
         view.motion?.stop();
         view.destroy();
         this.units.delete(u.id);
@@ -369,7 +380,7 @@ export class LaneScene extends Phaser.Scene {
     });
     for (const [id, view] of this.units) {
       if (seen.has(id)) continue;
-      if (this.dragging === view) this.dragging = null;
+      if (this.dragging === view) this.endBoardDrag();
       view.motion?.stop();
       view.destroy();
       this.units.delete(id);
