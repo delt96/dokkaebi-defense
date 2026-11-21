@@ -24,6 +24,8 @@ export interface EconView {
   collection: EconState['collection'] | null;
   events: EconState['events'];
   tame: EconTameView[];
+  /** This seat's settled and running quest records (one per quest). */
+  questResults: EconState['questResults'];
 }
 
 function deadlineOf(state: GameState, enemyId: number): number {
@@ -63,5 +65,6 @@ export function econView(state: GameState): EconView | null {
     collection: eco.collection ? { done: [...econ.collection.done], paid: econ.collection.paid } : null,
     events: econ.events.map(e => ({ ...e })),
     tame: tamePart(state),
+    questResults: structuredClone(econ.questResults),
   };
 }

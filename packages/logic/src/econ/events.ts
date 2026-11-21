@@ -1,5 +1,6 @@
 import type { EconState, Enemy, GameEvent, GameState } from '../types';
 import { spawnEnemy, toTicks } from '../flow';
+import { questOutcome, setQuest } from './results';
 
 export type EventKind = EconState['events'][number]['kind'];
 
@@ -21,6 +22,8 @@ export function spawnEventEnemy(state: GameState, kind: EventKind, events: GameE
   if (!id) throw new Error(`event ${kind} is not in this economy`);
   const enemy = spawnEnemy(state, id, Math.max(1, state.round), events);
   state.econ!.events.push({ id: enemy.id, kind, spawnTick: state.tick, grown: false });
+  if (kind === 'shadow') setQuest(state, 'shadow', 'active', { grown: false });
+  if (kind === 'ssireum') setQuest(state, 'ssireum', 'active', { ...state.econ!.questResults.ssireum?.progress });
   return enemy;
 }
 
@@ -29,6 +32,11 @@ function flee(state: GameState, enemyId: number, events: GameEvent[]): void {
   if (i >= 0) {
     state.enemies.splice(i, 1);
     events.push({ type: 'flee', enemyId });
+    const rec = state.econ!.events.find(r => r.id === enemyId);
+    const quest = rec?.kind === 'shadow' ? 'shadow' : rec?.kind === 'ssireum' ? 'ssireum' : null;
+    if (quest && questOutcome(state, quest) === 'active') {
+      setQuest(state, quest, 'fled', { ...state.econ!.questResults[quest]!.progress, ...(quest === 'shadow' && { grown: rec!.grown }) });
+    }
   }
 }
 
@@ -81,7 +89,10 @@ export function eventKill(state: GameState, enemy: Enemy, events: GameEvent[]): 
   } else if (kind === 'ssireum' && eco.ssireum) {
     state.buckwheat += eco.ssireum.buckwheat;
     events.push({ type: 'questReward', quest: 'ssireum', coins: 0, buckwheat: eco.ssireum.buckwheat, tokens: 0 });
+    setQuest(state, 'ssireum', 'won', { ...econ.questResults.ssireum?.progress }, { buckwheat: eco.ssireum.buckwheat });
   } else if (kind === 'shadow' && eco.shadow) {
-    state.coins += rec?.grown ? eco.shadow.grownCoins : eco.shadow.coins;
+    const coins = rec?.grown ? eco.shadow.grownCoins : eco.shadow.coins;
+    state.coins += coins;
+    setQuest(state, 'shadow', 'won', { grown: rec?.grown ?? false }, { coins });
   }
 }

@@ -4,6 +4,7 @@ import { nextFloat } from '../rng';
 import { toTicks } from '../flow';
 import { addUnit, chooseSlot, unitDefFast } from '../units';
 import { takeToken } from './ledger';
+import { setQuest } from './results';
 
 function tameTarget(state: GameState, enemyId: number): { def: TameTargetDef; enemyIndex: number } | null {
   const tame = state.data.economy?.tame;
@@ -69,6 +70,9 @@ registerCommand('tame', (state, cmd, events) => {
   // a recruit leaves the lane at once: no kill, death effect, kill count or reward of any kind
   state.enemies.splice(enemyIndex, 1);
   const rec = econ.events.findIndex(r => r.id === enemy.id);
+  const kind = rec >= 0 ? econ.events[rec]!.kind : null;
+  if (kind === 'shadow') setQuest(state, 'shadow', 'tamed', { grown: econ.events[rec]!.grown, tamedDefId: def.unit });
+  if (kind === 'ssireum') setQuest(state, 'ssireum', 'tamed', { ...econ.questResults.ssireum?.progress, tamedDefId: def.unit });
   if (rec >= 0) econ.events.splice(rec, 1);
   if (econ.mission.beastId === enemy.id) econ.mission.beastDown = true;
   const unitDef = unitDefFast(state.data, def.unit);

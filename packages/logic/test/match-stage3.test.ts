@@ -240,3 +240,46 @@ describe('team request and ssireum', () => {
     expect(none.econ!.rng.s).toBe(rng);
   });
 });
+
+describe('quest outcomes in a match', () => {
+  const rec = (m: MatchState, seat: number, id: string) => (m.lanes[seat]!.econ!.questResults as Record<string, unknown>)[id];
+
+  test('team: last total, survivors and streak are kept; a capped seat is told so with payout 0', () => {
+    const m = teamMatch();
+    m.lanes[6]!.econ!.ledger = { tokens: 20 };
+    nightWith(m, 21, eight(SIX));
+    expect(rec(m, 1, 'team')).toMatchObject({ outcome: 'active', progress: { remaining: 48, survivors: 6, streak: 1 } });
+    nightWith(m, 22, eight(SIX));
+    nightWith(m, 23, eight(SIX));
+    expect(rec(m, 1, 'team')).toEqual({ outcome: 'won', reward: { coins: 0, buckwheat: 0, tokens: 1 }, progress: { remaining: 48, survivors: 6, streak: 3 } });
+    expect(rec(m, 6, 'team')).toMatchObject({ outcome: 'capped', reward: { tokens: 0 } });
+    nightWith(m, 24, eight(SIX));
+    expect(rec(m, 1, 'team')).toMatchObject({ outcome: 'won' });
+    const r = teamMatch();
+    nightWith(r, 29, eight(SIX, { 1: 5 }));
+    expect(rec(r, 1, 'team')).toMatchObject({ outcome: 'timedOut', progress: { remaining: 53, streak: 0 } });
+  });
+
+  test('ssireum: the winner, the other seats and a flight are recorded apart, and survive a fresh full', () => {
+    const m = createMatch(d3, 7, [1, 2, 3]);
+    jumpToTick(m, rst(32));
+    stepMatch(m, []);
+    const winner = m.econ!.ssireumSeat!;
+    const others = [1, 2, 3].filter(s => s !== winner);
+    expect(rec(m, winner, 'ssireum')).toMatchObject({ outcome: 'active', progress: { winnerSeat: winner } });
+    for (const s of others) expect(rec(m, s, 'ssireum')).toMatchObject({ outcome: 'otherSeat', progress: { winnerSeat: winner } });
+    for (let k = 0; k < 401; k++) stepMatch(m, []);
+    expect(rec(m, winner, 'ssireum')).toMatchObject({ outcome: 'fled', reward: { buckwheat: 0 } });
+    const full = buildFull(m, winner, { watching: winner, names: {}, key: 'k', n: 0 });
+    expect(full.mine.econ!.questResults.ssireum).toMatchObject({ outcome: 'fled' });
+  });
+
+  test('an elimination closes the active quests of that seat', () => {
+    const m = createMatch(d3, 2, [1, 2]);
+    jumpToTick(m, rst(12) + 1);
+    m.lanes[1]!.coins = 100;
+    stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'missionEnter' } }]);
+    stepMatch(m, [{ seat: 1, seq: 2, cmd: { type: 'forfeit' } }]);
+    expect(rec(m, 1, 'mission')).toMatchObject({ outcome: 'eliminated' });
+  });
+});

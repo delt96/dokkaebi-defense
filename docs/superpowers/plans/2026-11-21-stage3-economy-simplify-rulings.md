@@ -16,3 +16,6 @@ Task 9: Ruling: 길들인 개인 보스의 고개 시계는 새 상태 'tamed'�
 Task 9: Ruling: T 버튼은 #econ-top 대신 #tame-anchor로 옮겨 LaneScene.enemyBarAnchor 위치를 매 프레임 따라간다; 체력바가 안 보이면 진영 위 왼쪽에 둔다 — 명세 3절 '체력 막대 아래' — 대상이 둘 이상이면 성공 가능한 첫 대상 하나만 보인다.
 Task 9: Ruling: 측정 봇은 체력 15% 이하(최고 구간)에서만 유료 시도를 한다 — 옛 봇과 같은 시점을 유지해 Task 15 비교를 쉽게 한다 — 실제 플레이어보다 시도가 적게 잡힐 수 있다.
 Task 9: Ruling: 실패 알림은 tameTry note로 '길들이기 실패 · 묵 2 · 75냥을 잃었습니다'를 띄우고 성공은 기존 tame 알림을 쓴다 — 받은 값을 바로 알린다 — 없음.
+Task 10: Ruling: 미입장(missedEntry)은 12라운드 마감 때 기록하고, 입장 시간이 지난 뒤 마감 전까지는 화면이 시계로 판단한다 — 정산 지점 한 곳에서만 기록을 쓴다 — 마감 전 재접속 화면은 시계로 같은 결과를 계산해야 한다.
+Task 10: Ruling: 기록은 econ.questResults 하나에 고개별로 두고 mine/full에는 econView 복사본으로 실는다; 협동 전용(team·ssireum)은 혼자 하기에선 기록이 없다 — 화면이 '협동 전용'을 표시한다 — 없음.
+Task 10: Ruling: 서낭당 정성은 29라운드 밤에 못 채우면 timedOut, 지급 한도면 capped(지급 0)으로 남긴다 — 명세 4절 결과 표 — 없음.

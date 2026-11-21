@@ -20,6 +20,7 @@ export function createEcon(seed: number, economy: EconomyDef): EconState {
     events: [],
     tamed: [],
     tameReady: [],
+    questResults: {},
   };
 }
 

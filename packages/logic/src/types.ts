@@ -83,6 +83,16 @@ export interface JigeSource { zone: 'board' | 'storage'; index: number; unitId: 
 export type EconItem = 'draw';
 export type GeneralQuestId = 'mission' | 'collection' | 'team' | 'ssireum';
 export type EconSection = 'market' | 'drops' | GeneralQuestId | 'shadow' | 'tame';
+export type QuestId = GeneralQuestId | 'shadow';
+/** How a quest stands for one seat; 'active' until it settles. */
+export type QuestOutcome = 'active' | 'won' | 'missedEntry' | 'timedOut' | 'otherSeat' | 'fled' | 'capped' | 'eliminated' | 'tamed';
+/** The last counts of a quest, frozen when it settles (only the fields of its kind are set). */
+export interface QuestProgress {
+  kills?: number; beastDown?: boolean; done?: string[];
+  remaining?: number; survivors?: number; streak?: number;
+  winnerSeat?: number; grown?: boolean; tamedDefId?: string;
+}
+export interface QuestRecord { outcome: QuestOutcome; reward: { coins: number; buckwheat: number; tokens: number }; progress: QuestProgress }
 export interface TameTargetDef {
   enemy: string; unit: string; cost: { buckwheat?: number; coins?: number; tokens?: number };
   needs?: 'slowed' | { vulnSource: string; stacks: number };
@@ -116,6 +126,8 @@ export interface EconState {
   tamed: string[];
   /** Targets that refused a recruit: the tick a new attempt opens. */
   tameReady: { enemyId: number; tick: number }[];
+  /** One record per quest this seat met, kept after the round moves on. */
+  questResults: Partial<Record<QuestId, QuestRecord>>;
 }
 
 export interface RngState { s: number }

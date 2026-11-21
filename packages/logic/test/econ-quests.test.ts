@@ -197,3 +197,81 @@ test('former story nights leave no request state', () => {
     expect(result.events.filter(e => e.type.startsWith('story'))).toEqual([]);
   }
 });
+
+describe('quest outcomes stay on the lane', () => {
+  const rec = (s: GameState, id: string) => (s.econ!.questResults as Record<string, unknown>)[id];
+
+  test('mission: missed entry, timed out and won keep their last counts after the round changes', () => {
+    const missed = lane(12, 100);
+    toLastTick(missed);
+    expect(rec(missed, 'mission')).toMatchObject({ outcome: 'missedEntry', reward: { coins: 0, buckwheat: 0, tokens: 0 } });
+    const early = lane(12, 100);
+    early.tick = early.roundStartTick + 99;
+    expect(step(early, [{ type: 'missionEnter' }]).rejected).toEqual([]);
+
+    const late = lane(12, 100);
+    late.tick = late.roundStartTick + 100;
+    expect(step(late, [{ type: 'missionEnter' }]).rejected[0]!.reason).toBe('missionClosed');
+
+    const lost = lane(12, 100);
+    step(lost, [{ type: 'missionEnter' }]);
+    expect(rec(lost, 'mission')).toMatchObject({ outcome: 'active' });
+    killNormals(lost, 5);
+    toLastTick(lost);
+    expect(rec(lost, 'mission')).toMatchObject({ outcome: 'timedOut', progress: { kills: 5, beastDown: false } });
+
+    const won = lane(12, 100);
+    step(won, [{ type: 'missionEnter' }]);
+    killNormals(won, 20);
+    beastOf(won)!.hp = 0;
+    step(won, []);
+    toLastTick(won);
+    expect(rec(won, 'mission')).toEqual({ outcome: 'won', reward: { coins: 30, buckwheat: 1, tokens: 0 }, progress: { kills: 20, beastDown: true } });
+    step(won, []);
+    expect(won.round).toBe(13);
+    expect(won.econ!.roundKills).toBe(0);
+    expect(rec(won, 'mission')).toMatchObject({ outcome: 'won', progress: { kills: 20 } });
+  });
+
+  test('collection: checks survive a sale, swaps never check a box, round 29 closes it', () => {
+    const s = lane(21, 100);
+    placeUnitForTest(s, 'gamasot', 0);
+    s.econ!.jige = 1;
+    // a swap that lands on a collection item is not an own combine
+    const peer = d3.units.find(u => u.id === 'meongseok')!;
+    const from = d3.units.find(u => !u.hidden && u.grade === peer.grade && u.id !== 'meongseok')!;
+    const unit = placeUnitForTest(s, from.id, 1);
+    expect(step(s, [{ type: 'jigeSwap', source: { zone: 'board', index: 1, unitId: unit.id }, result: 'meongseok' }]).rejected).toEqual([]);
+    expect(s.econ!.collection.done).toEqual([]);
+    const open = lane(29, 100);
+    open.econ!.collection.done = ['gamasot'];
+    toLastTick(open);
+    expect(rec(open, 'collection')).toMatchObject({ outcome: 'timedOut', progress: { done: ['gamasot'] } });
+  });
+
+  test('shadow: kill pays and is kept; flee and recruit are told apart', () => {
+    const k = lane(43, 0);
+    const sh = k.enemies.find(e => e.defId === 'ev_shadow')!;
+    expect(rec(k, 'shadow')).toMatchObject({ outcome: 'active' });
+    sh.hp = 0;
+    step(k, []);
+    expect(rec(k, 'shadow')).toEqual({ outcome: 'won', reward: { coins: 5, buckwheat: 0, tokens: 0 }, progress: { grown: false } });
+    const f = lane(43, 0);
+    toLastTick(f);
+    expect(rec(f, 'shadow')).toMatchObject({ outcome: 'fled', reward: { coins: 0 } });
+    const t = lane(43, 105);
+    t.buckwheat = 2;
+    const target = t.enemies.find(e => e.defId === 'ev_shadow')!;
+    let ok = false;
+    for (let tries = 0; tries < 50 && !ok; tries++) {
+      const copy = structuredClone(t);
+      copy.econ!.rng.tame.s = t.econ!.rng.tame.s + tries;
+      step(copy, [{ type: 'tame', enemyId: target.id }]);
+      if (copy.econ!.tamed.length) {
+        expect(rec(copy, 'shadow')).toMatchObject({ outcome: 'tamed', reward: { coins: 0, buckwheat: 0, tokens: 0 }, progress: { tamedDefId: 'eoduksini' } });
+        ok = true;
+      }
+    }
+    expect(ok).toBe(true);
+  });
+});
