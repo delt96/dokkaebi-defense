@@ -14,10 +14,30 @@ interface QueuedCommand {
 
 type Listener = (events: GameEvent[], rejected: StepResult['rejected']) => void;
 
-export class GameDriver {
+/** What LaneScene and the panels drive: the local 1-player game or an online seat. */
+export interface Driver {
+  state: GameState;
+  paused: boolean;
+  /** Set by the scene when a frame throws; the UI stops sending input. */
+  failed: boolean;
+  readonly online: boolean;
+  /** Selection only: no drag, sell or other board command (spirit, or another lane on screen). */
+  readOnly: boolean;
+  /** Slots drawn faded while a combine or sell on them waits for the server. */
+  dimmed: Set<number>;
+  queue(cmd: Command): void;
+  onEvents(cb: Listener): void;
+  update(elapsedMs: number): void;
+  enemyDistance(id: number, d: number): number;
+}
+
+export class GameDriver implements Driver {
   state: GameState;
   paused = false;
   failed = false;
+  readonly online = false;
+  readOnly = false;
+  dimmed = new Set<number>();
   private carry = 0;
   private previousDistances = new Map<number, number>();
 

@@ -1,16 +1,22 @@
 import Phaser from 'phaser';
 import { availableRecipes, countNormalEnemies, laneOf, loopPos, unitDefFast, type GameEvent, type GameState, type Lane } from '@dorandi/logic';
 import { selectedSlot } from './ui/models';
-import type { GameDriver } from './driver';
+import type { Driver } from './driver';
 import { CELL, CENTER_H, CENTER_W, GRADE_COLOR, canvasToCell, laneToCanvas } from './layout';
 
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
 const hex = (c: string) => Number.parseInt(c.slice(1), 16);
+/** Ids that have a sprite file (glob keys only, nothing is imported); stage 2 units without art use the drawn fallback. */
+const SPRITE_IDS: ReadonlySet<string> = new Set(
+  Object.keys(import.meta.glob('../public/sprites/*.png')).map(p => p.slice(p.lastIndexOf('/') + 1, -'.png'.length)),
+);
 
 type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; combineMarker: Phaser.GameObjects.Arc };
 
 export class LaneScene extends Phaser.Scene {
-  private driver: GameDriver;
+  private driver: Driver;
+  /** Canvas height this scene is laid out for (308 for 1 player, 292 online). */
+  readonly canvasHeight: number;
   private units = new Map<number, UnitView>();
   private enemies = new Map<number, Phaser.GameObjects.Container>();
   private board!: Phaser.GameObjects.Graphics;
@@ -26,9 +32,10 @@ export class LaneScene extends Phaser.Scene {
   private effects!: Phaser.GameObjects.Group;
   private openKey = '';
 
-  constructor(driver: GameDriver) {
+  constructor(driver: Driver, opts: { height?: number } = {}) {
     super('lane');
     this.driver = driver;
+    this.canvasHeight = opts.height ?? CENTER_H;
   }
 
   onSelect(cb: (slot: number | null) => void): void { this.selectListeners.push(cb); }
@@ -39,13 +46,17 @@ export class LaneScene extends Phaser.Scene {
 
   preload(): void {
     const data = this.driver.state.data;
-    for (const def of [...data.units, ...data.enemies]) this.load.image(def.id, `sprites/${def.id}.png`);
+    // absolute path: the online page lives at /room/<id>, where a relative path would miss
+    for (const def of [...data.units, ...data.enemies]) {
+      if (SPRITE_IDS.has(def.id)) this.load.image(def.id, `${import.meta.env.BASE_URL}sprites/${def.id}.png`);
+    }
   }
 
   private warned = new Set<string>();
   private hasTexture(id: string): boolean {
     if (this.textures.exists(id)) return true;
-    if (!this.warned.has(id)) { this.warned.add(id); console.warn(`missing sprite texture: ${id}`); }
+    // only a sprite file that failed to load is worth a warning; units without art are expected
+    if (!this.warned.has(id) && SPRITE_IDS.has(id)) { this.warned.add(id); console.warn(`missing sprite texture: ${id}`); }
     return false;
   }
 
@@ -58,6 +69,13 @@ export class LaneScene extends Phaser.Scene {
     this.overlay = this.add.graphics().setDepth(5);
     const post = laneToCanvas({ x: this.lane.cols + 0.9, y: this.lane.rows + 0.4 });
     this.jangseung = this.add.rectangle(post.x, post.y, 8, 22, 0x8a6a4a).setStrokeStyle(1, 0x2a1a0e);
+    if (this.driver.online) {
+      // where enemies really come in (d = 0), so a player can read the path direction
+      const gate = laneToCanvas(this.lane.pointAt(0));
+      this.add.text(gate.x, gate.y - 13, '입구', {
+        fontFamily: 'sans-serif', fontSize: '9px', color: '#ffe08a', stroke: '#0d0a14', strokeThickness: 2, padding: { top: 2 },
+      }).setOrigin(0.5, 1).setDepth(1);
+    }
     this.drawBoard();
     this.driver.onEvents(events => this.handleEvents(events));
     this.input.mouse?.disableContextMenu();
@@ -106,6 +124,11 @@ export class LaneScene extends Phaser.Scene {
       g.fillStyle(!open ? 0x141018 : c.isEdge ? 0x2a2438 : 0x221d30, 1);
       g.fillRect(p.x + 1, p.y + 1, CELL - 2, CELL - 2);
       if (!open) { g.lineStyle(1, 0x2a2232, 1); g.lineBetween(p.x + 4, p.y + 4, p.x + CELL - 4, p.y + CELL - 4); }
+    }
+    if (this.driver.online) {
+      const gate = laneToCanvas(lane.pointAt(0));
+      g.lineStyle(2, 0xffe08a, 0.9);
+      g.strokeRect(gate.x - 8, gate.y - 8, 16, 16);
     }
     this.openKey = this.state.open.map(o => (o ? 1 : 0)).join('');
   }
@@ -165,7 +188,7 @@ export class LaneScene extends Phaser.Scene {
     view.on('pointerover', () => { this.hoveredId = unitId; });
     view.on('pointerout', () => { if (this.hoveredId === unitId) this.hoveredId = null; });
     view.on('dragstart', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.rightButtonDown()) return;
+      if (pointer.rightButtonDown() || this.driver.readOnly) return;
       const from = this.state.slots.findIndex(u => u?.id === unitId);
       if (from < 0) return;
       this.emitSelect(from);
@@ -180,7 +203,7 @@ export class LaneScene extends Phaser.Scene {
       if (this.dragging !== view) return;
       const cell = canvasToCell(view.x, view.y);
       const from = selectedSlot(this.state, unitId);
-      if (from !== null && cell !== null && this.state.open[cell] && cell !== from && !this.driver.paused) {
+      if (from !== null && cell !== null && this.state.open[cell] && cell !== from && !this.driver.paused && !this.driver.readOnly) {
         this.driver.queue({ type: 'move', from, to: cell });
       } else {
         view.targetSlot = undefined;
@@ -200,6 +223,7 @@ export class LaneScene extends Phaser.Scene {
   private placeUnits(): void {
     const seen = new Set<number>();
     let unitsChanged = false;
+    const dimmed = this.driver.dimmed;
     this.state.slots.forEach((u, slot) => {
       if (!u) return;
       seen.add(u.id);
@@ -209,6 +233,9 @@ export class LaneScene extends Phaser.Scene {
         this.units.set(u.id, view);
         unitsChanged = true;
       }
+      // a combine or sell waiting for the server fades its slot
+      const alpha = dimmed.has(slot) ? 0.4 : 1;
+      if (view.alpha !== alpha) view.alpha = alpha;
       if (this.dragging === view) return;
       if (view.targetSlot === slot) return;
       view.motion?.stop();
@@ -241,6 +268,8 @@ export class LaneScene extends Phaser.Scene {
   }
 
   private makeEnemy(id: number, defId: string, boss: boolean): Phaser.GameObjects.Container {
+    const def = this.state.data.enemies.find(d => d.id === defId);
+    if (def?.shared) return this.makeSharedEnemy(id);
     const spawn = laneToCanvas(this.lane.pointAt(0));
     const view = this.add.container(spawn.x, spawn.y).setDepth(2);
     const radius = boss ? 14 : 6;
@@ -255,7 +284,31 @@ export class LaneScene extends Phaser.Scene {
     return view;
   }
 
+  /** A shared enemy (the yeoksin): a mask a little smaller than a boss, marked '탈', with its own bar. */
+  private makeSharedEnemy(id: number): Phaser.GameObjects.Container {
+    const spawn = laneToCanvas(this.lane.pointAt(0));
+    const view = this.add.container(spawn.x, spawn.y).setDepth(2);
+    const width = 36;
+    view.add([
+      this.add.circle(0, 0, 12, 0xc89a52).setStrokeStyle(2, 0x4a1a12),
+      this.add.text(0, 0, '탈', { fontSize: '11px', color: '#2a0e08', fontFamily: 'sans-serif' }).setOrigin(0.5),
+      this.add.rectangle(0, -20, width + 2, 4, 0x100e14),
+      this.add.rectangle(-width / 2, -20, width, 2, 0xffb347).setOrigin(0, 0.5).setName('hp'),
+    ]);
+    this.enemies.set(id, view);
+    return view;
+  }
+
   private placeEnemies(): void {
+    if (this.driver.online) {
+      // a resync or a lane switch drops enemies without a kill event
+      const present = new Set(this.state.enemies.map(e => e.id));
+      for (const [id, view] of this.enemies) {
+        if (present.has(id)) continue;
+        view.destroy();
+        this.enemies.delete(id);
+      }
+    }
     for (const enemy of this.state.enemies) {
       const view = this.enemies.get(enemy.id) ?? this.makeEnemy(enemy.id, enemy.defId, enemy.boss);
       const p = laneToCanvas(this.lane.pointAt(this.driver.enemyDistance(enemy.id, enemy.d)));
@@ -309,8 +362,8 @@ export class LaneScene extends Phaser.Scene {
 
   private handleEvents(events: GameEvent[]): void {
     for (const e of events) {
-      if (e.type === 'spawn') {
-        const boss = this.state.data.enemies.find(def => def.id === e.defId)!.boss;
+      if (e.type === 'spawn' && !this.enemies.has(e.enemyId)) {
+        const boss = this.state.data.enemies.find(def => def.id === e.defId)?.boss ?? false;
         this.makeEnemy(e.enemyId, e.defId, boss);
       }
       if (e.type === 'damage') this.showHit(e);

@@ -1,18 +1,13 @@
 import { NetClient, stage2DataVersion, type NetEvent } from '../net/NetClient';
 import { connectCreate, connectJoin, type RoomLike } from '../net/room';
 import { clearSession, lastName, loadSession } from '../net/session';
-import { JOIN_ERROR_CODES } from '@dorandi/logic';
+import { JOIN_ERROR_CODES, loadGameData } from '@dorandi/logic';
+import { startBattle } from './battle';
 import { renderEntry } from './entry';
 import { renderLobby } from './lobby';
 import { NO_ROOM_CODE, TEXT, joinErrorText } from './text';
 
 type Screen = 'entry' | 'connecting' | 'lobby' | 'battle';
-
-/** Task 16 registers the battle screen here; until then a plain text stands in. */
-let battleStarter: ((net: NetClient, root: HTMLElement) => void) | null = null;
-export function setBattleStarter(fn: (net: NetClient, root: HTMLElement) => void): void {
-  battleStarter = fn;
-}
 
 function errorCode(err: unknown): number {
   const code = (err as { code?: unknown } | null)?.code;
@@ -69,8 +64,9 @@ export function startOnline(opts: { roomId?: string }): void {
 
   const showBattle = (n: NetClient): void => {
     screen = 'battle';
-    if (battleStarter) battleStarter(n, root);
-    else root.textContent = TEXT.started;
+    // an empty #screen is hidden, which uncovers the stage underneath
+    root.replaceChildren();
+    startBattle(n, loadGameData('stage2'));
   };
 
   const onEvent = (e: NetEvent): void => {

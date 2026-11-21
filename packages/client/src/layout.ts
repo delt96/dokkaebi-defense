@@ -15,6 +15,10 @@ export const CENTER_X = LEFT_W;
 export const CENTER_Y = TOP_H;
 export const CENTER_W = STAGE_W - LEFT_W - RIGHT_W;
 export const CENTER_H = STAGE_H - TOP_H - BOTTOM_H;
+/** Online battle (spec 7, layout A): a 44px card at the bottom leaves 292px for the middle row. */
+export const ONLINE_BOTTOM_H = 44;
+export const ONLINE_CENTER_H = STAGE_H - TOP_H - ONLINE_BOTTOM_H;
+export const LANE_CANVAS_ONLINE = { width: CENTER_W, height: ONLINE_CENTER_H };
 
 export const GRADE_COLOR: Record<number, string> = { 1: '#4f9dff', 2: '#4fd27a', 3: '#b07aff', 4: '#ffb347' };
 

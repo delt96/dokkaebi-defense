@@ -1,5 +1,6 @@
 import { unitDefFast, type GameEvent, type UpgradeId } from '@dorandi/logic';
-import type { GameDriver } from '../driver';
+import type { Driver } from '../driver';
+import { isTypingTarget } from '../online/entry';
 import type { LaneScene } from '../LaneScene';
 import { playSfx } from '../sfx';
 import { dexHtml } from './dex';
@@ -18,7 +19,12 @@ const NOTICE_MS = 1500;
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void }
 
-export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {}): { resetUi: () => void } {
+/** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
+const GAME_ACTIONS: ReadonlySet<string> = new Set(['summon', 'convert', 'combine', 'sell', 'upgrade']);
+const PRESS_MS = 120;
+
+export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, opts: { online?: boolean } = {}): { resetUi: () => void } {
+  const online = opts.online === true;
   scene.selectedId = null;
   let displayedCard: ReturnType<typeof renderBottom> | null = null;
   let banner: Notice | null = null;
@@ -29,9 +35,14 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
 
   const act = (action: string, arg: string) => {
     if (driver.failed && action !== 'restart') return;
+    if (driver.readOnly && GAME_ACTIONS.has(action)) return;
     const previousModal = modal;
     switch (action) {
-      case 'summon': driver.queue({ type: 'summon' }); break;
+      case 'summon':
+        // online the press shows at once; the driver does not send it when no summon is left
+        driver.queue({ type: 'summon' });
+        if (online) pressSummon();
+        break;
       case 'convert': driver.queue({ type: 'convertToken' }); break;
       case 'combine': {
         const [result = '', target] = arg.split('@');
@@ -50,7 +61,7 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
       case 'upgrade': driver.queue({ type: 'upgrade', id: arg as UpgradeId }); break;
       case 'toggleHelper':
         helperOpen = !helperOpen;
-        if (helperOpen) driver.queue({ type: 'helperOpened' });
+        if (helperOpen && !driver.readOnly) driver.queue({ type: 'helperOpened' });
         break;
       case 'openDex': modal = 'dex'; break;
       case 'openUpgrades': modal = 'upgrades'; break;
@@ -103,6 +114,7 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
   });
 
   window.addEventListener('keydown', ev => {
+    if (isTypingTarget(ev)) return;
     if (driver.failed || ev.defaultPrevented || ev.isComposing || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
     const target = ev.target as HTMLElement | null;
     if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
@@ -118,7 +130,7 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (upgrade) act('upgrade', upgrade);
     else if (ev.code === 'KeyQ') act('toggleHelper', '');
-    else if (ev.code === 'KeyP') { driver.paused = !driver.paused; render(); }
+    else if (ev.code === 'KeyP' && !online) { driver.paused = !driver.paused; render(); }
     else if (ev.code === 'Tab' || ev.code === 'KeyW') {
       ev.preventDefault();
       scene.selectedId = nextUnitId(driver.state, scene.selectedId);
@@ -140,11 +152,22 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
     el('round-banner').textContent = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? '';
     renderHelper(s, helperOpen);
     renderRight(s);
+    if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');
     displayedCard = renderBottom(s, selected);
-    const dialogOpen = modal !== null || s.phase === 'ended';
+    // online the team result screen (Task 19) replaces the 1-player result window
+    const soloResult = !online && s.phase === 'ended';
+    const dialogOpen = modal !== null || soloResult;
     for (const id of ['left', 'right', 'bottom', 'lane']) el(id).inert = dialogOpen;
-    setHtml(el('modal'), s.phase === 'ended' ? resultHtml(s, best?.id ?? null) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'dex' ? dexHtml(s.data) : modal === 'upgrades' ? upgradesHtml(s) : '');
     hooks.onRender?.();
+  }
+
+  let pressedUntil = 0;
+  let pressTimer: ReturnType<typeof setTimeout> | undefined;
+  function pressSummon(): void {
+    pressedUntil = performance.now() + PRESS_MS;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => el('right').querySelector('[data-action="summon"]')?.classList.remove('pressed'), PRESS_MS);
   }
 
   let lastRender = 0;
@@ -167,6 +190,6 @@ export function mountUi(driver: GameDriver, scene: LaneScene, hooks: UiHooks = {
   return { resetUi };
 }
 
-export function unitName(driver: GameDriver, defId: string): string {
+export function unitName(driver: Driver, defId: string): string {
   return unitDefFast(driver.state.data, defId).name;
 }

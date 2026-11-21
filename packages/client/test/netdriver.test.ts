@@ -1,0 +1,93 @@
+import { describe, expect, test } from 'vitest';
+import { buildFull, createMatch, loadGameData, type FullMsg, type GameEvent, type TickMsg } from '@dorandi/logic';
+import { placeUnitForTest, stepMatchUntil } from '@dorandi/logic/testing';
+
+const store = new Map<string, string>();
+(globalThis as { sessionStorage?: unknown }).sessionStorage = {
+  getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+  setItem: (k: string, v: string) => { store.set(k, String(v)); },
+  removeItem: (k: string) => { store.delete(k); },
+  clear: () => { store.clear(); },
+  key: (i: number) => [...store.keys()][i] ?? null,
+  get length() { return store.size; },
+};
+
+import { NetClient } from '../src/net/NetClient';
+import { NetDriver, renderTickAt } from '../src/net/NetDriver';
+import { viewToGameState } from '../src/net/viewState';
+import type { RoomLike } from '../src/net/room';
+
+class FakeRoom implements RoomLike {
+  roomId = 'room-1';
+  sent: { type: string; msg?: any }[] = [];
+  private handlers = new Map<string, ((msg: any) => void)[]>();
+  send(type: string, msg?: unknown): void { this.sent.push({ type, msg }); }
+  onMessage(type: string, cb: (msg: any) => void): void {
+    const list = this.handlers.get(type) ?? [];
+    list.push(cb);
+    this.handlers.set(type, list);
+  }
+  onLeave(): void {}
+  async leave(): Promise<unknown> { return undefined; }
+  emit(type: string, msg: unknown): void { for (const cb of this.handlers.get(type) ?? []) cb(msg); }
+}
+
+const data = loadGameData('stage2');
+
+function fixtureView(): { view: FullMsg; data: typeof data } {
+  const match = createMatch(data, 7, [1, 2]);
+  placeUnitForTest(match.lanes[1]!, 'sotlid', 0);
+  stepMatchUntil(match, 700);
+  const view = buildFull(match, 1, { watching: 1, names: { 1: '하나', 2: 'two' }, key: 'k1', n: 0 });
+  return { view, data };
+}
+
+function fixtureNet() {
+  const { view } = fixtureView();
+  const room = new FakeRoom();
+  const net = new NetClient(room, view.dataVersion);
+  room.emit('full', view);
+  return { net, room, data, view };
+}
+
+function tickFrom(view: FullMsg): TickMsg {
+  return { n: view.n + 1, clock: view.clock, rows: view.rows, gate: view.gate, yeoksin: view.yeoksin };
+}
+
+describe('NetDriver', () => {
+  test('viewToGameState exposes what LaneScene and the panels read', () => {
+    const { view, data } = fixtureView();
+    const s = viewToGameState(view, data, view.mine.units, view.clock.tick);
+    expect(s).toMatchObject({ tick: view.clock.tick, round: 1, phase: 'round', tokens: view.mine.tokens, coins: view.mine.coins });
+    expect(s.slots[0]).toMatchObject({ id: view.mine.units[0]!.id, defId: view.mine.units[0]!.defId });
+    expect(view.lane.enemies.length).toBeGreaterThan(0);
+    expect(s.enemies.map(e => e.id)).toEqual(view.lane.enemies.map(e => e.id));
+    expect(s.enemies[0]!.d).toBeCloseTo(view.lane.enemies[0]!.d, 9);
+  });
+  test('render tick lags 2 ticks, runs at most 100 ms past schedule, never goes back', () => {
+    expect(renderTickAt(1000, 50, 1000, 0)).toBe(48);
+    expect(renderTickAt(1050, 50, 1000, 48)).toBe(49);
+    expect(renderTickAt(1300, 50, 1000, 49)).toBe(50);
+    expect(renderTickAt(1300, 52, 1290, 50)).toBe(50.2);
+    expect(renderTickAt(1000, 40, 1000, 50)).toBe(50);
+  });
+  test('a returning background tab applies 300 batches but animates only the last 10 ticks (review focus 1)', () => {
+    const { net, room, data, view } = fixtureNet();
+    const drv = new NetDriver(net, data);
+    const animated: GameEvent[] = []; drv.onEvents(ev => animated.push(...ev));
+    room.emit('tick', { ...tickFrom(view), n: view.n + 1, clock: { ...view.clock, tick: view.clock.tick + 300 } });
+    room.emit('lane', { n: view.n + 1, seat: 1, batches: Array.from({ length: 300 }, (_, i) => ({ tick: view.clock.tick + 1 + i, events: [{ t: 'attack', unitId: 1, id: 1 }] })) });
+    expect(animated.filter(e => e.type === 'attack').length).toBe(10);
+    expect(net.view!.lane.tick).toBe(view.clock.tick + 300);
+  });
+  test('queue(move) predicts at once and is read-only while watching another lane', () => {
+    const { net, data } = fixtureNet();
+    const drv = new NetDriver(net, data); drv.update(16);
+    const id = drv.state.slots[0]!.id;
+    drv.queue({ type: 'move', from: 0, to: 6 }); drv.update(16);
+    expect(drv.state.slots[6]!.id).toBe(id);
+    expect(drv.readOnly).toBe(false);
+    net.view!.watching = 2; drv.update(16);
+    expect(drv.readOnly).toBe(true);
+  });
+});

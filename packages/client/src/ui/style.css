@@ -118,3 +118,8 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .lobby-state { color: var(--ink-dim); font-size: 13px; }
 .lobby-state.on { color: var(--accent); }
 .lobby-hint { color: var(--ink-dim); font-size: 13px; text-align: center; }
+
+/* Online battle (spec 7, layout A): 44px bottom card, 292px middle row. */
+body.online #left, body.online #lane, body.online #right { height: 292px; }
+body.online #bottom { top: 316px; height: 44px; }
+button.big.pressed { transform: translateY(1px) scale(0.97); background: #5a3e22; }
