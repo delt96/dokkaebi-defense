@@ -1,6 +1,6 @@
 import type { GameData, GameEvent, GameState, Unit, UnitDef } from './types';
 import { nextFloat } from './rng';
-import { registerAfterCommands, registerCommand } from './registry';
+import { registerCommand } from './registry';
 import { laneOf } from './lane';
 import { toTicks } from './flow';
 import { gradeValue, summonOddsForRound } from './data';
@@ -80,38 +80,20 @@ export function receive(state: GameState, defId: string, events: GameEvent[], co
   return true;
 }
 
-function placePendingPity(state: GameState, events: GameEvent[]): void {
-  const econ = state.econ;
-  while (state.pendingPity.length && receive(state, state.pendingPity[0]!, events, econ?.pityQuest[0] ? 0 : 1)) {
-    state.pendingPity.shift();
-    econ?.pityQuest.shift();
-  }
-}
-
 registerCommand('summon', (state, _cmd, events) => {
   if (state.tokens <= 0) return 'noToken';
-  placePendingPity(state, events);
   if (!state.slots.some((u, i) => !u && state.open[i])) return 'noSlot';
   const quest = takeToken(state) === 'quest';
-  const defId = rollSummon(state);
-  state.summonCounts[defId] = (state.summonCounts[defId] ?? 0) + 1;
-  const grade = unitDefFast(state.data, defId).grade;
-  receive(state, defId, events, quest ? 0 : gradeValue(grade));
-  if (grade === 1) {
+  // one draw per summon keeps the stream aligned; the pity only swaps what that draw gave
+  let defId = rollSummon(state);
+  if (unitDefFast(state.data, defId).grade === 1) {
     state.grade1Summons++;
-    if (state.grade1Summons % state.data.balance.pityEvery === 0) {
-      const pity = pityPick(state);
-      state.summonCounts[pity] = (state.summonCounts[pity] ?? 0) + 1;
-      if (!receive(state, pity, events, quest ? 0 : 1)) {
-        state.pendingPity.push(pity);
-        state.econ?.pityQuest.push(quest);
-      }
-    }
+    if (state.grade1Summons % state.data.balance.pityEvery === 0) defId = pityPick(state);
   }
+  state.summonCounts[defId] = (state.summonCounts[defId] ?? 0) + 1;
+  receive(state, defId, events, quest ? 0 : gradeValue(unitDefFast(state.data, defId).grade));
   return null;
 });
-
-registerAfterCommands(placePendingPity);
 
 const validSlot = (state: GameState, i: number) => Number.isInteger(i) && i >= 0 && i < state.slots.length;
 

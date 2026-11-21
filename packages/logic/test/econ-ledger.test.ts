@@ -34,7 +34,7 @@ describe('economy ledger', () => {
     expect(s.econ!.ledger).toEqual({ story: 0, tokens: 0 });
   });
 
-  test('unit cost: summon = grade value, combine = sum, pity = 1', () => {
+  test('unit cost: summon = grade value, combine = sum, pity = 1 like any grade-1 summon', () => {
     const s = createGame(d3, 3);
     jumpLaneToRound(s, 1);
     s.tokens = 30;
@@ -54,32 +54,19 @@ describe('economy ledger', () => {
     jumpLaneToRound(p, 1);
     p.tokens = 1; p.grade1Summons = d3.balance.pityEvery - 1;
     step(p, [{ type: 'summon' }]);
-    expect(units(p).map(u => u.cost)).toEqual([1, 1]);
+    expect(units(p).map(u => u.cost)).toEqual([1]);
   });
 
-  test('a quest token summon and the pity it triggers cost 0 and spend the quest token first', () => {
+  test('a quest token pity summon costs 0 and spends the quest token first', () => {
     const s = createGame(makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1]; }, 'stage3'), 3);
     jumpLaneToRound(s, 1);
     s.tokens = 2; s.econ!.questTokens = 1; s.grade1Summons = d3.balance.pityEvery - 1;
     step(s, [{ type: 'summon' }]);
-    expect(units(s).map(u => u.cost)).toEqual([0, 0]);
+    expect(units(s).map(u => u.cost)).toEqual([0]);
+    expect(s.grade1Summons).toBe(d3.balance.pityEvery);
     expect([s.econ!.questTokens, s.tokens]).toEqual([0, 1]);
     step(s, [{ type: 'summon' }]);
-    expect(units(s).map(u => u.cost).sort()).toEqual([0, 0, 1]);
-  });
-
-  test('a queued quest pity unit keeps cost 0 when it lands later', () => {
-    const s = createGame(makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1]; }, 'stage3'), 3);
-    jumpLaneToRound(s, 1);
-    for (let i = 0; i < s.slots.length; i++) if (s.open[i] && i !== 0) placeUnitForTest(s, 'jipsin', i);
-    s.tokens = 1; s.econ!.questTokens = 1; s.grade1Summons = d3.balance.pityEvery - 1;
-    step(s, [{ type: 'summon' }]);
-    expect(s.pendingPity.length).toBe(1);
-    expect(s.econ!.pityQuest).toEqual([true]);
-    step(s, [{ type: 'sell', slot: 1 }]);
-    expect(s.pendingPity.length).toBe(0);
-    expect(s.econ!.pityQuest).toEqual([]);
-    expect(s.slots[1]!.cost).toBe(0);
+    expect(units(s).map(u => u.cost).sort()).toEqual([0, 1]);
   });
 
   test('convertToken spends a quest token first and keeps the Q reservation', () => {

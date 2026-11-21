@@ -106,7 +106,7 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .hud .notice { color: #ffb396; font-weight: bold; }
 .hud .boss { color: #ffab99; }
 #round-banner, .countdown, #error { position: absolute; text-align: center; pointer-events: none; }
-#round-banner { top: 35px; left: 128px; width: 400px; white-space: pre-line; color: var(--accent); font-size: 13px; font-weight: bold; line-height: 17px; }
+#round-banner { top: 32px; left: 128px; width: 400px; white-space: pre-line; color: var(--accent); font-size: 13px; font-weight: bold; line-height: 17px; }
 .countdown { top: 50%; left: 328px; transform: translate(-50%, -50%); background: #32171ef0; border: 1px solid #ff836a; padding: 3px 10px; color: #ffb59f; font-size: 11px; }
 .countdown strong { display: block; color: white; font-size: 29px; }
 #modal { z-index: 2; }
@@ -337,30 +337,30 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 #modal .dex-modal:not(.dex-browser) .modal-head { position: sticky; top: -6px; z-index: 1; background: var(--panel); padding: 3px 0; }
 
 /* Storage column left of the board (layout STORAGE_BOX). */
-#storage { position: absolute; left: 130px; top: 70px; width: 66px; height: 200px; z-index: 1; display: flex; flex-direction: column; gap: 2px; padding: 2px; background: #15101ecc; border: 1px dashed #3e3350; font-size: 9px; }
+#storage { position: absolute; left: 132px; top: 67px; width: 392px; height: 21px; z-index: 1; display: flex; flex-direction: row; align-items: stretch; gap: 2px; padding: 1px; background: #15101ecc; border: 1px dashed #3e3350; font-size: 9px; }
 #storage:empty { display: none; }
-/* while a board unit is dragged the column lets the pointer through, so the lane keeps getting its moves */
+/* a board drag passes over the strip; only the drop test (canvasInStorage) decides */
 #storage.board-drag, #storage.board-drag * { pointer-events: none; }
 #storage.board-drag { opacity: 0.8; }
 #storage[data-drop="ok"] { border: 1px solid var(--accent); background: #2a2233e6; }
 #storage[data-drop="no"] { border: 1px solid var(--danger); }
-.storage-head { display: flex; justify-content: space-between; height: 11px; line-height: 11px; padding: 0 1px; color: var(--ink-dim); }
-.storage-head span { color: var(--accent); font-variant-numeric: tabular-nums; }
-#storage .storage-all { flex: none; min-height: 0; height: 22px; padding: 0 2px; font-size: 8px; line-height: 9px; white-space: normal; word-break: keep-all; }
-.stacks { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 28px; gap: 2px 2px; padding-top: 2px; overflow-y: auto; scrollbar-width: none; }
-.stacks.dense { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 23px; gap: 1px; }
-.stack { position: relative; min-width: 0; }
+#storage .storage-all { flex: none; width: 40px; min-height: 0; height: 100%; padding: 0 1px; font-size: 7.5px; line-height: 8px; white-space: normal; word-break: keep-all; }
+.stacks { flex: 1; min-width: 0; display: flex; gap: 2px; overflow: hidden; }
+.stacks.dense { gap: 1px; }
+.stack { position: relative; flex: none; width: 24px; }
+.dense .stack { width: 16px; }
 #storage .stack-take { width: 100%; height: 100%; min-height: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: #1d1626; border: 1px solid var(--g); border-radius: 2px; cursor: grab; touch-action: none; }
 .stack-icon { display: flex; pointer-events: none; }
-.stack-icon img, .stack-ghost img { width: 24px; height: 24px; image-rendering: pixelated; }
-.dense .stack-icon img { width: 18px; height: 18px; }
-.stack-disc { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; color: #10101a; font-size: 9px; }
-.dense .stack-disc { width: 14px; height: 14px; font-size: 8px; }
-.stack-n { position: absolute; right: 1px; bottom: 0; font-size: 9px; line-height: 10px; font-weight: bold; color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 0 1px #000; pointer-events: none; }
-.dense .stack-n { font-size: 8px; line-height: 9px; }
-#storage .stack-sell { position: absolute; top: -2px; left: -2px; width: 11px; height: 11px; min-height: 0; padding: 0; border-radius: 50%; font-size: 6px; line-height: 9px; text-align: center; color: #3a2a10; background: #d9b25a; border: 1px solid #7a5a22; opacity: 0.85; }
+.stack-icon img, .stack-ghost img { width: 17px; height: 17px; image-rendering: pixelated; }
+.stack-ghost img { width: 24px; height: 24px; }
+.dense .stack-icon img { width: 14px; height: 14px; }
+.stack-disc { display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 50%; color: #10101a; font-size: 8px; }
+.dense .stack-disc { width: 12px; height: 12px; font-size: 7px; }
+.stack-n { position: absolute; right: 0; bottom: -1px; font-size: 8px; line-height: 9px; font-weight: bold; color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 0 1px #000; pointer-events: none; }
+.dense .stack-n { font-size: 7px; line-height: 8px; }
+#storage .stack-sell { position: absolute; top: -2px; left: -2px; width: 10px; height: 10px; min-height: 0; padding: 0; border-radius: 50%; font-size: 6px; line-height: 8px; text-align: center; color: #3a2a10; background: #d9b25a; border: 1px solid #7a5a22; opacity: 0.85; }
 #storage .stack-sell:hover { opacity: 1; border-color: #fff2c0; }
-.storage-empty { margin: 6px 2px 0; color: var(--ink-dim); line-height: 1.45; text-align: center; word-break: keep-all; }
+.storage-empty { margin: 0 4px; align-self: center; color: var(--ink-dim); white-space: nowrap; }
 .stack-ghost { position: absolute; z-index: 3; width: 24px; height: 24px; pointer-events: none; opacity: 0.85; }
 .dex-filter-label { flex: none; align-self: center; width: 28px; color: var(--ink-dim); font-size: 10px; }
 .dex-summary { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--ink-dim); font-size: 11px; }

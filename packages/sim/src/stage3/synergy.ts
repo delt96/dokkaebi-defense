@@ -1,5 +1,5 @@
 import {
-  dist, laneOf, unitAttack, unitDefFast, upgradeCost,
+  cellDistance, laneOf, unitAttack, unitDefFast, upgradeCost,
   type Command, type DamageType, type Effect, type GameState, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 
@@ -44,8 +44,9 @@ function auraReaches(aura: UnitDef, target: UnitDef): number {
 }
 
 /**
- * The board's main damage type: attack summed by damage type over held units, with the current target counted as if
- * held so the plan and the board pull the same way. Ties go to physical.
+ * The damage type that carries the board: attack summed by damage type over held units, each type scaled by the
+ * upgrade it already has (a unit reads only its own type's upgrade), with the current target counted as if held so
+ * the plan and the board pull the same way. Ties go to physical.
  */
 export function mainType(state: GameState, target: string | null): DamageType {
   const sum: Record<DamageType, number> = { physical: 0, magical: 0 };
@@ -58,10 +59,11 @@ export function mainType(state: GameState, target: string | null): DamageType {
     const def = unitDefFast(state.data, target);
     sum[def.damageType] += unitAttack(def, state.data.balance);
   }
+  for (const t of TYPES) sum[t] *= 1 + (state.data.upgrades.find(u => u.id === t)?.pct ?? 0) * state.upgrades[t];
   return sum.magical > sum.physical ? 'magical' : 'physical';
 }
 
-const TYPE_BONUS = 2;
+const TYPE_BONUS = 3;
 const SUPPORT_BONUS = 2;
 
 /** Target score (lower is better): grade-1 value still missing, less a bonus for matching and supporting the main type. */
@@ -70,8 +72,8 @@ export function synergyScore(def: UnitDef, remaining: number, main: DamageType):
 }
 
 /**
- * Upgrade for the main type: its damage line and polish first (every normal grade 6 carries both lineages, so one line
- * covers them), slots when the board is full, the other line only once those are maxed.
+ * Upgrade for the main type: its damage upgrade and polish first (each unit reads only its own type's upgrade, so the
+ * main type's is the one that pays), slots when the board is full, the other type only once those are maxed.
  */
 export function synergyUpgrade(state: GameState, main: DamageType, coins: number): UpgradeId | null {
   const full = !state.slots.some((u, i) => !u && state.open[i]);
@@ -121,7 +123,7 @@ export function auraPlacement(state: GameState): Command | null {
     for (let i = 0; i < state.slots.length; i++) {
       const u = state.slots[i];
       if (!u || i === auraSlot || i === at) continue;
-      if (dist(lane.cells[at]!, lane.cells[i]!) > radius + 1e-9) continue;
+      if (cellDistance(lane, at, i) > radius + 1e-9) continue;
       const def = unitDefFast(state.data, u.defId);
       v += auraReaches(aura, def) * unitAttack(def, state.data.balance);
     }

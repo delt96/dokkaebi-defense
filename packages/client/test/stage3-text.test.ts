@@ -5,7 +5,7 @@ import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { spriteKey, tameArt } from '../src/sprites';
 import { dexHtml } from '../src/ui/dex';
-import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitSkillText } from '../src/ui/models';
+import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitNotes, unitSkillText, upgradeRows } from '../src/ui/models';
 
 const d3 = loadGameData('stage3');
 const text = (id: string) => unitSkillText(d3, unitDefFast(d3, id));
@@ -162,4 +162,23 @@ test('dex search combines grade with a unit or material name and handles no matc
   const byMaterial = dexHtml(d3, undefined, '5', '지게');
   expect(byMaterial).toContain('>톱</div>');
   expect(dexHtml(d3, undefined, '1', '천년상모')).toContain('찾는 유닛이 없습니다');
+});
+
+test('the slots upgrade says how many cells its next level opens: 2 on the 6 x 4 board of every stage', () => {
+  for (const data of [d3, loadGameData()]) {
+    const s = createGame(data, 1);
+    const row = () => upgradeRows(s).find(r => r.id === 'slots')!;
+    expect([row().effectText, row().max, row().cost]).toEqual(['칸 2개 열기', 3, 50]);
+    s.upgrades.slots = 3;
+    expect([row().effectText, row().cost]).toEqual(['칸 2개 열기', null]);
+  }
+});
+
+test('a stage 3 card says which upgrade the unit gets: its own type, never the higher of its materials', () => {
+  expect(unitNotes(d3, unitDefFast(d3, 'jangdok'))[0]).toBe('물딜 강화를 받음');
+  expect(unitNotes(d3, unitDefFast(d3, 'bihyeongrang'))[0]).toBe('마딜 강화를 받음');
+  expect(combineNoteLines(d3, 'jangdok')[0]).toMatch(/^사거리 /);
+  expect(JSON.stringify(dexEntries(d3))).not.toContain('높은 쪽');
+  const d1 = loadGameData();
+  expect(unitNotes(d1, unitDefFast(d1, 'sotlid'))).toEqual([]);
 });

@@ -36,7 +36,6 @@ export function viewToGameState(
     ...(storage && ownLane && !spirit ? { storage: storage.map(toUnit) } : {}),
     // the own board comes from `mine` (sent at once), another lane's from the lane stream
     open: [...(ownLane && !spirit ? mine.open : view.lane.open)],
-    pendingPity: spirit ? [] : [...mine.pendingPity],
     summonCounts: {},
     grade1Summons: spirit ? 0 : mine.grade1Summons,
     enemies: view.lane.enemies.map(e => ({

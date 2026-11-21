@@ -1,4 +1,4 @@
-import type { BalanceDef, CoopDef, DamageType, EconomyDef, EnemyDef, GameData, RecipeDef, UnitDef } from './types';
+import type { BalanceDef, CoopDef, EconomyDef, EnemyDef, GameData, RecipeDef, UnitDef } from './types';
 import units from '../data/units.json';
 import recipes from '../data/recipes.json';
 import enemies from '../data/enemies.json';
@@ -73,32 +73,9 @@ export function buildGameData(stage: DataStage, src: DataSources): GameData {
       if (!u) throw new Error(`onBasicHit for unknown unit ${id}`);
       u.onBasicHit = { ...hit };
     }
-    addLineage(data);
     data.economy = structuredClone(s3.economy) as EconomyDef;
   }
   return data;
-}
-
-const LINEAGE_ORDER: DamageType[] = ['magical', 'physical'];
-
-function addLineage(data: GameData): void {
-  const recipeOf = new Map(data.recipes.map(r => [r.result, r]));
-  const byId = new Map(data.units.map(u => [u.id, u]));
-  const visit = (u: UnitDef, stack: Set<string>): DamageType[] => {
-    if (u.lineage) return u.lineage;
-    if (stack.has(u.id)) throw new Error(`recipe cycle at ${u.id}`);
-    stack.add(u.id);
-    const set = new Set<DamageType>([u.damageType]);
-    const recipe = u.grade > 1 ? recipeOf.get(u.id) : undefined;
-    for (const m of recipe?.materials ?? []) {
-      const mu = byId.get(m);
-      if (mu) for (const t of visit(mu, stack)) set.add(t);
-    }
-    stack.delete(u.id);
-    u.lineage = LINEAGE_ORDER.filter(t => set.has(t));
-    return u.lineage;
-  };
-  for (const u of data.units) visit(u, new Set());
 }
 
 export function summonOddsForRound(balance: BalanceDef, round: number): number[] {

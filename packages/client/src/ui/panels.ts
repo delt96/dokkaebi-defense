@@ -17,7 +17,6 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     <div class="res"><b>메밀묵</b><span>${state.buckwheat}</span></div>
     <button class="big" data-action="summon" title="${esc(summonOddsText(state.data, state.round))}" ${m.canSummon ? '' : 'disabled'}>뚝딱! (${state.tokens}번)</button>
     ${needSlot ? '<div class="need-slot">빈칸 필요</div>' : ''}
-    ${m.pending ? `<div class="res pending"><b>보관 중</b><span>${m.pending}</span></div>` : ''}
     <button data-action="convert" ${m.canConvert ? '' : 'disabled'}>불 바꾸기 (+${state.data.balance.tokens.toCoins}냥)</button>
     <button data-action="openUpgrades">강화 (E)</button>
     ${opts.market === undefined ? '' : `<button data-action="toggleMarket" class="market-btn" aria-pressed="${opts.market}">장터 (B)${opts.badge ? '<span class="badge">의뢰</span>' : ''}</button>`}

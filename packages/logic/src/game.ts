@@ -31,7 +31,7 @@ export function createGame(data: GameData, seed: number): GameState {
     tokens: data.balance.tokens.start, coins: 0, buckwheat: 0,
     slots: Array.from({ length: total }, () => null),
     open: Array.from({ length: total }, (_, i) => i < initialOpenRows * cols),
-    pendingPity: [], summonCounts: {}, grade1Summons: 0,
+    summonCounts: {}, grade1Summons: 0,
     enemies: [], fires: [],
     upgrades: { physical: 0, magical: 0, polish: 0, slots: 0 },
     overLimitTicks: 0, helperOpens: 0,

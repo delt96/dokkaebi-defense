@@ -66,9 +66,7 @@ function clearLane(lane: GameState): void {
   if (lane.storage) lane.storage = [];
   lane.enemies = [];
   lane.fires = [];
-  lane.pendingPity = [];
   if (lane.econ) {
-    lane.econ.pityQuest = [];
     lane.econ.pendingDrops = [];
     lane.econ.story.active = null;
     lane.econ.events = [];

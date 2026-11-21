@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { GRADE_COLOR, computeZoom, laneToStage, stageToCell } from '../src/layout';
-import { createGame, loadGameData } from '@dorandi/logic';
+import { GRADE_COLOR, STORAGE_BOX, cellCorner, cellPx, computeZoom, laneToStage, stageToCell } from '../src/layout';
+import { createGame, createLane, laneOf, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver, ticksToRun } from '../src/driver';
 
@@ -10,10 +10,21 @@ describe('client helpers', () => {
     expect(computeZoom(1000, 700)).toBe(1.5); expect(computeZoom(900, 500)).toBe(1); expect(computeZoom(300, 200)).toBe(1);
   });
   test('lane to stage and back', () => {
-    expect(laneToStage({ x: 0.5, y: 0.5 })).toEqual({ x: 248, y: 130 });
-    expect(stageToCell(248, 130)).toBe(0);
-    expect(stageToCell(232 + 32 * 5 + 1, 114 + 32 * 3 + 1)).toBe(23);
-    expect(stageToCell(10, 10)).toBeNull();
+    expect(laneToStage({ x: 0.5, y: 0.5 })).toEqual({ x: 258, y: 147 });
+    const six = createLane(6, 4);
+    expect(stageToCell(six, 258, 147)).toBe(0);
+    expect(stageToCell(six, 244 + 28 * 5 + 1, 133 + 28 * 3 + 1)).toBe(23);
+    expect(stageToCell(six, 10, 10)).toBeNull();
+  });
+  test('stage 3 draws the same 6 x 4 board of 28px cells as stage 1, below the storage strip', () => {
+    const lane = laneOf({ data: loadGameData('stage3') });
+    expect([lane.cols, lane.rows, cellPx(lane)]).toEqual([6, 4, 28]);
+    expect(cellCorner(lane, 0)).toEqual({ x: 244 - 128, y: 133 - 24 });
+    expect(cellCorner(lane, 23)).toEqual({ x: 244 + 5 * 28 - 128, y: 133 + 3 * 28 - 24 });
+    expect(stageToCell(lane, 244 + 28 * 3 + 1, 133 + 28 + 1)).toBe(9);
+    expect(stageToCell(lane, 244 + 28 * 6 + 1, 140)).toBeNull();
+    expect(STORAGE_BOX.y + STORAGE_BOX.h).toBeLessThanOrEqual(133 - 14 - 28 - 2);
+    expect(laneToStage(lane.pointAt(0))).toEqual(laneToStage(createLane(6, 4).pointAt(0)));
   });
   test('grade colours cover grades 1 to 6, matching the sprite flames', () => {
     expect(GRADE_COLOR[5]).toBe('#ff4a3a');

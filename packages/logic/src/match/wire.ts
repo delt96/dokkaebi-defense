@@ -31,7 +31,7 @@ export interface EconMine extends EconView {
   team: { streak: number; paid: boolean } | null;
 }
 export interface MineView {
-  tick: number; tokens: number; coins: number; buckwheat: number; upgrades: Record<UpgradeId, number>; pendingPity: string[];
+  tick: number; tokens: number; coins: number; buckwheat: number; upgrades: Record<UpgradeId, number>;
   grade1Summons: number; helperOpens: number; supportTokens: number; received: boolean; lastSeq: number;
   open: boolean[]; units: (UnitView | null)[]; acks: Ack[]; supportIn: { from: number; coins: number }[];
   /** Stored grade 1-2 units, oldest first; left out until the seat first stores something. */

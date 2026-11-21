@@ -32,7 +32,7 @@ export type Effect =
 export interface SkillDef { trigger: Trigger; effects: Effect[] }
 export interface UnitDef {
   id: string; name: string; grade: number; damageType: DamageType; range: number; interval: number; factor: number; skills: SkillDef[];
-  hidden?: boolean; onBasicHit?: { targetPct: number; splashPct: number }; lineage?: DamageType[];
+  hidden?: boolean; onBasicHit?: { targetPct: number; splashPct: number };
 }
 export interface RecipeDef { result: string; materials: string[]; cost?: { buckwheat?: number; coins?: number } }
 export interface BossControlDef { windowTicks: number; stunTicks: number; pushDistance: number; maxStoppedShare: number }
@@ -42,6 +42,14 @@ export interface BossControlLog {
 }
 export interface EnemyDef { id: string; name: string; boss: boolean; shared?: boolean; event?: true; hpMult: number; hp?: number; speed: number; resist: { physical: number; magical: number } }
 export type WaveDef = { round: number; type: 'normal'; pattern: string[] } | { round: number; type: 'boss'; boss: string };
+/**
+ * `frame`: the area the enemy path runs around (defaults to cols x rows, which every stage uses today). The slots
+ * upgrade opens its openCount cells per level after the initial rows, the last level stopping at the board's end.
+ */
+export interface GridDef {
+  cols: number; rows: number; initialOpenRows: number;
+  frame?: { cols: number; rows: number };
+}
 export interface BalanceDef {
   tickMs: number; prepSeconds: number; roundSeconds: number; bossRoundSeconds: number;
   spawnCount: number; spawnIntervalSeconds: number; rounds: number;
@@ -51,10 +59,10 @@ export interface BalanceDef {
   coins: { perKill: number; roundEnd: number; boss: number };
   bossBuckwheat: number; sellPrice: number[]; limit: number; limitSeconds: number;
   summonOddsByRound?: { fromRound: number; odds: number[] }[];
-  summonOdds: number[]; pityEvery: number; grid: { cols: number; rows: number; initialOpenRows: number };
+  summonOdds: number[]; pityEvery: number; grid: GridDef;
   bossCcFactor: number; vulnCap: number; auraRadius: number; pulseSeconds: number;
   onBasicHitRadius?: number; auraCaps?: { attackSpeed: number; attackPower: number };
-  inheritUpgrades?: boolean; periodicReady?: boolean; extendedCombat?: boolean; bossControl?: BossControlDef;
+  periodicReady?: boolean; extendedCombat?: boolean; bossControl?: BossControlDef;
 }
 export type UpgradeId = 'physical' | 'magical' | 'polish' | 'slots';
 export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number; openCount?: number }
@@ -106,7 +114,7 @@ export interface EconState {
   rng: { bundle: RngState; jar: RngState; jige: RngState; drop: RngState };
   roundKills: number; questTokens: number;
   ledger: { story: number; tokens: number };
-  pityQuest: boolean[]; pendingDrops: string[];
+  pendingDrops: string[];
   bundle: { day: number; bought: number; left: number[] };
   jar: { period: number; done: number; missed: boolean };
   jige: boolean;
@@ -144,7 +152,7 @@ export interface GameState {
   slots: (Unit | null)[]; open: boolean[];
   /** Grade 1-2 units the player put away off the board (no attacks, no auras); absent until first used. */
   storage?: Unit[];
-  pendingPity: string[]; summonCounts: Record<string, number>; grade1Summons: number;
+  summonCounts: Record<string, number>; grade1Summons: number;
   enemies: Enemy[]; fires: GroundFire[];
   upgrades: Record<UpgradeId, number>;
   overLimitTicks: number; helperOpens: number;

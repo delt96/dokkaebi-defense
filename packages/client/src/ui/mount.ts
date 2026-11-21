@@ -1,5 +1,5 @@
 import {
-  unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type TransferEndView, type UpgradeId,
+  laneOf, unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type TransferEndView, type UpgradeId,
 } from '@dorandi/logic';
 import type { Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
@@ -226,7 +226,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // the storage column belongs to the own living lane; it takes presses while no window is open
   const storageVisible = () => !driver.readOnly && driver.state.phase !== 'ended';
   const storageLive = () => storageVisible() && !driver.failed && modal === null;
-  wireStorage(el('storage'), el('stage'), (defId, slot) => act('retrieve', slot === undefined ? defId : `${defId}@${slot}`), storageLive);
+  wireStorage(el('storage'), el('stage'), () => laneOf(driver.state), (defId, slot) => act('retrieve', slot === undefined ? defId : `${defId}@${slot}`), storageLive);
   // the scene says when a dragged board unit is over the column, and whether it may go in
   scene.onStorageHover = hover => {
     if (hover) el('storage').dataset.drop = hover;

@@ -73,15 +73,6 @@ describe('taming', () => {
     expect(step(d.s, [{ type: 'tame', enemyId: d.boss.id }]).rejected[0]!.reason).toBe('noBuckwheat');
   });
 
-  test('a queued pity unit does not count as a free slot', () => {
-    const { s, boss } = gangcheoriLane();
-    fillOpen(s);
-    s.pendingPity = ['jipsin'];
-    s.econ!.pityQuest = [false];
-    expect(step(s, [{ type: 'tame', enemyId: boss.id }]).rejected[0]!.reason).toBe('noSlot');
-    expect([s.buckwheat, s.pendingPity]).toEqual([1, ['jipsin']]);
-  });
-
   test('beast: moru 4 stacks → tameCondition, 5 stacks → 60 coins and the mission counts it as down', () => {
     const s = lane(12);
     s.coins = 100;

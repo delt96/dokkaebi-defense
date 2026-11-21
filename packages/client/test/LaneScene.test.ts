@@ -25,7 +25,7 @@ function setupScene() {
   const tweens = { add: vi.fn() };
   Object.assign(scene, {
     textures: { exists: () => true },
-    add: { circle, container, image: vi.fn() },
+    add: { circle, container, image: vi.fn(() => ({ setScale: vi.fn() })) },
     tweens,
   });
   return { state, driver, scene, circle, tweens, container };

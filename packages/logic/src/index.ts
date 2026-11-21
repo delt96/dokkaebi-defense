@@ -23,7 +23,7 @@ export { rollSummon, chooseSlot, pityPick, unitDefFast } from './units';
 export { availableRecipes, missingMaterials, recipesUsing, storedMaterials } from './combine';
 export { STORAGE_MAX_GRADE, canStore, storedUnits } from './storage';
 export { computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps, resolveKills } from './combat';
-export { upgradeCost } from './upgrades';
+export { slotsOpenedAt, upgradeCost } from './upgrades';
 export { applyBossKnockback, bossStunGate } from './bosscontrol';
 export * from './hash';
 export * from './match/types';

@@ -242,14 +242,9 @@ describe('final review fixes: right panel and reject notices', () => {
   const unit = (id: number) => ({ id, defId: 'sotlid', cooldown: 0, attackCount: 0, periodic: [] });
   test('summon is disabled when no open cell is free, convert is not', () => {
     const s = createGame(data, 1);
-    expect(rightModel(s)).toMatchObject({ canSummon: true, canConvert: true, pending: 0 });
+    expect(rightModel(s)).toEqual({ canSummon: true, canConvert: true });
     s.open.forEach((o, i) => { if (o) s.slots[i] = unit(i + 1); });
     expect(rightModel(s)).toMatchObject({ canSummon: false, canConvert: true });
-  });
-  test('stored pity units are counted', () => {
-    const s = createGame(data, 1);
-    s.pendingPity.push('bitjaru', 'japgwi' as never);
-    expect(rightModel(s).pending).toBe(2);
   });
   test('the summon tooltip follows the lane round and explains when grade 3 opens', () => {
     const s = createGame(data, 1);
@@ -266,6 +261,7 @@ describe('final review fixes: right panel and reject notices', () => {
       renderRight(s);
       expect(panel.innerHTML).toContain('1등급 77% · 2등급 20% · 3등급 3%');
       expect(panel.innerHTML).not.toContain('보너스까지');
+      expect(panel.innerHTML).not.toContain('보관 중');
     } finally {
       vi.unstubAllGlobals();
     }

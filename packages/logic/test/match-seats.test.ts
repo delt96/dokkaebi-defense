@@ -18,7 +18,7 @@ describe('elimination', () => {
     const r = stepMatch(m, []);
     expect(m.seats[1]).toMatchObject({ alive: false, record: { cause: 'limit', round: 1, lastEnemies: 61, series: [61] } });
     expect(r.events).toContainEqual({ type: 'eliminated', seat: 1, cause: 'limit', round: 1 });
-    expect(m.lanes[1]).toMatchObject({ enemies: [], fires: [], pendingPity: [], tokens: 0, coins: 0, buckwheat: 0 });
+    expect(m.lanes[1]).toMatchObject({ enemies: [], fires: [], tokens: 0, coins: 0, buckwheat: 0 });
     expect(m.seats[2]!.alive).toBe(true);
   });
   test('boss clock: killing with 1 tick left passes; otherwise eliminated at 9299', () => {
