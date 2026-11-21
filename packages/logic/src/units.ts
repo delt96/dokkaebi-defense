@@ -1,9 +1,9 @@
 import type { GameData, GameEvent, GameState, Unit, UnitDef } from './types';
-import { nextFloat, nextInt } from './rng';
+import { nextFloat } from './rng';
 import { registerAfterCommands, registerCommand } from './registry';
 import { laneOf } from './lane';
 import { toTicks } from './flow';
-import { gradeValue } from './data';
+import { gradeValue, summonOddsForRound } from './data';
 import { takeToken } from './econ/ledger';
 
 const unitCache = new WeakMap<GameData, Map<string, UnitDef>>();
@@ -16,16 +16,20 @@ export function unitDefFast(data: GameData, id: string): UnitDef {
 }
 
 export function rollSummon(state: GameState): string {
-  const odds = state.data.balance.summonOdds;
-  const r = nextFloat(state.rng.summon);
-  let grade = odds.length;
-  let acc = 0;
-  for (let i = 0; i < odds.length; i++) {
-    acc += odds[i]!;
-    if (r < acc) { grade = i + 1; break; }
+  const odds = summonOddsForRound(state.data.balance, state.round);
+  const roll = nextFloat(state.rng.summon);
+  let start = 0;
+  for (const [i, probability] of odds.entries()) {
+    const end = start + probability;
+    if (probability > 0 && roll < end) {
+      // Equal slices of this grade's interval give each unit the same chance.
+      const pool = state.data.units.filter(u => u.grade === i + 1);
+      const index = Math.floor((roll - start) / probability * pool.length);
+      return pool[Math.min(index, pool.length - 1)]!.id;
+    }
+    start = end;
   }
-  const pool = state.data.units.filter(u => u.grade === grade);
-  return pool[nextInt(state.rng.summon, pool.length)]!.id;
+  throw new Error('summon odds do not cover the roll');
 }
 
 const MELEE_MAX_RANGE = 2.0;

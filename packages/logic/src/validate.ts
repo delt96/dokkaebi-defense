@@ -10,6 +10,24 @@ const costKey = (c: { buckwheat?: number; coins?: number } | undefined): string 
 export function validateData(data: GameData): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const bands = data.balance.summonOddsByRound;
+  if (bands !== undefined) {
+    if (!Array.isArray(bands) || bands[0]?.fromRound !== 1) {
+      errors.push('summonOddsByRound must start at round 1');
+    }
+    let previous = 0;
+    for (const band of Array.isArray(bands) ? bands : []) {
+      if (!Number.isInteger(band?.fromRound) || band.fromRound <= previous) {
+        errors.push('summonOddsByRound rounds must be strictly increasing integers');
+      }
+      previous = band?.fromRound;
+      const odds = band?.odds;
+      if (!Array.isArray(odds) || odds.some(p => !Number.isFinite(p) || p < 0)
+        || Math.abs(odds.reduce((sum, p) => sum + p, 0) - 1) > 1e-10) {
+        errors.push(`summonOddsByRound round ${previous} needs nonnegative probabilities summing to 1`);
+      }
+    }
+  }
   const byId = new Map(data.units.map(u => [u.id, u]));
   const seen = new Set<string>();
   for (const u of data.units) {

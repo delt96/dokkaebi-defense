@@ -34,6 +34,11 @@
   ],
   "limit": 60,
   "limitSeconds": 5,
+  "summonOddsByRound": [
+    { "fromRound": 1, "odds": [0.75, 0.25, 0] },
+    { "fromRound": 5, "odds": [0.72, 0.25, 0.03] },
+    { "fromRound": 10, "odds": [0.7, 0.25, 0.05] }
+  ],
   "summonOdds": [
     0.7,
     0.25,

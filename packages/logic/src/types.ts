@@ -50,6 +50,7 @@ export interface BalanceDef {
   tokens: { start: number; perRound: number; toCoins: number };
   coins: { perKill: number; roundEnd: number; boss: number };
   bossBuckwheat: number; sellPrice: number[]; limit: number; limitSeconds: number;
+  summonOddsByRound?: { fromRound: number; odds: number[] }[];
   summonOdds: number[]; pityEvery: number; grid: { cols: number; rows: number; initialOpenRows: number };
   bossCcFactor: number; vulnCap: number; auraRadius: number; pulseSeconds: number;
   onBasicHitRadius?: number; auraCaps?: { attackSpeed: number; attackPower: number };

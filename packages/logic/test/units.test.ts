@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createGame, step, loadGameData } from '../src/index';
+import { createGame, step, loadGameData, nextFloat, summonOddsForRound } from '../src/index';
 import { rollSummon, chooseSlot, pityPick } from '../src/units';
 import { placeUnitForTest, makeData } from '../src/testing';
 import { unitDef } from '../src/data';
@@ -7,6 +7,41 @@ import { unitDef } from '../src/data';
 const data = loadGameData();
 
 describe('units', () => {
+  test.each(['stage1', 'stage2', 'stage3'] as const)('%s resolves each round boundary', stage => {
+    const b = loadGameData(stage).balance;
+    const early = [0.75, 0.25, 0], mid = [0.72, 0.25, 0.03], late = [0.7, 0.25, 0.05];
+    expect([0, 1, 4, 5, 9, 10, 60].map(r => summonOddsForRound(b, r)))
+      .toEqual([early, early, early, mid, mid, late, late]);
+  });
+  test('a roll near the top of the grade-2 band moves to grade 3 at round 10', () => {
+    const s = createGame(data, 11);
+    const probe = { ...s.rng.summon };
+    let seed: number;
+    let roll: number;
+    do {
+      seed = probe.s;
+      roll = nextFloat(probe);
+    } while (roll < 0.95 || roll >= 0.97);
+    for (const [round, grade] of [[1, 2], [5, 2], [10, 3]] as const) {
+      s.round = round;
+      s.rng.summon.s = seed;
+      expect(unitDef(data, rollSummon(s)).grade).toBe(grade);
+    }
+  });
+  test('prep and early summons never roll grade 3 and each consumes one draw', () => {
+    const s = createGame(data, 11);
+    const expected = { ...s.rng.summon };
+    for (const round of [0, 1, 2, 3, 4]) {
+      s.round = round;
+      const grades = new Set<number>();
+      for (let i = 0; i < 1000; i++) {
+        grades.add(unitDef(data, rollSummon(s)).grade);
+        nextFloat(expected);
+      }
+      expect(grades).toEqual(new Set([1, 2]));
+      expect(s.rng.summon).toEqual(expected);
+    }
+  });
   test('summon spends a token and places a unit', () => {
     const s = createGame(data, 5);
     const r = step(s, [{ type: 'summon' }]);
@@ -16,6 +51,7 @@ describe('units', () => {
   });
   test('odds over 40000 rolls, uniform inside a grade', () => {
     const s = createGame(data, 9); const g = [0, 0, 0]; const ids: Record<string, number> = {};
+    s.round = 10;
     const N = 40000;
     for (let i = 0; i < N; i++) { const id = rollSummon(s); g[unitDef(data, id).grade - 1]!++; ids[id] = (ids[id] ?? 0) + 1; }
     expect(Math.abs(g[0]! / N - 0.70)).toBeLessThan(0.02);
@@ -31,7 +67,7 @@ describe('units', () => {
     expect(s.rng.summon.s).toBe(before);
   });
   test('7th grade-1 summon onto the last free slot queues the pity unit', () => {
-    const g1 = makeData(d => { d.balance.summonOdds = [1, 0, 0]; });
+    const g1 = makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1, 0, 0]; });
     const s = createGame(g1, 1);
     for (let i = 0; i < 17; i++) placeUnitForTest(s, 'sotlid', i);
     s.tokens = 1; s.grade1Summons = 6;

@@ -96,6 +96,15 @@ function addLineage(data: GameData): void {
   for (const u of data.units) visit(u, new Set());
 }
 
+export function summonOddsForRound(balance: BalanceDef, round: number): number[] {
+  let odds = balance.summonOdds;
+  for (const band of balance.summonOddsByRound ?? []) {
+    if (band.fromRound > Math.max(1, round)) break;
+    odds = band.odds;
+  }
+  return odds;
+}
+
 export function recipeDemand(data: GameData, unitId: string): number {
   return data.recipes.filter(r => r.materials.includes(unitId)).length;
 }

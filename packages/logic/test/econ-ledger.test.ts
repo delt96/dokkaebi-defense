@@ -50,7 +50,7 @@ describe('economy ledger', () => {
     step(c, [{ type: 'combine', result: 'gamasot' }]);
     expect(units(c).map(u => [u.defId, u.cost])).toEqual([['gamasot', 4]]);
 
-    const p = createGame(makeData(d => { d.balance.summonOdds = [1]; }, 'stage3'), 3);
+    const p = createGame(makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1]; }, 'stage3'), 3);
     jumpLaneToRound(p, 1);
     p.tokens = 1; p.grade1Summons = d3.balance.pityEvery - 1;
     step(p, [{ type: 'summon' }]);
@@ -58,7 +58,7 @@ describe('economy ledger', () => {
   });
 
   test('a quest token summon and the pity it triggers cost 0 and spend the quest token first', () => {
-    const s = createGame(makeData(d => { d.balance.summonOdds = [1]; }, 'stage3'), 3);
+    const s = createGame(makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1]; }, 'stage3'), 3);
     jumpLaneToRound(s, 1);
     s.tokens = 2; s.econ!.questTokens = 1; s.grade1Summons = d3.balance.pityEvery - 1;
     step(s, [{ type: 'summon' }]);
@@ -69,7 +69,7 @@ describe('economy ledger', () => {
   });
 
   test('a queued quest pity unit keeps cost 0 when it lands later', () => {
-    const s = createGame(makeData(d => { d.balance.summonOdds = [1]; }, 'stage3'), 3);
+    const s = createGame(makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1]; }, 'stage3'), 3);
     jumpLaneToRound(s, 1);
     for (let i = 0; i < s.slots.length; i++) if (s.open[i] && i !== 0) placeUnitForTest(s, 'jipsin', i);
     s.tokens = 1; s.econ!.questTokens = 1; s.grade1Summons = d3.balance.pityEvery - 1;

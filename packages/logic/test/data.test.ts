@@ -29,6 +29,17 @@ describe('data', () => {
     expect(r.warnings.length).toBe(4);
     for (const id of ['sotlid', 'dadeumi', 'horong', 'buchae']) expect(r.warnings.some(w => w.includes(id))).toBe(true);
   });
+  test.each([
+    [[], 'start at round 1'],
+    [[{ fromRound: 2, odds: [1] }], 'start at round 1'],
+    [[{ fromRound: 1, odds: [1] }, { fromRound: 1, odds: [1] }], 'strictly increasing'],
+    [[{ fromRound: 1, odds: [0.75, 0.15] }], 'summing to 1'],
+    [[{ fromRound: 1, odds: [1.5, -0.5] }], 'nonnegative'],
+  ] as const)('rejects invalid summon bands %j', (bands, error) => {
+    const bad = structuredClone(data);
+    bad.balance.summonOddsByRound = bands.map(b => ({ ...b, odds: [...b.odds] }));
+    expect(v(bad).errors.join(' ')).toContain(error);
+  });
   test('validator catches broken data', () => {
     const bad = structuredClone(data);
     bad.recipes.push({ result: 'gamasot', materials: ['nope', 'ki'] });
