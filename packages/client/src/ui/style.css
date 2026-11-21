@@ -293,3 +293,24 @@ body.online #econ-bottom { top: 272px; height: 42px; }
 .dex-search { display: flex; gap: 4px; margin-bottom: 4px; }
 .dex-search input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid #55485f; color: var(--ink); font: inherit; padding: 2px 5px; }
 .dex-search input::placeholder { color: #b4aabe; }
+
+/* Dex material links, back button and material trees. */
+.dex-head-actions { display: flex; gap: 4px; min-width: 0; }
+.dex-back { color: var(--accent); border-color: var(--accent); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.dex-link { min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; font-size: inherit; color: #dcd2b0; text-decoration: underline dotted #8a7e66; text-underline-offset: 2px; }
+button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); text-decoration-color: var(--accent); }
+.dex-tree-toggle { margin-left: 2px; min-height: 16px; padding: 0 4px; font-size: 9px; color: var(--ink-dim); white-space: nowrap; }
+.dex-tree-toggle[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+.dex .dex-tree-row td { white-space: normal; padding: 2px 4px 5px; background: #1d1626; }
+.dex-tree-legend { margin-bottom: 2px; color: var(--ink-dim); font-size: 9px; line-height: 1.3; word-break: keep-all; }
+.dex-tree { list-style: none; margin: 0; padding: 0; }
+.dex-tree .dex-tree { margin-left: 4px; padding-left: 8px; border-left: 1px solid #3d3349; }
+.dex-tree .node { display: flex; flex-wrap: wrap; align-items: center; gap: 0 3px; min-height: 15px; line-height: 15px; }
+.dex-tree .node .dot { margin-right: 0; }
+.dex-tree .combine-cost { font-size: 9px; }
+.dex-tree .mark { display: inline-block; width: 9px; text-align: center; font-weight: bold; }
+.dex-tree .mark.have { color: #9fe0a8; }
+.dex-tree .mark.missing { color: #ff9482; }
+.dex-tree li.covered > .node { opacity: 0.45; }
+.dex tr.dex-flash > td { animation: dex-flash 1.6s ease-out; }
+@keyframes dex-flash { 0%, 30% { background: #5c4a1e; } 100% { background: transparent; } }

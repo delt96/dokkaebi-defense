@@ -135,7 +135,7 @@ describe('review fixes: aura for all, lockouts, cooldowns, slow radii, tamed uni
     const entries = dexEntries(d3);
     expect(entries.filter(e => e.hidden).map(e => e.id).sort()).toEqual(['bulgasari', 'eoduksini', 'gangcheori', 'jinegaksi', 'ssireumdokkaebi']);
     expect(dexEntries(loadGameData('stage2')).some(e => e.hidden)).toBe(false);
-    const row = (html: string, name: string) => html.split('<tr>').find(r => r.includes(`<td>${name}</td>`)) ?? '';
+    const row = (html: string, name: string) => html.split('<tr').find(r => r.includes(`<td>${name}</td>`)) ?? '';
     expect(row(dexHtml(d3), '강철이')).toContain('<td>길들이기');
     expect(row(dexHtml(d3), '짚신')).toContain('<td>소환');
   });

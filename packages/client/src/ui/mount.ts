@@ -16,7 +16,9 @@ import {
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
 import { renderAlert, renderHud } from './hud';
-import { activeNotice, nextUnitId, rejectText, selectedSlot, type Notice } from './models';
+import {
+  activeNotice, boardUnits, dexBack, dexGo, dexNavStart, dexToggle, nextUnitId, rejectText, selectedSlot, type DexNav, type Notice,
+} from './models';
 import { renderBottom, renderRight, unitDetailsHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
 
@@ -47,8 +49,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   scene.selectedId = null;
   let displayedCard: ReturnType<typeof renderBottom> | null = null;
   let banner: Notice | null = null;
-  let dexQuery = '';
-  let dexFilter = 'all';
+  let dex: DexNav = dexNavStart();
+  // the list the dex scroll position belongs to: a new filter or search starts at the top
+  let dexListKey = '';
   let helperOpen = false;
   let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | null = null;
   let best: { id: string; grade: number } | null = null;
@@ -142,11 +145,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'askForfeit': modal = 'forfeit'; break;
       case 'forfeit': opts.actions?.forfeit(); modal = null; break;
       case 'unitDetails': modal = 'unitDetails'; break;
-      case 'openDex': dexQuery = ''; dexFilter = arg === 'story' ? '6' : 'all'; modal = 'dex'; break;
+      case 'openDex': dex = dexNavStart(arg === 'story' ? '6' : 'all'); modal = 'dex'; break;
       case 'dexFilter':
-        dexQuery = el('modal').querySelector<HTMLInputElement>('.dex-search input')?.value.trim() ?? '';
-        dexFilter = arg;
+        dex = { ...dex, filter: arg, query: el('modal').querySelector<HTMLInputElement>('.dex-search input')?.value.trim() ?? '' };
         break;
+      case 'dexGo': {
+        const [target = '', from = ''] = arg.split('@');
+        dex = dexGo(driver.state.data, dex, target, from);
+        break;
+      }
+      case 'dexBack': dex = dexBack(dex); break;
+      case 'dexTree': dex = dexToggle(dex, arg); break;
       case 'openUpgrades': modal = 'upgrades'; break;
       case 'closeModal': modal = null; break;
       case 'toggleFx': scene.setReduceEffects(!scene.reduceEffects); break;
@@ -154,6 +163,14 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     }
     render();
     if (action === 'dexFilter') el('modal').querySelector<HTMLButtonElement>('.dex-filters [aria-pressed="true"]')?.focus();
+    if (action === 'dexTree') el('modal').querySelector<HTMLButtonElement>(`.dex-tree-toggle[data-arg="${arg}"]`)?.focus({ preventScroll: true });
+    if ((action === 'dexGo' || action === 'dexBack') && dex.focus) {
+      revealDexRow(dex.focus);
+      // the pressed link is gone with the redraw: keep the keyboard in the dex
+      const row = el('modal').querySelector<HTMLElement>(`tr[data-dex-id="${dex.focus}"]`);
+      (el('modal').querySelector<HTMLButtonElement>('.dex-back') ?? row?.querySelector<HTMLButtonElement>('button'))?.focus({ preventScroll: true });
+      dex = { ...dex, focus: null };
+    }
     if (modal && modal !== previousModal) el('modal').querySelector<HTMLButtonElement>('button')?.focus();
   };
 
@@ -162,7 +179,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const form = ev.target as HTMLFormElement;
     if (!form.matches('.dex-search')) return;
     ev.preventDefault();
-    dexQuery = String(new FormData(form).get('query') ?? '').trim();
+    dex = { ...dex, query: String(new FormData(form).get('query') ?? '').trim() };
     render();
     el('modal').querySelector<HTMLInputElement>('.dex-search input')?.focus();
   });
@@ -313,8 +330,38 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const soloResult = !online && s.phase === 'ended';
     const dialogOpen = modal !== null || soloResult;
     for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom']) el(id).inert = dialogOpen;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : modal === 'dex' ? dexHtml(s.data, dexStory(), dexFilter, dexQuery, s.round) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    // a redraw of the dex (a board change moves the tree marks) keeps its scroll position
+    const dexShown = !soloResult && modal === 'dex';
+    const listKey = `${dex.filter}
+${dex.query}`;
+    const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data, dexStory(), dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s) }) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    if (dexShown) {
+      const box = dexScroller();
+      if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
+    }
+    dexListKey = dexShown ? listKey : '';
     hooks.onRender?.();
+  }
+
+  /** What scrolls in the dex: the list under the search on stage 3 data, the whole window on stage 1-2. */
+  function dexScroller(): HTMLElement | null {
+    return el('modal').querySelector<HTMLElement>('.dex-scroll') ?? el('modal').querySelector<HTMLElement>('.modal');
+  }
+
+  /** Scrolls a dex entry to the top of the list (under the sticky header) and flashes it. */
+  function revealDexRow(id: string): void {
+    const box = dexScroller();
+    const row = box?.querySelector<HTMLElement>(`tr[data-dex-id="${id}"]`);
+    if (!box || !row) return;
+    // the stage is scaled to the window: screen pixels back to stage pixels
+    const scale = box.offsetHeight ? box.getBoundingClientRect().height / box.offsetHeight : 1;
+    const sticky = box.matches('.dex-scroll') ? box.querySelector<HTMLElement>('thead') : box.querySelector<HTMLElement>('.modal-head');
+    const offset = (row.getBoundingClientRect().top - box.getBoundingClientRect().top) / (scale || 1);
+    box.scrollTop = Math.max(0, box.scrollTop + offset - (sticky?.offsetHeight ?? 0) - 2);
+    row.classList.remove('dex-flash');
+    void row.offsetWidth;
+    row.classList.add('dex-flash');
   }
 
   function freeSlot(): boolean {
