@@ -312,6 +312,8 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .dex-tree .mark.have { color: #9fe0a8; }
 .dex-tree .mark.missing { color: #ff9482; }
 .dex-tree li.covered > .node { opacity: 0.45; }
+.dex-tree .dex-fold { min-height: 14px; padding: 0 3px; font-size: 9px; color: var(--ink-dim); white-space: nowrap; }
+.dex-tree .dex-fold[aria-expanded="true"] { color: #9fe0a8; border-color: #5a7a5e; }
 .dex tr.dex-flash > td { animation: dex-flash 1.6s ease-out; }
 @keyframes dex-flash { 0%, 30% { background: #5c4a1e; } 100% { background: transparent; } }
 /* the 20-round dex scrolls as a whole: its head (with the back button) stays on top */

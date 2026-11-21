@@ -17,7 +17,7 @@ import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
 import { renderAlert, renderHud } from './hud';
 import {
-  activeNotice, boardUnits, dexBack, dexGo, dexNavStart, dexToggle, nextUnitId, rejectText, selectedSlot, type DexNav, type Notice,
+  activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, nextUnitId, rejectText, selectedSlot, type DexNav, type Notice,
 } from './models';
 import { renderBottom, renderRight, unitDetailsHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
@@ -156,6 +156,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       }
       case 'dexBack': dex = dexBack(dex); break;
       case 'dexTree': dex = dexToggle(dex, arg); break;
+      case 'dexFold': dex = dexFold(dex, arg); break;
       case 'openUpgrades': modal = 'upgrades'; break;
       case 'closeModal': modal = null; break;
       case 'toggleFx': scene.setReduceEffects(!scene.reduceEffects); break;
@@ -164,6 +165,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     render();
     if (action === 'dexFilter') el('modal').querySelector<HTMLButtonElement>('.dex-filters [aria-pressed="true"]')?.focus();
     if (action === 'dexTree') el('modal').querySelector<HTMLButtonElement>(`.dex-tree-toggle[data-arg="${arg}"]`)?.focus({ preventScroll: true });
+    if (action === 'dexFold') el('modal').querySelector<HTMLButtonElement>(`.dex-fold[data-arg="${arg}"]`)?.focus({ preventScroll: true });
     if ((action === 'dexGo' || action === 'dexBack') && dex.focus) {
       revealDexRow(dex.focus);
       // the pressed link is gone with the redraw: keep the keyboard in the dex
@@ -335,7 +337,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const listKey = `${dex.filter}
 ${dex.query}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data, dexStory(), dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s) }) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data, dexStory(), dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold }) : modal === 'upgrades' ? upgradesHtml(s) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;

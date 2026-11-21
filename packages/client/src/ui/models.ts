@@ -424,10 +424,16 @@ export function resultModel(state: GameState, bestUnitId: string | null): {
 /**
  * One material in a dex recipe tree. `mark`: `have` when a board unit is set aside for it, `missing` when not,
  * `covered` when an ancestor is already on the board (so it is not needed). `cost` is this node's own combine cost.
+ * `path` is its place in the tree ("1.0" = first material of the second material), stable while the board changes.
  */
 export interface RecipeNode {
-  id: string; name: string; grade: number; hidden: boolean; cost: string | null;
+  id: string; name: string; grade: number; hidden: boolean; cost: string | null; path: string;
   mark: 'have' | 'missing' | 'covered'; children: RecipeNode[];
+}
+
+/** How many materials sit under a node, all the way down. */
+export function treeSize(node: RecipeNode): number {
+  return node.children.reduce((n, c) => n + 1 + treeSize(c), 0);
 }
 
 /** Recipe trees stop here even if the data ever loops; the real trees are at most 5 deep. */
@@ -444,15 +450,15 @@ export function recipeTree(data: GameData, id: string, board: readonly string[] 
   if (!root) return null;
   const pool = new Map<string, number>();
   for (const unit of board) pool.set(unit, (pool.get(unit) ?? 0) + 1);
-  const build = (unit: string, depth: number): RecipeNode => {
+  const build = (unit: string, depth: number, path: string): RecipeNode => {
     const def = unitDefFast(data, unit);
     const recipe = recipeOf(unit);
     return {
-      id: unit, name: def.name, grade: def.grade, hidden: def.hidden === true, cost: costText(recipe), mark: 'missing',
-      children: recipe && depth < TREE_DEPTH ? recipe.materials.map(m => build(m, depth + 1)) : [],
+      id: unit, name: def.name, grade: def.grade, hidden: def.hidden === true, cost: costText(recipe), path, mark: 'missing',
+      children: recipe && depth < TREE_DEPTH ? recipe.materials.map((m, i) => build(m, depth + 1, `${path}.${i}`)) : [],
     };
   };
-  const top = root.materials.map(m => build(m, 1));
+  const top = root.materials.map((m, i) => build(m, 1, String(i)));
   const cover = (node: RecipeNode) => { node.mark = 'covered'; node.children.forEach(cover); };
   let level = top;
   while (level.length) {
@@ -480,14 +486,15 @@ export interface DexStep { id: string; filter: string; query: string }
 
 /**
  * The dex's browsing state: grade/hidden filter, search, the units followed through material links (newest last),
- * the entry to scroll to and flash after the next draw, and the entries whose material tree is open.
+ * the entry to scroll to and flash after the next draw, the entries whose material tree is open, and the branches
+ * under a ✓ material the player unfolded (`entry:path`; those branches start folded).
  */
-export interface DexNav { filter: string; query: string; back: DexStep[]; focus: string | null; open: string[] }
+export interface DexNav { filter: string; query: string; back: DexStep[]; focus: string | null; open: string[]; unfold: string[] }
 
 const DEX_BACK_MAX = 10;
 
 export function dexNavStart(filter = 'all'): DexNav {
-  return { filter, query: '', back: [], focus: null, open: [] };
+  return { filter, query: '', back: [], focus: null, open: [], unfold: [] };
 }
 
 /** Whether a dex entry shows under a filter and search (stage 1-2 data has neither, so everything shows). */
@@ -517,6 +524,14 @@ export function dexBack(nav: DexNav): DexNav {
   const step = nav.back[nav.back.length - 1];
   if (!step) return nav;
   return { ...nav, filter: step.filter, query: step.query, back: nav.back.slice(0, -1), focus: step.id };
+}
+
+/** The key of a tree branch for `DexNav.unfold`. */
+export const branchKey = (entry: string, path: string): string => `${entry}:${path}`;
+
+/** Unfolds or folds the materials under a ✓ node (`key` from branchKey). */
+export function dexFold(nav: DexNav, key: string): DexNav {
+  return { ...nav, unfold: nav.unfold.includes(key) ? nav.unfold.filter(x => x !== key) : [...nav.unfold, key] };
 }
 
 /** Opens or closes an entry's material tree. */

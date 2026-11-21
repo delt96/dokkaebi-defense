@@ -7,7 +7,7 @@ import { dexHtml } from '../src/ui/dex';
 import { withRo } from '../src/ui/josa';
 import { mountUi } from '../src/ui/mount';
 import {
-  boardUnits, costText, dexBack, dexEntries, dexGo, dexNavStart, dexShows, dexToggle, recipeTree, type RecipeNode,
+  boardUnits, costText, dexBack, dexEntries, dexFold, dexGo, dexNavStart, dexShows, dexToggle, recipeTree, treeSize, type RecipeNode,
 } from '../src/ui/models';
 import { STAGE_HTML, press } from './fixtures/net';
 
@@ -167,12 +167,36 @@ describe('dex html', () => {
     const tree = html.slice(html.indexOf('dex-tree-box'), html.indexOf('dex-skill', html.indexOf('dex-tree-box')));
     expect(tree).toContain('<li class="missing"><div class="node"><span class="mark missing"');
     expect(tree).toContain('<li class="have">');
-    expect(tree).toContain('<li class="covered">');
     expect(tree).toContain('data-arg="jige@bihyeongrang">지게</button>');
     expect(tree).toContain('+ 메밀묵 1개');
     expect(html).toContain('aria-expanded="true">재료 접기 ▴');
     expect(html).toContain('<button class="dex-back" data-action="dexBack">← 귀교 목수로</button>');
     expect(dexHtml(d3)).not.toContain('dex-back');
+  });
+
+  test('a ✓ material keeps its own materials folded until its branch is unfolded; ✗ branches stay open', () => {
+    const kkeul = recipeTree(d3, 'bihyeongrang', ['kkeul'])![1]!;
+    const n = treeSize(kkeul);
+    expect(n).toBeGreaterThan(0);
+    const folded = dexHtml(d3, undefined, '6', '', 1, { open: ['bihyeongrang'], board: ['kkeul'] });
+    expect(folded).toContain(`data-action="dexFold" data-arg="bihyeongrang:1" aria-expanded="false">▸ 하위 ${n}개</button>`);
+    expect(folded).not.toContain('<li class="covered">');
+    // the missing 톱 branch shows down to grade 1
+    expect(folded).toContain('data-arg="jige@bihyeongrang">지게</button>');
+    expect(folded).toContain('✓ 보드에 있음 · ✗ 없음 · ▸ 하위 재료 펼치기');
+    const open = dexHtml(d3, undefined, '6', '', 1, { open: ['bihyeongrang'], board: ['kkeul'], unfold: ['bihyeongrang:1'] });
+    expect(open).toContain(`aria-expanded="true">▾ 하위 ${n}개</button>`);
+    expect(open.match(/<li class="covered">/g)).toHaveLength(n);
+    // only ✓ nodes fold: nothing to fold on an empty board
+    expect(dexHtml(d3, undefined, '6', '', 1, { open: ['bihyeongrang'] })).not.toContain('dexFold');
+  });
+
+  test('folding is per branch and toggles back', () => {
+    let nav = dexFold(dexNavStart(), 'bihyeongrang:1');
+    nav = dexFold(nav, 'gildal:0.2');
+    expect(nav.unfold).toEqual(['bihyeongrang:1', 'gildal:0.2']);
+    expect(dexFold(nav, 'bihyeongrang:1').unfold).toEqual(['gildal:0.2']);
+    expect(recipeTree(d3, 'bihyeongrang')![1]!.children.map(c => c.path)).toEqual(['1.0', '1.1']);
   });
 });
 
@@ -208,5 +232,31 @@ describe('dex links in the mounted ui', () => {
     expect(modal.querySelector('.dex-back')).toBeNull();
     // the tree is still open where it was left
     expect(modal.querySelector('tr[data-dex-id="bihyeongrang"] .dex-tree-box')).not.toBeNull();
+  });
+
+  test('an unfolded ✓ branch stays unfolded when a board change redraws the tree', () => {
+    let clock = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    const s = createGame(d3, 1);
+    placeUnitForTest(s, 'kkeul', 0);
+    const scene = new FakeScene();
+    mountUi(new GameDriver(s), scene as never);
+    const modal = document.getElementById('modal')!;
+    press(document.querySelector('[data-action="openDex"]'));
+    press(modal.querySelector('[data-action="dexFilter"][data-arg="6"]'));
+    press(modal.querySelector('[data-action="dexTree"][data-arg="bihyeongrang"]'));
+    const box = () => modal.querySelector('tr[data-dex-id="bihyeongrang"] .dex-tree-box')!;
+    expect(box().querySelector('li.covered')).toBeNull();
+    press(box().querySelector('[data-action="dexFold"][data-arg="bihyeongrang:1"]'));
+    expect(box().querySelector('li.covered')).not.toBeNull();
+    expect(document.activeElement).toBe(box().querySelector('.dex-fold'));
+    // a new board unit changes the marks (자 now ✓): the redraw keeps the branch open
+    placeUnitForTest(s, 'ja', 1);
+    clock += 200;
+    scene.onFrame!();
+    expect(box().querySelector('.dex-tree')!.lastElementChild!.className).toBe('have');
+    expect(box().querySelector('[data-arg="bihyeongrang:1"]')!.getAttribute('aria-expanded')).toBe('true');
+    press(box().querySelector('[data-action="dexFold"][data-arg="bihyeongrang:1"]'));
+    expect(box().querySelector('li.covered')).toBeNull();
   });
 });

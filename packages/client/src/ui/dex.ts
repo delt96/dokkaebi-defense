@@ -1,14 +1,15 @@
 import type { GameData } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { dexEntries, dexShows, recipeTree, summonOddsText, type DexStep, type RecipeNode } from './models';
+import { branchKey, dexEntries, dexShows, recipeTree, summonOddsText, treeSize, type DexStep, type RecipeNode } from './models';
 import { esc } from './dom';
 import { withRo } from './josa';
 
 /**
  * Material links and trees: `back` is the link history (its last step names the back button), `open` the entries whose
- * material tree is shown, `board` the def ids on the player's board that the tree marks with ✓.
+ * material tree is shown, `board` the def ids on the player's board that the tree marks with ✓, `unfold` the branches
+ * under a ✓ material that are unfolded (branchKey; the rest stay folded).
  */
-export interface DexExtra { back?: readonly DexStep[]; open?: readonly string[]; board?: readonly string[] }
+export interface DexExtra { back?: readonly DexStep[]; open?: readonly string[]; board?: readonly string[]; unfold?: readonly string[] }
 
 /** `story`: stage 3 lets a normal grade-6 row be picked as the story request's target. */
 export function dexHtml(data: GameData, story?: { target: string | null; canSet: boolean }, filter = 'all', query = '', round = 1, extra: DexExtra = {}): string {
@@ -28,7 +29,7 @@ export function dexHtml(data: GameData, story?: { target: string | null; canSet:
     // one row per unit: an open tree sits right under the recipe line (where it was opened), then the skill line
     return `
     <tr data-dex-id="${esc(d.id)}"><td><span class="dot" style="background:${GRADE_COLOR[d.grade]}"></span>${d.grade}</td>
-    <td>${esc(d.name)}${story && d.grade === 6 && !d.hidden && d.recipe.length ? targetButton(d.id, story) : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${tree ? treeBox(d.id, tree) : ''}
+    <td>${esc(d.name)}${story && d.grade === 6 && !d.hidden && d.recipe.length ? targetButton(d.id, story) : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
     <div class="dex-skill">${d.typeText} · 사거리 ${d.range}칸${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>`;
   }).join('');
   const grades = [...new Set(entries.map(d => d.grade))].sort((a, b) => a - b);
@@ -55,12 +56,21 @@ const MARK: Record<RecipeNode['mark'], string> = {
   covered: '<span class="mark covered" title="윗재료가 보드에 있어 필요 없음">·</span>',
 };
 
-function treeBox(from: string, nodes: RecipeNode[]): string {
-  return `<div class="dex-tree-box"><div class="dex-tree-legend">✓ 보드에 있음 · ✗ 없음 · 흐린 줄은 필요 없음</div>${treeList(from, nodes)}</div>`;
+function treeBox(from: string, nodes: RecipeNode[], unfold: ReadonlySet<string>): string {
+  return `<div class="dex-tree-box"><div class="dex-tree-legend">✓ 보드에 있음 · ✗ 없음 · ▸ 하위 재료 펼치기</div>${treeList(from, nodes, unfold)}</div>`;
 }
 
-function treeList(from: string, nodes: RecipeNode[]): string {
-  return `<ul class="dex-tree">${nodes.map(n => `<li class="${n.mark}"><div class="node">${MARK[n.mark]}<span class="dot" style="background:${GRADE_COLOR[n.grade]}"></span>${link(n.id, n.name, from)}${n.cost ? `<span class="combine-cost">+ ${esc(n.cost)}</span>` : ''}</div>${n.children.length ? treeList(from, n.children) : ''}</li>`).join('')}</ul>`;
+/** A ✓ material's own materials are not needed: they stay folded behind "▸ 하위 N개" until unfolded. */
+function treeList(from: string, nodes: RecipeNode[], unfold: ReadonlySet<string>): string {
+  return `<ul class="dex-tree">${nodes.map(n => {
+    const key = branchKey(from, n.path);
+    const foldable = n.mark === 'have' && n.children.length > 0;
+    const shown = n.children.length > 0 && (!foldable || unfold.has(key));
+    const fold = foldable
+      ? `<button class="dex-fold" data-action="dexFold" data-arg="${esc(key)}" aria-expanded="${shown}">${shown ? '▾' : '▸'} 하위 ${treeSize(n)}개</button>`
+      : '';
+    return `<li class="${n.mark}"><div class="node">${MARK[n.mark]}<span class="dot" style="background:${GRADE_COLOR[n.grade]}"></span>${link(n.id, n.name, from)}${n.cost ? `<span class="combine-cost">+ ${esc(n.cost)}</span>` : ''}${fold}</div>${shown ? treeList(from, n.children, unfold) : ''}</li>`;
+  }).join('')}</ul>`;
 }
 
 function targetButton(id: string, story: { target: string | null; canSet: boolean }): string {
