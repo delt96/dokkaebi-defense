@@ -79,6 +79,7 @@ export interface GameData {
   coop?: CoopDef; economy?: EconomyDef;
 }
 
+export interface JigeSource { zone: 'board' | 'storage'; index: number; unitId: number }
 export type EconItem = 'draw';
 export type GeneralQuestId = 'mission' | 'collection' | 'team' | 'ssireum';
 export type EconSection = 'market' | 'drops' | 'story' | GeneralQuestId | 'shadow' | 'tame' | 'transfer';
@@ -90,7 +91,7 @@ export interface EconomyDef {
   startingBuckwheat: number;
   ledger: { tokenValue: number; storyCap: number; totalCap: number; ratio: number };
   market?: {
-    dayRounds: number; jigeChance: number;
+    dayRounds: number; jigeChance: number; maxSwapGrade: number;
     draw: { buckwheatCost: number; perDay: number; weights: number[] };
   };
   drops?: { round: number; grade: number }[];
@@ -116,7 +117,7 @@ export interface EconState {
   ledger: { story: number; tokens: number };
   pendingDrops: string[];
   market: { day: number; draws: number };
-  jige: boolean;
+  jige: number;
   story: StoryState;
   mission: { phase: 'idle' | 'active' | 'won' | 'lost'; beastId: number | null; beastDown: boolean };
   collection: { done: string[]; paid: boolean };
@@ -165,6 +166,7 @@ export type Command =
   | { type: 'summon' } | { type: 'combine'; result: string; slot?: number; unitId?: number } | { type: 'sell'; slot: number; unitId?: number }
   | { type: 'move'; from: number; to: number; unitId?: number; toUnitId?: number | null } | { type: 'convertToken' }
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' }
+  | { type: 'jigeSwap'; source: JigeSource; result: string }
   | { type: 'buy'; item: EconItem } | { type: 'storyTarget'; id: string | null; unitIds?: number[] } | { type: 'storyDecline' }
   | { type: 'missionEnter' } | { type: 'tame'; enemyId: number }
   | { type: 'store'; slot: number; unitId?: number } | { type: 'storeAll' }
@@ -184,6 +186,7 @@ export type GameEvent =
   | { type: 'damage'; enemyId: number; amount: number; source: string; effect?: HitEffect }
   | { type: 'kill'; enemyId: number } | { type: 'speedChange'; enemyId: number; d: number; speed: number }
   | { type: 'ended'; result: GameResult }
+  | { type: 'jigeSwap'; source: JigeSource; unitId: number; defId: string }
   | { type: 'buy'; item: EconItem; defId: string; spentBuckwheat: number; jige: boolean }
   | { type: 'storyOffer'; target: string; missing: string; round: number }
   | { type: 'storyEnd'; target: string; reason: StoryEndReason }

@@ -7,6 +7,7 @@ export * from './stats';
 export {
   createEcon, unitValue, nonQuestValue, questLoad, fitsCaps, takeToken, grantQuestTokens, economyVariant, stripEconomy,
 } from './econ/ledger';
+export { jigeCandidates, swapJige } from './econ/jige';
 export { buyCheck, marketDay, marketView, placePendingDrops, type MarketView } from './econ/market';
 export { econView, type EconMarketView, type EconStoryView, type EconTameView, type EconView } from './econ/view';
 export { spawnEventEnemy, type EventKind } from './econ/events';

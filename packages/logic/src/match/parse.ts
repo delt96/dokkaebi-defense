@@ -50,6 +50,14 @@ const PARSERS: Record<string, Parser> = {
   },
   transferDecline: args => onlyKeys(args, ['offerId']) && isInt(args.offerId) && args.offerId > 0
     ? { type: 'transferDecline', offerId: args.offerId } : null,
+  jigeSwap: args => {
+    const { source, result } = args;
+    if (!onlyKeys(args, ['source', 'result']) || !isUnitId(result) || !isPlainObject(source)
+        || !onlyKeys(source, ['zone', 'index', 'unitId'])) return null;
+    const { zone, index, unitId } = source;
+    if ((zone !== 'board' && zone !== 'storage') || !isInt(index) || index < 0 || !isInt(unitId)) return null;
+    return { type: 'jigeSwap', result, source: { zone, index, unitId } };
+  },
   buy: args => {
     const keys = ['item'];
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
@@ -169,6 +177,7 @@ export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand
       return { type: 'upgrade', args: { id: cmd.id } };
     case 'support':
       return { type: 'support', args: { target: cmd.target } };
+    case 'jigeSwap': return { type: cmd.type, args: { source: { ...cmd.source }, result: cmd.result } };
     case 'buy':
       return { type: 'buy', args: { item: cmd.item } };
     case 'storyTarget':

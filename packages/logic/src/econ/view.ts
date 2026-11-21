@@ -21,7 +21,7 @@ export interface EconStoryView {
 /** Lane economy as the screen needs it. Holds no rng state; ticks are absolute so the value only changes on real changes. */
 export interface EconView {
   market: EconMarketView | null;
-  jige: boolean;
+  jige: number;
   roundKills: number;
   questTokens: number;
   mission: EconState['mission'] | null;

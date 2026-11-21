@@ -10,7 +10,7 @@ const rst = (r: number) => roundStartTick(d3, r);
 
 function match(seats: number[] = [1, 2], round = 22): MatchState {
   const m = createMatch(d3, 1, seats);
-  for (const s of seats) m.lanes[s]!.econ!.jige = true;
+  for (const s of seats) m.lanes[s]!.econ!.jige = 1;
   jumpToTick(m, rst(round) + 1);
   return m;
 }
@@ -53,7 +53,7 @@ describe('jige transfer', () => {
     const moru = placeUnitForTest(m.lanes[1]!, 'moru', 0);
     const janggu = placeUnitForTest(m.lanes[1]!, 'janggu', 1);
     const hidden = placeUnitForTest(m.lanes[1]!, 'gangcheori', 2);
-    m.lanes[3]!.econ!.jige = false;
+    m.lanes[3]!.econ!.jige = 0;
     const p3 = placeUnitForTest(m.lanes[3]!, 'jipsin', 0);
     const offer = (slot: number, unitId: number, target = 2) => ({ type: 'transferOffer', target, slot, unitId }) as MatchCommand;
     expect(send(m, [[3, offer(0, p3.id, 1)]]).reasons).toEqual(['noJige']);

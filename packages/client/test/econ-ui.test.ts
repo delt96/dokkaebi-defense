@@ -114,7 +114,7 @@ describe('delivery prompt and countdown', () => {
     placeUnitForTest(s, 'gangcheori', 1);
     const me = view(1, [{ seat: 1, name: '가나' }, { seat: 2, name: '다라' }, { seat: 3, name: '마바', connected: false }]);
     expect(shipModel(econOf(s, { transfer: transfer() }), s, me, 0)!.lines[0]).toMatch(/지게 도깨비가 옵니다$/);
-    s.econ!.jige = true;
+    s.econ!.jige = 1;
     let m = shipModel(econOf(s, { transfer: transfer({ readyRounds: { 1: 0, 2: 25, 3: 0 } }) }), s, me, 0)!;
     expect(m.unit).toEqual({ slot: 0, unitId: unit.id });
     expect(m.targets).toEqual([{ seat: 2, label: '2 다라 · 쉬는 중', disabled: true }, { seat: 3, label: '3 마바 · 단절', disabled: true }]);

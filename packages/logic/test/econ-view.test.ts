@@ -64,7 +64,7 @@ describe('econ in the mine stream', () => {
   test('a buy and a transfer offer reach both seats through mine, and full agrees with the stream', () => {
     const { m, streamer } = start();
     m.lanes[1]!.coins = 500;
-    m.lanes[1]!.econ!.jige = true;
+    m.lanes[1]!.econ!.jige = 1;
     const view = buildFull(m, 2, { watching: 2, names, key: 'k', n: 0 });
     let r = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'buy', item: 'draw' } }]);
     let out = streamer.afterStep(r);
@@ -86,7 +86,7 @@ describe('econ in the mine stream', () => {
 
   test('an ended delivery reaches both seats\' mine once, with the server\'s reason; a full never carries it', () => {
     const { m, streamer } = start();
-    m.lanes[1]!.econ!.jige = true;
+    m.lanes[1]!.econ!.jige = 1;
     const unit = placeUnitForTest(m.lanes[1]!, 'moru', 5);
     streamer.afterStep(stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'transferOffer', target: 2, slot: 5, unitId: unit.id } }]));
     const out = streamer.afterStep(stepMatch(m, [{ seat: 2, seq: 1, cmd: { type: 'disconnect' } }]));

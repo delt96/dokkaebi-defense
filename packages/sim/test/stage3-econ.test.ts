@@ -120,7 +120,7 @@ describe('stage 3 economy bot policies', () => {
     const m = createMatch(d3, 1, [1, 2]);
     jumpToTick(m, roundStartTick(d3, 22) + 1);
     while (m.tick % 10 !== 0) stepMatch(m, []);
-    m.lanes[1]!.econ!.jige = true;
+    m.lanes[1]!.econ!.jige = 1;
     m.lanes[1]!.tokens = 0; m.lanes[2]!.tokens = 0;
     const other = d3.units.find(u => u.grade === 6 && !u.hidden && !expandHas(u.id, 'moru'))!.id;
     const b1 = targetBot(1, { targets: [other], policy: { market: false, quests: false, tame: false } });

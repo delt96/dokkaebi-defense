@@ -47,8 +47,8 @@ registerCommand('buy', (state, cmd, events) => {
   const m = state.data.economy!.market!;
   const grade = marketGrade(m.draw.weights, nextFloat(econ.rng.marketGrade));
   const defId = pickNormal(state, grade, econ.rng.marketUnit);
-  const jige = !econ.jige && nextFloat(econ.rng.jige) < m.jigeChance;
-  if (jige) econ.jige = true;
+  const jige = nextFloat(econ.rng.jige) < m.jigeChance;
+  if (jige) econ.jige++;
   state.buckwheat -= m.draw.buckwheatCost;
   econ.market = { day: marketDay(state), draws: drawsToday(state) + 1 };
   events.push({ type: 'buy', item: 'draw', defId, spentBuckwheat: m.draw.buckwheatCost, jige });

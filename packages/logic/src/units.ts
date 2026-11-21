@@ -57,7 +57,7 @@ export function pityPick(state: GameState): string {
   return best!;
 }
 
-export function addUnit(state: GameState, defId: string, slot: number, _events: GameEvent[]): Unit {
+export function freshUnit(state: GameState, defId: string): Unit {
   const def = unitDefFast(state.data, defId);
   const ready = state.data.balance.periodicReady === true;
   const periodic = def.skills.filter(s => s.trigger.kind === 'periodic')
@@ -65,6 +65,11 @@ export function addUnit(state: GameState, defId: string, slot: number, _events: 
   const unit: Unit = { id: state.nextId++, defId, cooldown: 0, attackCount: 0, periodic };
   const charge = def.skills.find(s => s.trigger.kind === 'charge')?.trigger;
   if (charge?.kind === 'charge') unit.chargeTicks = toTicks(charge.seconds);
+  return unit;
+}
+
+export function addUnit(state: GameState, defId: string, slot: number, _events: GameEvent[]): Unit {
+  const unit = freshUnit(state, defId);
   state.slots[slot] = unit;
   return unit;
 }

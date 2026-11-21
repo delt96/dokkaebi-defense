@@ -13,7 +13,7 @@ export function createEcon(seed: number, economy: EconomyDef): EconState {
     ledger: { story: 0, tokens: 0 },
     pendingDrops: [],
     market: { day: 0, draws: 0 },
-    jige: false,
+    jige: 0,
     story: { target: null, pinned: [], log: [], offers: 0, awarded: false, active: null },
     mission: { phase: 'idle', beastId: null, beastDown: false },
     collection: { done: [], paid: false },

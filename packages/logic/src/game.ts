@@ -14,6 +14,7 @@ import './combat';
 import './effects';
 import './upgrades';
 import './econ/market';
+import './econ/jige';
 import './econ/quests';
 import './econ/story';
 import './econ/tame';
@@ -53,7 +54,23 @@ function isEnded(state: GameState): boolean {
   return state.phase === 'ended';
 }
 
+const isSlotIndex = (lane: GameState, i: unknown): i is number =>
+  typeof i === 'number' && Number.isInteger(i) && i >= 0 && i < lane.slots.length;
+
+function staleUnit(lane: GameState, cmd: Command): boolean {
+  if (cmd.type === 'move') {
+    if (cmd.unitId !== undefined && isSlotIndex(lane, cmd.from) && lane.slots[cmd.from]?.id !== cmd.unitId) return true;
+    if (cmd.toUnitId !== undefined && isSlotIndex(lane, cmd.to) && (lane.slots[cmd.to]?.id ?? null) !== cmd.toUnitId) return true;
+    return false;
+  }
+  if (cmd.type === 'sell' || cmd.type === 'store' || (cmd.type === 'combine' && cmd.slot !== undefined)) {
+    return cmd.unitId !== undefined && lane.slots[cmd.slot!]?.id !== cmd.unitId;
+  }
+  return false;
+}
+
 export function applyCommand(state: GameState, cmd: Command, events: GameEvent[]): RejectReason | null {
+  if (cmd && staleUnit(state, cmd)) return 'staleUnit';
   const handler = typeof cmd?.type === 'string' ? handlers.get(cmd.type) : undefined;
   const reason = handler ? handler(state, cmd, events) : 'unknown';
   if (state.econ?.story.active) storyTick(state, events);

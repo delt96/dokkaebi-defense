@@ -28,21 +28,6 @@ function syncLaneClock(match: MatchState, lane: GameState): void {
   lane.result = null;
 }
 
-const isSlotIndex = (lane: GameState, i: unknown): i is number =>
-  typeof i === 'number' && Number.isInteger(i) && i >= 0 && i < lane.slots.length;
-
-function staleUnit(lane: GameState, cmd: Command): boolean {
-  if (cmd.type === 'move') {
-    if (cmd.unitId !== undefined && isSlotIndex(lane, cmd.from) && lane.slots[cmd.from]?.id !== cmd.unitId) return true;
-    if (cmd.toUnitId !== undefined && isSlotIndex(lane, cmd.to) && (lane.slots[cmd.to]?.id ?? null) !== cmd.toUnitId) return true;
-    return false;
-  }
-  if (cmd.type === 'sell' || cmd.type === 'store' || (cmd.type === 'combine' && cmd.slot !== undefined)) {
-    return cmd.unitId !== undefined && lane.slots[cmd.slot!]?.id !== cmd.unitId;
-  }
-  return false;
-}
-
 function laneStep(ctx: StepMatchResult, seat: number) {
   return (ctx.lanes[seat] ??= { events: [], combatStart: 0, newFires: [] });
 }
@@ -57,7 +42,6 @@ function applyInput(match: MatchState, input: MatchInput, ctx: StepMatchResult):
   if (!seat.alive) return 'notAlive';
   const lane = match.lanes[input.seat]!;
   const laneCmd = cmd as Command;
-  if (staleUnit(lane, laneCmd)) return 'staleUnit';
   return applyCommand(lane, laneCmd, laneStep(ctx, input.seat).events);
 }
 

@@ -34,7 +34,7 @@ describe('stage 3 economy commands through the room', () => {
   test('a jige delivery: offer, the receiver sees it in mine, accepts, and the unit moves lanes', () => {
     const r = room60(3);
     const match = r.core.match!;
-    match.lanes[1]!.econ!.jige = true;
+    match.lanes[1]!.econ!.jige = 1;
     const unit = placeUnitForTest(match.lanes[1]!, 'jipsin', 4);
     send(r.core, 'a', 1, 'transferOffer', { target: 2, slot: 4, unitId: unit.id });
     tickOnce(r.core, r.deps);
@@ -53,7 +53,7 @@ describe('stage 3 economy commands through the room', () => {
   test('a declined delivery reaches the sender\'s mine with who declined it', () => {
     const r = room60(3);
     const match = r.core.match!;
-    match.lanes[1]!.econ!.jige = true;
+    match.lanes[1]!.econ!.jige = 1;
     const unit = placeUnitForTest(match.lanes[1]!, 'jipsin', 4);
     send(r.core, 'a', 1, 'transferOffer', { target: 2, slot: 4, unitId: unit.id });
     tickOnce(r.core, r.deps);
