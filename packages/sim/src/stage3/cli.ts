@@ -1,9 +1,12 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadGameData } from '@dorandi/logic';
+import { normalBot } from '../bots';
 import { combineGainAll } from './combineGain';
 import { controlAll } from './control';
+import { grade6Markdown, grade6Run, type Grade6Row } from './grade6';
 import { combineGainMarkdown, controlMarkdown, toCsvRows } from './report';
+import { targetBot } from './targetBot';
 
 export function stage3Cli(arg: (name: string, fallback: string) => string): void {
   const check = arg('check', 'all');
@@ -27,6 +30,16 @@ export function stage3Cli(arg: (name: string, fallback: string) => string): void
     console.log(controlMarkdown(rows) + '\n');
   }
   if (check === 'grade6' || check === 'all') {
-    console.log('## first grade 6 round: not implemented yet\n');
+    const runs = Number(arg('seeds', '20'));
+    const noDefeat = arg('defeat', 'off') !== 'on';
+    const rows: Grade6Row[] = [];
+    for (let seed = 1; seed <= runs; seed++) {
+      rows.push(grade6Run(data, seed, targetBot(seed), { noDefeat }));
+      rows.push(grade6Run(data, seed, normalBot(), { noDefeat }));
+    }
+    const file = join(out, noDefeat ? 'grade6.csv' : 'grade6-defeat.csv');
+    writeFileSync(file, toCsvRows(rows));
+    console.log(`## first grade 6 round (seeds ${runs}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
+    console.log(grade6Markdown(rows) + '\n');
   }
 }

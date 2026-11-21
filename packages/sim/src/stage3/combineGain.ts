@@ -1,6 +1,6 @@
 import {
-  applyCommand, chooseSlot, countNormalEnemies, createGame, step, unitDefFast,
-  type GameData, type RecipeDef,
+  applyCommand, chooseSlot, countNormalEnemies, createGame, laneOf, step, unitDefFast,
+  type GameData, type GameState, type RecipeDef,
 } from '@dorandi/logic';
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
 import { probeData, PROBE_SCENARIOS, type ProbeScenario } from './probe';
@@ -11,6 +11,34 @@ export interface CombineGainRow {
 }
 
 const TARGET_SURVIVORS = 15;
+const MELEE_MAX_RANGE = 2.0;
+
+/**
+ * The material cell the combined unit should land on without any re-placement: one whose edge/inner side
+ * suits the result's range (melee on the edge), else the default choice of the combine command.
+ */
+function resultSlot(state: GameState, materials: string[], result: string): number | undefined {
+  const lane = laneOf(state);
+  const wantEdge = unitDefFast(state.data, result).range <= MELEE_MAX_RANGE;
+  let best: number | undefined;
+  let bestGrade = 0;
+  state.slots.forEach((u, i) => {
+    if (!u || !materials.includes(u.defId) || lane.cells[i]!.isEdge !== wantEdge) return;
+    const g = unitDefFast(state.data, u.defId).grade;
+    if (g > bestGrade) { best = i; bestGrade = g; }
+  });
+  return best;
+}
+
+/** If no material cell suited the result, moves it to an empty cell on the right side, as a player would. */
+function moveToFittingSide(state: GameState, result: string): void {
+  const from = state.slots.findIndex(u => u?.defId === result);
+  if (from < 0) return;
+  const def = unitDefFast(state.data, result);
+  if (laneOf(state).cells[from]!.isEdge === (def.range <= MELEE_MAX_RANGE)) return;
+  const to = chooseSlot(state, def);
+  if (to !== null) applyCommand(state, { type: 'move', from, to }, []);
+}
 
 /** Plays round 1 with `units` placed (and optionally combined into `combineInto`), returning the enemies left at the end. */
 export function survivorsAfterRound(data: GameData, units: string[], seed: number, combineInto?: string): number {
@@ -24,8 +52,9 @@ export function survivorsAfterRound(data: GameData, units: string[], seed: numbe
   if (combineInto) {
     state.coins = 1000;
     state.buckwheat = 10;
-    const reason = applyCommand(state, { type: 'combine', result: combineInto }, []);
+    const reason = applyCommand(state, { type: 'combine', result: combineInto, slot: resultSlot(state, units, combineInto) }, []);
     if (reason) throw new Error(`combine ${combineInto} rejected: ${reason}`);
+    moveToFittingSide(state, combineInto);
   }
   forceRound(state, 1);
   while (state.tick < state.roundEndTick && state.phase !== 'ended') step(state, []);
