@@ -76,11 +76,11 @@ describe('econ in the mine stream', () => {
     r = stepMatch(m, [{ seat: 1, seq: 2, cmd: offer }]);
     out = streamer.afterStep(r);
     const t2 = out.mine[2]!.econ!.transfer!;
-    expect(t2.offer).toEqual({ from: 1, to: 2, slot: 5, unitId: unit.id, defId: 'jipsin', deadlineTick: r.tick + 200 });
+    expect(t2.offer).toEqual({ offerId: 1, from: 1, to: 2, slot: 5, unitId: unit.id, defId: 'jipsin', deadlineTick: r.tick + 200 });
     expect(t2.busy).toEqual([1, 2]);
     applyMine(view, out.mine[2]!);
     expect(view.mine.econ).toEqual(buildFull(m, 2, { watching: 2, names, key: 'k', n: 0 }).mine.econ);
-    r = stepMatch(m, [{ seat: 2, seq: 1, cmd: { type: 'transferAccept', slot: 0 } }]);
+    r = stepMatch(m, [{ seat: 2, seq: 1, cmd: { type: 'transferAccept', offerId: t2.offer!.offerId, slot: 0 } }]);
     out = streamer.afterStep(r);
     expect(out.mine[2]!.econ!.transfer).toMatchObject({ offer: null, ready: m.round + 5, rewarded: true, rewardsLeft: 4 });
     expect(out.mine[1]!.econ!.transfer!.readyRounds).toEqual({ 1: m.round + 5, 2: m.round + 5 });

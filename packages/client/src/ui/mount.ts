@@ -38,7 +38,7 @@ const GAME_ACTIONS: ReadonlySet<string> = new Set([
 const PRESS_MS = 120;
 
 /** Online screens also read the server view for the scoreboard and the two-line top bar. */
-export type TransferCommand = { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; slot: number } | { type: 'transferDecline' };
+export type TransferCommand = { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; offerId: number; slot: number } | { type: 'transferDecline'; offerId: number };
 export interface OnlineActions { support(): void; watch(seat: number): void; forfeit(): void; transfer?(cmd: TransferCommand): void }
 export interface MountOpts { online?: boolean; view?: () => ClientView | null; data?: GameData; actions?: OnlineActions }
 
@@ -58,7 +58,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let storyUnread = false;
   let receiveSlot: number | null = null;
   let incomingShown = false;
-  let lastOffer: { from: number; unitId: number } | null = null;
+  let lastOffer: number | null = null;
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
   for (const id of ['econ-panel', 'econ-top', 'econ-bottom']) {
@@ -121,8 +121,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       }
       case 'shipCancel':
-      case 'refuse': opts.actions?.transfer?.({ type: 'transferDecline' }); break;
-      case 'receive': opts.actions?.transfer?.({ type: 'transferAccept', slot: Number(arg) }); break;
+      case 'refuse':
+        if (lastOffer !== null) opts.actions?.transfer?.({ type: 'transferDecline', offerId: lastOffer });
+        break;
+      case 'receive':
+        if (lastOffer !== null) opts.actions?.transfer?.({ type: 'transferAccept', offerId: lastOffer, slot: Number(arg) });
+        break;
       case 'toggleHelper':
         if (modal === 'menu' && helperOpen) { modal = null; break; }
         helperOpen = !helperOpen;
@@ -324,8 +328,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (!story || econTab === 'story') storyUnread = false;
     // the end of an offer is told by the server's transferEnd (see onTransferEnd); here only its leftovers go
     const offer = e?.transfer?.offer ?? null;
-    if (!offer || !lastOffer || offer.unitId !== lastOffer.unitId || offer.from !== lastOffer.from) receiveSlot = null;
-    lastOffer = offer && { from: offer.from, unitId: offer.unitId };
+    if (!offer || offer.offerId !== lastOffer) receiveSlot = null;
+    lastOffer = offer?.offerId ?? null;
     const incoming = e ? incomingModel(e, s, view, receiveSlot) : null;
     incomingShown = incoming !== null;
     const outgoing = e && offer && view && offer.from === view.me.seat

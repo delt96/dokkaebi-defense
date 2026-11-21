@@ -21,10 +21,10 @@ export interface SeatResult {
 }
 export interface MatchResult { outcome: TeamOutcome; tick: number; round: number; yeoksinKills: number; started: number; alive: number; seats: SeatResult[] }
 export interface MatchOptions { noElimination?: boolean; noGate?: boolean }
-export interface TransferOffer { from: number; to: number; slot: number; unitId: number; tick: number }
+export interface TransferOffer { offerId: number; from: number; to: number; slot: number; unitId: number; tick: number }
 export interface MatchEcon {
   rng: RngState; team: { streak: number; paid: boolean }; ssireumSeat: number | null;
-  offers: TransferOffer[]; readyRound: Record<number, number>; rewarded: number[];
+  nextOfferId: number; offers: TransferOffer[]; readyRound: Record<number, number>; rewarded: number[];
 }
 export interface MatchState {
   data: GameData; dataVersion: string; seed: number; ring: number[];
@@ -35,8 +35,8 @@ export interface MatchState {
 }
 export type MatchCommand =
   | Command | { type: 'support'; target: number } | { type: 'forfeit' } | { type: 'disconnect' } | { type: 'reconnect' } | { type: 'invalid' }
-  | { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; slot: number }
-  | { type: 'transferDecline' };
+  | { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; offerId: number; slot: number }
+  | { type: 'transferDecline'; offerId: number };
 export interface MatchInput { seat: number; seq: number; cmd: MatchCommand }
 export type Ack =
   | { seat: number; seq: number; tick: number; ok: true }

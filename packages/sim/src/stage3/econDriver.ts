@@ -59,7 +59,7 @@ export class EconDriver {
     for (const o of econ.offers) {
       const lane = m.lanes[o.to]!;
       const slot = lane.slots.findIndex((u, i) => !u && lane.open[i]);
-      if (ok(o.to) && slot >= 0) cmds.push([o.to, { type: 'transferAccept', slot }]);
+      if (ok(o.to) && slot >= 0) cmds.push([o.to, { type: 'transferAccept', offerId: o.offerId, slot }]);
     }
     const busy = new Set(econ.offers.flatMap(o => [o.from, o.to]));
     for (const from of m.ring) {

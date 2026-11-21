@@ -33,6 +33,21 @@ const totals = (m: MatchState) => {
 };
 
 describe('jige transfer', () => {
+  test('a delayed response cannot accept or decline a replacement offer', () => {
+    for (const type of ['transferAccept', 'transferDecline'] as const) {
+      const m = match();
+      const u = placeUnitForTest(m.lanes[1]!, 'moru', 0);
+      const proposal = { type: 'transferOffer', target: 2, slot: 0, unitId: u.id } as const;
+      send(m, [[1, proposal]]);
+      const offerId = m.econ!.offers[0]!.offerId;
+      send(m, [[1, { type: 'transferDecline', offerId }], [1, proposal]]);
+      const response = type === 'transferAccept' ? { type, slot: 1, offerId } : { type, offerId };
+      expect(send(m, [[2, response]]).reasons).toEqual(['noOffer']);
+      expect(m.econ!.offers).toHaveLength(1);
+      expect(m.lanes[1]!.slots[0]).toBe(u);
+    }
+  });
+
   test('offer needs a jige, a grade 1-4 normal unit and a connected living target', () => {
     const m = match([1, 2, 3]);
     const moru = placeUnitForTest(m.lanes[1]!, 'moru', 0);
@@ -81,7 +96,7 @@ describe('jige transfer', () => {
       const moru = placeUnitForTest(m.lanes[1]!, 'moru', 0);
       const { r } = send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
       while (m.tick < r.tick + wait) go(m);
-      const acc = send(m, [[2, { type: 'transferAccept', slot: 3 }]]);
+      const acc = send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 3 }]]);
       expect(acc.reasons).toEqual([expected]);
       if (expected === null) {
         expect(m.lanes[2]!.slots[3]!.defId).toBe('moru');
@@ -106,7 +121,7 @@ describe('jige transfer', () => {
     moru.cost = 5;
     const before = totals(m);
     send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
-    const acc = send(m, [[2, { type: 'transferAccept', slot: 4 }]]);
+    const acc = send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 4 }]]);
     expect(acc.reasons).toEqual([null]);
     const got = m.lanes[2]!.slots[4]!;
     expect([got.defId, got.cost, got.delivered, got.locked]).toEqual(['moru', 5, true, undefined]);
@@ -127,7 +142,7 @@ describe('jige transfer', () => {
     expect(send(m, [[1, { type: 'transferOffer', target: 3, slot: 1, unitId: p.id }]]).reasons).toEqual(['cooldown']);
     jumpToTick(m, rst(27) + 1);
     expect(send(m, [[1, { type: 'transferOffer', target: 3, slot: 1, unitId: p.id }]]).reasons).toEqual([null]);
-    send(m, [[3, { type: 'transferAccept', slot: 5 }]]);
+    send(m, [[3, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 5 }]]);
     expect([m.lanes[1]!.buckwheat, m.lanes[2]!.buckwheat, m.lanes[3]!.buckwheat]).toEqual([1, 1, 1]);
     expect(m.econ!.rewarded).toEqual([1, 2, 3]);
   });
@@ -162,8 +177,8 @@ describe('jige transfer', () => {
     const m = match([1, 2]);
     const moru = placeUnitForTest(m.lanes[1]!, 'moru', 0);
     send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
-    expect(send(m, [[2, { type: 'transferAccept', slot: 0 }]]).reasons).toEqual([null]);
-    expect(send(m, [[1, { type: 'transferDecline' }]]).reasons).toEqual(['noOffer']);
+    expect(send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 0 }]]).reasons).toEqual([null]);
+    expect(send(m, [[1, { type: 'transferDecline', offerId: m.econ?.offers[0]?.offerId ?? 1 }]]).reasons).toEqual(['noOffer']);
   });
 
   test('decline from either side ends the offer; accepting onto a taken or closed slot is refused', () => {
@@ -171,15 +186,15 @@ describe('jige transfer', () => {
     const moru = placeUnitForTest(m.lanes[1]!, 'moru', 0);
     placeUnitForTest(m.lanes[2]!, 'jipsin', 3);
     send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
-    expect(send(m, [[2, { type: 'transferAccept', slot: 3 }]]).reasons).toEqual(['noSlot']);
-    expect(send(m, [[2, { type: 'transferAccept', slot: 20 }]]).reasons).toEqual(['noSlot']);
-    expect(send(m, [[1, { type: 'transferAccept', slot: 4 }]]).reasons).toEqual(['noOffer']);
-    const { r, reasons } = send(m, [[1, { type: 'transferDecline' }]]);
+    expect(send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 3 }]]).reasons).toEqual(['noSlot']);
+    expect(send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 20 }]]).reasons).toEqual(['noSlot']);
+    expect(send(m, [[1, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 4 }]]).reasons).toEqual(['noOffer']);
+    const { r, reasons } = send(m, [[1, { type: 'transferDecline', offerId: m.econ?.offers[0]?.offerId ?? 1 }]]);
     expect(reasons).toEqual([null]);
     expect(ends(r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, defId: 'moru', outcome: 'declined', by: 1, cause: null }]);
     expect(moru.locked).toBeUndefined();
     send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
-    expect(ends(send(m, [[2, { type: 'transferDecline' }]]).r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, defId: 'moru', outcome: 'declined', by: 2, cause: null }]);
+    expect(ends(send(m, [[2, { type: 'transferDecline', offerId: m.econ?.offers[0]?.offerId ?? 1 }]]).r)).toEqual([{ type: 'transferEnd', from: 1, to: 2, defId: 'moru', outcome: 'declined', by: 2, cause: null }]);
   });
 
   test('busy tells the sender\'s own open offer apart from a target already in one', () => {
@@ -198,14 +213,14 @@ describe('jige transfer', () => {
     m.econ!.rewarded = [3, 4, 5, 6, 7, 8];
     const moru = placeUnitForTest(m.lanes[1]!, 'moru', 0);
     send(m, [[1, { type: 'transferOffer', target: 2, slot: 0, unitId: moru.id }]]);
-    send(m, [[2, { type: 'transferAccept', slot: 4 }]]);
+    send(m, [[2, { type: 'transferAccept', offerId: m.econ!.offers[0]?.offerId ?? 1, slot: 4 }]]);
     expect([m.lanes[1]!.buckwheat, m.lanes[2]!.buckwheat]).toEqual([0, 0]);
   });
 
   test('stage 2 matches refuse transfer commands', () => {
     const m = createMatch(loadGameData('stage2'), 1, [1, 2]);
     jumpToTick(m, roundStartTick(m.data, 2));
-    const r = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'transferDecline' } }]);
+    const r = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'transferDecline', offerId: m.econ?.offers[0]?.offerId ?? 1 } }]);
     expect(r.acks[0]).toMatchObject({ ok: false, reason: 'unknown' });
   });
 });

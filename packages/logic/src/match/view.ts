@@ -80,7 +80,7 @@ function transferOf(match: MatchState, seat: number): TransferMine | null {
     busy: [...new Set(econ.offers.flatMap(o => [o.from, o.to]))].sort((a, b) => a - b),
     offer: mine
       ? {
-        from: mine.from, to: mine.to, slot: mine.slot, unitId: mine.unitId,
+        offerId: mine.offerId, from: mine.from, to: mine.to, slot: mine.slot, unitId: mine.unitId,
         defId: match.lanes[mine.from]?.slots[mine.slot]?.defId ?? '',
         deadlineTick: mine.tick + toTicks(def.offerSeconds),
       }

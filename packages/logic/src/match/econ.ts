@@ -10,7 +10,7 @@ import { spawnEventEnemy } from '../econ/events';
 export function createMatchEcon(seed: number): MatchEcon {
   return {
     rng: createRng(deriveSeed(seed, 'econ')), team: { streak: 0, paid: false }, ssireumSeat: null,
-    offers: [], readyRound: {}, rewarded: [],
+    nextOfferId: 1, offers: [], readyRound: {}, rewarded: [],
   };
 }
 
@@ -103,15 +103,15 @@ function offer(match: MatchState, from: number, cmd: Extract<MatchCommand, { typ
   if (involved(match, target)) return 'targetBusy';
   if (match.round < (econ.readyRound[from] ?? 0) || match.round < (econ.readyRound[target] ?? 0)) return 'cooldown';
   unit.locked = true;
-  econ.offers.push({ from, to: target, slot: cmd.slot, unitId: unit.id, tick: ctx.tick });
+  econ.offers.push({ offerId: econ.nextOfferId++, from, to: target, slot: cmd.slot, unitId: unit.id, tick: ctx.tick });
   ctx.events.push({ type: 'transferOffer', from, to: target, defId: unit.defId, tick: ctx.tick });
   return null;
 }
 
-function accept(match: MatchState, seat: number, slot: number, ctx: StepMatchResult): RejectReason | null {
+function accept(match: MatchState, seat: number, offerId: number, slot: number, ctx: StepMatchResult): RejectReason | null {
   const def = match.data.economy!.transfer!;
   const econ = match.econ!;
-  const o = econ.offers.find(x => x.to === seat);
+  const o = econ.offers.find(x => x.to === seat && x.offerId === offerId);
   if (!o) return 'noOffer';
   const to = match.lanes[seat]!;
   if (!Number.isInteger(slot) || slot < 0 || slot >= to.slots.length || !to.open[slot] || to.slots[slot]) return 'noSlot';
@@ -143,10 +143,10 @@ export function applyTransferCommand(match: MatchState, input: MatchInput, ctx: 
   if (!match.seats[input.seat]!.alive) return 'notAlive';
   const cmd = input.cmd;
   if (cmd.type === 'transferOffer') return offer(match, input.seat, cmd, ctx);
-  if (cmd.type === 'transferAccept') return accept(match, input.seat, cmd.slot, ctx);
+  if (cmd.type === 'transferAccept') return accept(match, input.seat, cmd.offerId, cmd.slot, ctx);
   if (cmd.type === 'transferDecline') {
     const o = involved(match, input.seat);
-    if (!o) return 'noOffer';
+    if (!o || o.offerId !== cmd.offerId) return 'noOffer';
     endOffer(match, o, 'declined', ctx, { by: input.seat });
     return null;
   }

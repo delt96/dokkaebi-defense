@@ -131,7 +131,7 @@ describe('delivery prompt and countdown', () => {
 
   test('the receiver sees who sends what, the reward, the slot and the seconds left', () => {
     const s = lane(22);
-    const offer = { from: 1, to: 2, defId: 'moru', slot: 3, unitId: 9, deadlineTick: s.tick + 140 };
+    const offer = { offerId: 7, from: 1, to: 2, defId: 'moru', slot: 3, unitId: 9, deadlineTick: s.tick + 140 };
     const e = econOf(s, { transfer: transfer({ offer, busy: [1, 2] }) });
     const m = incomingModel(e, s, v, null)!;
     expect(m).toEqual({ text: '가나가 모루를 보냅니다', reward: `받으면 묵 +${eco.transfer!.reward}`, slot: 0, secondsLeft: 7, frac: 0.7 });
@@ -360,14 +360,14 @@ describe('online: delivery prompt on the receiver', () => {
     });
     const mine = structuredClone(full.mine);
     mine.tick = full.clock.tick + 1;
-    mine.econ!.transfer!.offer = { from: 1, to: 2, defId: 'moru', slot: 0, unitId: 77, deadlineTick: full.clock.tick + 100 };
+    mine.econ!.transfer!.offer = { offerId: 7, from: 1, to: 2, defId: 'moru', slot: 0, unitId: 77, deadlineTick: full.clock.tick + 100 };
     room.emit('mine', mine);
     clock += 150; driver.update(16); scene.onFrame?.();
     const top = document.getElementById('econ-top')!;
     expect(top.textContent).toContain('가나가 모루를 보냅니다');
     expect(top.textContent).toContain('5초');
     press(top.querySelector('[data-action="receive"]'));
-    expect(room.cmds('transferAccept')).toEqual([{ seq: 1, type: 'transferAccept', args: { slot: 0 } }]);
+    expect(room.cmds('transferAccept')).toEqual([{ seq: 1, type: 'transferAccept', args: { offerId: 7, slot: 0 } }]);
     press(top.querySelector('[data-action="refuse"]'));
     expect(room.cmds('transferDecline').length).toBe(1);
   });
@@ -411,7 +411,7 @@ describe('online: delivery prompt on the receiver', () => {
       // the notice line is drawn before the economy part decides what ended, so it shows a frame later
       for (let i = 0; i < 2; i++) { clock += 150; driver.update(16); scene.onFrame?.(); }
     };
-    send(m => { m.econ!.transfer!.offer = { from: 1, to: 2, defId: 'moru', slot: 0, unitId: 77, deadlineTick: full.clock.tick + 100 }; });
+    send(m => { m.econ!.transfer!.offer = { offerId: 7, from: 1, to: 2, defId: 'moru', slot: 0, unitId: 77, deadlineTick: full.clock.tick + 100 }; });
     const top = () => document.getElementById('econ-top')!;
     return {
       send, top,

@@ -41,7 +41,7 @@ describe('stage 3 economy commands through the room', () => {
     expect(r.links[0]!.last('mine').acks[0]).toMatchObject({ seq: 1, ok: true });
     const offer = r.links[1]!.last('mine').econ.transfer.offer;
     expect(offer).toMatchObject({ from: 1, to: 2, defId: 'jipsin', slot: 4, unitId: unit.id });
-    send(r.core, 'b', 1, 'transferAccept', { slot: 2 });
+    send(r.core, 'b', 1, 'transferAccept', { offerId: offer.offerId, slot: 2 });
     tickOnce(r.core, r.deps);
     const mineB = r.links[1]!.last('mine');
     expect(mineB.acks[0]).toMatchObject({ seq: 1, ok: true });
@@ -57,7 +57,7 @@ describe('stage 3 economy commands through the room', () => {
     const unit = placeUnitForTest(match.lanes[1]!, 'jipsin', 4);
     send(r.core, 'a', 1, 'transferOffer', { target: 2, slot: 4, unitId: unit.id });
     tickOnce(r.core, r.deps);
-    send(r.core, 'b', 1, 'transferDecline', {});
+    send(r.core, 'b', 1, 'transferDecline', { offerId: r.links[1]!.last('mine').econ.transfer.offer.offerId });
     tickOnce(r.core, r.deps);
     const end = { from: 1, to: 2, defId: 'jipsin', outcome: 'declined', by: 2, cause: null };
     expect(r.links[0]!.last('mine').transferEnds).toEqual([end]);
@@ -67,7 +67,7 @@ describe('stage 3 economy commands through the room', () => {
   test('a 20-round room refuses the economy commands without a crash', () => {
     const r = started(['가', '나']);
     send(r.core, 'a', 1, 'buy', { item: 'jar' });
-    send(r.core, 'a', 2, 'transferAccept', { slot: 0 });
+    send(r.core, 'a', 2, 'transferAccept', { offerId: 1, slot: 0 });
     tickOnce(r.core, r.deps);
     const acks = r.links[0]!.last('mine').acks.map((a: { reason?: string }) => a.reason);
     expect(acks).toEqual(['marketClosed', 'unknown']);

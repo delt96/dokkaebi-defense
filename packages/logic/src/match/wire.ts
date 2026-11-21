@@ -20,7 +20,7 @@ export interface ClockView { tick: number; phase: 'prep' | 'round' | 'ended'; ro
 /** The jige delivery as one seat sees it: its own and everyone's next allowed round, seats tied up in an offer, and its offer. */
 export interface TransferMine {
   ready: number; readyRounds: Record<number, number>; busy: number[];
-  offer: { from: number; to: number; defId: string; slot: number; unitId: number; deadlineTick: number } | null;
+  offer: { offerId: number; from: number; to: number; defId: string; slot: number; unitId: number; deadlineTick: number } | null;
   rewarded: boolean; rewardsLeft: number;
   /** Ids of this seat's units that came by delivery (they cannot be sent on). */
   delivered: number[];

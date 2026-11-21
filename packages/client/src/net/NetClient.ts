@@ -13,8 +13,8 @@ export type NetEvent =
   | { kind: 'result'; msg: ResultMsg } | { kind: 'left'; code: number } | { kind: 'versionMismatch' };
 
 export type OutgoingCommand = Command | { type: 'support'; target: number } | { type: 'forfeit' }
-  | { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; slot: number }
-  | { type: 'transferDecline' };
+  | { type: 'transferOffer'; target: number; slot: number; unitId: number } | { type: 'transferAccept'; offerId: number; slot: number }
+  | { type: 'transferDecline'; offerId: number };
 
 const versions = new Map<MatchStage, string>();
 
