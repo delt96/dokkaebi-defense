@@ -121,6 +121,10 @@ export class NetClient {
   }
 
   private onFull(msg: FullMsg): void {
+    // The server has already issued (or replaced) this key: keep it even on a version mismatch,
+    // so the reload that the notice asks for can still take the seat back.
+    const name = msg.rows.find(r => r.seat === msg.me.seat)?.name || loadSession(this.roomId)?.name || lastName() || '';
+    saveSession(this.roomId, { key: msg.me.key, name });
     if (msg.dataVersion !== this.dataVersion) {
       this.emit({ kind: 'versionMismatch' });
       return;
@@ -132,8 +136,6 @@ export class NetClient {
     // sent after the server built this snapshot still reaches it, and a reused seq would be ignored.
     this.pending = [];
     this.nextSeq = Math.max(this.nextSeq, view.mine.lastSeq + 1);
-    const name = view.rows.find(r => r.seat === view.me.seat)?.name || loadSession(this.roomId)?.name || lastName() || '';
-    saveSession(this.roomId, { key: view.me.key, name });
     this.emit({ kind: 'view', view });
   }
 

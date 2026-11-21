@@ -120,3 +120,47 @@ test('a frame failure shows the exception once and stops further simulation', ()
     log.mockRestore();
   }
 });
+
+test('a unit view is rebuilt when the same id comes back as another unit (review checkpoint, finding 2)', () => {
+  const { scene, state, container } = setupScene();
+  const a = placeUnitForTest(state, 'sotlid', 0);
+  scene['placeUnits']();
+  const first = container.mock.results.at(-1)!.value!;
+  state.slots[0] = { ...state.slots[0]!, id: a.id, defId: 'bujigaengi' };
+  scene['placeUnits']();
+  expect(first.destroy).toHaveBeenCalled();
+  expect(container).toHaveBeenCalledTimes(2);
+  expect(scene['units'].get(a.id)).toBe(container.mock.results.at(-1)!.value);
+});
+
+test('switching the drawn lane drops every view, effect and the selection (review checkpoint, finding 2)', () => {
+  const { scene, state, driver, container } = setupScene();
+  const lane = driver as unknown as { laneSeat: number; laneEpoch: number };
+  Object.assign(lane, { laneSeat: 1, laneEpoch: 0 });
+  const killAll = vi.fn();
+  const clearable = () => ({ clear: vi.fn() });
+  Object.assign(scene, { effects: clearable(), overlay: clearable(), coverage: clearable() });
+  (scene as unknown as { tweens: object }).tweens = { add: vi.fn(), killAll };
+  const a = placeUnitForTest(state, 'sotlid', 0);
+  scene['syncLane']();
+  scene['placeUnits']();
+  scene.selectedId = a.id;
+  const old = container.mock.results.at(-1)!.value!;
+  scene['syncLane']();
+  expect(old.destroy).not.toHaveBeenCalled();
+  lane.laneEpoch = 1;
+  scene['syncLane']();
+  expect(old.destroy).toHaveBeenCalled();
+  expect(scene.selectedId).toBe(a.id);
+  scene['placeUnits']();
+  const resynced = container.mock.results.at(-1)!.value!;
+  lane.laneSeat = 2; lane.laneEpoch = 2;
+  scene['syncLane']();
+  expect(resynced.destroy).toHaveBeenCalled();
+  expect(killAll).toHaveBeenCalledTimes(2);
+  expect(scene['effects'].clear).toHaveBeenCalledWith(true, true);
+  expect(scene.selectedId).toBeNull();
+  expect(scene['units'].size).toBe(0);
+  scene['placeUnits']();
+  expect(container).toHaveBeenCalledTimes(3);
+});

@@ -11,14 +11,17 @@ const SPRITE_IDS: ReadonlySet<string> = new Set(
   Object.keys(import.meta.glob('../public/sprites/*.png')).map(p => p.slice(p.lastIndexOf('/') + 1, -'.png'.length)),
 );
 
-type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; combineMarker: Phaser.GameObjects.Arc };
+type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; combineMarker: Phaser.GameObjects.Arc };
+type EnemyContainer = Phaser.GameObjects.Container & { defId?: string };
 
 export class LaneScene extends Phaser.Scene {
   private driver: Driver;
   /** Canvas height this scene is laid out for (308 for 1 player, 292 online). */
   readonly canvasHeight: number;
   private units = new Map<number, UnitView>();
-  private enemies = new Map<number, Phaser.GameObjects.Container>();
+  private enemies = new Map<number, EnemyContainer>();
+  /** The lane the views were made for (online): `${laneSeat}:${laneEpoch}`. */
+  private laneKey = '';
   private board!: Phaser.GameObjects.Graphics;
   private coverage!: Phaser.GameObjects.Graphics;
   private overlay!: Phaser.GameObjects.Graphics;
@@ -86,6 +89,15 @@ export class LaneScene extends Phaser.Scene {
   }
 
   reset(): void {
+    this.clearViews();
+    this.fires.clear();
+    this.cameras.main.resetFX();
+    document.getElementById('error')!.hidden = true;
+    this.openKey = '';
+  }
+
+  /** Drops every unit and enemy view, running effect and the selection. */
+  private clearViews(): void {
     for (const v of this.units.values()) v.destroy();
     for (const v of this.enemies.values()) v.destroy();
     this.tweens.killAll();
@@ -95,12 +107,28 @@ export class LaneScene extends Phaser.Scene {
     this.selectedId = null;
     this.overlay.clear();
     this.coverage.clear();
-    this.fires.clear();
-    this.cameras.main.resetFX();
-    document.getElementById('error')!.hidden = true;
     this.units.clear();
     this.enemies.clear();
-    this.openKey = '';
+  }
+
+  /**
+   * Online: a new snapshot or another lane on screen starts drawing from scratch (spec 7). Ids
+   * restart per lane, so a view kept by id would show the old lane's unit or enemy.
+   */
+  private syncLane(): void {
+    if (this.driver.laneSeat === undefined) return;
+    const key = `${this.driver.laneSeat}:${this.driver.laneEpoch ?? 0}`;
+    if (key === this.laneKey) return;
+    const prevSeat = this.laneKey.split(':')[0];
+    const first = this.laneKey === '';
+    this.laneKey = key;
+    if (first) return;
+    // a resync of the same lane keeps the selection: its unit ids still name the same units
+    const kept = prevSeat === String(this.driver.laneSeat) ? this.selectedId : null;
+    const dropped = this.selectedId !== null && kept === null;
+    this.clearViews();
+    this.selectedId = kept;
+    if (dropped) this.emitSelect(null);
   }
 
   private emitSelect(slot: number | null): void {
@@ -175,6 +203,7 @@ export class LaneScene extends Phaser.Scene {
     const def = unitDefFast(this.state.data, defId);
     const view = this.add.container(0, 0) as UnitView;
     view.unitId = unitId;
+    view.defId = defId;
     if (this.hasTexture(defId)) {
       view.add(this.add.image(0, 0, defId));
     } else {
@@ -228,6 +257,14 @@ export class LaneScene extends Phaser.Scene {
       if (!u) return;
       seen.add(u.id);
       let view = this.units.get(u.id);
+      if (view && view.defId !== u.defId) {
+        // the same id now names another unit (another lane): never reuse the old drawing
+        if (this.dragging === view) this.dragging = null;
+        view.motion?.stop();
+        view.destroy();
+        this.units.delete(u.id);
+        view = undefined;
+      }
       if (!view) {
         view = this.makeUnitView(u.id, u.defId);
         this.units.set(u.id, view);
@@ -267,11 +304,12 @@ export class LaneScene extends Phaser.Scene {
     }
   }
 
-  private makeEnemy(id: number, defId: string, boss: boolean): Phaser.GameObjects.Container {
+  private makeEnemy(id: number, defId: string, boss: boolean): EnemyContainer {
     const def = this.state.data.enemies.find(d => d.id === defId);
-    if (def?.shared) return this.makeSharedEnemy(id);
+    if (def?.shared) return this.makeSharedEnemy(id, defId);
     const spawn = laneToCanvas(this.lane.pointAt(0));
-    const view = this.add.container(spawn.x, spawn.y).setDepth(2);
+    const view: EnemyContainer = this.add.container(spawn.x, spawn.y).setDepth(2);
+    view.defId = defId;
     const radius = boss ? 14 : 6;
     const body = this.hasTexture(defId)
       ? this.add.image(0, 0, defId).setScale(boss ? 1 : 0.75)
@@ -285,9 +323,10 @@ export class LaneScene extends Phaser.Scene {
   }
 
   /** A shared enemy (the yeoksin): a mask a little smaller than a boss, marked '탈', with its own bar. */
-  private makeSharedEnemy(id: number): Phaser.GameObjects.Container {
+  private makeSharedEnemy(id: number, defId: string): EnemyContainer {
     const spawn = laneToCanvas(this.lane.pointAt(0));
-    const view = this.add.container(spawn.x, spawn.y).setDepth(2);
+    const view: EnemyContainer = this.add.container(spawn.x, spawn.y).setDepth(2);
+    view.defId = defId;
     const width = 36;
     view.add([
       this.add.circle(0, 0, 12, 0xc89a52).setStrokeStyle(2, 0x4a1a12),
@@ -302,9 +341,9 @@ export class LaneScene extends Phaser.Scene {
   private placeEnemies(): void {
     if (this.driver.online) {
       // a resync or a lane switch drops enemies without a kill event
-      const present = new Set(this.state.enemies.map(e => e.id));
+      const present = new Map(this.state.enemies.map(e => [e.id, e.defId]));
       for (const [id, view] of this.enemies) {
-        if (present.has(id)) continue;
+        if (present.get(id) === view.defId) continue;
         view.destroy();
         this.enemies.delete(id);
       }
@@ -435,6 +474,7 @@ export class LaneScene extends Phaser.Scene {
   onFrame?: () => void;
 
   private renderBoard(): void {
+    this.syncLane();
     const key = this.state.open.map(o => (o ? 1 : 0)).join('');
     if (key !== this.openKey) this.drawBoard();
     this.placeUnits();

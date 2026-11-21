@@ -144,6 +144,8 @@ describe('NetClient', () => {
     room.emit('full', baseFull());
     expect(kinds).toEqual(['versionMismatch']);
     expect(net.view).toBeNull();
+    // a reload after the version notice must still find its seat (review checkpoint, finding 3)
+    expect(loadSession('room-1')?.key).toBe(baseFull().me.key);
   });
   test('a spirit can only send support and forfeit', () => {
     const { room, net } = connect(f => { f.rows[0]!.status = 'spirit'; });

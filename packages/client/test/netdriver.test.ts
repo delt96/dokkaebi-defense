@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { buildFull, createMatch, loadGameData, type FullMsg, type GameEvent, type TickMsg } from '@dorandi/logic';
+import { buildFull, createMatch, enemyDistanceAt, loadGameData, type FullMsg, type GameEvent, type TickMsg } from '@dorandi/logic';
 import { placeUnitForTest, stepMatchUntil } from '@dorandi/logic/testing';
 
 const store = new Map<string, string>();
@@ -77,8 +77,48 @@ describe('NetDriver', () => {
     const animated: GameEvent[] = []; drv.onEvents(ev => animated.push(...ev));
     room.emit('tick', { ...tickFrom(view), n: view.n + 1, clock: { ...view.clock, tick: view.clock.tick + 300 } });
     room.emit('lane', { n: view.n + 1, seat: 1, batches: Array.from({ length: 300 }, (_, i) => ({ tick: view.clock.tick + 1 + i, events: [{ t: 'attack', unitId: 1, id: 1 }] })) });
+    drv.update(16);
     expect(animated.filter(e => e.type === 'attack').length).toBe(10);
     expect(net.view!.lane.tick).toBe(view.clock.tick + 300);
+  });
+  test('a hidden tab fed tick+lane pairs one by one animates only the last 10 ticks on return (review checkpoint, finding 1)', () => {
+    const { net, room, data, view } = fixtureNet();
+    const drv = new NetDriver(net, data, () => 1000);
+    const animated: GameEvent[] = []; drv.onEvents(ev => animated.push(...ev));
+    const t0 = view.clock.tick;
+    // the server sends one tick message and one lane message with 2 batches per 2 ticks; no frame runs meanwhile
+    for (let k = 1; k <= 150; k++) {
+      const tick = t0 + 2 * k;
+      room.emit('tick', { ...tickFrom(view), n: view.n + k, clock: { ...view.clock, tick } });
+      room.emit('lane', { n: view.n + k, seat: 1, batches: [tick - 1, tick].map(t => ({ tick: t, events: [{ t: 'attack', unitId: 1, id: 1 }] })) });
+    }
+    expect(animated.filter(e => e.type === 'attack')).toHaveLength(0);
+    drv.update(16);
+    const latest = t0 + 300;
+    expect(net.view!.lane.tick).toBe(latest);
+    expect(animated.filter(e => e.type === 'attack').length).toBeLessThanOrEqual(10);
+    expect(animated.filter(e => e.type === 'attack').length).toBeGreaterThan(0);
+    const enemies = net.view!.lane.enemies;
+    expect(enemies.length).toBeGreaterThan(0);
+    enemies.forEach((e, i) => expect(drv.state.enemies[i]!.d).toBeCloseTo(enemyDistanceAt(e, Math.max(latest - 2, e.t)), 9));
+    drv.update(16);
+    expect(animated.filter(e => e.type === 'attack').length).toBeLessThanOrEqual(10);
+  });
+  test('a full watching another lane moves laneSeat and laneEpoch (review checkpoint, finding 2)', () => {
+    const match = createMatch(data, 7, [1, 2]);
+    stepMatchUntil(match, 100);
+    const room = new FakeRoom();
+    const own = buildFull(match, 1, { watching: 1, names: { 1: '하나', 2: 'two' }, key: 'k1', n: 0 });
+    const net = new NetClient(room, own.dataVersion);
+    room.emit('full', own);
+    const drv = new NetDriver(net, data);
+    expect(drv.laneSeat).toBe(1);
+    const epoch = drv.laneEpoch;
+    room.emit('tick', tickFrom(own));
+    expect(drv.laneEpoch).toBe(epoch);
+    room.emit('full', buildFull(match, 1, { watching: 2, names: { 1: '하나', 2: 'two' }, key: 'k1', n: 2 }));
+    expect(drv.laneSeat).toBe(2);
+    expect(drv.laneEpoch).toBeGreaterThan(epoch);
   });
   test('queue(move) predicts at once and is read-only while watching another lane', () => {
     const { net, data } = fixtureNet();

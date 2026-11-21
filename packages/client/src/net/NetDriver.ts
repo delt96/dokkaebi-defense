@@ -20,8 +20,6 @@ export function renderTickAt(now: number, latestTick: number, receivedAt: number
   return Math.max(prev, Math.min(latestTick - RENDER_LAG_TICKS + (now - receivedAt) / tickMs, latestTick));
 }
 
-const ANIMATED: ReadonlySet<LaneEvent['t']> = new Set(['attack', 'damage', 'kill', 'summon', 'combine']);
-
 function commandOf(cmd: PendingCmd): Command {
   return { type: cmd.type, ...(cmd.args ?? {}) } as Command;
 }
@@ -34,16 +32,26 @@ export class NetDriver implements Driver {
   readonly online = true;
   readOnly = false;
   dimmed = new Set<number>();
+  laneSeat: number;
+  laneEpoch = 0;
   private renderTick: number;
   private latestTick: number;
   private receivedAt: number;
   private view: ClientView;
   private readonly listeners: Listener[] = [];
+  /**
+   * Lane events waiting for the next frame. Messages keep arriving while a tab is hidden and no
+   * frame runs, so they are held here (old ticks dropped) and only the newest 10 ticks get animated.
+   */
+  private buffered: { tick: number; events: GameEvent[] }[] = [];
+  /** The newest tick the lane stream or the clock has reached. */
+  private newestTick = 0;
 
   constructor(private readonly net: NetClient, private readonly data: GameData, private readonly now: () => number = () => performance.now()) {
     const view = net.view;
     if (!view) throw new Error('NetDriver needs a view (start it after the first full)');
     this.view = view;
+    this.laneSeat = view.watching;
     this.latestTick = view.clock.tick;
     this.receivedAt = now();
     this.renderTick = renderTickAt(this.receivedAt, this.latestTick, this.receivedAt, 0, data.balance.tickMs);
@@ -72,6 +80,7 @@ export class NetDriver implements Driver {
   update(_elapsedMs: number): void {
     this.renderTick = renderTickAt(this.now(), this.latestTick, this.receivedAt, this.renderTick, this.data.balance.tickMs);
     this.refresh();
+    this.flushLane();
   }
 
   enemyDistance(id: number, d: number): number {
@@ -102,9 +111,13 @@ export class NetDriver implements Driver {
     if (view !== this.view) {
       // a new snapshot (resync, watch switch): draw from it, nothing of the old lane is replayed
       this.view = view;
+      this.laneSeat = view.watching;
+      this.laneEpoch++;
       this.latestTick = view.clock.tick;
       this.receivedAt = this.now();
       this.renderTick = Math.max(this.renderTick, this.latestTick - RENDER_LAG_TICKS);
+      this.buffered = [];
+      this.newestTick = this.latestTick;
     } else if (view.clock.tick !== this.latestTick) {
       this.latestTick = view.clock.tick;
       this.receivedAt = this.now();
@@ -114,17 +127,31 @@ export class NetDriver implements Driver {
   private onLane(batches: LaneBatch[]): void {
     const before = this.state.slots;
     this.refresh();
-    const newest = Math.max(this.latestTick, ...batches.map(b => b.tick));
-    const events: GameEvent[] = [];
     for (const batch of batches) {
-      const animate = batch.tick > newest - ANIMATE_TICKS;
+      const events: GameEvent[] = [];
       for (const ev of batch.events) {
-        if (!animate && ANIMATED.has(ev.t)) continue;
         const out = toGameEvent(ev, before);
         if (out) events.push(out);
       }
+      if (events.length) this.buffered.push({ tick: batch.tick, events });
+      this.newestTick = Math.max(this.newestTick, batch.tick);
     }
-    if (events.length) this.emit(events, []);
+    this.dropStale();
+  }
+
+  /** Batches at or below latest - 10 are never animated; dropping them keeps the buffer small. */
+  private dropStale(): void {
+    this.newestTick = Math.max(this.newestTick, this.latestTick);
+    const oldest = this.newestTick - ANIMATE_TICKS;
+    if (this.buffered.length && this.buffered[0]!.tick <= oldest) this.buffered = this.buffered.filter(b => b.tick > oldest);
+  }
+
+  private flushLane(): void {
+    this.dropStale();
+    if (!this.buffered.length) return;
+    const events = this.buffered.flatMap(b => b.events);
+    this.buffered = [];
+    this.emit(events, []);
   }
 
   private emit(events: GameEvent[], rejected: StepResult['rejected']): void {

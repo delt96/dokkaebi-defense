@@ -25,6 +25,12 @@ export interface Driver {
   readOnly: boolean;
   /** Slots drawn faded while a combine or sell on them waits for the server. */
   dimmed: Set<number>;
+  /**
+   * Online only: the seat whose lane is drawn, and a counter that moves with every new snapshot.
+   * Unit and enemy ids restart per lane, so the scene drops all its views when either changes.
+   */
+  readonly laneSeat?: number;
+  readonly laneEpoch?: number;
   queue(cmd: Command): void;
   onEvents(cb: Listener): void;
   update(elapsedMs: number): void;

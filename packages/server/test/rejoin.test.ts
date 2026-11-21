@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { loadGameData, roundStartTick } from '@dorandi/logic';
+import { loadGameData, matchHash, replayMatch, roundStartTick } from '@dorandi/logic';
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { FakeLink, send, started, tickOnce, ticks } from './helpers';
 
@@ -44,6 +44,37 @@ describe('rejoin and result', () => {
     for (let i = 0; i < 61; i++) spawnEnemyForTest(lane, 'japgwi', 12, 10 ** 9);
     ticks(r, 100);
     expect(core.match!.seats[1]).toMatchObject({ alive: false, record: { cause: 'limit' } });
+  });
+
+  test('disconnects and rejoins go into the input log, one entry per tick, and the log replays the match (review checkpoint, finding 4)', () => {
+    const { core, deps, links: [a] } = started(['가', '나'], { dev: true }, { seed: 7 });
+    send(core, 'a', 1, 'summon'); send(core, 'b', 1, 'summon'); tickOnce(core, deps);
+    send(core, 'a', 2, 'summon'); tickOnce(core, deps);
+    ticks({ core, deps }, 20);
+    const key = a!.last('full').me.key;
+    const leaveTick = core.match!.tick;
+    core.leave('a', false); tickOnce(core, deps);
+    ticks({ core, deps }, 300);
+    const rejoinTick = core.match!.tick;
+    const a2 = new FakeLink('a2'); core.join(a2, { rejoinKey: key }); tickOnce(core, deps);
+    const key2 = a2.last('full').me.key;
+    ticks({ core, deps }, 1);
+    const bothTick = core.match!.tick;
+    core.leave('a2', false);
+    const a3 = new FakeLink('a3'); core.join(a3, { rejoinKey: key2 });
+    tickOnce(core, deps);
+    expect(core.match!.seats[1]!.connected).toBe(true);
+    send(core, 'a3', 10, 'forfeit'); send(core, 'b', 10, 'forfeit');
+    for (let i = 0; i < 100 && core.match!.result === null; i++) tickOnce(core, deps);
+    expect(core.match!.result).not.toBeNull();
+
+    const ticksLogged = core.log.map(e => e.tick);
+    expect(new Set(ticksLogged).size).toBe(ticksLogged.length);
+    const at = (tick: number) => core.log.find(e => e.tick === tick)?.inputs;
+    expect(at(leaveTick)).toEqual([{ seat: 1, seq: 0, cmd: { type: 'disconnect' } }]);
+    expect(at(rejoinTick)).toEqual([{ seat: 1, seq: 0, cmd: { type: 'reconnect' } }]);
+    expect(at(bothTick)).toEqual([{ seat: 1, seq: 0, cmd: { type: 'disconnect' } }, { seat: 1, seq: 0, cmd: { type: 'reconnect' } }]);
+    expect(replayMatch(data, 7, [1, 2], core.log).at(-1)).toEqual([core.match!.tick, matchHash(core.match!)]);
   });
 
   test('second use of a key: new key works, old key refused; old tab told and its inputs ignored', () => {
