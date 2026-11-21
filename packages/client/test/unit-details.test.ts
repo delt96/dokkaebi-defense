@@ -1,0 +1,76 @@
+// @vitest-environment happy-dom
+import { describe, expect, test } from 'vitest';
+import { createGame, loadGameData, type GameData } from '@dorandi/logic';
+import { placeUnitForTest } from '@dorandi/logic/testing';
+import { combineOptions, unitCard, unitNotes } from '../src/ui/models';
+import { unitDetailsHtml } from '../src/ui/panels';
+
+const d1 = loadGameData();
+const d3 = loadGameData('stage3');
+
+function details(data: GameData, defId: string): { root: HTMLElement; state: ReturnType<typeof createGame> } {
+  const state = createGame(data, 1);
+  placeUnitForTest(state, defId, 0);
+  const host = document.createElement('div');
+  host.innerHTML = unitDetailsHtml(state, 0);
+  return { root: host.querySelector<HTMLElement>('.unit-details')!, state };
+}
+
+const headings = (root: HTMLElement): string[] => Array.from(root.querySelectorAll('.ud-sec h3')).map(h => h.textContent!);
+
+describe('unit details window', () => {
+  test('the head sits outside the scrolling body and holds name, grade, type badge and close', () => {
+    const unit = d3.units.find(u => !u.hidden && u.grade === 4)!;
+    const { root } = details(d3, unit.id);
+    const kids = Array.from(root.children);
+    expect(kids.map(k => k.className)).toEqual(['modal-head ud-head', 'ud-body']);
+    const head = kids[0]!;
+    const body = kids[1]!;
+    expect(body.querySelector('.modal-head')).toBeNull();
+    expect(head.querySelector('.ud-name')!.textContent).toBe(unit.name);
+    expect(head.querySelector('.ud-grade')!.textContent).toBe(`${unit.grade}등급`);
+    expect(head.querySelector('.type-badge')!.getAttribute('data-type')).toBe(unit.damageType);
+    expect(head.querySelector('.dot')).not.toBeNull();
+    expect(head.querySelector('[data-action="closeModal"]')).not.toBeNull();
+  });
+
+  test('stats come from the card, then 능력 / 메모 / 조합 in that order', () => {
+    const unit = d3.units.find(u => unitNotes(d3, u).length > 0 && d3.recipes.some(r => r.materials.includes(u.id)))!;
+    const { root, state } = details(d3, unit.id);
+    const card = unitCard(state, 0)!;
+    expect(card.notes.length).toBeGreaterThan(0);
+    const body = root.querySelector('.ud-body')!;
+    expect(body.firstElementChild!.className).toBe('ud-stats');
+    const stats = Array.from(body.querySelectorAll('.ud-stat')).map(s => [s.querySelector('dt')!.textContent, s.querySelector('dd')!.firstChild!.textContent]);
+    expect(stats).toEqual([['공격력', String(card.attack)], ['공격 간격', `${card.interval}초`], ['사거리', `${card.range}칸`], ['판매가', `${card.sellPrice}냥`]]);
+    expect(headings(root)).toEqual(['능력', '메모', '조합']);
+    expect(root.querySelectorAll('.ud-sec')[1]!.querySelectorAll('.card-notes li').length).toBe(card.notes.length);
+    expect(root.querySelectorAll('.ud-sec')[2]!.querySelectorAll('.recipe-list [data-action="combine"], .recipe-list .combine-missing').length)
+      .toBe(combineOptions(state, 0).length);
+  });
+
+  test('each effect of the skill text gets its own line', () => {
+    const { root, state } = (() => {
+      for (const u of d3.units) {
+        const r = details(d3, u.id);
+        if (unitCard(r.state, 0)!.skillText.includes(' / ')) return r;
+      }
+      throw new Error('no unit with several effects');
+    })();
+    const lines = unitCard(state, 0)!.skillText.split(' / ');
+    expect(Array.from(root.querySelectorAll('.ud-lines li')).map(li => li.textContent)).toEqual(lines);
+  });
+
+  test('stage 1 data has no notes: just 능력 and 조합', () => {
+    const unit = d1.units.find(u => u.grade === 1)!;
+    const { root } = details(d1, unit.id);
+    expect(headings(root)).toEqual(['능력', '조합']);
+    expect(root.querySelector('.ud-head .ud-grade')!.textContent).toBe('1등급');
+  });
+
+  test('a hidden unit says so next to its grade', () => {
+    const unit = d3.units.find(u => u.hidden)!;
+    const { root } = details(d3, unit.id);
+    expect(root.querySelector('.ud-grade')!.textContent).toBe(`${unit.grade}등급 · 숨은 유닛`);
+  });
+});

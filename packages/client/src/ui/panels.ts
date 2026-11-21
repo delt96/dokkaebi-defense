@@ -4,6 +4,7 @@ import { combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard,
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY } from './storage';
+import { roleText } from './dex-roles';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `badge`: a story request not yet looked at. */
 export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; badge?: boolean }
@@ -40,15 +41,39 @@ function recipeHtml(state: GameState, option: CombineOption, unitId: number | nu
 
 const notesHtml = (lines: string[]): string => (lines.length ? `<ul class="card-notes">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '');
 
+/** A stat cell of the 상세 window; `bonus` is the upgrade/aura part as a fraction, shown only when there is one. */
+function statHtml(label: string, value: string, bonus = 0, bonusLabel = ''): string {
+  const extra = bonus > 0 ? ` <span class="ud-bonus" title="강화·오라 포함">${bonusLabel}+${Math.round(bonus * 100)}%</span>` : '';
+  return `<div class="ud-stat"><dt>${label}</dt><dd>${value}${extra}</dd></div>`;
+}
+
+const sectionHtml = (title: string, body: string): string => `<section class="ud-sec"><h3>${title}</h3>${body}</section>`;
+
+/**
+ * The 상세 window: a fixed head (grade dot, name, grade, type badge, close) over a body that scrolls on its own —
+ * stats, then 능력 (one line per effect), 메모 (stage 3 notes) and 조합.
+ */
 export function unitDetailsHtml(state: GameState, selected: number): string {
   const card = unitCard(state, selected)!;
-  const unitId = state.slots[selected]!.id;
+  const unit = state.slots[selected]!;
   const options = combineOptions(state, selected).map(option => {
     const notes = combineNoteLines(state.data, option.result);
-    return notes.length ? `<div class="recipe">${recipeHtml(state, option, unitId, false)}${notesHtml(notes)}</div>` : recipeHtml(state, option, unitId, false);
+    return notes.length ? `<div class="recipe">${recipeHtml(state, option, unit.id, false)}${notesHtml(notes)}</div>` : recipeHtml(state, option, unit.id, false);
   });
-  return `<div class="modal"><div class="modal-head">${esc(card.name)} ${typeBadgeHtml(state.data, state.slots[selected]!.defId)} · 상세 <button data-action="closeModal">닫기</button></div>
-    <p>${esc(card.skillText)}</p>${notesHtml(card.notes)}<div class="recipe-list">${options.join('') || '최종 조합입니다.'}</div></div>`;
+  const head = `<div class="modal-head ud-head"><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span><b class="ud-name">${esc(card.name)}</b>
+    <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
+    <button class="ud-close" data-action="closeModal">Esc 닫기</button></div>`;
+  const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', `${card.range}칸`)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>`;
+  const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
+  const lines = card.skillText ? card.skillText.split(' / ') : [];
+  const skill = lines.length ? `<ul class="ud-lines">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="ud-empty">특수 능력 없음</p>';
+  const body = [
+    stats,
+    sectionHtml('능력', roles + skill),
+    card.notes.length ? sectionHtml('메모', notesHtml(card.notes)) : '',
+    sectionHtml('조합', `<div class="recipe-list">${options.join('') || '최종 조합입니다.'}</div>`),
+  ].join('');
+  return `<div class="modal unit-details" role="dialog" aria-label="${esc(card.name)} 상세">${head}<div class="ud-body">${body}</div></div>`;
 }
 
 /** `hotkeys`: extra keys for the help line (stage 3 adds the market); stage 1-2 pass nothing and keep the old line. */
