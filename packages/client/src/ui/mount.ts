@@ -12,7 +12,7 @@ import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, econTopHtml, marketModel, noteText, questChips, tameModel,
-  tameRejectText, type EconTab,
+  tameRejectText, type DrawReceipt,
 } from './econ';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
@@ -63,7 +63,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let best: { id: string; grade: number } | null = null;
   let notice: Notice | null = null;
   // stage 3 economy: the B panel (null = closed)
-  let econTab: EconTab | null = null;
+  let econTab: 'market' | null = null;
+  // the last draw the server confirmed for this seat, shown in B until the next one
+  let lastDraw: DrawReceipt | null = null;
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
   for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage']) {
@@ -245,8 +247,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         banner = { text: [reward, title].filter(Boolean).join('\n'), until: performance.now() + 1800 };
       }
     }
+    let drew = false;
     for (const event of events) {
       if (!NOTE_TYPES.has(event.type) || driver.readOnly) continue;
+      if (event.type === 'buy') { lastDraw = event as DrawReceipt; drew = true; }
       const text = noteText(event as EconNote, driver.state.data);
       if (text) say(text, NOTE_MS);
     }
@@ -256,7 +260,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       const text = tame ?? rejectText(fullBoard ? 'noSlot' : r.reason);
       if (text) notice = { text, until: performance.now() + NOTICE_MS };
     }
-    if (scene.selectedId !== priorSelection) render();
+    if (drew || scene.selectedId !== priorSelection) render();
   });
   scene.onEvents(events => {
     for (const e of events) {
@@ -423,7 +427,7 @@ ${dex.mine.join()}`;
     setHtml(el('econ-top'), e ? econTopHtml(tame) : '');
     setHtml(el('econ-bottom'), e ? econBottomHtml(questChips(e, s, view)) : '');
     if (!e || !econTab) setHtml(el('econ-panel'), '');
-    else setHtml(el('econ-panel'), econPanelHtml(econTab, marketModel(e, s)));
+    else setHtml(el('econ-panel'), econPanelHtml(marketModel(e, s, lastDraw)));
     return tame ? 1 : 0;
   }
 
@@ -451,6 +455,7 @@ ${dex.mine.join()}`;
     best = null;
     notice = null;
     econTab = null;
+    lastDraw = null;
     render();
   }
   return { resetUi };

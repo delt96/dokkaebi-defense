@@ -6,7 +6,7 @@ import { GameDriver } from '../src/driver';
 import {
   econPanelHtml, marketModel, noteText, questChips, tameModel, tameRejectText,
 } from '../src/ui/econ';
-import { rejectText } from '../src/ui/models';
+import { rejectText, unitSkillText } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
 import { press, STAGE_HTML } from './fixtures/net';
 
@@ -31,16 +31,59 @@ function view(me: number, rows: { seat: number; name: string; alive?: boolean; c
   } as unknown as ClientView;
 }
 
-test('market shows one fixed-price draw and the blocked reason', () => {
-  const s = lane(1, 0);
-  const shops = () => marketModel(econOf(s), s)!.shops;
-  expect(shops()).toHaveLength(1);
-  expect(shops()[0]).toMatchObject({ item: 'draw', name: '헌 살림 보따리', price: 1,
-    left: '3회 남음', lines: ['3등급 2/3 · 2등급 1/3'], blocked: null });
-  fill(s);
-  expect(shops()[0]?.blocked).toBe('진영 한 칸 비우기');
-  s.buckwheat = 0;
-  expect(shops()[0]?.blocked).toBe('메밀묵 1개 부족');
+describe('B market', () => {
+  const panel = (s: GameState, receipt: Parameters<typeof marketModel>[2] = null, extra: Partial<EconMine> = {}) => {
+    const div = document.createElement('div');
+    div.innerHTML = econPanelHtml(marketModel(econOf(s, extra), s, receipt));
+    return div;
+  };
+
+  test('B shows daily terms and the confirmed draw', () => {
+    const s = lane(10, 0);
+    s.buckwheat = 0;
+    let p = panel(s, null, { jige: 2 });
+    for (const text of ['10라운드까지', '헌 살림 보따리 · 메밀묵 1', '3등급 2/3 · 2등급 1/3', '3회 남음', '3%', '보유 지게 2개', '메밀묵 1개 부족']) {
+      expect(p.textContent, text).toContain(text);
+    }
+    expect(p.querySelector<HTMLButtonElement>('[data-action="buy"]')!.disabled).toBe(true);
+    s.buckwheat = 1;
+    p = panel(s);
+    expect(p.querySelector<HTMLButtonElement>('[data-action="buy"]')!.disabled).toBe(false);
+    expect(p.textContent).toContain('보유 지게 0개');
+    fill(s);
+    p = panel(s);
+    expect(p.textContent).toContain('진영 한 칸 비우기');
+    expect(p.textContent).toContain('1·2등급은 G로 보관');
+    expect(p.querySelector<HTMLButtonElement>('[data-action="buy"]')!.disabled).toBe(true);
+  });
+
+  test('the receipt names the confirmed unit, its grade, damage type and one skill line, and the bonus', () => {
+    const s = lane(3, 0);
+    const def = d3.units.find(u => !u.hidden && u.grade === 3 && u.skills.length > 0)!;
+    const receipt = { type: 'buy' as const, item: 'draw' as const, defId: def.id, spentBuckwheat: 1, jige: true };
+    const text = panel(s, receipt).textContent!;
+    expect(text).toContain(`${def.name} · 3등급 · ${def.damageType === 'physical' ? '물딜' : '마딜'}`);
+    expect(text).toContain(unitSkillText(d3, def).split(' / ')[0]!);
+    expect(text).toContain('지게도 얻었습니다');
+    expect(panel(s, { ...receipt, jige: false }).textContent).not.toContain('지게도 얻었습니다');
+  });
+
+  test('cost and odds come from the data', () => {
+    const data = structuredClone(d3);
+    data.economy!.market!.draw = { ...data.economy!.market!.draw, buckwheatCost: 2, weights: [1, 3] };
+    data.economy!.market!.jigeChance = 0.05;
+    const s = createGame(data, 1);
+    forceRound(s, 2);
+    const text = panel(s).textContent!;
+    expect(text).toContain('헌 살림 보따리 · 메밀묵 2');
+    expect(text).toContain('3등급 1/4 · 2등급 3/4');
+    expect(text).toContain('5%');
+  });
+
+  test('prep says when the market opens', () => {
+    const s = lane(0, 0);
+    expect(panel(s).textContent).toContain('1라운드부터');
+  });
 });
 
 describe('quest tracker text', () => {
@@ -161,6 +204,20 @@ describe('market hotkey', () => {
     expect(panel()).toBe('');
   });
 
+
+  test('the draw button queues one draw and B shows the confirmed unit', () => {
+    const driver = mountSolo();
+    forceRound(driver.state, 1);
+    driver.state.buckwheat = 1;
+    driver.update(0);
+    keydown(window, { code: 'KeyB' });
+    press(document.querySelector('#econ-panel [data-action="buy"]'));
+    driver.update(50);
+    const bought = driver.state.slots.find(Boolean)!;
+    expect(panel()).toContain(d3.units.find(u => u.id === bought.defId)!.name);
+    expect(panel()).toContain('2회 남음');
+    expect(panel()).toContain('메밀묵 1개 부족');
+  });
 
   test('B does nothing while typing in a text box or during IME composition', () => {
     mountSolo();

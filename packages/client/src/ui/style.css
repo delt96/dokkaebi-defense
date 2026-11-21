@@ -261,6 +261,9 @@ body.online #econ-panel { height: 292px; }
 .shop-line { color: #c9c0d6; line-height: 12px; word-break: keep-all; }
 .shop button { margin-top: 2px; min-height: 20px; }
 .shop-short { color: #ffab99; line-height: 12px; }
+.shop-held { color: var(--accent); }
+.econ-head b { align-self: center; padding: 0 2px; }
+.shop.receipt { border-color: var(--accent); }
 #econ-top { position: absolute; left: 132px; top: 26px; width: 392px; z-index: 1; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
 /* each prompt is one 19px row: two of them end at y 66, above the top lane's boss bar (y 68) */
 .prompt { position: relative; height: 19px; overflow: hidden; pointer-events: auto; background: #1d1626ee; border: 1px solid var(--accent); padding: 1px 4px 2px; font-size: 10px; }

@@ -2,6 +2,7 @@ import {
   toTicks, type ClientView, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
 } from '@dorandi/logic';
 import { esc } from './dom';
+import { unitSkillText } from './models';
 import { withJosa } from './josa';
 
 // Stage 3 economy on screen: the market panel (B), the tame prompt over the top of the lane and the
@@ -17,25 +18,44 @@ const freeSlots = (state: GameState): number[] => state.slots.flatMap((u, i) => 
 
 // ---------- market ----------
 
-/** Short reason on a disabled buy button, said before any coin is paid. */
+/** Short reason on a disabled draw button, said before any 묵 is paid. */
 const BUY_BLOCK: Partial<Record<RejectReason, string>> = {
-  noSlot: '진영 한 칸 비우기', soldOut: '이번 장날 다 삼', marketClosed: '1라운드부터',
+  noSlot: '진영 한 칸 비우기', soldOut: '이번 장날 3회를 다 씀', marketClosed: '1라운드부터',
 };
 
-export interface ShopModel { item: 'draw'; name: string; price: number; left: string; lines: string[]; blocked: string | null; short: string | null }
-export interface MarketModel { head: string; shops: ShopModel[] }
+export type DrawReceipt = Extract<EconNote, { type: 'buy' }>;
+export interface MarketModel {
+  until: string; title: string; odds: string; left: string; jigeLine: string; held: string;
+  blocked: string | null; hint: string | null; receipt: string[] | null;
+}
 
-export function marketModel(econ: EconMine, state: GameState): MarketModel | null {
+const typeText = (data: GameData, id: string) => (data.units.find(u => u.id === id)?.damageType === 'magical' ? '마딜' : '물딜');
+
+/** The day's unit draw: terms from the server view, the live reason it is blocked, and the last confirmed draw. */
+export function marketModel(econ: EconMine, state: GameState, receipt: DrawReceipt | null = null): MarketModel | null {
   const m = econ.market;
   const def = state.data.economy?.market;
   if (!m || !def) return null;
-  const head = m.day > 0 ? `${m.day}장날 · ${m.day * def.dayRounds}라운드까지` : `장날은 1라운드부터`;
+  const data = state.data;
   const total = m.draw.weights.reduce((sum, w) => sum + w, 0);
   const odds = m.draw.weights.map((w, i) => `${3 - i}등급 ${w}/${total}`).join(' · ');
   const why = m.why.draw;
-  const blocked = why === 'noBuckwheat' ? `메밀묵 ${m.draw.buckwheatCost - state.buckwheat}개 부족` : why ? BUY_BLOCK[why] ?? '살 수 없음' : null;
-  return { head, shops: [{ item: 'draw', name: '헌 살림 보따리', price: m.draw.buckwheatCost,
-    left: `${m.draw.left}회 남음`, lines: [odds], blocked, short: null }] };
+  const blocked = why === 'noBuckwheat' ? `메밀묵 ${m.draw.buckwheatCost - state.buckwheat}개 부족` : why ? BUY_BLOCK[why] ?? '뽑을 수 없음' : null;
+  const unit = receipt ? data.units.find(u => u.id === receipt.defId) : undefined;
+  return {
+    until: m.day > 0 ? `${m.endRound}라운드까지` : '장날은 1라운드부터',
+    title: `헌 살림 보따리 · 메밀묵 ${m.draw.buckwheatCost}`,
+    odds, left: `${m.draw.left}회 남음`,
+    jigeLine: `유닛을 뽑으면 ${pct(m.jigeChance)} 확률로 지게도 얻습니다.`,
+    held: `보유 지게 ${econ.jige}개`,
+    blocked,
+    hint: why === 'noSlot' ? '1·2등급은 G로 보관해 자리를 비울 수 있습니다' : null,
+    receipt: unit && receipt ? [
+      `${unit.name} · ${unit.grade}등급 · ${typeText(data, unit.id)}`,
+      ...(unitSkillText(data, unit) ? [unitSkillText(data, unit).split(' / ')[0]!] : []),
+      ...(receipt.jige ? ['지게도 얻었습니다'] : []),
+    ] : null,
+  };
 }
 
 // ---------- taming ----------
@@ -167,19 +187,19 @@ export function noteText(ev: EconNote, data: GameData): string | null {
 const button = (action: string, arg: string, label: string, disabled = false, cls = '') =>
   `<button data-action="${action}" data-arg="${esc(arg)}"${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
 
-export type EconTab = 'market';
-
-export function econPanelHtml(tab: EconTab, market: MarketModel | null): string {
-  const tabs = `<div class="econ-head">${button('econTab', 'market', '장터', false, tab === 'market' ? 'on' : '')}${button('toggleMarket', '', 'B 닫기', false, 'econ-close')}</div>`;
-  let body = '';
-  if (tab === 'market' && market) {
-    const shops = market.shops.map(s => `<section class="shop">
-      <div class="shop-title"><b>${esc(s.name)}</b><span>메밀묵 ${s.price}</span></div>
-      <div class="shop-line">${esc(s.left)}</div>${s.lines.map(l => `<div class="shop-line">${esc(l)}</div>`).join('')}
-      ${button('buy', s.item, s.blocked ?? '사기', s.blocked !== null)}${s.short ? `<div class="shop-short">${esc(s.short)}</div>` : ''}</section>`).join('');
-    body = `<div class="econ-sub">${esc(market.head)}</div>${shops}`;
-  }
-  return `<div class="econ-panel">${tabs}<div class="econ-body">${body}</div></div>`;
+/** The B panel over the left column. */
+export function econPanelHtml(market: MarketModel | null): string {
+  const head = `<div class="econ-head"><b>장터 (B)</b>${button('toggleMarket', '', 'B 닫기', false, 'econ-close')}</div>`;
+  if (!market) return `<div class="econ-panel">${head}<div class="econ-body"></div></div>`;
+  const line = (t: string, cls = 'shop-line') => `<div class="${cls}">${esc(t)}</div>`;
+  const receipt = market.receipt
+    ? `<section class="shop receipt"><div class="shop-title"><b>방금 뽑은 유닛</b></div>${market.receipt.map(t => line(t)).join('')}</section>` : '';
+  const body = `<div class="econ-sub">${esc(market.until)}</div>
+    <section class="shop"><div class="shop-title"><b>${esc(market.title)}</b></div>
+      ${line(market.odds)}${line(market.left)}
+      ${button('buy', 'draw', market.blocked ?? '뽑기', market.blocked !== null)}${market.hint ? line(market.hint, 'shop-short') : ''}
+      ${line(market.jigeLine)}${line(market.held, 'shop-line shop-held')}</section>${receipt}`;
+  return `<div class="econ-panel">${head}<div class="econ-body">${body}</div></div>`;
 }
 
 /** The tame chance over the top of the lane. */
