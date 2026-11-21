@@ -360,7 +360,7 @@ export function econPanelHtml(tab: EconTab, market: MarketModel | null, ship: Sh
     const shorts = story.shortfalls.map(l => `<div class="shop-short">${esc(l)}</div>`).join('');
     const actions = story.offer
       ? `<div class="story-actions">${button('econClose', '', '닫기')}${button('storyDecline', '', '의뢰 거절')}</div>`
-      : story.done ? '' : `<div class="story-actions">${button('openDex', '', story.target ? '목표 바꾸기' : '도감에서 목표 고르기')}${story.canClear ? button('storyTarget', '', '목표 해제') : ''}</div>`;
+      : story.done ? '' : `<div class="story-actions">${button('openDex', 'story', story.target ? '목표 바꾸기' : '도감에서 목표 고르기')}${story.canClear ? button('storyTarget', '', '목표 해제') : ''}</div>`;
     body = `<div class="econ-sub">${esc(story.title)}</div><section class="shop">${lines}${shorts}${actions}</section>`;
   }
   return `<div class="econ-panel">${tabs}<div class="econ-body">${body}</div></div>`;

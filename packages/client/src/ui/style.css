@@ -282,3 +282,14 @@ body.online #econ-bottom { top: 272px; height: 42px; }
 .dex-target { margin-left: 4px; min-height: 16px; padding: 0 4px; font-size: 9px; }
 .dex-target.on { color: var(--accent); border-color: var(--accent); }
 .market-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+
+#modal .dex-browser { display: flex; flex-direction: column; overflow: hidden; }
+.dex-browser .dex-scroll { overflow: auto; }
+.dex-filters { display: flex; gap: 2px; padding-bottom: 4px; }
+.dex-filters button { flex: auto; padding: 0 3px; }
+.dex-filters [aria-pressed="true"] { color: var(--accent); border-color: var(--accent); font-weight: bold; }
+.dex-browser thead { position: sticky; top: 0; background: var(--panel); }
+
+.dex-search { display: flex; gap: 4px; margin-bottom: 4px; }
+.dex-search input { flex: 1; min-width: 0; background: var(--bg); border: 1px solid #55485f; color: var(--ink); font: inherit; padding: 2px 5px; }
+.dex-search input::placeholder { color: #b4aabe; }
