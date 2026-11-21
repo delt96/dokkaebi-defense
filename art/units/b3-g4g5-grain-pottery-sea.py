@@ -82,40 +82,42 @@ def lv(ramp, c, d):
 
 @sprite('dwiju', '뒤주', 4)
 def dwiju(s):
-    # four-legged rice chest: corner posts run down into the feet
-    s.rect(5, 13, 7, 29, ('pwood', 'post1', 'cyl', 3))
-    s.rect(24, 13, 26, 29, ('pwood', 'post2', 'cyl', 2))
-    s.rect(8, 13, 23, 15, ('pwood', 'rail', 'flat', 3))
-    s.rect(8, 16, 23, 23, ('pwood', 'panel', 'flat', 2))
-    s.rect(8, 24, 23, 25, ('pwood', 'rail2', 'flat', 2))
+    # rice chest standing high on four legs: the open space under the body is its tell
+    s.rect(5, 10, 7, 23, ('pwood', 'post1', 'cyl', 3))
+    s.rect(24, 10, 26, 23, ('pwood', 'post2', 'cyl', 2))
+    s.rect(5, 24, 6, 29, ('pwood', 'leg1', 'flat', 2))
+    s.rect(25, 24, 26, 29, ('pwood', 'leg2', 'flat', 1))
+    s.rect(8, 10, 23, 12, ('pwood', 'rail', 'flat', 3))
+    s.rect(8, 13, 23, 20, ('pwood', 'panel', 'flat', 2))
+    s.rect(8, 21, 23, 22, ('pwood', 'rail2', 'flat', 2))
     # lid propped half open, hinged at the back right
-    s.poly([(4, 10), (20, 5), (22, 7), (6, 12)], ('pwood', 'lid', 'flat', 3))
+    s.poly([(4, 7), (20, 2), (22, 4), (6, 9)], ('pwood', 'lid', 'flat', 3))
     # rice heaped under the lid
-    s.ellipse(15, 12, 8, 2, ('hanji', 'rice', 'sphere', 3))
+    s.ellipse(15, 9, 8, 2, ('hanji', 'rice', 'sphere', 3))
     s.shade()
-    recolour(s, 'panel', lambda x, y, c: lv('pwood', c, -1) if (y in (18, 21) and x % 5) else None)
+    recolour(s, 'panel', lambda x, y, c: lv('pwood', c, -1) if (y in (15, 18) and x % 5) else None)
     # glow from inside the chest
-    s.stamp(8, 11, ['Z.N.Z'])
+    s.stamp(8, 8, ['Z.N.Z'])
     # iron fittings: corner brackets and the central lock plate
     for x0 in (5, 24):
-        s.stamp(x0, 13, ['iii', 'i..', 'i..'], {'i': 'iron:3'})
-        s.stamp(x0, 26, ['i..', 'iii'], {'i': 'iron:2'})
-    s.rect(13, 17, 18, 23, ('iron', 'plate', 'flat', 3)); s.shade()
-    s.stamp(13, 17, ['h....h', '......', '......', '......', '......', '......', 'h....h'], {'h': 'iron:1'})
+        s.stamp(x0, 10, ['iii', 'i..', 'i..'], {'i': 'iron:3'})
+        s.stamp(x0, 21, ['i..', 'iii'], {'i': 'iron:2'})
+    s.rect(13, 14, 18, 20, ('iron', 'plate', 'flat', 3)); s.shade()
+    s.stamp(13, 14, ['h....h', '......', '......', '......', '......', '......', 'h....h'], {'h': 'iron:1'})
     # face: brows and bulging eyes over the plate, the lock is the nose, clenched teeth on the rail
-    s.stamp(8, 15, [
+    s.stamp(8, 12, [
         '.oo........oo..',
         'oWWo......oWWo.',
         'oWoo......ooWo.',
         '.oo........oo..',
     ])
-    s.stamp(14, 19, ['oYYo', 'oyyo', '.oo.'])
-    s.stamp(10, 24, ['oWoWoWoWoWo', '.ooooooooo.'])
+    s.stamp(14, 16, ['oYYo', 'oyyo', '.oo.'])
+    s.stamp(10, 21, ['oWoWoWoWoWo', '.ooooooooo.'])
     # grains overflowing the front rail
-    s.stamp(9, 13, ['wwww', '.v.w', '....'], {'w': 'hanji:4', 'v': 'hanji:3'})
+    s.stamp(9, 10, ['wwww', '.v.w', '....'], {'w': 'hanji:4', 'v': 'hanji:3'})
     s.outline()
-    sparks(s, [(26, 6), (16, 3), (28, 9)])
-    s.flame(22, 12)
+    sparks(s, [(26, 3), (16, 1), (28, 6)])
+    s.flame(22, 9)
 
 
 @sprite('tteongme', '떡메', 4)
@@ -374,7 +376,8 @@ def maksabal(s):
 
 @sprite('yaktanggi', '약탕기', 5)
 def yaktanggi(s):
-    # round pot with a straight side handle
+    # round pot with a straight side handle and a short spout opposite
+    s.line(6, 19, 3, 15, ('onggi', 'spout', 'flat', 3), 2)
     s.ellipse(14, 21, 9, 7, ('onggi', 'body', 'sphere', 3))
     s.rect(9, 12, 18, 14, ('onggi', 'neck', 'cyl', 3))
     club(s, 22, 19, 29, 15, [1.6, 1.4, 1.5], ('wood', 'handle', 'cyl', 3))
@@ -390,6 +393,7 @@ def yaktanggi(s):
     for x, y in [(8, 17), (7, 18), (7, 19)]:
         s.c(x, y, RAMPS['onggi'][4])
     s.stamp(23, 17, ['YY', 'yy'])
+    s.c(3, 15, RAMPS['onggi'][4]); s.c(4, 15, RAMPS['onggi'][3])
     # soot on the bottom
     recolour(s, 'body', lambda x, y, c: RAMPS['char'][3 if (x + y) % 3 else 2] if y >= 25 else None)
     # face on the belly
@@ -422,7 +426,7 @@ def tteoksiru(s):
     # one incised band low on the body with a row of stamped holes
     recolour(s, 'body', lambda x, y, c: lv('onggi', c, -1) if y == 24 else None)
     for x in range(10, 22, 3):
-        s.c(x, 25, SINGLE['o'])
+        s.c(x, 25, SINGLE['o']); s.c(x + 1, 25, SINGLE['o']); s.c(x, 24, RAMPS['onggi'][4])
     # white dough seal (시루번) pressed along the rim
     for x in range(5, 27):
         y = 12 + round(2.5 * math.sqrt(max(0, 1 - ((x - 15.5) / 11) ** 2)))
@@ -442,10 +446,9 @@ def tteoksiru(s):
     # a mended crack
     s.stamp(21, 20, ['.i', 'i.', '.i'], {'i': 'iron:4'})
     s.outline()
-    # steam puffs drifting off the rim
-    s.stamp(4, 7, ['.ww', 'wvw', '.v.'], {'w': 'hanji:4', 'v': 'hanji:3'})
-    s.stamp(24, 4, ['.ww.', 'wwvw', '.vv.'], {'w': 'hanji:4', 'v': 'hanji:3'})
-    sparks(s, [(9, 4), (22, 9), (28, 8)])
+    # one soft cloud of steam billowing off the right of the rim, sitting on it
+    s.stamp(21, 5, ['..www..', '.wwwww.', 'wwwvwww', 'wwvvvww', '.wvvvw.', '..vvv..', '...v...'], {'w': 'hanji:4', 'v': 'hanji:3'})
+    sparks(s, [(9, 4), (5, 7), (29, 12)])
     s.flame(15, 11)
 
 
@@ -614,47 +617,45 @@ def tewak(s):
 
 @sprite('geumulchu', '그물추', 5)
 def geumulchu(s):
-    # torn piece of net above, its bottom cord running across
-    s.poly([(3, 9), (6, 6), (9, 8), (12, 5), (15, 8), (17, 14), (3, 14)], ('char', 'net', 'none', 3))
+    # a hanging panel of net: bright hemp cords in a diamond mesh over dark gaps
+    s.poly([(2, 5), (5, 3), (8, 5), (11, 2), (14, 4), (17, 2), (20, 5), (21, 14), (2, 14)], ('char', 'net', 'none', 1))
     s.shade()
     for x, y in region(s, 'net'):
-        if (x + y) % 6 == 0 or (x - y) % 6 == 0:
-            s.c(x, y, RAMPS['hanji'][1 if x < 16 else 0])
-    for x in range(2, 30):
+        if (x + y) % 5 == 0 or (x - y) % 5 == 0:
+            s.c(x, y, RAMPS['straw'][4 if y < 9 else 3])
+    # thick lead rope along the foot of the net, running right across
+    for x in range(2, 29):
         s.c(x, 14, RAMPS['straw'][4 if x % 2 else 3]); s.c(x, 15, RAMPS['straw'][2 if x % 2 else 1])
-    # small tube sinkers threaded on the cord at both sides
-    for cx, ramp in [(5, 'onggi'), (26, 'onggi')]:
-        s.ellipse(cx, 14.5, 2.5, 2.5, (ramp, f'sink{cx}', 'cyl', 3))
-    # short loop down to the big sinker
-    s.stamp(14, 16, ['v', 'u'], L)
-    s.stamp(17, 16, ['u', 't'], L)
-    # the big sinker: a fat clay tube standing up, its hole open at the top
-    s.poly([(10, 19), (21, 19), (23, 22), (23, 25), (21, 28), (10, 28), (8, 25), (8, 22)], ('onggi', 'big', 'cyl', 3))
-    s.ellipse(15.5, 18.5, 5.5, 1.8, ('onggi', 'bigtop', 'flat', 3))
+    # two little stone sinkers hanging off the rope on short strings
+    for cx in (4, 26):
+        s.c(cx, 16, RAMPS['straw'][2])
+        s.ellipse(cx, 18.5, 1.5, 1.5, ('stone', f'small{cx}', 'sphere', 2))
+    # the big sinker: a grey river stone hung on a cord from the rope
+    s.rect(15, 16, 16, 17, ('straw', 'cord', 'flat', 3))
+    s.ellipse(15.5, 23, 8, 5.5, ('stone', 'big', 'sphere', 3))
     s.shade()
-    recolour(s, 'big', lambda x, y, c: lv('onggi', c, -1) if y == 26 and x % 3 else None)
-    for cx in (5, 26):
-        s.c(cx - 2, 14, RAMPS['straw'][4]); s.c(cx + 2, 14, RAMPS['straw'][3])
-        s.c(cx, 13, RAMPS['onggi'][4] if cx < 16 else RAMPS['onggi'][3])
-    # cord hole in the top of the big sinker
-    s.stamp(13, 18, ['oKKKKKo'[0:6], '.oooo.'])
-    s.stamp(14, 18, ['v..u'], L)
-    # face: brows, eyes, grin
-    s.stamp(10, 20, [
-        'oo........oo',
+    for y in (16, 17):
+        s.c(15, y, RAMPS['straw'][4]); s.c(16, y, RAMPS['straw'][2])
+    # rope bound round the stone's waist in its carved groove, knotted on top
+    for x, y in region(s, 'big'):
+        if y == 19:
+            s.c(x, y, RAMPS['straw'][4 if x % 2 else 3])
+        elif y == 20:
+            s.c(x, y, RAMPS['straw'][2 if x % 2 else 1])
+    s.stamp(14, 18, ['vwwv'], L)
+    # face under the rope
+    s.stamp(10, 21, [
         '.oWWo..oWWo.',
         '.oWoo..ooWo.',
         '..oo....oo..',
         '....oKKKo...',
         '.....oWo....',
     ])
-    # chip knocked off the lower right, a red tag on the cord
-    s.c(21, 28, None); s.c(22, 27, None); s.c(20, 28, RAMPS['onggi'][1]); s.c(21, 27, RAMPS['onggi'][1])
+    # a red marker tag on the rope
     s.stamp(9, 16, ['R', 'r'])
     s.outline()
-    s.c(1, 14, RAMPS['straw'][3]); s.c(0, 15, RAMPS['straw'][2]) if False else None
-    sparks(s, [(18, 4), (28, 3), (29, 9)])
-    s.flame(23, 12)
+    sparks(s, [(22, 3), (29, 4), (29, 9)])
+    s.flame(25, 12)
 
 
 @sprite('eomang', '어망', 5)

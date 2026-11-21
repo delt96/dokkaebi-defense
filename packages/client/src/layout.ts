@@ -20,7 +20,9 @@ export const ONLINE_BOTTOM_H = 44;
 export const ONLINE_CENTER_H = STAGE_H - TOP_H - ONLINE_BOTTOM_H;
 export const LANE_CANVAS_ONLINE = { width: CENTER_W, height: ONLINE_CENTER_H };
 
-export const GRADE_COLOR: Record<number, string> = { 1: '#4f9dff', 2: '#4fd27a', 3: '#b07aff', 4: '#ffb347' };
+export const GRADE_COLOR: Record<number, string> = {
+  1: '#4f9dff', 2: '#4fd27a', 3: '#b07aff', 4: '#ffb347', 5: '#ff4a3a', 6: '#ffe35a',
+};
 
 export function computeZoom(w: number, h: number): number {
   const m = Math.min(w / STAGE_W, h / STAGE_H);

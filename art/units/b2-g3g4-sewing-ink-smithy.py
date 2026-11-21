@@ -603,36 +603,59 @@ def soemangchi(s):
 
 @sprite('yagyeon', '약연', 4)
 def yagyeon(s):
-    s.ellipse(16, 14, 6, 6, ('iron', 'wheel', 'sphere', 3))
-    s.poly([(2, 17), (5, 20), (27, 20), (30, 17), (28, 23), (23, 26), (8, 26), (4, 23)], ('iron', 'boat', 'cyl', 3))
-    s.rect(9, 27, 11, 28, ('iron', 'foot1', 'flat', 2)); s.rect(20, 27, 22, 28, ('iron', 'foot2', 'flat', 2))
-    s.shade()
+    # herb powder lying in the trough, seen over the near rim
+    s.rect(5, 18, 26, 19, ('leaf', 'herb', 'flat', 3))
+    # grinding wheel: a flat iron disc standing in the trough, lower part sunk out of sight
+    cx, cy, r = 15.5, 15, 7
     for y in range(32):
         for x in range(32):
-            if s.mat[y][x] and s.mat[y][x][1] == 'wheel' and abs(math.hypot(x - 16, y - 14) - 4.6) < .55:
-                s.c(x, y, RAMPS['iron'][1])
-    # handle rod straight through the hub, knobs at both ends
-    s.rect(6, 13, 27, 14, ('wood', 'rod', 'flat', 3))
-    s.rect(5, 12, 7, 15, ('wood', 'knob1', 'flat', 3)); s.rect(26, 12, 28, 15, ('wood', 'knob2', 'flat', 2))
-    s.rect(15, 13, 17, 14, ('brass', 'hub', 'flat', 3))
+            if math.hypot(x - cx, y - cy) <= r + .3:
+                s.m(x, y, ('iron', 'wheel', 'flat', 2))
     s.shade()
-    s.stamp(9, 13, ['R', 'r'])
-    # groove with green herb powder
-    for x in range(6, 27):
-        s.c(x, 20, RAMPS['leaf'][3] if x % 3 else RAMPS['leaf'][4])
-    s.c(11, 19, RAMPS['leaf'][3]); s.c(21, 19, RAMPS['leaf'][4])
+    for x, y in region(s, 'wheel'):
+        d = math.hypot(x - cx, y - cy)
+        lit = (x - cx) + (y - cy) < 0
+        if d > r - 1.3:
+            s.c(x, y, RAMPS['iron'][4 if lit else 3])      # bright rim
+        elif d > r - 2.3:
+            s.c(x, y, RAMPS['iron'][0])                    # dark groove inside the rim
+        else:
+            s.c(x, y, RAMPS['iron'][2 if lit else 1])      # disc face
+    # rim notches so it reads as a wheel, not a ball
+    for a in range(0, 360, 45):
+        x = round(cx + (r - .4) * math.cos(math.radians(a))); y = round(cy + (r - .4) * math.sin(math.radians(a)))
+        s.c(x, y, RAMPS['iron'][1])
+    # the wheel's foot sits in shadow where it enters the trough
+    for x, y in region(s, 'wheel'):
+        if y == 19:
+            s.c(x, y, OUT)
+    # wooden axle handle through the hub, plain at both ends
+    s.rect(5, 14, 26, 15, ('straw', 'rod', 'flat', 3))
+    s.shade()
+    for x in range(5, 27):
+        s.c(x, 14, RAMPS['straw'][4] if x < 16 else RAMPS['straw'][3]); s.c(x, 15, RAMPS['straw'][2])
+    s.stamp(14, 13, ['.y.', 'yYy', 'yYy', '.y.'])
+    # boat-shaped trough: long, both prows curling up, drawn over the wheel's lower half
+    s.poly([(2, 13), (3, 13), (6, 20), (25, 20), (28, 13), (29, 13), (29, 19), (26, 25), (21, 28), (10, 28), (5, 25), (2, 19)],
+           ('wood', 'boat', 'cyl', 2))
+    s.rect(9, 29, 11, 29, ('wood', 'foot1', 'flat', 1)); s.rect(20, 29, 22, 29, ('wood', 'foot2', 'flat', 1))
+    s.shade()
+    # near rim catches the light; herb dust spilling over it
+    for x, y in region(s, 'boat'):
+        if y == 20:
+            s.c(x, y, RAMPS['wood'][4] if x < 16 else RAMPS['wood'][3])
+    s.c(8, 20, RAMPS['leaf'][4]); s.c(23, 20, RAMPS['leaf'][3]); s.c(24, 21, RAMPS['leaf'][3])
     # face on the side of the boat
-    s.stamp(10, 21, [
+    s.stamp(10, 22, [
         'ooo.....ooo.',
         '.oWWo.oWWo..',
         '.oWoo.ooWo..',
         '..oo...oo...',
         '....oKKo....',
     ])
-    s.stamp(25, 21, ['dd', 'd.'], {'d': 'onggi:3'})
     s.outline()
-    s.flame(16, 8)
-    sparks(s, [(10, 4), (22, 3), (9, 8)])
+    s.flame(15, 9)
+    sparks(s, [(8, 5), (23, 4), (25, 8)])
 
 
 def contact_sheet(ids, refs=('jipsin', 'gamasot', 'jangdok', 'moru')):

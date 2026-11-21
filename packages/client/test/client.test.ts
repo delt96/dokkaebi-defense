@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { computeZoom, laneToStage, stageToCell } from '../src/layout';
+import { GRADE_COLOR, computeZoom, laneToStage, stageToCell } from '../src/layout';
 import { createGame, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver, ticksToRun } from '../src/driver';
@@ -14,6 +14,10 @@ describe('client helpers', () => {
     expect(stageToCell(248, 130)).toBe(0);
     expect(stageToCell(232 + 32 * 5 + 1, 114 + 32 * 3 + 1)).toBe(23);
     expect(stageToCell(10, 10)).toBeNull();
+  });
+  test('grade colours cover grades 1 to 6, matching the sprite flames', () => {
+    expect(GRADE_COLOR[5]).toBe('#ff4a3a');
+    expect(GRADE_COLOR[6]).toBe('#ffe35a');
   });
   test('fixed step with carry and cap', () => {
     expect(ticksToRun(120, 0)).toEqual({ ticks: 2, carryMs: 20 });

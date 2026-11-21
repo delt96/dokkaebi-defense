@@ -183,30 +183,44 @@ def sut(s):
     for x0, x1, y, name in logs:
         club(s, x0, y, x1, y, [3.4, 3.4], ('char', name, 'flat', 3))
     s.shade()
-    # silvery sheen of 참숯: light on top, dark underneath
+    # silvery sheen of 참숯: light on top, dark underneath (lifted a step so it holds on the dark lane)
+    sheen = [RAMPS['char'][1], RAMPS['char'][2], RAMPS['char'][3], RAMPS['char'][4], RAMPS['stone'][2]]
     for x0, x1, cy, name in logs:
         for x, y in reg(s, name):
             t = (y - cy) / 3.4
             lv = 4 if t < -.6 else (3 if t < .1 else (2 if t < .7 else 1))
             if x > x1 + 1 and lv > 1:
                 lv -= 1
-            s.c(x, y, RAMPS['char'][lv])
+            s.c(x, y, sheen[lv])
         # grain lines along the log
         for x in range(x0, x1 + 2):
             if s.mat[cy][x] and s.mat[cy][x][1] == name and x % 3:
-                s.c(x, cy, RAMPS['char'][2])
+                s.c(x, cy, RAMPS['char'][1])
     # cut ends on the left with rings
     for x0, x1, cy, name in logs:
         s.stamp(x0 - 3, cy - 2, [
             '.dd',
-            'dcd',
             'dqd',
-            'dcd',
+            'qeq',
+            'dqd',
             '.d.',
         ], EMBER)
+    # silvery ash sheen along the top edge of each log, so the form reads on a dark lane
+    for x0, x1, cy, name in logs:
+        for x, y in reg(s, name):
+            if (y == 0 or s.mat[y - 1][x] is None or s.mat[y - 1][x][1] != name) and x <= x1 + 1:
+                s.c(x, y, RAMPS['stone'][3] if x < x1 - 2 else RAMPS['stone'][2])
+    # embers glowing along the underside where the logs rest
+    for x0, x1, cy, name in logs:
+        for x, y in reg(s, name):
+            below = s.mat[y + 1][x] if y + 1 < s.h else None
+            if (below is None or below[1] != name) and x0 - 1 <= x <= x1 + 1:
+                s.c(x, y, RAMPS['red'][3] if x % 3 else RAMPS['red'][2])
     # glowing cracks
-    s.stamp(7, 22, ['q..', '.rq', '..r'], EMBER)
-    s.stamp(21, 25, ['.q', 'rq', 'r.'], EMBER)
+    s.stamp(6, 22, ['qe.', '.rq', '..r'], EMBER)
+    s.stamp(21, 24, ['.e', 'qq', 'r.'], EMBER)
+    s.stamp(15, 26, ['eq', '.r'], EMBER)
+    s.stamp(13, 15, ['q'], EMBER)
     # face in the split of the top log
     s.stamp(10, 14, [
         '.oo.....oo.',
@@ -414,38 +428,37 @@ def mogitbul(s):
 
 @sprite('saekkijul', '새끼줄', 3)
 def saekkijul(s):
-    # rope end lifted out of the coil like a whip, frayed at the tip
-    s.line(23, 20, 26, 15, ('straw', 'whip', 'flat', 3), 2)
-    s.line(26, 15, 26, 10, ('straw', 'whip', 'flat', 3), 2)
-    s.line(26, 10, 23, 7, ('straw', 'whip', 'flat', 3), 2)
-    s.ellipse(15.5, 26, 11, 3.5, ('straw', 'r1', 'flat', 2))
-    s.ellipse(15.5, 22.5, 10, 3.5, ('straw', 'r2', 'flat', 3))
-    s.ellipse(15.5, 19, 9, 3.2, ('straw', 'r3', 'flat', 3))
-    s.ellipse(15.5, 18.7, 5, 1.4, ('char', 'hole', 'none', 0))
+    s.ellipse(14, 26, 11, 3.5, ('straw', 'r1', 'flat', 2))
+    s.ellipse(14, 22.5, 10, 3.5, ('straw', 'r2', 'flat', 3))
+    s.ellipse(14, 19, 9, 3.2, ('straw', 'r3', 'flat', 3))
+    s.ellipse(14, 18.7, 5, 1.4, ('char', 'hole', 'none', 0))
+    # loose end runs out of the bottom turn and lies flat on the ground, frayed
+    s.line(23, 28, 28, 28, ('straw', 'end', 'flat', 3), 2)
     s.shade()
     # twisted strands, dark groove under every turn
-    for x, y in reg(s, 'r1', 'r2', 'r3', 'whip'):
+    for x, y in reg(s, 'r1', 'r2', 'r3', 'end'):
         r = s.mat[y][x][1]
         below = s.mat[y + 1][x] if y + 1 < s.h else None
-        if r != 'whip' and (below is None or below[1] != r):
+        if r != 'end' and (below is None or below[1] != r):
             s.c(x, y, RAMPS['straw'][1])
         elif (x + y) % 4 < 2:
             s.c(x, y, RAMPS['straw'][3])
         else:
             s.c(x, y, RAMPS['straw'][2])
-    s.stamp(21, 4, ['w.w', '.wv', 'wv.'], L)
+    # splayed straw at the cut end
+    s.stamp(29, 27, ['w.', 'vw', 'uv', 'w.'], L)
     # eyes peering from the middle of the coil
-    s.stamp(10, 17, [
+    s.stamp(8, 17, [
         '.KKKKKKKKKK.',
         'KoWWKKKKWWoK',
         '.KWoKKKKoWK.',
     ])
-    s.stamp(12, 23, ['oKKKKKo', '.ooooo.'])
+    s.stamp(10, 23, ['oKKKKKo', '.ooooo.'])
     # 금줄 tucks: a lump of charcoal and a white paper strip
-    s.stamp(6, 21, ['dc', 'cd', 'dc'], EMBER)
-    s.stamp(21, 22, ['WW', '.W', 'WW', 'W.'])
+    s.stamp(4, 21, ['dc', 'cd', 'dc'], EMBER)
+    s.stamp(19, 22, ['WW', '.W', 'WW', 'W.'])
     s.outline()
-    s.flame(10, 15)
+    s.flame(14, 16)
 
 
 @sprite('hamjibak', '함지박', 3)
@@ -561,38 +574,36 @@ def che(s):
 
 @sprite('gireumbyeong', '기름병', 3)
 def gireumbyeong(s):
-    s.ellipse(15.5, 22, 10, 7.5, ('glaze', 'belly', 'sphere', 3))
-    s.rect(13, 10, 18, 15, ('glaze', 'neck', 'cyl', 3))
-    s.rect(12, 9, 19, 10, ('glaze', 'lip', 'flat', 3))
-    s.rect(13, 5, 18, 8, ('straw', 'stopper', 'cyl', 3))
+    # small squat belly under a long narrow neck: the bottle's tell
+    s.ellipse(15.5, 23.5, 8.5, 5.5, ('glaze', 'belly', 'sphere', 3))
+    s.rect(14, 9, 17, 18, ('glaze', 'neck', 'cyl', 3))
+    s.rect(13, 8, 18, 8, ('glaze', 'lip', 'flat', 3))
+    s.rect(14, 4, 17, 7, ('straw', 'stopper', 'cyl', 3))
     s.shade()
     # straw plug tufts
-    s.stamp(13, 4, ['w.v.w.'], L)
-    for x in (14, 16):
-        for y in range(5, 9):
-            s.c(x, y, RAMPS['straw'][2])
-    # oil run: a glossy streak from the lip down the belly
-    for x, y in [(13, 11), (13, 12), (13, 13), (12, 15), (11, 16), (10, 17), (9, 18), (9, 19)]:
+    s.stamp(13, 3, ['w.v.w.'], L)
+    for y in range(4, 8):
+        s.c(15, y, RAMPS['straw'][2])
+    # oil run: a glossy streak from the lip down the neck and belly
+    for x, y in [(14, 10), (14, 11), (14, 12), (14, 13), (14, 14), (14, 15), (13, 18), (12, 19), (11, 20)]:
         s.c(x, y, '#c8a080')
-    s.c(9, 20, RAMPS['glaze'][4])
-    for x, y in [(8, 21), (8, 22), (9, 23)]:
+    for x, y in [(10, 21), (9, 22), (9, 23)]:
         s.c(x, y, RAMPS['glaze'][4])
     # red cord round the neck with a dangling end
-    for x in range(13, 19):
-        s.c(x, 12, SINGLE['R'] if x % 2 else SINGLE['r'])
-    s.stamp(19, 12, ['R', 'r', '.R'])
+    for x in range(14, 18):
+        s.c(x, 16, SINGLE['R'] if x % 2 else SINGLE['r'])
+    s.stamp(18, 16, ['R', 'r', '.R'])
     # face
-    s.stamp(11, 18, [
+    s.stamp(11, 20, [
         '.oo....oo.',
         'oWWo..oWWo',
         'oWoo..ooWo',
         '.oo....oo.',
-        '..........',
         '...oKKo...',
         '....oo....',
     ])
     s.outline()
-    s.flame(24, 12)
+    s.flame(23, 12)
 
 
 @sprite('bujipge', '부집게', 3)
@@ -637,46 +648,39 @@ def bujipge(s):
 
 @sprite('jaetmulsiru', '잿물시루', 3)
 def jaetmulsiru(s):
-    s.poly([(5, 14), (27, 14), (22, 25), (10, 25)], ('onggi', 'body', 'cyl', 3))
-    s.rect(4, 16, 5, 17, ('onggi', 'earL', 'flat', 3))
-    s.rect(26, 16, 27, 17, ('onggi', 'earR', 'flat', 2))
-    s.ellipse(15.5, 14, 11, 2.5, ('onggi', 'rim', 'flat', 3))
+    # lye-making set-up: the steamer full of ash sits on a wooden bridge laid over a wide basin
+    s.poly([(3, 25), (28, 25), (25, 29), (6, 29)], ('glaze', 'basin', 'cyl', 3))
+    s.ellipse(15.5, 25, 12, 1, ('blue', 'lye', 'flat', 3))
+    s.rect(2, 21, 29, 22, ('wood', 'bridge', 'flat', 3))
+    s.poly([(7, 11), (24, 11), (21, 20), (10, 20)], ('onggi', 'body', 'cyl', 3))
+    s.rect(5, 13, 6, 14, ('onggi', 'earL', 'flat', 3))
+    s.rect(25, 13, 26, 14, ('onggi', 'earR', 'flat', 2))
+    s.ellipse(15.5, 11, 9, 2, ('onggi', 'rim', 'flat', 3))
     # heap of grey ash in the mouth
-    s.ellipse(15.5, 13, 8.5, 4, ('stone', 'ash', 'sphere', 3))
-    cut(s, lambda x, y, r: r == 'ash' and y > 13 and not (((x - 15.5) / 9.5) ** 2 + ((y - 14) / 2) ** 2 <= 1))
-    # straw ring underneath
-    s.ellipse(15.5, 26.5, 9, 1.8, ('straw', 'ring', 'cyl', 3))
-    # chip out of the rim
-    for x, y in [(25, 12), (26, 13)]:
-        s.mat[y][x] = None
+    s.ellipse(15.5, 10, 7, 3, ('stone', 'ash', 'sphere', 3))
+    cut(s, lambda x, y, r: r == 'ash' and y > 10 and not (((x - 15.5) / 8) ** 2 + ((y - 11) / 1.6) ** 2 <= 1))
     s.shade()
-    for x, y in reg(s, 'ring'):
-        if (x + y) % 3 == 0:
-            step(s, x, y, 'straw', -1)
-    for x, y in [(12, 11), (13, 10), (19, 12), (17, 10)]:
+    for x, y in [(12, 8), (13, 8), (18, 9), (16, 8)]:
         s.c(x, y, RAMPS['stone'][4])
-    for x, y in [(15, 12), (10, 13), (21, 13)]:
+    for x, y in [(15, 9), (11, 10), (20, 10)]:
         s.c(x, y, RAMPS['stone'][2])
-    # incised band and a glaze run on the body
-    for x, y in reg(s, 'body'):
-        if y == 23:
-            step(s, x, y, 'onggi', -1)
-    for x, y in [(7, 17), (8, 18), (8, 19)]:
-        s.c(x, y, RAMPS['onggi'][4])
-    # lye dripping through the bottom holes onto the ring
-    for x, y in [(12, 25), (12, 26), (19, 25), (19, 26), (19, 27)]:
-        s.c(x, y, RAMPS['blue'][3] if y < 27 else RAMPS['blue'][4])
-    s.stamp(10, 16, [
-        '.oo.....oo.',
+    for x, y in reg(s, 'bridge'):
+        s.c(x, y, RAMPS['wood'][4 if y == 21 else 2])
+    for x, y in reg(s, 'lye'):
+        s.c(x, y, RAMPS['blue'][4] if x < 12 else RAMPS['blue'][3])
+    # lye dripping from the bottom holes down into the basin
+    for x, y in [(12, 23), (12, 24), (19, 23), (19, 24)]:
+        s.c(x, y, RAMPS['blue'][4])
+    s.stamp(10, 13, [
+        '.oo...oo.'.center(11, '.'),
         'oWWo...oWWo',
         'oWoo...ooWo',
         '.oo.....oo.',
-        '...........',
         '...oKKKo...',
         '....ooo....',
     ])
     s.outline()
-    s.flame(16, 7)
+    s.flame(16, 8)
 
 
 @sprite('jipsingol', '짚신골', 3)

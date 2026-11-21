@@ -91,6 +91,8 @@ def ring(s, cx, cy, rx, ry, w, mat, keep=None):
 
 # ======== one function per unit id
 
+RAMPS.setdefault('celadon', ['#1a3432', '#2a524c', '#43776c', '#649c8e', '#92c4b2'])
+
 
 def sep(s, front, colour=OUT):
     """Outline-coloured seam on the pixels of other parts that touch the front part."""
@@ -580,9 +582,6 @@ def cheonnyeongombangdae(s):
         '..oKKKo..',
         '...ooo...',
     ])
-    # smoke rings drifting up-left
-    s.stamp(3, 4, ['..www..', '.w...w.', 'w.....w', '.v...v.', '..vvv..'], {'w': 'hanji:4', 'v': 'hanji:3'})
-    s.stamp(12, 10, ['.www.', 'w...w', '.vvv.'], {'w': 'hanji:4', 'v': 'hanji:3'})
     s.outline()
     glint(s, ['bowl', 'stem'])
     s.flame(23, 15)
@@ -591,8 +590,9 @@ def cheonnyeongombangdae(s):
 
 @sprite('cheonnyeonjocheongdanji', '천년 조청단지', 6)
 def cheonnyeonjocheongdanji(s):
-    s.ellipse(15.5, 21.5, 12, 6.5, ('onggi', 'belly', 'sphere', 3))
-    s.rect(12, 13, 19, 15, ('onggi', 'neck', 'cyl', 3))
+    # celadon-glazed jar: the blue-green body sets it apart from the brown onggi pots
+    s.ellipse(15.5, 21.5, 12, 6.5, ('celadon', 'belly', 'sphere', 3))
+    s.rect(12, 13, 19, 15, ('celadon', 'neck', 'cyl', 3))
     # hanji cover with ruffled skirt
     s.ellipse(15.5, 11.5, 6, 1.5, ('hanji', 'cover', 'sphere', 3))
     s.rect(10, 11, 21, 13, ('hanji', 'cover', 'sphere', 3))
@@ -769,24 +769,23 @@ def cheonnyeonbyeongpung(s):
 
 @sprite('cheonnyeonsangmo', '천년 상모', 6)
 def cheonnyeonsangmo(s):
-    ring(s, 15.5, 21, 13.5, 4, 1.3, ('hanji', 'ribbonB', 'flat', 2), lambda x, y: y < 21)
-    s.ellipse(15.5, 21, 12.5, 2.5, ('steel', 'brim', 'flat', 2))
-    s.ellipse(15.5, 15, 8, 6.5, ('steel', 'crown', 'shine', 3))
-    for y in range(20, 32):
+    s.ellipse(15.5, 23, 12.5, 2.5, ('steel', 'brim', 'flat', 2))
+    s.ellipse(15.5, 17, 8, 6.5, ('steel', 'crown', 'shine', 3))
+    for y in range(22, 32):
         for x in range(32):
             if s.mat[y][x] and s.mat[y][x][1] == 'crown':
                 s.mat[y][x] = None
-    s.rect(8, 18, 23, 19, ('char', 'mang', 'flat', 3))
-    s.rect(15, 5, 16, 8, ('brass', 'rod', 'flat', 3))
+    s.rect(8, 20, 23, 21, ('char', 'mang', 'flat', 3))
+    s.rect(15, 6, 16, 10, ('brass', 'rod', 'flat', 3))
     s.shade()
     for x in range(8, 24):
         if x % 2 == 0:
-            s.c(x, 18, RAMPS['char'][2])
-    s.stamp(7, 18, ['YY', 'yY'])
-    s.stamp(23, 18, ['Yy', 'yy'])
-    s.stamp(15, 3, ['YY', 'YY'], {'Y': 'brass:4'})
-    s.stamp(14, 9, ['.RR.', 'RRRr', '.rr.'])
-    s.stamp(10, 12, [
+            s.c(x, 20, RAMPS['char'][2])
+    s.stamp(7, 20, ['YY', 'yY'])
+    s.stamp(23, 20, ['Yy', 'yy'])
+    s.stamp(15, 4, ['YY', 'YY'], {'Y': 'brass:4'})
+    s.stamp(14, 11, ['.RR.', 'RRRr', '.rr.'])
+    s.stamp(10, 14, [
         '.ooo..ooo.',
         'oWWo..oWWo',
         'oWoo..ooWo',
@@ -794,17 +793,20 @@ def cheonnyeonsangmo(s):
         '...oKKo...',
         '...oWWo...',
     ])
-    ring(s, 15.5, 21, 13.5, 4, 1.3, ('hanji', 'ribbonF', 'flat', 4), lambda x, y: y >= 21)
-    for x, y in reg(s, 'ribbonF'):
-        s.col[y][x] = RAMPS['hanji'][4] if x < 20 else RAMPS['hanji'][3]
-    for x, y in reg(s, 'ribbonB'):
-        if s.col[y][x] in RAMPS['hanji'] or s.col[y][x] is None:
-            s.c(x, y, RAMPS['hanji'][2])
-    s.stamp(25, 22, ['R', 'Rr', '.R'])
+    # the long paper streamer whirling off the spinning rod: up, over and down the right side
+    pts = [(17, 4), (20, 2), (24, 2), (27, 4), (28, 7), (27, 10), (26, 13), (27, 16), (29, 19)]
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        s.line(x0, y0, x1, y1, ('hanji', 'ribbon', 'flat', 4), 2)
+    for x, y in reg(s, 'ribbon'):
+        s.col[y][x] = RAMPS['hanji'][4] if (x + y) % 5 else RAMPS['hanji'][3]
+    for x, y in reg(s, 'ribbon'):
+        if not s.filled(x + 1, y) and not s.filled(x, y + 1):
+            s.col[y][x] = RAMPS['hanji'][2]
+    s.stamp(29, 20, ['R', 'r'])
     s.outline()
     glint(s, ['crown'])
-    s.flame(7, 12)
-    sparks(s, [(3, 2), (12, 4), (26, 9)])
+    s.flame(7, 14)
+    sparks(s, [(3, 4), (11, 5), (22, 8)])
 
 
 def contact_sheet(ids, refs=('jipsin', 'gamasot', 'jangdok', 'moru')):

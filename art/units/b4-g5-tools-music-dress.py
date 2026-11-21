@@ -265,39 +265,41 @@ def banjitgori(s):
 
 @sprite('dongwe', '돈궤', 5)
 def dongwe(s):
-    s.poly([(5, 13), (26, 13), (24, 9), (7, 9)], ('pwood', 'lidtop', 'flat', 3))
-    s.rect(4, 13, 27, 15, ('pwood', 'lidfront', 'cylv', 3))
-    s.rect(4, 17, 27, 29, ('pwood', 'front', 'flat', 2))
-    s.ellipse(15.5, 23.5, 4, 3.5, ('brass', 'plate', 'sphere', 3))
+    # money chest: low, wide and heavy, sitting flat on the floor, studded with brass
+    s.poly([(4, 15), (27, 15), (25, 12), (6, 12)], ('pwood', 'lidtop', 'flat', 3))
+    s.rect(3, 15, 28, 17, ('pwood', 'lidfront', 'cylv', 3))
+    s.rect(3, 19, 28, 29, ('pwood', 'front', 'flat', 2))
+    s.ellipse(15.5, 24.5, 3.5, 3, ('brass', 'plate', 'sphere', 3))
     s.shade()
     # plank seams
-    recolour(s, 'front', lambda x, y, c: lv('pwood', c, -1) if y in (22, 26) and (x < 11 or x > 20) else None)
+    recolour(s, 'front', lambda x, y, c: lv('pwood', c, -1) if y in (23, 27) and (x < 11 or x > 20) else None)
     # gap under the half-open lid with a coin string spilling out
-    for x in range(4, 28):
-        s.c(x, 16, OUT)
-    s.stamp(7, 15, ['YyY', 'yYy', '.Y.', '.y.', '.Y.'])
-    s.stamp(22, 16, ['Y', 'y'])
-    # iron corner brackets with nails
-    for x0, flip in ((4, 0), (24, 1)):
-        top = ['iiii', 'in..', 'i...'] if not flip else ['iiii', '..ni', '...i']
-        bot = ['i...', 'in..', 'iiii'] if not flip else ['...i', '..ni', 'iiii']
-        s.stamp(x0, 17, top, {'i': 'iron:3', 'n': 'iron:4'})
-        s.stamp(x0, 27, bot, {'i': 'iron:2', 'n': 'iron:4'})
-        s.stamp(x0, 13, ['iiii', 'i..n' if not flip else 'n..i'], {'i': 'iron:3', 'n': 'iron:4'})
-    # lock as the nose, nails round the plate, eyes above, grin below
-    s.stamp(13, 22, ['.oo.', 'oiio', 'oiio', '.oo.'], {'i': 'iron:4'})
-    for x, y in [(12, 21), (19, 21), (12, 26), (19, 26)]:
-        s.c(x, y, RAMPS['iron'][1])
-    s.stamp(7, 17, [
-        'oo..........oo',
-        '.oWWo....oWWo.',
-        '.oWoo....ooWo.',
-        '..oo......oo..',
+    for x in range(3, 29):
+        s.c(x, 18, OUT)
+    s.stamp(6, 17, ['YyY', 'yYy', '.Y.', '.y.'])
+    s.stamp(23, 18, ['Y', 'y'])
+    # brass corner brackets with studs
+    for x0, flip in ((3, 0), (25, 1)):
+        top = ['bbbb', 'bn..', 'b...'] if not flip else ['bbbb', '..nb', '...b']
+        bot = ['b...', 'bn..', 'bbbb'] if not flip else ['...b', '..nb', 'bbbb']
+        s.stamp(x0, 19, top, {'b': 'brass:3', 'n': 'brass:4'})
+        s.stamp(x0, 27, bot, {'b': 'brass:2', 'n': 'brass:4'})
+        s.stamp(x0, 15, ['bbbb', 'b..n' if not flip else 'n..b'], {'b': 'brass:3', 'n': 'brass:4'})
+    # brass studs along the lid edge
+    for x in range(8, 24, 3):
+        s.c(x, 16, RAMPS['brass'][4])
+    # lock as the nose, eyes above, grin below
+    s.stamp(14, 23, ['.oo.', 'oiio', 'oiio', '.oo.'], {'i': 'iron:4'})
+    s.stamp(7, 19, [
+        'oo..........oo..',
+        '.oWWo....oWWo...',
+        '.oWoo....ooWo...',
+        '..oo......oo....',
     ])
-    s.stamp(12, 26, ['.oooooo.', '.oWKKWo.', '..oooo..'])
+    s.stamp(12, 27, ['.oooooo.', '.oWKKWo.', '..oooo..'])
     s.outline()
-    sparks(s, [(6, 5), (25, 3), (26, 7)])
-    s.flame(16, 9)
+    sparks(s, [(6, 7), (25, 5), (26, 9)])
+    s.flame(16, 12)
 
 
 @sprite('sil', '실', 5)
@@ -337,8 +339,9 @@ def sil(s):
 
 @sprite('gat', '갓', 5)
 def gat(s):
-    s.poly([(12, 10), (19, 10), (20, 18), (11, 18)], ('char', 'crown', 'cyl', 3))
-    s.ellipse(15.5, 10.5, 3.5, 0.8, ('char', 'ctop', 'flat', 3))
+    # tall flat-topped horsehair crown: the gat's tell, kept clear of the flame
+    s.poly([(12, 6), (19, 6), (20, 18), (11, 18)], ('char', 'crown', 'cyl', 3))
+    s.ellipse(15.5, 6.5, 3.5, 0.8, ('char', 'ctop', 'flat', 3))
     s.ellipse(15.5, 19, 12.5, 2.6, ('char', 'brim', 'flat', 3))
     s.ellipse(15.5, 23, 6, 3, ('shade', 'under', 'flat', 1))
     for y in range(0, 21):
@@ -348,7 +351,7 @@ def gat(s):
     s.line(3, 17, 2, 15, ('char', 'fray', 'flat', 3), 1)
     s.shade()
     # see-through horsehair: cool sheen on the upper-left of crown and brim
-    recolour(s, 'crown', lambda x, y, c: SINGLE['L'] if x in (12, 13) and y < 16 else (RAMPS['char'][1] if y in (16, 17) else None))
+    recolour(s, 'crown', lambda x, y, c: SINGLE['L'] if x in (12, 13) and y < 16 else (SINGLE['R'] if y in (15, 16) else None))
     recolour(s, 'brim', lambda x, y, c: SINGLE['L'] if y == 17 and x < 14 else (RAMPS['char'][4] if y == 18 and x % 3 == 0 else None))
     # bead strings hanging in a U under the brim
     pts = []
@@ -364,8 +367,8 @@ def gat(s):
     s.stamp(11, 22, ['XZ...ZX', 'ZN...NZ'])
     s.stamp(13, 25, ['ooo'])
     s.outline()
-    sparks(s, [(9, 5), (22, 3), (23, 7)])
-    s.flame(16, 9)
+    sparks(s, [(4, 9), (22, 3), (29, 5)])
+    s.flame(25, 14)
 
 
 @sprite('manggeon', '망건', 5)
