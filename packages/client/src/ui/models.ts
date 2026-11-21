@@ -199,7 +199,7 @@ const INHERIT_CTX = (data: GameData): SkillCtx => ({ interval: Number.POSITIVE_I
 export function combineNoteLines(data: GameData, result: string): string[] {
   const n = combineNotes(data, result);
   if (!n) return [];
-  const lines = [`${n.lineage ? `계열 ${n.lineage} · ` : ''}사거리 ${n.range}칸`];
+  const lines = [`사거리 ${n.range}칸`];
   if (n.inherited.length) lines.push(`이어받는 지원 효과: ${n.inherited.join(' / ')}`);
   if (n.lostAuras.length) lines.push(`조합하면 사라지는 오라: ${n.lostAuras.join(' / ')}`);
   if (n.lostControls.length) lines.push(`조합하면 사라지는 제어: ${n.lostControls.join(', ')}`);
