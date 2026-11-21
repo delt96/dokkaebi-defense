@@ -431,3 +431,18 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 .ud-lines li { margin: 0; }
 .ud-empty { margin: 0; color: var(--ink-dim); }
 .ud-sec .card-notes { margin: 0; }
+
+/* R 지게 바꾸기 */
+.jige-held { color: var(--accent); align-self: center; white-space: nowrap; }
+#storage .stack-swap { position: absolute; top: -2px; right: -2px; width: 11px; height: 11px; min-height: 0; padding: 0; border-radius: 50%; font-size: 6px; line-height: 9px; text-align: center; color: #10233a; background: #7fb2e5; border: 1px solid #2a5a8a; opacity: 0.85; }
+#storage .stack-swap:hover:not([disabled]) { opacity: 1; border-color: #e0f0ff; }
+#storage .stack-swap[disabled] { opacity: 0.35; }
+.jige-modal { display: flex; flex-direction: column; max-height: 100%; }
+.jige-from { padding: 2px 4px; color: var(--ink-dim); }
+.jige-filters { display: flex; gap: 2px; padding: 2px 4px; align-items: center; }
+.jige-filters button.on { border-color: var(--accent); color: var(--accent); }
+.jige-search input { width: 90px; }
+.jige-rows { flex: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px 4px; }
+.jige-rows button { text-align: left; min-height: 22px; padding: 1px 3px; }
+.jige-rows button span { display: block; color: var(--ink-dim); font-size: 9px; line-height: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jige-empty { color: var(--ink-dim); padding: 4px; }

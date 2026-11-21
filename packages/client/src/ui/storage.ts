@@ -19,12 +19,14 @@ function iconHtml(defId: string, name: string, grade: number): string {
 }
 
 /** The storage column: a 모두 보관 button and one stack per kind (sprite, grade colour, ×N, a small sell button). */
-export function storageHtml(state: GameState): string {
+/** `jige` is the 지게 held on a 60-round lane (each stack then gets its swap button), undefined elsewhere. */
+export function storageHtml(state: GameState, jige?: number): string {
   const stacks = storageStacks(state);
   const total = stacks.reduce((n, s) => n + s.count, 0);
   const list = stacks.map(s => `<div class="stack" style="--g:${GRADE_COLOR[s.grade]}">
       <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(s.name)} ×${s.count} · 누르면 꺼내기, 끌어서 칸에 놓기"><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span></button>
-      <button class="stack-sell" data-action="sellStored" data-arg="${esc(s.defId)}" title="${esc(s.name)} 1개 판매 +${s.sellPrice}냥" aria-label="${esc(s.name)} 1개 판매 +${s.sellPrice}냥">냥</button>
+      <button class="stack-sell" data-action="sellStored" data-arg="${esc(s.defId)}" title="${esc(s.name)} 1개 판매 +${s.sellPrice}냥" aria-label="${esc(s.name)} 1개 판매 +${s.sellPrice}냥">냥</button>${jige === undefined ? '' : `
+      <button class="stack-swap" data-action="jigeOpen" data-arg="storage:${esc(s.defId)}" title="${esc(s.name)} 지게 바꾸기 · 보유 지게 ${jige}개" aria-label="${esc(s.name)} 지게 바꾸기"${jige < 1 ? ' disabled' : ''}>R</button>`}
     </div>`).join('');
   return `<div class="storage-head"><b>보관함</b>${total ? `<span>${total}</span>` : ''}</div>
     <button class="storage-all" data-action="storeAll" title="판 위의 1·2등급을 모두 보관 (${STORE_ALL_KEY})">1·2등급<br>모두 보관</button>

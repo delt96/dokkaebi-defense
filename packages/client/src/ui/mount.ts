@@ -12,7 +12,7 @@ import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, econTopHtml, marketModel, noteText, questChips, tameModel,
-  tameRejectText, type DrawReceipt,
+  tameRejectText, jigeListHtml, jigeRowsHtml, type DrawReceipt, type JigeList,
 } from './econ';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
@@ -37,7 +37,7 @@ export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: 
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
-  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'missionEnter', 'tame',
+  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'missionEnter', 'tame', 'jigeOpen', 'jigeSwap',
   'storeAll', 'retrieve', 'sellStored',
 ]);
 const PRESS_MS = 120;
@@ -59,7 +59,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // the list the dex scroll position belongs to: a new filter or search starts at the top
   let dexListKey = '';
   let helperOpen = false;
-  let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | null = null;
+  let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | 'jige' | null = null;
+  // the open R list (modal 'jige'); see jigeStale for when a pick is dropped
+  let jigeList: JigeList | null = null;
   let best: { id: string; grade: number } | null = null;
   let notice: Notice | null = null;
   // stage 3 economy: the B panel (null = closed)
@@ -171,11 +173,40 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'dexTree': dex = dexToggle(dex, arg); break;
       case 'dexFold': dex = dexFold(dex, arg); break;
       case 'openUpgrades': modal = 'upgrades'; break;
+      case 'jigeOpen': {
+        const e = econ();
+        const [zone, ref = ''] = arg.split(':');
+        const s = driver.state;
+        const index = zone === 'board' ? selectedSlot(s, Number(ref)) ?? -1 : (s.storage ?? []).findIndex(u => u.defId === ref);
+        const unit = (zone === 'board' ? s.slots : s.storage ?? [])[index];
+        if (!e || !unit || (zone !== 'board' && zone !== 'storage')) break;
+        if (e.jige < 1) { say(rejectText('noJige') ?? ''); break; }
+        jigeList = {
+          source: { zone, index, unitId: unit.id }, defId: unit.defId, cost: unit.cost ?? null,
+          seat: driver.laneSeat, epoch: driver.laneEpoch, name: '', type: null,
+        };
+        modal = 'jige';
+        break;
+      }
+      case 'jigeType':
+        if (jigeList) jigeList = { ...jigeList, type: arg === 'physical' || arg === 'magical' ? arg : null };
+        break;
+      case 'jigeSwap': {
+        const list = jigeList;
+        modal = null;
+        jigeList = null;
+        if (!list) break;
+        // the list belongs to one unit on one lane snapshot: anything else changed and the pick is not sent
+        if (jigeStale(list)) { say('유닛이 바뀌어 지게 바꾸기를 취소했습니다'); break; }
+        driver.queue({ type: 'jigeSwap', source: { ...list.source }, result: arg });
+        break;
+      }
       case 'closeModal':
         // text typed but not searched is kept too
         if (modal === 'dex' && el('modal').querySelector('.dex-search')) dex = { ...dex, ...typedNow() };
         dexRemember();
         modal = null;
+        jigeList = null;
         break;
       case 'toggleFx': scene.setReduceEffects(!scene.reduceEffects); break;
       case 'restart': hooks.onRestart?.(); break;
@@ -276,6 +307,19 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     hooks.onEvents?.(events);
   });
 
+  function jigeStale(list: JigeList): boolean {
+    const s = driver.state;
+    const unit = (list.source.zone === 'board' ? s.slots : s.storage ?? [])[list.source.index];
+    return driver.readOnly || driver.laneSeat !== list.seat || driver.laneEpoch !== list.epoch
+      || !unit || unit.id !== list.source.unitId || unit.defId !== list.defId;
+  }
+  // the R list filters as one types; only the rows are redrawn so the box keeps its text, caret and IME state
+  el('modal').addEventListener('input', ev => {
+    const input = (ev.target as HTMLElement).closest<HTMLInputElement>('.jige-search input');
+    if (!input || !jigeList) return;
+    jigeList = { ...jigeList, name: input.value };
+    setHtml(el('modal').querySelector<HTMLElement>('.jige-rows')!, jigeRowsHtml(driver.state.data, jigeList));
+  });
   window.addEventListener('keydown', ev => {
     if (modal === 'dex' && ev.code === 'Escape' && !ev.isComposing && (ev.target as HTMLElement)?.closest?.('.dex-search, .dex-skillsearch')) {
       ev.preventDefault();
@@ -309,6 +353,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     else if (ev.code === `Key${STORE_ALL_KEY}`) act('storeAll', '');
     else if (ev.code === 'KeyB' && driver.state.data.economy?.market) act('toggleMarket', '');
     else if (ev.code === 'KeyT' && driver.state.data.economy?.tame) act('tame', '');
+    else if (ev.code === 'KeyR' && driver.state.data.economy?.market && card?.unitId != null) act('jigeOpen', `board:${card.unitId}`);
     else if (ev.code === 'KeyP' && !online) { driver.paused = !driver.paused; render(); }
     else if (ev.code === 'Tab' || ev.code === 'KeyW') {
       ev.preventDefault();
@@ -326,6 +371,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const s = driver.state;
     const selected = selectedSlot(s, scene.selectedId);
     if (selected === null) scene.selectedId = null;
+    const held = s.data.economy?.market ? econ()?.jige : undefined;
+    // the unit an open R list was opened on moved, sold or the lane changed: the list goes, nothing is sent
+    if (modal === 'jige' && (!jigeList || jigeStale(jigeList))) { modal = null; jigeList = null; }
     const now = performance.now();
     const view = online && opts.data ? opts.view?.() ?? null : null;
     if (view && opts.data) {
@@ -358,8 +406,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (spiritCard) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), spiritCard);
-    } else displayedCard = renderBottom(s, selected, online, s.data.economy?.market ? 'B 장터' : undefined);
-    setHtml(el('storage'), storageVisible() ? storageHtml(s) : '');
+    } else displayedCard = renderBottom(s, selected, online, s.data.economy?.market ? 'B 장터' : undefined, held);
+    setHtml(el('storage'), storageVisible() ? storageHtml(s, held) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
@@ -374,7 +422,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;

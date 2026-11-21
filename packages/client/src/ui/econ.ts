@@ -1,5 +1,5 @@
 import {
-  toTicks, type ClientView, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
+  jigeCandidates, toTicks, type ClientView, type DamageType, type JigeSource, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
 } from '@dorandi/logic';
 import { esc } from './dom';
 import { unitSkillText } from './models';
@@ -56,6 +56,47 @@ export function marketModel(econ: EconMine, state: GameState, receipt: DrawRecei
       ...(receipt.jige ? ['지게도 얻었습니다'] : []),
     ] : null,
   };
+}
+
+// ---------- jige swap (R) ----------
+
+/** Same-grade normal units a 지게 can turn `defId` into, narrowed by a name part and a damage type. */
+export function swapRows(data: GameData, defId: string, name: string, type: DamageType | null): UnitDef[] {
+  const q = name.trim();
+  return jigeCandidates(data, defId).filter(u => (!q || u.name.includes(q)) && (!type || u.damageType === type));
+}
+
+/**
+ * An open R list: the exact unit it was opened on (zone, index and id), the lane snapshot it belongs to, and the
+ * filters. A pick is sent only while all of these still hold.
+ */
+export interface JigeList {
+  source: JigeSource; defId: string; cost: number | null;
+  seat: number | undefined; epoch: number | undefined;
+  name: string; type: DamageType | null;
+}
+
+export function jigeRowsHtml(data: GameData, list: JigeList): string {
+  const rows = swapRows(data, list.defId, list.name, list.type);
+  if (rows.length === 0) return '<p class="jige-empty">맞는 유닛이 없습니다</p>';
+  return rows.map(u => {
+    const skill = unitSkillText(data, u).split(' / ')[0] ?? '';
+    return `<button data-action="jigeSwap" data-arg="${esc(u.id)}"><b>${esc(u.name)}</b> · ${u.damageType === 'magical' ? '마딜' : '물딜'}${skill ? `<span>${esc(skill)}</span>` : ''}</button>`;
+  }).join('');
+}
+
+/** The R window: what is given, the 지게 held, the filters and every same-grade normal unit. */
+export function jigeListHtml(data: GameData, list: JigeList, held: number): string {
+  const def = data.units.find(u => u.id === list.defId);
+  const where = list.source.zone === 'board' ? `진영 ${list.source.index + 1}번 칸` : '보관함';
+  const cost = list.cost === null ? '' : ` · 원가 ${list.cost}`;
+  const chip = (arg: string, label: string, on: boolean) =>
+    `<button data-action="jigeType" data-arg="${arg}" aria-pressed="${on}"${on ? ' class="on"' : ''}>${label}</button>`;
+  return `<div class="modal jige-modal"><div class="modal-head">지게 바꾸기 · 보유 지게 ${held}개 <button data-action="closeModal">Esc 닫기</button></div>
+    <div class="jige-from">${esc(def?.name ?? '')} (${def?.grade ?? 0}등급) · ${where}${cost} → 같은 등급 일반 유닛</div>
+    <div class="jige-filters"><label class="jige-search"><input type="search" placeholder="이름" value="${esc(list.name)}" aria-label="이름으로 찾기"></label>
+      ${chip('all', '전체', list.type === null)}${chip('physical', '물딜', list.type === 'physical')}${chip('magical', '마딜', list.type === 'magical')}</div>
+    <div class="jige-rows">${jigeRowsHtml(data, list)}</div></div>`;
 }
 
 // ---------- taming ----------
