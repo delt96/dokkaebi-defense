@@ -2,6 +2,7 @@ import type { GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import { combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
+import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY } from './storage';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `badge`: a story request not yet looked at. */
@@ -23,17 +24,18 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}`);
 }
 
-function recipeHtml(option: CombineOption, unitId: number | null): string {
+function recipeHtml(state: GameState, option: CombineOption, unitId: number | null, short: boolean): string {
+  const badge = typeBadgeHtml(state.data, option.result, short);
   if (option.missing.length) {
     const cost = option.cost ? ` · 비용 ${esc(option.cost)}` : '';
-    return `<span class="combine-missing">${esc(option.name)} (모자람: ${option.missing.map(esc).join(', ')}${cost})</span>`;
+    return `<span class="combine-missing">${esc(option.name)} ${badge} (모자람: ${option.missing.map(esc).join(', ')}${cost})</span>`;
   }
   // every material is there but not the cost: the button stays, disabled, and says what is missing
   if (option.short) {
-    return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="combine-blocked" disabled title="${esc(option.short)}">${esc(option.name)} · <span class="combine-short">${esc(option.short)}</span></button>`;
+    return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="combine-blocked" disabled title="${esc(option.short)}">${esc(option.name)} ${badge} · <span class="combine-short">${esc(option.short)}</span></button>`;
   }
   const cost = option.cost ? ` · <span class="combine-cost">${esc(option.cost)}</span>` : '';
-  return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}"${option.cost ? ` title="비용 ${esc(option.cost)}"` : ''}>${option.key ? `[${option.key}] ` : ''}${esc(option.name)}${cost}</button>`;
+  return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}"${option.cost ? ` title="비용 ${esc(option.cost)}"` : ''}>${option.key ? `[${option.key}] ` : ''}${esc(option.name)} ${badge}${cost}</button>`;
 }
 
 const notesHtml = (lines: string[]): string => (lines.length ? `<ul class="card-notes">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '');
@@ -43,9 +45,9 @@ export function unitDetailsHtml(state: GameState, selected: number): string {
   const unitId = state.slots[selected]!.id;
   const options = combineOptions(state, selected).map(option => {
     const notes = combineNoteLines(state.data, option.result);
-    return notes.length ? `<div class="recipe">${recipeHtml(option, unitId)}${notesHtml(notes)}</div>` : recipeHtml(option, unitId);
+    return notes.length ? `<div class="recipe">${recipeHtml(state, option, unitId, false)}${notesHtml(notes)}</div>` : recipeHtml(state, option, unitId, false);
   });
-  return `<div class="modal"><div class="modal-head">${esc(card.name)} · 상세 <button data-action="closeModal">닫기</button></div>
+  return `<div class="modal"><div class="modal-head">${esc(card.name)} ${typeBadgeHtml(state.data, state.slots[selected]!.defId)} · 상세 <button data-action="closeModal">닫기</button></div>
     <p>${esc(card.skillText)}</p>${notesHtml(card.notes)}<div class="recipe-list">${options.join('') || '최종 조합입니다.'}</div></div>`;
 }
 
@@ -56,10 +58,10 @@ export function renderBottom(state: GameState, selected: number | null, online =
   const recipes = selected === null ? [] : combineOptions(state, selected);
   // online, and solo on the 60-round data (its card has 상세), the card lists only what can be pressed now or is short of its cost
   const quick = online || state.data.balance.extendedCombat ? recipes.filter(option => option.key !== null || option.short) : recipes;
-  const options = quick.map(option => recipeHtml(option, unitId)).join('');
+  const options = quick.map(option => recipeHtml(state, option, unitId, true)).join('');
   setHtml(el('bottom'), card
     ? `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
-        <b>${esc(card.name)}</b> · ${card.grade}등급 · ${card.typeText}</span>
+        <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</span>
         <span>공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${card.range}칸</span></span>
         ${online ? '' : `<span class="skill" title="${esc(card.skillText)}">${esc(card.skillText)}</span>`}
         ${options ? `<div class="combine-options">${options}</div>` : ''}

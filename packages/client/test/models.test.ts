@@ -117,8 +117,9 @@ test('the card and physical keys combine at the selected slot while the helper u
   const { driver, queue, press, click, panels, select, scene } = mountTestUi(s);
   select(3);
   const card = panels.get('bottom')!;
-  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}">[Z] 가마솥</button>`);
-  expect(card.innerHTML).toContain('화로 (모자람: 호롱)');
+  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}">[Z] 가마솥 <span class="type-badge`);
+  expect(card.innerHTML).toContain('화로 <span class="type-badge');
+  expect(card.innerHTML).toContain('(모자람: 호롱)');
   expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
   click('bottom', `gamasot@${chosen.id}`);
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
@@ -232,7 +233,7 @@ test('ready recipes precede missing materials on the card', () => {
   select(0);
   const html = panels.get('bottom')!.innerHTML;
   expect(html).toContain('[Z] 풀무');
-  expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('절구 (모자람'));
+  expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('combine-missing">절구'));
 });
 
 import { activeNotice, nextUnitId, selectedSlot, rightModel, rejectText } from '../src/ui/models';
