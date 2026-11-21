@@ -40,7 +40,7 @@ export interface BossControlLog {
   alive: number; stopped: number; stunLog: number[]; pushLog: [number, number][];
   stunClipped: number; pushClipped: number; entranceClipped: number; pushApplied: number; maxWindowStopped: number;
 }
-export interface EnemyDef { id: string; name: string; boss: boolean; shared?: boolean; hpMult: number; hp?: number; speed: number; resist: { physical: number; magical: number } }
+export interface EnemyDef { id: string; name: string; boss: boolean; shared?: boolean; event?: true; hpMult: number; hp?: number; speed: number; resist: { physical: number; magical: number } }
 export type WaveDef = { round: number; type: 'normal'; pattern: string[] } | { round: number; type: 'boss'; boss: string };
 export interface BalanceDef {
   tickMs: number; prepSeconds: number; roundSeconds: number; bossRoundSeconds: number;
@@ -57,7 +57,7 @@ export interface BalanceDef {
 }
 export type UpgradeId = 'physical' | 'magical' | 'polish' | 'slots';
 export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number; openCount?: number }
-export interface YeoksinStageDef { stage: 1 | 2; enemy: string; startRound: number; deadlineRound: number; baseHp: number; startIndex: number }
+export interface YeoksinStageDef { stage: number; enemy: string; startRound: number; deadlineRound: number; baseHp: number; startIndex: number }
 export interface CoopDef {
   yeoksin: YeoksinStageDef[]; hpPerExtraPlayer: number; staySeconds: number;
   killReward: { coins: number; buckwheat: number }; topDamageBonus: number;
@@ -65,13 +65,63 @@ export interface CoopDef {
   disconnectSeconds: number; bossPauseCapSeconds: number; danger: number;
   maxCommandsPerTick: number; resultSeconds: number;
 }
-export interface GameData { units: UnitDef[]; recipes: RecipeDef[]; enemies: EnemyDef[]; waves: WaveDef[]; balance: BalanceDef; upgrades: UpgradeDef[]; coop?: CoopDef }
+export interface GameData {
+  units: UnitDef[]; recipes: RecipeDef[]; enemies: EnemyDef[]; waves: WaveDef[]; balance: BalanceDef; upgrades: UpgradeDef[];
+  coop?: CoopDef; economy?: EconomyDef;
+}
+
+export type EconItem = 'bundle' | 'jar';
+export type GeneralQuestId = 'mission' | 'collection' | 'team' | 'ssireum';
+export type EconSection = 'market' | 'drops' | 'story' | GeneralQuestId | 'shadow' | 'tame' | 'transfer';
+export interface TameTargetDef {
+  enemy: string; unit: string; cost: { buckwheat?: number; coins?: number; tokens?: number };
+  needs?: 'slowed' | { vulnSource: string; stacks: number };
+}
+export interface EconomyDef {
+  ledger: { tokenValue: number; storyCap: number; totalCap: number; ratio: number };
+  market?: {
+    dayRounds: number; jigeChance: number;
+    bundle: { price: number; perDay: number; deck: number[] };
+    jar: { price: number; firstChance: number; periodRounds: number; perPeriod: number };
+  };
+  drops?: { round: number; grade: number }[];
+  story?: { checks: { round: number; recordRounds: number[] }[]; kills: number; fee: { coins: number; buckwheat: number }; maxAwards: number };
+  mission?: { round: number; entrySeconds: number; fee: number; enemy: string; kills: number; reward: { coins: number; buckwheat: number } };
+  collection?: { fromRound: number; toRound: number; items: string[]; coins: number };
+  team?: { fromRound: number; toRound: number; perSurvivor: number; nights: number; tokens: number };
+  ssireum?: { round: number; enemy: string; seconds: number; buckwheat: number };
+  shadow?: { round: number; enemy: string; growSeconds: number; grownHp: number; coins: number; grownCoins: number };
+  tame?: { hpPct: number; targets: TameTargetDef[] };
+  transfer?: { offerSeconds: number; cooldownRounds: number; maxGrade: number; reward: number; rewardCap: number };
+}
+export type StoryEndReason = 'award' | 'declined' | 'targetChanged' | 'lostMaterial' | 'gotMaterial' | 'kills' | 'funds' | 'cap';
+export interface StoryState {
+  target: string | null; pinned: number[];
+  log: { round: number; target: string; missing: number | null }[];
+  offers: number; awarded: boolean;
+  active: { target: string; missing: number; round: number } | null;
+}
+export interface EconState {
+  rng: { bundle: RngState; jar: RngState; jige: RngState; drop: RngState };
+  roundKills: number; questTokens: number;
+  ledger: { story: number; tokens: number };
+  pityQuest: boolean[]; pendingDrops: string[];
+  bundle: { day: number; bought: number; left: number[] };
+  jar: { period: number; done: number; missed: boolean };
+  jige: boolean;
+  story: StoryState;
+  mission: { phase: 'idle' | 'active' | 'won' | 'lost'; beastId: number | null; beastDown: boolean };
+  collection: { done: string[]; paid: boolean };
+  events: { id: number; kind: 'beast' | 'ssireum' | 'shadow'; spawnTick: number; grown: boolean }[];
+  tamed: string[];
+}
 
 export interface RngState { s: number }
 export interface Unit {
   id: number; defId: string; cooldown: number; attackCount: number; periodic: number[];
   chargeTicks?: number; charged?: boolean; streak?: { enemyId: number; count: number };
   neighborHits?: number; neighborLockUntil?: number; explodeReadyTick?: number;
+  cost?: number; locked?: true; delivered?: true;
 }
 export interface Vuln { pct: number; damageType: DamageType | 'all'; ticks: number; stacks: number }
 export interface Dot { remaining: number; pulsesLeft: number; nextPulse: number }
@@ -99,13 +149,18 @@ export interface GameState {
   rng: { summon: RngState; combat: RngState };
   nextId: number;
   income?: { round: number; firstHit: Record<string, true>; timerTicks: Record<string, number>; timerPaid: Record<string, number> };
+  econ?: EconState;
 }
 export type Command =
   | { type: 'summon' } | { type: 'combine'; result: string; slot?: number; unitId?: number } | { type: 'sell'; slot: number; unitId?: number }
   | { type: 'move'; from: number; to: number; unitId?: number; toUnitId?: number | null } | { type: 'convertToken' }
-  | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' };
+  | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' }
+  | { type: 'buy'; item: EconItem } | { type: 'storyTarget'; id: string | null; unitIds?: number[] } | { type: 'storyDecline' }
+  | { type: 'missionEnter' } | { type: 'tame'; enemyId: number };
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
-  | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs';
+  | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
+  | 'marketClosed' | 'soldOut' | 'badTarget' | 'notOffered' | 'missionClosed' | 'noTarget' | 'tameHp' | 'tameCondition'
+  | 'locked' | 'busy' | 'cooldown' | 'noJige' | 'noOffer';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 
 export type GameEvent =
@@ -115,5 +170,11 @@ export type GameEvent =
   | { type: 'attack'; unitId: number; enemyId: number }
   | { type: 'damage'; enemyId: number; amount: number; source: string; effect?: HitEffect }
   | { type: 'kill'; enemyId: number } | { type: 'speedChange'; enemyId: number; d: number; speed: number }
-  | { type: 'ended'; result: GameResult };
+  | { type: 'ended'; result: GameResult }
+  | { type: 'buy'; item: EconItem; defId: string | null; buckwheat: number; jige: boolean }
+  | { type: 'storyOffer'; target: string; missing: string; round: number }
+  | { type: 'storyEnd'; target: string; reason: StoryEndReason }
+  | { type: 'questReward'; quest: GeneralQuestId | 'story' | 'transfer'; coins: number; buckwheat: number; tokens: number }
+  | { type: 'tame'; enemyId: number; defId: string; unitId: number; slot: number }
+  | { type: 'grow'; enemyId: number; hp: number } | { type: 'flee'; enemyId: number };
 export interface StepResult { events: GameEvent[]; rejected: { command: Command; reason: RejectReason }[] }

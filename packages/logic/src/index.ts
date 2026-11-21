@@ -4,6 +4,9 @@ export * from './data';
 export * from './validate';
 export * from './lane';
 export * from './stats';
+export {
+  createEcon, unitValue, nonQuestValue, questLoad, fitsCaps, takeToken, grantQuestTokens, economyVariant, stripEconomy,
+} from './econ/ledger';
 export { createGame, step, laneOf, applyCommand, runAfterCommandHooks, runCombat } from './game';
 export {
   spawnDue, payRoundEnd, trackLimit, startRound, spawnEnemy, moveEnemies, finishGame,

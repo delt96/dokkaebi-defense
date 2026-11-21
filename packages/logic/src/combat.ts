@@ -4,7 +4,8 @@ import { dist } from './lane';
 import { registerPhase } from './registry';
 import { laneOf } from './lane';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
-import { currentStats, isShared, statsForRound } from './stats';
+import { currentStats, isEvent, isShared, statsForRound } from './stats';
+import { econBossKill, econEventKill } from './econ/hooks';
 import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnKillExplosions, vulnOf } from './effects';
 import { runIncome } from './income';
@@ -52,7 +53,7 @@ export function pickTarget(state: GameState, slot: number): Enemy | null {
   let bestRank = 3;
   for (const e of state.enemies) {
     if (e.hp <= 0 || !inRange(state, slot, e, range)) continue;
-    const rank = e.boss ? 0 : isShared(state.data, e) ? 1 : 2;
+    const rank = e.boss || isEvent(state.data, e) ? 0 : isShared(state.data, e) ? 1 : 2;
     if (!best || rank < bestRank || (rank === bestRank && e.id < best.id)) { best = e; bestRank = rank; }
   }
   return best;
@@ -63,7 +64,7 @@ export function dealDamage(state: GameState, enemy: Enemy, amount: number, sourc
   const actual = Math.min(amount, enemy.hp);
   enemy.hp -= amount;
   events.push({ type: 'damage', enemyId: enemy.id, amount, source, ...(effect && { effect }) });
-  if (!enemy.boss && !isShared(state.data, enemy)) {
+  if (!enemy.boss && !isShared(state.data, enemy) && !isEvent(state.data, enemy)) {
     const st = statsForRound(state, enemy.round);
     if (st) st.damageDealt += actual;
     const cur = currentStats(state);
@@ -111,14 +112,17 @@ export function resolveKills(state: GameState, events: GameEvent[], opts: { fina
     if (e.hp > 0) { alive.push(e); continue; }
     events.push({ type: 'kill', enemyId: e.id });
     if (isShared(state.data, e)) continue;
+    if (state.econ && econEventKill(state, e, events)) continue;
     if (e.boss) {
       state.coins += b.coins.boss;
       state.buckwheat += b.bossBuckwheat;
       const st = statsForRound(state, state.round);
       if (st) st.bossKillSeconds = (state.tick - state.roundStartTick) / TICKS_PER_SECOND;
       if (finalClear && state.round >= b.rounds) finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
+      if (state.econ) econBossKill(state, events);
     } else {
       state.coins += b.coins.perKill;
+      if (state.econ) state.econ.roundKills++;
     }
   }
   state.enemies = alive;

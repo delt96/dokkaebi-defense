@@ -1,5 +1,7 @@
 import type { Command, GameData, GameEvent, GameState, RejectReason, StepResult } from './types';
 import { createRng, deriveSeed } from './rng';
+import { createEcon } from './econ/ledger';
+import { econRoundEnd, econTick } from './econ/hooks';
 import { checkEnd, moveEnemies, spawnTick } from './flow';
 import { resolveKills } from './combat';
 import { afterCommandHooks, handlers, phases, type PhaseName } from './registry';
@@ -15,7 +17,7 @@ export { registerAfterCommands, registerCommand, registerPhase } from './registr
 export function createGame(data: GameData, seed: number): GameState {
   const { cols, rows, initialOpenRows } = data.balance.grid;
   const total = cols * rows;
-  return {
+  const state: GameState = {
     data, tick: 0, phase: 'prep',
     round: 0, roundStartTick: 0, roundEndTick: 0, spawned: 0,
     result: null,
@@ -30,6 +32,8 @@ export function createGame(data: GameData, seed: number): GameState {
     rng: { summon: createRng(deriveSeed(seed, 'summon')), combat: createRng(deriveSeed(seed, 'combat')) },
     nextId: 1,
   };
+  if (data.economy) state.econ = createEcon(seed, data.economy);
+  return state;
 }
 
 function runPhase(name: PhaseName, state: GameState, events: GameEvent[]): void {
@@ -52,6 +56,7 @@ export function runAfterCommandHooks(state: GameState, events: GameEvent[]): voi
 }
 
 export function runCombat(state: GameState, events: GameEvent[], opts: { finalClear: boolean; afterMove?: () => void }): void {
+  if (state.econ) econTick(state, events);
   moveEnemies(state, events);
   opts.afterMove?.();
   runPhase('tickStatuses', state, events);
@@ -75,6 +80,7 @@ export function step(state: GameState, commands: Command[]): StepResult {
   if (!isEnded(state)) {
     runCombat(state, events, { finalClear: true });
     checkEnd(state, events);
+    if (state.econ && state.phase === 'round' && state.tick === state.roundEndTick - 1) econRoundEnd(state, events);
   }
   state.tick++;
   return { events, rejected };

@@ -3,6 +3,8 @@ import { nextFloat, nextInt } from './rng';
 import { registerAfterCommands, registerCommand } from './registry';
 import { laneOf } from './lane';
 import { toTicks } from './flow';
+import { gradeValue } from './data';
+import { takeToken } from './econ/ledger';
 
 const unitCache = new WeakMap<GameData, Map<string, UnitDef>>();
 export function unitDefFast(data: GameData, id: string): UnitDef {
@@ -63,33 +65,43 @@ export function addUnit(state: GameState, defId: string, slot: number, _events: 
   return unit;
 }
 
-function receive(state: GameState, defId: string, events: GameEvent[]): boolean {
+/** Places `defId` in the best free open slot and emits `summon`; `cost` is set only when the lane has an economy. */
+export function receive(state: GameState, defId: string, events: GameEvent[], cost?: number): boolean {
   const def = unitDefFast(state.data, defId);
   const slot = chooseSlot(state, def);
   if (slot === null) return false;
   const unit = addUnit(state, defId, slot, events);
+  if (state.econ && cost !== undefined) unit.cost = cost;
   events.push({ type: 'summon', unitId: unit.id, defId, grade: def.grade, slot });
   return true;
 }
 
 function placePendingPity(state: GameState, events: GameEvent[]): void {
-  while (state.pendingPity.length && receive(state, state.pendingPity[0]!, events)) state.pendingPity.shift();
+  const econ = state.econ;
+  while (state.pendingPity.length && receive(state, state.pendingPity[0]!, events, econ?.pityQuest[0] ? 0 : 1)) {
+    state.pendingPity.shift();
+    econ?.pityQuest.shift();
+  }
 }
 
 registerCommand('summon', (state, _cmd, events) => {
   if (state.tokens <= 0) return 'noToken';
   placePendingPity(state, events);
   if (!state.slots.some((u, i) => !u && state.open[i])) return 'noSlot';
-  state.tokens--;
+  const quest = takeToken(state) === 'quest';
   const defId = rollSummon(state);
   state.summonCounts[defId] = (state.summonCounts[defId] ?? 0) + 1;
-  receive(state, defId, events);
-  if (unitDefFast(state.data, defId).grade === 1) {
+  const grade = unitDefFast(state.data, defId).grade;
+  receive(state, defId, events, quest ? 0 : gradeValue(grade));
+  if (grade === 1) {
     state.grade1Summons++;
     if (state.grade1Summons % state.data.balance.pityEvery === 0) {
       const pity = pityPick(state);
       state.summonCounts[pity] = (state.summonCounts[pity] ?? 0) + 1;
-      if (!receive(state, pity, events)) state.pendingPity.push(pity);
+      if (!receive(state, pity, events, quest ? 0 : 1)) {
+        state.pendingPity.push(pity);
+        state.econ?.pityQuest.push(quest);
+      }
     }
   }
   return null;
@@ -121,7 +133,7 @@ registerCommand('sell', (state, cmd) => {
 
 registerCommand('convertToken', (state) => {
   if (state.tokens <= 0) return 'noToken';
-  state.tokens--;
+  takeToken(state);
   state.coins += state.data.balance.tokens.toCoins;
   return null;
 });

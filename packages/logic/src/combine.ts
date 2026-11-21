@@ -77,8 +77,11 @@ registerCommand('combine', (state, cmd, events) => {
   const replacedUnitId = state.slots[resultSlot]!.id;
   if (recipe.cost?.buckwheat) state.buckwheat -= recipe.cost.buckwheat;
   if (recipe.cost?.coins) state.coins -= recipe.cost.coins;
+  let cost = 0;
+  for (const i of used) cost += state.slots[i]!.cost ?? 0;
   for (const i of used) state.slots[i] = null;
   const unit = addUnit(state, recipe.result, resultSlot, events);
+  if (state.econ) unit.cost = cost;
   events.push({ type: 'combine', replacedUnitId, unitId: unit.id, defId: unit.defId, slot: resultSlot });
   return null;
 });

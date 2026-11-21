@@ -1,6 +1,7 @@
 import type { Enemy, EnemyDef, GameData, GameEvent, GameResult, GameState, WaveDef } from './types';
 import { enemyDef, enemyHp } from './data';
 import { countNormalEnemies, currentStats, isShared } from './stats';
+import { econRoundStart } from './econ/hooks';
 import { bossStunGate } from './bosscontrol';
 
 export const TICKS_PER_SECOND = 20;
@@ -32,6 +33,7 @@ export function startRound(state: GameState, round: number, events: GameEvent[])
   state.tokens += b.tokens.perRound;
   state.stats.push({ round, hpSpawned: 0, damageDealt: 0, damageInRound: 0, maxEnemies: countNormalEnemies(state), endEnemies: 0, bossKillSeconds: null });
   events.push({ type: 'roundStart', round });
+  if (state.econ) econRoundStart(state, events);
 }
 
 export function spawnEnemy(state: GameState, defId: string, round: number, events: GameEvent[]): Enemy {
@@ -42,7 +44,7 @@ export function spawnEnemy(state: GameState, defId: string, round: number, event
     stunTicks: 0, slow: null, vulns: {}, dots: {}, fireHit: {},
   };
   state.enemies.push(e);
-  if (!def.boss && !def.shared) {
+  if (!def.boss && !def.shared && !def.event) {
     const st = currentStats(state);
     if (st) st.hpSpawned += hp;
   }

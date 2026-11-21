@@ -1,4 +1,4 @@
-import type { BalanceDef, CoopDef, DamageType, EnemyDef, GameData, RecipeDef, UnitDef } from './types';
+import type { BalanceDef, CoopDef, DamageType, EconomyDef, EnemyDef, GameData, RecipeDef, UnitDef } from './types';
 import units from '../data/units.json';
 import recipes from '../data/recipes.json';
 import enemies from '../data/enemies.json';
@@ -16,6 +16,7 @@ import enemies3 from '../data/stage3/enemies.json';
 import waves3 from '../data/stage3/waves.json';
 import balance3 from '../data/stage3/balance.json';
 import onBasicHit3 from '../data/stage3/onBasicHit.json';
+import economy3 from '../data/stage3/economy.json';
 
 export function loadGameData(stage: 'stage1' | 'stage2' | 'stage3' = 'stage1'): GameData {
   if (stage === 'stage1') return structuredClone({ units, recipes, enemies, waves, balance, upgrades }) as GameData;
@@ -41,6 +42,7 @@ export function loadGameData(stage: 'stage1' | 'stage2' | 'stage3' = 'stage1'): 
       u.onBasicHit = { ...hit };
     }
     addLineage(data);
+    data.economy = structuredClone(economy3) as EconomyDef;
   }
   return data;
 }
@@ -92,7 +94,7 @@ export function unitAttack(def: UnitDef, b: BalanceDef): number {
 }
 
 export function enemyHp(def: EnemyDef, round: number, b: BalanceDef): number {
-  if (def.boss && def.hp !== undefined) return def.hp;
+  if ((def.boss || def.event) && def.hp !== undefined) return def.hp;
   return Math.round((b.hp.base + b.hp.coef * round ** b.hp.exp) * def.hpMult);
 }
 

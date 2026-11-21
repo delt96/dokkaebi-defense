@@ -2,5 +2,8 @@
   {"id": "jinegaksi3", "name": "지네각시", "boss": true, "hpMult": 1, "hp": 38000, "speed": 0.9, "resist": {"physical": 0, "magical": 0}},
   {"id": "gangcheori4", "name": "강철이", "boss": true, "hpMult": 1, "hp": 58000, "speed": 0.9, "resist": {"physical": 0, "magical": 0.3}},
   {"id": "jinegaksi5", "name": "지네각시", "boss": true, "hpMult": 1, "hp": 82000, "speed": 0.9, "resist": {"physical": 0, "magical": 0}},
-  {"id": "gangcheori6", "name": "강철이", "boss": true, "hpMult": 1, "hp": 107000, "speed": 0.9, "resist": {"physical": 0, "magical": 0.3}}
+  {"id": "gangcheori6", "name": "강철이", "boss": true, "hpMult": 1, "hp": 107000, "speed": 0.9, "resist": {"physical": 0, "magical": 0.3}},
+  {"id": "ev_soebap", "name": "쇠밥짐승", "boss": false, "event": true, "hpMult": 1, "hp": 3000, "speed": 1.0, "resist": {"physical": 0, "magical": 0}},
+  {"id": "ev_ssireum", "name": "씨름 도깨비", "boss": false, "event": true, "hpMult": 1, "hp": 12000, "speed": 0.9, "resist": {"physical": 0, "magical": 0}},
+  {"id": "ev_shadow", "name": "그늘손", "boss": false, "event": true, "hpMult": 1, "hp": 4000, "speed": 1.6, "resist": {"physical": 0, "magical": 0}}
 ]

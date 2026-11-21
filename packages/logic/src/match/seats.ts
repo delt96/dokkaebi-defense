@@ -51,6 +51,7 @@ function clearLane(lane: GameState): void {
   lane.enemies = [];
   lane.fires = [];
   lane.pendingPity = [];
+  if (lane.econ) { lane.econ.pityQuest = []; lane.econ.pendingDrops = []; }
   lane.upgrades = { physical: 0, magical: 0, polish: 0, slots: 0 };
   lane.tokens = 0;
   lane.coins = 0;

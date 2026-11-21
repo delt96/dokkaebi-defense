@@ -7,9 +7,16 @@ export function isShared(data: GameData, e: Enemy): boolean {
   return ids.has(e.defId);
 }
 
+const eventCache = new WeakMap<GameData, Set<string>>();
+export function isEvent(data: GameData, e: Enemy): boolean {
+  let ids = eventCache.get(data);
+  if (!ids) { ids = new Set(data.enemies.filter(d => d.event).map(d => d.id)); eventCache.set(data, ids); }
+  return ids.has(e.defId);
+}
+
 export function countNormalEnemies(state: GameState): number {
   let n = 0;
-  for (const e of state.enemies) if (!e.boss && e.hp > 0 && !isShared(state.data, e)) n++;
+  for (const e of state.enemies) if (!e.boss && e.hp > 0 && !isShared(state.data, e) && !isEvent(state.data, e)) n++;
   return n;
 }
 

@@ -4,6 +4,7 @@ import { loadGameData } from './data';
 import { spawnEnemy, startRound, waveOf } from './flow';
 import { isShared } from './stats';
 import { addUnit } from './units';
+import { unitValue } from './econ/ledger';
 import { roundAtTick, roundStartTick } from './match/schedule';
 import { stepMatch } from './match/step';
 import './index';
@@ -22,8 +23,11 @@ export function spawnEnemyForTest(state: GameState, defId: string, d: number, hp
   return e;
 }
 
+/** Places a unit directly; on an economy lane it gets its ledger value as cost. */
 export function placeUnitForTest(state: GameState, defId: string, slot: number): Unit {
-  return addUnit(state, defId, slot, []);
+  const u = addUnit(state, defId, slot, []);
+  if (state.econ) u.cost = unitValue(state.data, defId);
+  return u;
 }
 
 export function makeData(patch: (d: GameData) => void, stage: 'stage1' | 'stage2' | 'stage3' = 'stage1'): GameData {
