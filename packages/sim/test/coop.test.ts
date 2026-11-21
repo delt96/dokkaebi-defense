@@ -2,11 +2,16 @@ import { describe, expect, test } from 'vitest';
 import { createMatch, loadGameData, matchHash, replayMatch, stepMatch } from '@dorandi/logic';
 import { jumpToTick, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { followBoss } from '../src/bots';
-import { bossStunRatio, countBossStun, coopRows, runMatch, spiritSupport, teamRow } from '../src/coop';
+import { bossStunRatio, countBossStun, coopRows, gateTicks, runMatch, spiritSupport, teamRow } from '../src/coop';
 
 const data = loadGameData('stage2');
 
 describe('coop sim', () => {
+  test('gate time comes from the stage 2 schedule: 160 s and 200 s from spawn to the gate (spec 3)', () => {
+    expect(gateTicks(data, 1)).toBe(3200);
+    expect(gateTicks(data, 2)).toBe(4000);
+    expect(() => gateTicks(data, 3)).toThrow();
+  });
   test('deterministic and replayable from its input log', () => {
     const a = runMatch(data, 4, ['normal', 'clumsy']);
     expect(a.match.result).not.toBeNull();

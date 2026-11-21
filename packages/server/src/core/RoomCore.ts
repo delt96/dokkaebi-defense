@@ -1,9 +1,8 @@
 import {
-  buildFull, buildTick, createMatch, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
+  buildFull, buildTick, createMatch, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
   type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchState, type NoticeMsg,
   type ResultMsg,
 } from '@dorandi/logic';
-import { jumpToTick } from '@dorandi/logic/testing';
 
 const MAX_SEATS = 6;
 const TICK_MS = 50;

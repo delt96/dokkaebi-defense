@@ -19,6 +19,7 @@ export * from './match/types';
 export { roundStartTick } from './match/schedule';
 export { createMatch, laneSeed, matchHash } from './match/create';
 export { stepMatch } from './match/step';
+export { jumpToTick } from './match/jump';
 export { replayMatch, type InputLogEntry } from './match/replay';
 export { gateDeadlineTick, nextAliveSeat } from './match/yeoksin';
 export * from './match/wire';
