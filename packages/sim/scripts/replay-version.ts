@@ -35,7 +35,7 @@ export async function replayRecorded(record: RecordedMatch): Promise<[number, st
   try {
     const archive = join(dir, 'source.tar');
     execFileSync('git', ['archive', '--output', archive, revision, 'packages/logic', 'package.json', 'package-lock.json'], { cwd: root });
-    execFileSync('tar', ['-xf', archive], { cwd: dir });
+    execFileSync('tar', ['-xf', 'source.tar'], { cwd: dir });
     if (!readFileSync(join(dir, 'package-lock.json')).equals(readFileSync(join(root, 'package-lock.json')))) {
       throw new Error('해당 버전의 의존성을 설치한 작업 폴더에서 실행해 주세요.');
     }
