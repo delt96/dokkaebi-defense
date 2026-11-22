@@ -95,3 +95,20 @@ test('pinning from details replaces the dex target, follows inventory, and survi
   expect(overlay.textContent).toBe('');
   expect(queue).not.toHaveBeenCalled();
 });
+
+test('a redraw keeps the recipe list scroll for the same unit only, and stubbed nodes without querySelector still work', async () => {
+  const { setHtml } = await import('../src/ui/dom');
+  const node = document.createElement('div');
+  const list = (unit: number) => `<div class="card-recipes"><div class="combine-options" data-scroll-key="${unit}">a</div></div><div class="helper">h</div>`;
+  setHtml(node, list(1));
+  node.querySelector<HTMLElement>('.combine-options')!.scrollTop = 30;
+  node.querySelector<HTMLElement>('.helper')!.scrollTop = 12;
+  setHtml(node, `${list(1)} `);
+  expect(node.querySelector<HTMLElement>('.combine-options')!.scrollTop).toBe(30);
+  expect(node.querySelector<HTMLElement>('.helper')!.scrollTop).toBe(12);
+  setHtml(node, list(2));
+  expect(node.querySelector<HTMLElement>('.combine-options')!.scrollTop).toBe(0);
+  const stub = { innerHTML: '', querySelectorAll: () => [] } as unknown as HTMLElement;
+  setHtml(stub, '<b>x</b>');
+  expect(stub.innerHTML).toBe('<b>x</b>');
+});

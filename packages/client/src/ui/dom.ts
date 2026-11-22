@@ -15,15 +15,14 @@ const KEEP_SCROLL = ['.helper', '.quest-scroll', '.econ-body', '.card-recipes .c
 export function setHtml(node: HTMLElement, html: string): void {
   if (last.get(node) === html) return;
   last.set(node, html);
-  const kept = KEEP_SCROLL.flatMap(selector => {
-    const box = node.querySelector<HTMLElement>(selector);
-    return box?.scrollTop ? [{ selector, key: box.dataset.scrollKey, top: box.scrollTop }] : [];
-  });
+  // a box keeps its scroll only when the redraw puts the same list (same data-scroll-key) back in its place
+  const boxes = (selector: string) => Array.from(node.querySelectorAll<HTMLElement>(selector));
+  const kept = KEEP_SCROLL.map(selector => boxes(selector).map(box => ({ key: box.dataset.scrollKey, top: box.scrollTop })));
   node.innerHTML = html;
-  for (const { selector, key, top } of kept) {
-    const box = node.querySelector<HTMLElement>(selector);
-    if (box && box.dataset.scrollKey === key) box.scrollTop = top;
-  }
+  KEEP_SCROLL.forEach((selector, s) => boxes(selector).forEach((box, i) => {
+    const old = kept[s]![i];
+    if (old?.top && box.dataset.scrollKey === old.key) box.scrollTop = old.top;
+  }));
 }
 
 export function onAction(node: HTMLElement, handler: (action: string, arg: string) => void): void {
