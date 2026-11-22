@@ -9,14 +9,14 @@ import { pinButton } from './target';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `quests`: the 60-round quest box, laid at the
  * bottom above the dex button; the settings gear sits under both. */
-export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; quests?: string }
+export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; quests?: string; heldCoins?: number }
 
 export function renderRight(state: GameState, opts: RightOpts = {}): void {
   const m = rightModel(state);
   const needSlot = opts.online === true && !state.slots.some((u, i) => !u && state.open[i]);
   setHtml(el('right'), `
     <div class="res"><b>도깨비불 (뽑기)</b><span>${state.tokens}</span></div>
-    <div class="res"><b>엽전</b><span>${state.coins}</span></div>
+    <div class="res"><b>엽전</b><span>${state.coins - (opts.heldCoins ?? 0)}</span></div>
     <div class="res"><b>메밀묵</b><span>${state.buckwheat}</span></div>
     <button class="big" data-action="summon" title="${esc(summonOddsText(state.data, state.round))}" ${m.canSummon ? '' : 'disabled'}>뚝딱! (${state.tokens}번)</button>
     ${needSlot ? '<div class="need-slot">빈칸 필요</div>' : ''}

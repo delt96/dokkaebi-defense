@@ -16,7 +16,7 @@ import {
   econBottomHtml, econPanelHtml, tameButtonHtml, marketModel, noteText, questChips, tameModel,
   tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type JigeList,
 } from './econ';
-import { advanceReveal, revealDisplay, startReveal, type Reveal } from './gamble';
+import { advanceReveal, heldCoins, revealDisplay, startReveal, type Reveal } from './gamble';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
 import { renderAlert, renderHud } from './hud';
@@ -499,6 +499,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         ...(view ? { online: true, notices: [...moved, ...rightNotices(now)] } : {}),
         ...(s.data.economy?.market ? { market: econTab !== null } : {}),
         quests: questBox(view !== null),
+        heldCoins: heldCoins(reveal),
       });
     }
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');

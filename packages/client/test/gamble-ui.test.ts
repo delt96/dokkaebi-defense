@@ -2,7 +2,7 @@
 import { expect, test } from 'vitest';
 import { createGame, econView, loadGameData, type GambleEvent } from '@dorandi/logic';
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
-import { gambleHtml, gambleModel, advanceReveal, revealDisplay, startReveal } from '../src/ui/gamble';
+import { gambleHtml, gambleModel, advanceReveal, heldCoins, revealDisplay, startReveal } from '../src/ui/gamble';
 
 const data = loadGameData('stage3');
 
@@ -66,4 +66,15 @@ test.each([
       label: '꽝', detail: '위로금 +15냥 · 지게 획득', announcement: '꽝 · 위로금 +15냥 · 지게 획득',
     });
   }
+});
+
+test('the 엽전 count holds back a draw winnings until its result shows', () => {
+  const bet: GambleEvent = { type: 'gambleCoins', stake: 10, multiplier: 2, payout: 20 };
+  const miss: GambleEvent = { type: 'gambleUnit', table: 'small', buckwheatCost: 1, consolation: 15, jige: false, result: 0 };
+  expect(heldCoins(null)).toBe(0);
+  expect(heldCoins(startReveal(0))).toBe(0);
+  const rolling = advanceReveal(startReveal(0), 100, data, bet);
+  expect(heldCoins(rolling)).toBe(20);
+  expect(heldCoins(advanceReveal(rolling, 2000, data))).toBe(0);
+  expect(heldCoins(advanceReveal(startReveal(0), 100, data, miss))).toBe(15);
 });

@@ -22,6 +22,12 @@ export function advanceReveal(reveal: Reveal | null, now: number, data: GameData
   return reveal;
 }
 
+/** Coins the lane already holds from a draw still rolling; the 엽전 count leaves them out until the result shows. */
+export function heldCoins(reveal: Reveal | null): number {
+  if (reveal?.phase !== 'rolling') return 0;
+  return reveal.event.type === 'gambleCoins' ? reveal.event.payout : reveal.event.consolation;
+}
+
 interface ButtonModel {
   action: 'gambleCoins' | 'gambleUnit'; arg: string; label: string;
   blocked: string | null; odds: string;
