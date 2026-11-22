@@ -15,6 +15,36 @@ export function quantile(xs: number[], p: number): number | null {
   return s[Math.min(s.length - 1, Math.max(0, Math.ceil(p * s.length) - 1))]!;
 }
 
+/** Share of finishers holding 3-4 normal grade 6; null for an empty cohort. */
+export function inBandShare(counts: number[]): number | null {
+  if (!counts.length) return null;
+  return counts.filter(n => n >= 3 && n <= 4).length / counts.length;
+}
+
+/** Median with an unfinished sample (null) counted at the limit. */
+export function timeoutMedian(samples: (number | null)[], limit: number): number | null {
+  return median(samples.map(x => x ?? limit));
+}
+
+/** Mean over seeds of the population SD of finishers' grade 6 holdings within the same match. */
+export function seatSpread(rows: { seed: number; finished: boolean; grade6AtFinal: number }[]): number | null {
+  const seeds = [...new Set(rows.map(r => r.seed))];
+  const sds: number[] = [];
+  for (const seed of seeds) {
+    const xs = rows.filter(r => r.seed === seed && r.finished).map(r => r.grade6AtFinal);
+    if (xs.length < 2) continue;
+    const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+    sds.push(Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length));
+  }
+  return sds.length ? sds.reduce((a, b) => a + b, 0) / sds.length : null;
+}
+
+/** Among seats that opened all 18 bags, how many got at least one 지게. */
+export function jigeIncidence(rows: { draws: number; jigeGrants: number }[]): { seats: number; withJige: number } {
+  const full = rows.filter(r => r.draws === 18);
+  return { seats: full.length, withJige: full.filter(r => r.jigeGrants > 0).length };
+}
+
 export function toCsvRows(rows: object[]): string {
   if (!rows.length) return '';
   const cols = Object.keys(rows[0]!);

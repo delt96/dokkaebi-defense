@@ -1,12 +1,12 @@
 import {
-  createMatch, economyVariant, laneSeed, roundStartTick, stepMatch, unitDefFast, waveOf,
+  createMatch, economyVariant, laneSeed, missingMaterials, roundStartTick, stepMatch, unitDefFast, waveOf,
   type EconSection, type GameData, type GameState, type GeneralQuestId, type MatchCommand, type MatchState,
 } from '@dorandi/logic';
 import { EconDriver } from './econDriver';
 import { switchBot, synergyBot, type EconPolicy } from './econBot';
 import { clumsyBot, normalBot, type Bot } from '../bots';
 import { targetBot } from './targetBot';
-import { quantile } from './report';
+import { jigeIncidence, quantile, seatSpread, timeoutMedian } from './report';
 
 export type EconBotKind = 'clumsy' | 'normal' | 'target' | 'switch' | 'synergy';
 export const ECON_BOTS: EconBotKind[] = ['clumsy', 'normal', 'target', 'switch', 'synergy'];
@@ -14,6 +14,8 @@ export const ECON_BOTS: EconBotKind[] = ['clumsy', 'normal', 'target', 'switch',
 export interface EconConfig {
   name: string; bot: EconBotKind; noDefeat: boolean;
   market: boolean; quests: 0 | 2 | 4; tame: boolean;
+  /** Whether the bots spend 지게 (the grants come either way). */
+  useJige: boolean;
 }
 export interface EconRow {
   seed: number; config: string; bot: string; seat: number; finished: boolean; teamOutcome: string; endRound: number;
@@ -21,12 +23,19 @@ export interface EconRow {
   firstGrade6Round: number | null; firstSource: 'combine' | null;
   buckwheat9Round: number | null; buckwheat12Round: number | null; coins180Round: number | null; coins240Round: number | null;
   draws: number; questWins: string; tames: number;
+  /** 지게 received, spent and still held at the end; paid tame attempts (successes included). */
+  jigeGrants: number; jigeUses: number; jigeHeld: number; tameTries: number;
+  /** 묵 after each ten-round settlement (null: the seat was out before it); 묵 just before R60 combat. */
+  muk10: number | null; muk20: number | null; muk30: number | null; muk40: number | null; muk50: number | null; muk60: number | null;
+  /** Ever had every material and the coins for a final grade 6 combine but not the 묵. */
+  mukBlocked: boolean;
   sold: number; missingAtEnd: string; yeoksinKills: number;
   boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null;
 }
 
 const BOSS_ROUNDS = [10, 20, 30, 40, 50, 60] as const;
 type BossCol = `boss${(typeof BOSS_ROUNDS)[number]}`;
+type MukCol = `muk${(typeof BOSS_ROUNDS)[number]}`;
 
 type RunBot = Bot & { currentTarget?(): string | null };
 
@@ -91,7 +100,7 @@ function dropTimedOutBosses(match: MatchState): void {
 export function econMatchRun(data: GameData, seed: number, c: EconConfig): { rows: EconRow[]; yeoksinSeconds: (number | null)[] } {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
-  const policy: EconPolicy = { market: c.market, quests: c.quests > 0, tame: c.tame };
+  const policy: EconPolicy = { market: c.market, quests: c.quests > 0, tame: c.tame, jige: c.useJige };
   const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
   const driver = new EconDriver(match, bots);
   const finalTick = roundStartTick(d, d.balance.rounds);
@@ -103,7 +112,8 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       seed, config: c.name, bot: c.bot, seat: s, finished: false, teamOutcome: '', endRound: 0,
       grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null,
       buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
-      draws: 0, questWins: '', tames: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
+      draws: 0, questWins: '', tames: 0, jigeGrants: 0, jigeUses: 0, jigeHeld: 0, tameTries: 0,
+      muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false, sold: 0, missingAtEnd: '', yeoksinKills: 0,
       boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
     });
     prev.set(s, { coins: 0, buckwheat: 0 });
@@ -113,8 +123,22 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
   const yeoksinSpawn = new Map<number, number>();
   const yeoksinSeconds: (number | null)[] = (d.coop?.yeoksin ?? []).map(() => null);
 
+  const checkpoints = new Map(BOSS_ROUNDS.slice(0, -1).map(r => [roundStartTick(d, r + 1), r]));
+  const finals = d.recipes.filter(x => unitDefFast(d, x.result).grade === 6);
   while (match.result === null && match.tick < MAX_TICKS) {
     if (c.noDefeat) dropTimedOutBosses(match);
+    const settled = checkpoints.get(match.tick);
+    if (settled !== undefined) {
+      for (const s of SEATS) if (match.seats[s]!.alive) rows.get(s)![`muk${settled}` as MukCol] = match.lanes[s]!.buckwheat;
+    }
+    if (match.tick % 10 === 0) {
+      for (const s of SEATS) {
+        const row = rows.get(s)!;
+        const lane = match.lanes[s]!;
+        if (row.mukBlocked || !match.seats[s]!.alive || lane.buckwheat >= 1) continue;
+        row.mukBlocked = finals.some(x => lane.coins >= (x.cost?.coins ?? 0) && missingMaterials(lane, x.result).length === 0);
+      }
+    }
     if (match.tick === finalTick) {
       for (const s of SEATS) {
         const row = rows.get(s)!;
@@ -137,7 +161,9 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       const row = rows.get(s)!;
       const lane = match.lanes[s]!;
       for (const e of step.events) {
-        if (e.type === 'buy') row.draws++;
+        if (e.type === 'buy') { row.draws++; if (e.jige) row.jigeGrants++; }
+        else if (e.type === 'jigeSwap') row.jigeUses++;
+        else if (e.type === 'tameTry') row.tameTries++;
         else if (e.type === 'tame') row.tames++;
         else if (e.type === 'questReward') wins.get(s)!.add(e.quest);
         else if ((e.type === 'combine' || e.type === 'summon') && row.firstGrade6Round === null && isNormal6(lane, e.defId)) {
@@ -172,6 +198,8 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
     row.teamOutcome = result?.outcome ?? 'timeout';
     row.endRound = seatResult?.round ?? match.round;
     row.grade6AtEnd = count6(lane);
+    row.jigeHeld = lane.econ?.jige ?? 0;
+    if (st.alive) row.muk60 = lane.buckwheat;
     row.hidden = countHidden(lane);
     row.questWins = [...wins.get(s)!].sort().join('+');
     row.yeoksinKills = match.yeoksinKills;
@@ -234,13 +262,27 @@ export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data
     const clears = seeds.filter(seed => rs.find(r => r.seed === seed)!.teamOutcome === 'clear').length;
     out.push(`| ${name} | ${rs[0]!.bot} | ${s.finishers}/${rs.length} | ${s.dist.join(' | ')} | ${pct(s.share34)} | ${pct(s.neverRate)} | ${s.medianCount ?? '-'} | ${rnd(s.median)} | ${rnd(s.p90)} | ${medRound(fin.map(r => r.buckwheat9Round))} / ${medRound(fin.map(r => r.buckwheat12Round))} | ${medRound(fin.map(r => r.coins180Round))} / ${medRound(fin.map(r => r.coins240Round))} | ${clears}/${seeds.length} | ${s.pass ? '합격' : '미달'} |`);
   }
+  out.push('', '| 설정 | 판당 보따리 평균 | 0회 자리 | 18회 자리 | 18회 중 지게 받음 | 지게 사용 평균 | 남은 지게 평균 | 유료 길들이기 평균 | 묵 R10 / 20 / 30 / 40 / 50 / 60 중앙값 (표본) | 최종 조합 묵 막힘 | 자리 간 SD |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |');
+  for (const name of configs) {
+    const rs = rows.filter(r => r.config === name);
+    const mean = (xs: number[]) => (xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(2) : '-');
+    const inc = jigeIncidence(rs);
+    const muk = BOSS_ROUNDS.map(r => {
+      const xs = rs.map(x => x[`muk${r}` as MukCol]).filter((v): v is number => v !== null);
+      return `${quantile(xs, 0.5) ?? '-'} (${xs.length})`;
+    }).join(' / ');
+    const sd = seatSpread(rs);
+    out.push(`| ${name} | ${mean(rs.map(r => r.draws))} | ${rs.filter(r => r.draws === 0).length} | ${rs.filter(r => r.draws === 18).length} | ${inc.seats ? `${inc.withJige}/${inc.seats} (${pct(inc.withJige / inc.seats)})` : '0명'} | ${mean(rs.map(r => r.jigeUses))} | ${mean(rs.map(r => r.jigeHeld))} | ${mean(rs.map(r => r.tameTries))} | ${muk} | ${pct(rs.filter(r => r.mukBlocked).length / rs.length)} | ${sd === null ? '-' : sd.toFixed(2)} |`);
+  }
   if (yeoksin.length && data?.coop) {
-    out.push('', '| 역신 관문 | 처치 판 수 | 처치 시간 중앙값(초) | 제한 시간(초) | 제한 대비 |', '| --- | ---: | ---: | ---: | ---: |');
+    out.push('', '| 역신 관문 | 처치 판 수 | 처치 시간 중앙값(초, 미처치는 제한) | 제한 시간(초) | 제한 대비 |', '| --- | ---: | ---: | ---: | ---: |');
     data.coop.yeoksin.forEach((y, i) => {
-      const times = yeoksin.map(t => t[i]).filter((x): x is number => x !== null && x !== undefined);
+      const samples = yeoksin.map(t => t[i] ?? null);
+      const killed = samples.filter(x => x !== null).length;
       const limit = (roundStartTick(data, y.deadlineRound + 1) - roundStartTick(data, y.startRound)) / 20;
-      const med = quantile(times, 0.5);
-      out.push(`| ${y.stage} (${y.startRound}~${y.deadlineRound}R) | ${times.length}/${yeoksin.length} | ${med ?? '-'} | ${limit} | ${med === null ? '-' : pct(med / limit)} |`);
+      const med = timeoutMedian(samples, limit);
+      out.push(`| ${y.stage} (${y.startRound}~${y.deadlineRound}R) | ${killed}/${yeoksin.length} | ${med ?? '-'} | ${limit} | ${med === null ? '-' : pct(med / limit)} |`);
     });
   }
   return out.join('\n');
@@ -250,20 +292,21 @@ const cfg = (bot: EconBotKind, name: string, x: Omit<EconConfig, 'name' | 'bot' 
   ({ name: `${bot}-${name}`, bot, noDefeat: false, ...x });
 
 export const STANDARD_CONFIGS: EconConfig[] = ECON_BOTS.flatMap(bot => [
-  cfg(bot, 'base', { market: false, quests: 0, tame: false }),
-  cfg(bot, 'market', { market: true, quests: 0, tame: false }),
-  cfg(bot, 'quests4', { market: false, quests: 4, tame: false }),
-  cfg(bot, 'full', { market: true, quests: 4, tame: true }),
-  cfg(bot, 'full-q2', { market: true, quests: 2, tame: true }),
+  cfg(bot, 'base', { market: false, quests: 0, tame: false, useJige: false }),
+  cfg(bot, 'market', { market: true, quests: 0, tame: false, useJige: true }),
+  cfg(bot, 'quests4', { market: false, quests: 4, tame: false, useJige: false }),
+  cfg(bot, 'full', { market: true, quests: 4, tame: true, useJige: true }),
+  cfg(bot, 'full-q2', { market: true, quests: 2, tame: true, useJige: true }),
 ]);
 
 const NUMBER_COLS = new Set([
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 
-  'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
+  'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'jigeGrants', 'jigeUses', 'jigeHeld', 'tameTries',
+  'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
 ]);
 const NULLABLE_COLS = new Set([
   'firstGrade6Round', 'firstSource', 'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round',
-  'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
+  'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60', 'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60',
 ]);
 
 /** Reads back rows written by `toCsvRows` (no field contains a comma). */
@@ -277,7 +320,7 @@ export function parseEconCsv(text: string): EconRow[] {
       const v = cells[i] ?? '';
       if (v === '' && NULLABLE_COLS.has(c)) row[c] = null;
       else if (NUMBER_COLS.has(c)) row[c] = Number(v);
-      else if (c === 'finished') row[c] = v === 'true';
+      else if (c === 'finished' || c === 'mukBlocked') row[c] = v === 'true';
       else row[c] = v;
     });
     return row as unknown as EconRow;

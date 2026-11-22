@@ -1,10 +1,11 @@
 import {
-  availableRecipes, marketView, tameCheck, toTicks, unitDefFast, type Command, type GameState,
+  availableRecipes, jigeCandidates, marketView, tameCheck, toTicks, unitDefFast, type Command, type GameState,
 } from '@dorandi/logic';
 import type { Bot } from '../bots';
 import { expandTree, remainingNeed, targetBot } from './targetBot';
 
-export interface EconPolicy { market: boolean; quests: boolean; tame: boolean }
+/** `jige`: spend held 지게 on missing materials (off: hold them; the grant rolls are the same either way). */
+export interface EconPolicy { market: boolean; quests: boolean; tame: boolean; jige?: boolean }
 export type TargetBot = Bot & { currentTarget(): string | null };
 
 const FINAL_COMBINE_COINS = 60;
@@ -61,6 +62,32 @@ export function questCommands(state: GameState, target: string | null): Command[
     if (item) cmds.push({ type: 'combine', result: item });
   }
   return cmds;
+}
+
+/**
+ * One 지게 swap per decision: the highest-grade missing material of the target that a 지게 can give, taken from a
+ * board unit of the same grade the target does not keep (outside its tree, or a spare copy).
+ */
+export function jigeCommands(state: GameState, target: string | null): Command[] {
+  if (!target || !state.econ || state.econ.jige < 1) return [];
+  const { missing, kept } = remainingNeed(state, target);
+  const tree = expandTree(state.data, target);
+  const wanted = [...missing.keys()]
+    .map(id => unitDefFast(state.data, id))
+    .filter(def => !def.hidden && jigeCandidates(state.data, def.id).length > 0)
+    .sort((a, b) => b.grade - a.grade || a.id.localeCompare(b.id));
+  const used = new Map<string, number>();
+  for (const def of wanted) {
+    for (let i = 0; i < state.slots.length; i++) {
+      const u = state.slots[i];
+      if (!u || unitDefFast(state.data, u.defId).grade !== def.grade || u.defId === def.id) continue;
+      const n = (used.get(u.defId) ?? 0) + 1;
+      if (tree.has(u.defId) && n <= (kept.get(u.defId) ?? 0)) { used.set(u.defId, n); continue; }
+      if (!jigeCandidates(state.data, u.defId).some(c => c.id === def.id)) continue;
+      return [{ type: 'jigeSwap', source: { zone: 'board', index: i, unitId: u.id }, result: def.id }];
+    }
+  }
+  return [];
 }
 
 /** The share of max HP at or under which the measurement bots pay for an attempt (the best band). */

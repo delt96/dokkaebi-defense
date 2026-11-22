@@ -182,14 +182,65 @@ function econMatchRunStub(): EconRow[] {
     seed: 1, config: 'target-full', bot: 'target', seat: 2, finished: true, teamOutcome: 'clear', endRound: 60,
     grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, coinsAtFinal: 412, buckwheatAtFinal: 2, firstGrade6Round: 33, firstSource: 'combine',
     buckwheat9Round: 30, buckwheat12Round: null, coins180Round: 6, coins240Round: 8,
-    draws: 12, questWins: 'mission+team', tames: 1, sold: 30,
+    draws: 12, questWins: 'mission+team', tames: 1, jigeGrants: 2, jigeUses: 1, jigeHeld: 1, tameTries: 3,
+    muk10: 2, muk20: 3, muk30: 0, muk40: 1, muk50: null, muk60: null, mukBlocked: true, sold: 30,
     missingAtEnd: 'moru', yeoksinKills: 4,
     boss10: 21.5, boss20: 48.25, boss30: null, boss40: 60, boss50: null, boss60: 70.1,
   }, {
     seed: 1, config: 'target-full', bot: 'target', seat: 3, finished: false, teamOutcome: 'clear', endRound: 41,
     grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null,
     buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
-    draws: 0, questWins: '', tames: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
+    draws: 0, questWins: '', tames: 0, jigeGrants: 0, jigeUses: 0, jigeHeld: 0, tameTries: 0,
+    muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false, sold: 0, missingAtEnd: '', yeoksinKills: 4,
     boss10: 30, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
   }];
 }
+
+describe('economy measurement additions', () => {
+  test('jigeCommands swaps a surplus same-grade normal into the missing material, highest grade first', async () => {
+    const { jigeCommands } = await import('../src/stage3/econBot');
+    const s = lane(22);
+    const recipe = d3.recipes.find(r => r.result === T)!;
+    const missing = recipe.materials.find(m => d3.units.find(u => u.id === m)!.grade <= 4)!;
+    const grade = d3.units.find(u => u.id === missing)!.grade;
+    recipe.materials.filter(m => m !== missing).forEach((m, i) => placeUnitForTest(s, m, i));
+    const spare = d3.units.find(u => !u.hidden && u.grade === grade && !expandHas(T, u.id))!;
+    const unit = placeUnitForTest(s, spare.id, 3);
+    expect(jigeCommands(s, T)).toEqual([]);
+    s.econ!.jige = 1;
+    expect(jigeCommands(s, T)).toEqual([{ type: 'jigeSwap', source: { zone: 'board', index: 3, unitId: unit.id }, result: missing }]);
+  });
+
+  test('--jige on/off makes distinct configs and the policy follows it', async () => {
+    const { cliConfigs } = await import('../src/stage3/cli');
+    const arg = (over: Record<string, string>) => (k: string, d: string) => over[k] ?? d;
+    const on = cliConfigs(arg({ bot: 'synergy', jige: 'on', quests: '2' }));
+    const off = cliConfigs(arg({ bot: 'synergy', jige: 'off', quests: '2' }));
+    expect(on[0]!.useJige).toBe(true);
+    expect(off[0]!.useJige).toBe(false);
+    expect(on[0]!.name).not.toBe(off[0]!.name);
+  });
+
+  test('report helpers: in-band share, timeouts at the limit, seat spread and jige incidence', async () => {
+    const { inBandShare, timeoutMedian, seatSpread, jigeIncidence } = await import('../src/stage3/report');
+    expect(inBandShare([2, 3, 4, 5])).toBe(0.5);
+    expect(inBandShare([])).toBeNull();
+    expect(timeoutMedian([20, null, 30], 40)).toBe(30);
+    const rows = [1, 2, 3].flatMap(seed => [0, 1].map(i => ({ seed, finished: true, grade6AtFinal: i === 0 ? 3 : seed === 1 ? 3 : 4, draws: 18, jigeGrants: seed === 2 ? 0 : 1 })));
+    expect(seatSpread(rows as never)).toBeCloseTo((0 + 0.5 + 0.5) / 3, 9);
+    expect(jigeIncidence(rows as never)).toEqual({ seats: 6, withJige: 4 });
+    expect(1 - 0.97 ** 18).toBeCloseTo(0.422, 3);
+  });
+
+  test('a match row counts draws, jige grants and uses, paid tame tries and 묵 checkpoints; CSV round-trips', () => {
+    const r = econMatchRun(d3, 1, { name: 'synergy-x', bot: 'synergy', noDefeat: true, market: true, quests: 2, tame: true, useJige: true });
+    for (const row of r.rows) {
+      expect(row.draws).toBeLessThanOrEqual(18);
+      expect(row.jigeGrants - row.jigeUses).toBe(row.jigeHeld);
+      expect(row.tameTries).toBeGreaterThanOrEqual(row.tames);
+      expect(typeof row.muk10 === 'number' || row.muk10 === null).toBe(true);
+      expect(typeof row.mukBlocked).toBe('boolean');
+    }
+    expect(parseEconCsv(toCsvRows(r.rows))).toEqual(r.rows);
+  }, 120_000);
+});
