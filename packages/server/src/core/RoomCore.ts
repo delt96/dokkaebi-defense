@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import {
   buildFull, buildTick, createMatch, gambleTier, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
   isDifficulty, type Difficulty, MATCH_STAGES, type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchStage, type MatchState, type NoticeMsg,
-  type RecordedMatch, type ResultMsg,
+  type MatchResult, type RecordedMatch, type ResultMsg,
 } from '@dorandi/logic';
 
 // Resolve once at process start so an existing room keeps its release identity.
@@ -20,7 +20,12 @@ export interface RoomDeps {
   now(): number; random128(): string; randomSeed(): number;
   createRematchRoom(opts: { hostToken: string; keepOpenMs: number; stage?: MatchStage; difficulty?: Difficulty }): Promise<string>;
   setAutoDispose(v: boolean): void; dispose(): void; dev: boolean;
+  /** One line per room event for the hosting dashboard; never carries player names. */
+  log?(line: string): void;
 }
+
+const DIFFICULTY_TEXT: Record<Difficulty, string> = { easy: '쉬움', normal: '보통', hard: '어려움' };
+const OUTCOME_TEXT: Record<MatchResult['outcome'], string> = { clear: '클리어', wipe: '전멸', gate: '관문 실패' };
 /** keepOpenMs: a rematch lobby stays open while empty for this long (the rest of the old room's result hold, capped at the full hold). */
 /** stage: the rule data the room starts with (the host can change it in the lobby); a rematch room gets the old room's. */
 export interface RoomOptions { seed?: number; hostToken?: string; devJumpTick?: number; devNoElimination?: boolean; keepOpenMs?: number; stage?: MatchStage; difficulty?: Difficulty }
@@ -85,6 +90,7 @@ export class RoomCore {
       throw new Error('잘못된 난이도입니다.');
     }
     if (this.stage === 'stage3') this.difficulty = options.difficulty ?? 'normal';
+    deps.log?.('[방] 새 방');
     const keep = options.keepOpenMs;
     if (keep !== undefined && keep > 0) {
       this.keepOpenUntil = deps.now() + Math.min(keep, loadGameData('stage2').coop!.resultSeconds * 1000);
@@ -327,6 +333,8 @@ export class RoomCore {
       this.resultAt = this.deps.now();
       const msg: ResultMsg = { result: structuredClone(match.result) };
       for (const { link } of this.links.values()) link.send('result', msg);
+      const minutes = Math.round(match.result.tick * TICK_MS / 60_000);
+      this.deps.log?.(`[게임 끝] ${this.playLabel()} · ${OUTCOME_TEXT[match.result.outcome]} · ${match.result.round}라운드 · ${minutes}분`);
     }
   }
 
@@ -411,6 +419,13 @@ export class RoomCore {
     this.streamer = new MatchStreamer(this.match);
     this.lastTickAt = deps.now();
     for (const { link, seat } of this.links.values()) this.sendFull(link, seat);
+    deps.log?.(`[게임 시작] ${this.playLabel()}`);
+  }
+
+  /** "4명 · 60라운드 보통" for the log lines. */
+  private playLabel(): string {
+    const mode = this.stage === 'stage3' ? `60라운드 ${DIFFICULTY_TEXT[this.difficulty ?? 'normal']}` : '20라운드';
+    return `${this.match!.ring.length}명 · ${mode}`;
   }
 
   private notice(link: ClientLink, msg: NoticeMsg): void {

@@ -36,6 +36,7 @@ export class MatchRoom extends Room {
       setAutoDispose: v => { this.autoDispose = v; },
       dispose: () => { void this.disconnect(); },
       dev: process.env.DORANDI_DEV === '1',
+      log: line => console.log(line),
     }, roomOptions(options));
     // Its own 10 ms loop: without one, Colyseus only ticks the clock inside the 50 ms patch.
     this.setTimestep(() => this.core.advance(), 10);
