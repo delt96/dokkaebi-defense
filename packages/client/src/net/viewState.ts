@@ -22,6 +22,7 @@ export function viewToGameState(
   const toUnit = (u: MineUnitView) => ({ id: u.id, defId: u.defId, cooldown: 0, attackCount: 0, periodic: [], ...(u.cost !== undefined && { cost: u.cost }) });
   return {
     data,
+    ...(data.balance.difficulties && { difficulty: view.difficulty ?? 'normal' }),
     tick: view.clock.tick,
     phase: view.result ? 'ended' : view.clock.phase,
     round: view.clock.round,

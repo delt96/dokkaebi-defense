@@ -1,3 +1,4 @@
+import { difficultySuffix } from './difficulty';
 import {
   attackIntervalTicks, damageBonus, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
   slotsOpenedAt, upgradeCost, summonOddsForRound,
@@ -298,7 +299,7 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
   const prepTicks = b.prepSeconds * ticksPerSecond;
   const left = state.phase === 'prep' ? prepTicks - state.tick : state.roundEndTick - state.tick;
   return {
-    roundText: state.phase === 'prep' ? '준비' : `${state.round} / ${b.rounds} 라운드`,
+    roundText: (state.phase === 'prep' ? '준비' : `${state.round} / ${b.rounds} 라운드`) + difficultySuffix(state.data, state.difficulty),
     secondsLeft: Math.max(0, Math.ceil(left / ticksPerSecond)),
     enemyText: `우리 고개 잡귀 ${n} / ${b.limit}`,
     danger: Math.min(1, n / b.limit),

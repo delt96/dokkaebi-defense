@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { createGame, loadGameData } from '@dorandi/logic';
+import { createGame, isDifficulty, loadGameData } from '@dorandi/logic';
 import { GameDriver } from './driver';
 import { LaneScene, LANE_CANVAS } from './LaneScene';
 import { stagePlacement } from './layout';
@@ -10,8 +10,10 @@ import './ui/style.css';
 export function startSolo(): void {
   const rules = soloStage(location.search);
   const data = rules === 'stage1' ? loadGameData() : loadGameData(rules);
+  const pick = new URLSearchParams(location.search).get('difficulty');
+  const difficulty = isDifficulty(pick) ? pick : undefined;
   const newSeed = () => (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
-  const driver = new GameDriver(createGame(data, newSeed()));
+  const driver = new GameDriver(createGame(data, newSeed(), difficulty));
   const scene = new LaneScene(driver);
 
   const game = new Phaser.Game({
@@ -37,7 +39,7 @@ export function startSolo(): void {
   fit();
 
   function restart(): void {
-    driver.reset(createGame(data, newSeed()));
+    driver.reset(createGame(data, newSeed(), difficulty));
     scene.reset();
     ui.resetUi();
   }

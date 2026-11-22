@@ -1,4 +1,5 @@
-import { normalizeNickname } from '@dorandi/logic';
+import { difficultyPicker } from '../ui/difficulty';
+import { normalizeNickname, type Difficulty } from '@dorandi/logic';
 import { TEXT } from './text';
 
 export interface EntryOptions {
@@ -85,13 +86,30 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   });
 
   box.append(form);
-  // solo: the 20-round game as before, or the 60-round trial
   const solo = el('div', 'entry-solo');
-  for (const [text, href] of [[TEXT.solo, '/solo'], [TEXT.soloLong, `/solo?${SOLO_LONG_QUERY}`]] as const) {
-    const link = el('a', 'entry-link', text);
-    link.setAttribute('href', href);
+  const choices = el('div', 'lobby-modes');
+  choices.setAttribute('role', 'group');
+  choices.setAttribute('aria-label', '혼자 하기 판 길이');
+  const link = el('a', 'entry-link', TEXT.solo);
+  let rounds = 20;
+  let difficulty: Difficulty = 'normal';
+  function drawSolo(): void {
+    choices.replaceChildren();
+    for (const length of [20, 60]) {
+      const selected = rounds === length;
+      const b = el('button', selected ? 'lobby-mode on' : 'lobby-mode', length === 20 ? TEXT.mode20 : TEXT.mode60);
+      b.type = 'button';
+      b.dataset.rounds = String(length);
+      b.setAttribute('aria-pressed', String(selected));
+      if (!selected) b.onclick = () => { rounds = length; difficulty = 'normal'; drawSolo(); };
+      choices.append(b);
+    }
+    solo.replaceChildren(choices);
+    if (rounds === 60) solo.append(difficultyPicker(difficulty, d => { difficulty = d; drawSolo(); }));
+    link.href = rounds === 60 ? `/solo?${SOLO_LONG_QUERY}&difficulty=${difficulty}` : '/solo';
     solo.append(link);
   }
+  drawSolo();
   box.append(solo);
   root.append(box);
   if (!opts.name) input.focus();

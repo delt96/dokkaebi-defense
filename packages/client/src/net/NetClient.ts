@@ -1,6 +1,6 @@
 import {
   applyFull, applyLane, applyMine, applyTick, canonicalJson, fnv1a, loadGameData, MATCH_STAGES, toWire,
-  type ClientView, type MatchStage, type Command, type FullMsg, type LaneBatch, type LaneMsg, type LobbyMsg, type MineMsg, type NoticeMsg,
+  type ClientView, type Difficulty, type MatchStage, type Command, type FullMsg, type LaneBatch, type LaneMsg, type LobbyMsg, type MineMsg, type NoticeMsg,
   type RejectReason, type ResultMsg, type TickMsg, type UnitView,
 } from '@dorandi/logic';
 import { dimmedSlots, predictStorage, predictUnits, summonsLeft, type PendingCmd } from './predict';
@@ -30,13 +30,25 @@ export function stage2DataVersion(): string {
   return matchDataVersion('stage2');
 }
 
+let previousVersion: string | undefined;
+function legacyStage3Version(): string {
+  if (!previousVersion) {
+    const data = loadGameData('stage3');
+    delete data.balance.difficulties;
+    delete data.balance.defaultDifficulty;
+    previousVersion = fnv1a(canonicalJson(data, new Set()));
+  }
+  return previousVersion;
+}
+
 /** Every version this build can play (20 and 60 rounds); a room on any of them is joined with the matching data. */
 export function knownDataVersions(): string[] {
-  return MATCH_STAGES.map(matchDataVersion);
+  return [...MATCH_STAGES.map(matchDataVersion), legacyStage3Version()];
 }
 
 /** Which stage a snapshot's data version belongs to, or null for a build this page cannot play. */
 export function stageOfVersion(version: string): MatchStage | null {
+  if (version === legacyStage3Version()) return 'stage3';
   return MATCH_STAGES.find(s => matchDataVersion(s) === version) ?? null;
 }
 
@@ -92,7 +104,10 @@ export class NetClient {
   }
 
   /** `stage`: the round count shown when the button was pressed; the server drops a ready given for an old choice. */
-  ready(v: boolean, stage?: MatchStage): void { this.room.send('ready', stage ? { ready: v, stage } : { ready: v }); }
+  ready(v: boolean, stage?: MatchStage, difficulty?: Difficulty): void {
+    this.room.send('ready', { ready: v, ...(stage && { stage }), ...(difficulty && { difficulty }) });
+  }
+  setDifficulty(difficulty: Difficulty): void { this.room.send('difficulty', { difficulty }); }
   start(): void { this.room.send('start', {}); }
   /** Host in the lobby: play 20 rounds ('stage2') or the 60-round trial ('stage3'). */
   setStage(stage: MatchStage): void { this.room.send('stage', { stage }); }
@@ -175,6 +190,7 @@ export class NetClient {
       return;
     }
     const view = applyFull(msg);
+    if (!view.difficulty && stageOfVersion(view.dataVersion) === 'stage3') view.difficulty = 'normal';
     this.view = view;
     this.awaitingFull = false;
     // Unacked commands are dropped (spec 6). Seq never goes back on the same connection: a command

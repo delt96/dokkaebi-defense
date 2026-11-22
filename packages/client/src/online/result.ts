@@ -1,3 +1,4 @@
+import { difficultySuffix } from '../ui/difficulty';
 import { unitDefFast, type EliminationCause, type GameData, type MatchResult, type NoticeMsg, type SeatOutcome, type TeamOutcome } from '@dorandi/logic';
 import type { NetClient } from '../net/NetClient';
 import { esc } from '../ui/dom';
@@ -24,7 +25,7 @@ function statusText(outcome: SeatOutcome, cause: EliminationCause | null, round:
 
 export function teamResultModel(result: MatchResult, names: Record<number, string>, data: GameData): TeamResultModel {
   return {
-    title: TITLE[result.outcome],
+    title: TITLE[result.outcome] + difficultySuffix(data, result.difficulty),
     subtitle: `도달 ${result.round}라운드 · 역신 격파 ${result.yeoksinKills}/${data.coop?.yeoksin.length ?? 2} · 생존 ${result.alive}/${result.started}`,
     rows: result.seats.map(s => {
       const best = s.bestUnit ? `${unitDefFast(data, s.bestUnit.defId).name} (${s.bestUnit.grade}등급)` : '–';

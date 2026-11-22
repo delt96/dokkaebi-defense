@@ -1,3 +1,4 @@
+import { difficultySuffix } from './difficulty';
 import type { GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import { resultModel } from './models';
@@ -38,7 +39,7 @@ export function resultHtml(state: GameState, bestUnitId: string | null): string 
     ? `<span class="dot" style="background:${GRADE_COLOR[m.bestUnit.grade]}"></span>${esc(m.bestUnit.name)} (${m.bestUnit.grade}등급)`
     : '없음';
   return `<div class="modal result">
-    <div class="modal-head">${m.title}${m.reasonText ? ` · ${esc(m.reasonText)}` : ''}</div>
+    <div class="modal-head">${m.title}${difficultySuffix(state.data, state.difficulty)}${m.reasonText ? ` · ${esc(m.reasonText)}` : ''}</div>
     <p>${m.roundReached}라운드까지 버텼습니다.</p>
     <p>라운드별 우리 고개 잡귀 (빨간 점선: 한도 ${state.data.balance.limit})</p>
     ${graph(m.series, state.data.balance.limit)}

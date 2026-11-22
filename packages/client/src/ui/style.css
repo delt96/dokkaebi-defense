@@ -147,7 +147,14 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .screen-box .lobby-mode.on { color: var(--accent); border-color: var(--accent); background: #2a2236; }
 .screen-box .lobby-mode:disabled { cursor: default; opacity: 1; }
 .screen-box .lobby-mode:disabled:not(.on) { opacity: 0.55; }
-.entry-solo { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.lobby .lobby-mode { flex: 1 0 auto; white-space: nowrap; }
+.entry-solo { display: grid; gap: 6px; }
+.entry-solo .entry-link { justify-self: center; padding: 4px 12px; }
+.difficulty-picker { display: flex; justify-content: center; gap: 3px; }
+.screen-box .difficulty-picker button { min-height: 28px; padding: 2px 6px; font-size: 12px; white-space: nowrap; }
+.difficulty-picker button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.difficulty-picker button:disabled { opacity: 0.7; }
+.difficulty-picker button[aria-pressed="true"]:disabled { opacity: 1; }
 
 /* Online battle (spec 7, layout A): 44px bottom card, 292px middle row. */
 body.online #left, body.online #lane, body.online #right { height: 292px; }

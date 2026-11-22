@@ -1,10 +1,11 @@
-import type { LobbyMsg, MatchStage } from '@dorandi/logic';
+import { difficultyPicker } from '../ui/difficulty';
+import type { Difficulty, LobbyMsg, MatchStage } from '@dorandi/logic';
 import { TEXT } from './text';
 
 const SEATS = 6;
 
 export interface LobbyRow { seat: number; text: string; host: boolean; ready: boolean; me: boolean; empty: boolean }
-export interface LobbyModel { rows: LobbyRow[]; canStart: boolean; isHost: boolean; myReady: boolean; hint: string | null; stage: MatchStage }
+export interface LobbyModel { rows: LobbyRow[]; canStart: boolean; isHost: boolean; myReady: boolean; hint: string | null; difficulty?: Difficulty; stage: MatchStage }
 
 export function lobbyModel(msg: LobbyMsg): LobbyModel {
   const rows: LobbyRow[] = [];
@@ -22,11 +23,12 @@ export function lobbyModel(msg: LobbyMsg): LobbyModel {
     isHost,
     myReady: msg.seats.find(s => s.seat === msg.you)?.ready ?? false,
     hint: isHost && !canStart ? TEXT.startHint : null,
+    difficulty: msg.stage === 'stage3' ? msg.difficulty ?? 'normal' : undefined,
     stage: msg.stage ?? 'stage2',
   };
 }
 
-export interface LobbyActions { ready(v: boolean): void; start(): void; copy(): void; stage?(stage: MatchStage): void }
+export interface LobbyActions { ready(v: boolean): void; start(): void; copy(): void; difficulty?(d: Difficulty): void; stage?(stage: MatchStage): void }
 
 const STAGE_CHOICES: { stage: MatchStage; text: string }[] = [
   { stage: 'stage2', text: TEXT.mode20 },
@@ -70,6 +72,7 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
     else if (!on) b.addEventListener('click', () => actions.stage?.(c.stage));
     modes.append(b);
   }
+  if (m.difficulty) modes.append(difficultyPicker(m.difficulty, m.isHost ? actions.difficulty : undefined));
   box.append(modes);
   if (!m.isHost) box.append(el('div', 'lobby-hint', TEXT.modeHostOnly));
 

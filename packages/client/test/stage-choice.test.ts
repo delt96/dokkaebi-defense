@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
-import type { LobbyMsg } from '@dorandi/logic';
+import { createGame, loadGameData, canonicalJson, fnv1a, type LobbyMsg } from '@dorandi/logic';
 import { knownDataVersions, matchDataVersion, NetClient, stage2DataVersion, stageOfVersion } from '../src/net/NetClient';
 import type { RoomLike } from '../src/net/room';
 import { renderEntry, soloStage } from '../src/online/entry';
 import { lobbyModel, renderLobby } from '../src/online/lobby';
+import { hudModel } from '../src/ui/models';
 import { fixtureFull } from './fixtures/net';
 
 const msg = (over: Partial<LobbyMsg> = {}): LobbyMsg => ({
@@ -51,7 +52,7 @@ describe('20 or 60 rounds', () => {
     net.ready(true, 'stage3');
     net.ready(false);
     expect(room.sent.slice(1)).toEqual([{ type: 'ready', msg: { ready: true, stage: 'stage3' } }, { type: 'ready', msg: { ready: false } }]);
-    expect(knownDataVersions()).toEqual([stage2DataVersion(), matchDataVersion('stage3')]);
+    expect(knownDataVersions().slice(0, 2)).toEqual([stage2DataVersion(), matchDataVersion('stage3')]);
     expect(stageOfVersion(stage2DataVersion())).toBe('stage2');
     expect(stageOfVersion(matchDataVersion('stage3'))).toBe('stage3');
     expect(stageOfVersion('other')).toBeNull();
@@ -69,8 +70,45 @@ describe('20 or 60 rounds', () => {
     expect(soloStage('?rounds=60')).toBe('stage3');
     const root = document.createElement('div');
     renderEntry(root, { onSubmit: async () => {} });
-    expect(Array.from(root.querySelectorAll('a')).map(a => [a.textContent, a.getAttribute('href')])).toEqual([
-      ['혼자 하기', '/solo'], ['혼자 하기 · 60라운드 (시험판)', '/solo?rounds=60'],
+    expect(root.querySelector('[data-difficulty]')).toBeNull();
+    root.querySelector<HTMLButtonElement>('[data-rounds="60"]')!.click();
+    expect(root.querySelector('[data-difficulty="normal"]')?.getAttribute('aria-pressed')).toBe('true');
+    root.querySelector<HTMLButtonElement>('[data-difficulty="hard"]')!.click();
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo?rounds=60&difficulty=hard');
+    root.querySelector<HTMLButtonElement>('[data-rounds="20"]')!.click();
+    expect(root.querySelector('[data-difficulty]')).toBeNull();
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo');
+  });
+
+  test('stage three shows the room choice to guests and on the HUD', () => {
+    const message = msg({ stage: 'stage3', you: 2, difficulty: 'easy' });
+    expect(lobbyModel(message).difficulty).toBe('easy');
+    const root = document.createElement('div');
+    renderLobby(root, message, { ready() {}, start() {}, copy() {} });
+    expect(root.querySelector<HTMLButtonElement>('[data-difficulty="easy"]')?.disabled).toBe(true);
+    expect(hudModel(createGame(loadGameData('stage3'), 1, 'easy')).roundText).toContain('쉬움');
+  });
+
+  test('difficulty and ready messages carry the host pick the player saw', () => {
+    const room = new Room();
+    const net = new NetClient(room, knownDataVersions());
+    net.setDifficulty('hard');
+    net.ready(true, 'stage3', 'hard');
+    expect(room.sent).toEqual([
+      { type: 'difficulty', msg: { difficulty: 'hard' } },
+      { type: 'ready', msg: { ready: true, stage: 'stage3', difficulty: 'hard' } },
     ]);
+  });
+
+  test('previous stage three snapshot loads as normal', () => {
+    const legacy = loadGameData('stage3');
+    delete legacy.balance.defaultDifficulty;
+    delete legacy.balance.difficulties;
+    const dataVersion = fnv1a(canonicalJson(legacy, new Set()));
+    const room = new Room();
+    const net = new NetClient(room, knownDataVersions());
+    room.handlers.get('full')!({ ...fixtureFull(), dataVersion });
+    expect(net.view?.difficulty).toBe('normal');
+    expect(stageOfVersion(dataVersion)).toBe('stage3');
   });
 });
