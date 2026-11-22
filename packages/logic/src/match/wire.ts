@@ -1,4 +1,4 @@
-import type { GameEvent, HitEffect, UpgradeId } from '../types';
+import type { Difficulty, GameEvent, HitEffect, UpgradeId } from '../types';
 import type { EconView } from '../econ/view';
 import type { Ack, EliminationCause, MatchEvent, MatchResult } from './types';
 
@@ -33,6 +33,7 @@ export interface MineView {
   econ?: EconMine;
 }
 export interface ClientView {
+  difficulty?: Difficulty;
   n: number; dataVersion: string; clock: ClockView; rows: RowView[]; gate: GateView; yeoksin: YeoksinView | null;
   me: { seat: number; key: string }; mine: MineView; watching: number; lane: LaneView; result: MatchResult | null;
 }
@@ -58,11 +59,11 @@ export interface ResultMsg { result: MatchResult }
 export type MatchStage = 'stage2' | 'stage3';
 export const MATCH_STAGES: readonly MatchStage[] = ['stage2', 'stage3'];
 /** `stage` is left out by older servers; a missing value means 'stage2'. */
-export interface LobbyMsg { roomId: string; you: number; hostSeat: number | null; seats: { seat: number; name: string; ready: boolean }[]; stage?: MatchStage }
+export interface LobbyMsg { roomId: string; you: number; hostSeat: number | null; seats: { seat: number; name: string; ready: boolean }[]; stage?: MatchStage; difficulty?: Difficulty }
 export type NoticeMsg =
   | { kind: 'replaced' } | { kind: 'rematch'; roomId: string; hostToken?: string }
   | { kind: 'rematchReady'; seats: number[] }
-  | { kind: 'roomError'; reason: 'notHost' | 'notReady' | 'notInLobby' };
+  | { kind: 'roomError'; reason: 'notHost' | 'notReady' | 'notInLobby' | 'badDifficulty' };
 export interface WireCommand { seq: number; type: string; args?: Record<string, unknown> }
 export type JoinErrorName = 'badName' | 'dupName' | 'roomFull' | 'alreadyStarted' | 'badKey';
 export const JOIN_ERROR_CODES: Record<JoinErrorName, number> = { badName: 4101, dupName: 4102, roomFull: 4103, alreadyStarted: 4104, badKey: 4105 };

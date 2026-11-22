@@ -127,6 +127,7 @@ export function buildFull(
 ): FullMsg {
   const clock = clockOf(match);
   return {
+    ...(match.options.difficulty && { difficulty: match.options.difficulty }),
     n: opts.n, dataVersion: match.dataVersion, clock,
     rows: rowsOf(match, opts.names, clock.tick), gate: gateOf(match), yeoksin: yeoksinOf(match),
     me: { seat, key: opts.key },

@@ -239,6 +239,7 @@ export function decideResult(match: MatchState, ctx: StepMatchResult): void {
   const outcome = teamOutcome(match, t);
   if (!outcome) return;
   const result: MatchResult = {
+    ...(match.options.difficulty && { difficulty: match.options.difficulty }),
     outcome, tick: t, round: match.round, yeoksinKills: match.yeoksinKills,
     started: match.ring.length, alive: aliveCount(match),
     seats: match.ring.map(s => seatResult(match, s, outcome)),

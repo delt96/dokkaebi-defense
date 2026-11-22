@@ -20,7 +20,7 @@ export interface SeatResult {
   seat: number; outcome: SeatOutcome; cause: EliminationCause | null; round: number; lastEnemies: number; maxEnemies: number;
   series: number[]; bestUnit: { defId: string; grade: number } | null; yeoksinDamage: number; helperOpens: number;
 }
-export interface MatchResult { outcome: TeamOutcome; tick: number; round: number; yeoksinKills: number; started: number; alive: number; seats: SeatResult[] }
+export interface MatchResult { difficulty?: Difficulty; outcome: TeamOutcome; tick: number; round: number; yeoksinKills: number; started: number; alive: number; seats: SeatResult[] }
 export interface MatchOptions { difficulty?: Difficulty; noElimination?: boolean; noGate?: boolean }
 export interface MatchEcon { rng: RngState; team: { streak: number; paid: boolean }; ssireumSeat: number | null }
 export interface MatchState {

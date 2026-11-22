@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { CloseCode, Room, ServerError, matchMaker, type Client } from 'colyseus';
-import { JOIN_ERROR_CODES } from '@dorandi/logic';
+import { isDifficulty, JOIN_ERROR_CODES } from '@dorandi/logic';
 import { JoinError, RoomCore, isMatchStage, type ClientLink, type JoinOptions, type RoomOptions } from './core/RoomCore';
 
 /** Keeps only the room options RoomCore understands, with the right types. */
@@ -14,6 +14,10 @@ function roomOptions(raw: unknown): RoomOptions {
   if (o.devNoElimination === true) out.devNoElimination = true;
   if (typeof o.keepOpenMs === 'number' && Number.isFinite(o.keepOpenMs) && o.keepOpenMs > 0) out.keepOpenMs = o.keepOpenMs;
   if (isMatchStage(o.stage)) out.stage = o.stage;
+  if (o.difficulty !== undefined) {
+    if (!isDifficulty(o.difficulty)) throw new Error('잘못된 난이도입니다.');
+    out.difficulty = o.difficulty;
+  }
   return out;
 }
 
