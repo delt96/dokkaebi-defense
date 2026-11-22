@@ -49,11 +49,11 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
       || !positiveInt(coins.bigMultiplier) || !validOdds(coins.outcomes)
       || !coins.outcomes.every(o => Number.isFinite(o.result) && o.result >= 0
         && coins.stakes.every(s => Number.isSafeInteger(Math.floor(s * o.result))))) errors.push('invalid coin gamble');
-    if (!units || !positiveInt(units.perRound) || !positiveInt(units.bigGrade)
-      || !(units.refund >= 0 && units.refund <= 1)) errors.push('invalid unit gamble');
+    if (!units || !positiveInt(units.perRound) || !positiveInt(units.bigGrade)) errors.push('invalid unit gamble');
     for (const id of ['small', 'big'] as const) {
       const table = units?.tables?.[id];
-      if (!table || !positiveInt(table.price) || !positiveInt(table.fromRound) || table.fromRound > data.balance.rounds
+      if (!table || !positiveInt(table.buckwheatCost) || !Number.isSafeInteger(table.consolation) || table.consolation < 0
+        || !positiveInt(table.fromRound) || table.fromRound > data.balance.rounds
         || !validOdds(table.outcomes) || !table.outcomes.every(({ result }) => result === 0
           || ((result === 'hidden' || [3, 4, 5, 6].includes(result)) && gamblePool(data, result).length > 0))) {
         errors.push(`invalid unit gamble table: ${id}`);

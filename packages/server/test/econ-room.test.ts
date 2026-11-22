@@ -23,17 +23,22 @@ describe('stage 3 economy commands through the room', () => {
     send(r.core, 'a', 2, 'gambleCoins', { stake: 11 });
     send(r.core, 'a', 3, 'gambleUnit', { table: 'huge' });
     send(r.core, 'a', 4, 'gambleUnit', { table: 'small' });
+    send(r.core, 'a', 5, 'gambleUnit', { table: 'big' });
+    send(r.core, 'a', 6, 'gambleCoins', { stake: 50 });
     tickOnce(r.core, r.deps);
     const mine = r.links[0]!.last('mine');
-    expect(mine.acks.map((a: { reason?: string }) => a.reason ?? 'ok')).toEqual(['badArgs', 'badArgs', 'badArgs', 'ok']);
+    expect(mine.acks.map((a: { reason?: string }) => a.reason ?? 'ok')).toEqual([
+      'badArgs', 'badArgs', 'badArgs', 'ok', 'noBuckwheat', 'badArgs',
+    ]);
+    expect(mine.buckwheat).toBe(0);
     expect(mine.econ.market.gamble.units.left).toBe(1);
     expect(match.lanes[2]!.econ!.gamble).toBeUndefined();
 
-    send(r.core, 'a', 5, 'forfeit');
+    send(r.core, 'a', 7, 'forfeit');
     tickOnce(r.core, r.deps);
     expect(match.seats[1]!.alive).toBe(false);
     const coins = lane.coins;
-    send(r.core, 'a', 6, 'gambleCoins', { stake: 10 });
+    send(r.core, 'a', 8, 'gambleCoins', { stake: 10 });
     tickOnce(r.core, r.deps);
     expect(r.links[0]!.last('mine').acks[0]).toMatchObject({ ok: false, reason: 'notAlive' });
     expect(lane.coins).toBe(coins);
@@ -53,7 +58,7 @@ describe('stage 3 economy commands through the room', () => {
     lane.econ!.marketOpen = true;
     lane.coins = 100;
     lane.econ!.rng.gambleCoins = { s: 43 }; // ×10
-    send(r.core, 'a', 1, 'gambleCoins', { stake: 50 });
+    send(r.core, 'a', 1, 'gambleCoins', { stake: 100 });
     tickOnce(r.core, r.deps);
     expect(r.links[1]!.last('notice')).toMatchObject({ kind: 'gamble', hit: '×10 당첨' });
     expect(r.links[0]!.last('notice')).toBeUndefined();

@@ -6,20 +6,20 @@
     "draw": { "buckwheatCost": 1, "perDay": 3, "weights": [2, 1] },
     "gamble": {
       "coins": {
-        "stakes": [10, 50], "perRound": 5, "bigMultiplier": 5,
+        "stakes": [10, 100], "perRound": 5, "bigMultiplier": 5,
         "outcomes": [
           { "result": 0, "chance": 0.38 }, { "result": 0.5, "chance": 0.20 }, { "result": 1.5, "chance": 0.28 },
           { "result": 2, "chance": 0.09 }, { "result": 5, "chance": 0.045 }, { "result": 10, "chance": 0.005 }
         ]
       },
       "units": {
-        "perRound": 2, "refund": 0.20, "bigGrade": 5,
+        "perRound": 2, "bigGrade": 5,
         "tables": {
-          "small": { "price": 60, "fromRound": 1, "outcomes": [
+          "small": { "buckwheatCost": 1, "consolation": 15, "fromRound": 1, "outcomes": [
             { "result": 0, "chance": 0.40 }, { "result": 3, "chance": 0.45 },
             { "result": 4, "chance": 0.13 }, { "result": 5, "chance": 0.02 }
           ] },
-          "big": { "price": 200, "fromRound": 30, "outcomes": [
+          "big": { "buckwheatCost": 2, "consolation": 40, "fromRound": 30, "outcomes": [
             { "result": 0, "chance": 0.35 }, { "result": 4, "chance": 0.45 }, { "result": 5, "chance": 0.17 },
             { "result": 6, "chance": 0.025 }, { "result": "hidden", "chance": 0.005 }
           ] }

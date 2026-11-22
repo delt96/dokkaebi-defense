@@ -126,8 +126,8 @@ export interface GambleOdds<T> { result: T; chance: number }
 export interface GambleDef {
   coins: { stakes: number[]; perRound: number; bigMultiplier: number; outcomes: GambleOdds<number>[] };
   units: {
-    perRound: number; refund: number; bigGrade: number;
-    tables: Record<GambleTable, { price: number; fromRound: number; outcomes: GambleOdds<GambleUnitResult>[] }>;
+    perRound: number; bigGrade: number;
+    tables: Record<GambleTable, { buckwheatCost: number; consolation: number; fromRound: number; outcomes: GambleOdds<GambleUnitResult>[] }>;
   };
 }
 export interface EconomyDef {
@@ -221,7 +221,7 @@ export type Command =
 export type GambleCommand = { type: 'gambleCoins'; stake: number } | { type: 'gambleUnit'; table: GambleTable };
 export type GambleEvent =
   | { type: 'gambleCoins'; stake: number; multiplier: number; payout: number }
-  | ({ type: 'gambleUnit'; table: GambleTable; price: number; refund: number } & (
+  | ({ type: 'gambleUnit'; table: GambleTable; buckwheatCost: number; consolation: number } & (
     { result: 0; defId?: never; unitId?: never } |
     { result: Exclude<GambleUnitResult, 0>; defId: string; unitId: number }
   ));

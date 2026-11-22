@@ -32,7 +32,7 @@ const TABLE_LABEL: Record<GambleTable, string> = { small: '작은 판', big: '�
 const gradeText = (result: number | 'hidden') => result === 0 ? '꽝' : result === 'hidden' ? '숨은 유닛' : `${result}등급`;
 const percent = (chance: number) => `${+(chance * 100).toFixed(4)}%`;
 
-function blockedText(why: RejectReason | null, price: number, coins: number, fromRound?: number): string | null {
+function blockedText(why: RejectReason | null, price: number, balance: number, fromRound?: number): string | null {
   switch (why) {
     case null: return null;
     case 'marketLocked': return '10라운드 보스를 잡으면 열림';
@@ -40,12 +40,13 @@ function blockedText(why: RejectReason | null, price: number, coins: number, fro
     case 'gambleRound': return `${fromRound}라운드부터`;
     case 'gambleLimit': return '이번 라운드 몫을 다 씀';
     case 'noSlot': return '진영 한 칸 비우기';
-    case 'noCoins': return `엽전 ${Math.max(0, price - coins)}냥 부족`;
+    case 'noCoins': return `엽전 ${Math.max(0, price - balance)}냥 부족`;
+    case 'noBuckwheat': return `메밀묵 ${Math.max(0, price - balance)}개 부족`;
     default: return '지금은 할 수 없음';
   }
 }
 
-export function gambleModel(view: GambleView, coins: number): GambleModel {
+export function gambleModel(view: GambleView, coins: number, buckwheat: number): GambleModel {
   const odds = view.coins.outcomes.map(o => `×${o.result} ${percent(o.chance)}`).join(' · ');
   return {
     coins: {
@@ -60,9 +61,9 @@ export function gambleModel(view: GambleView, coins: number): GambleModel {
         const table = view.units.tables[id];
         const odds = table.outcomes.map(o => `${gradeText(o.result)} ${percent(o.chance)}`).join(' · ');
         return {
-          action: 'gambleUnit', arg: id, label: TABLE_LABEL[id], price: `${table.price}냥`,
-          blocked: blockedText(table.why, table.price, coins, table.fromRound),
-          odds: `${odds} · 꽝이면 ${percent(view.units.refund)} 환급`,
+          action: 'gambleUnit', arg: id, label: TABLE_LABEL[id], price: `묵 ${table.buckwheatCost}`,
+          blocked: blockedText(table.why, table.buckwheatCost, buckwheat, table.fromRound),
+          odds: `${odds} · 꽝이면 ${table.consolation}냥 위로금`,
         };
       }),
     },
@@ -101,10 +102,11 @@ export function revealDisplay(reveal: Reveal | null, now: number, data: GameData
     return { phase, tier, motion, label, detail, coin: tier !== 'lose', announcement: `대박! ${label} · ${detail}` };
   }
   const unit = event.defId ? data.units.find(u => u.id === event.defId) : undefined;
+  const lossDetail = event.consolation ? `위로금 +${event.consolation}냥` : undefined;
   return {
     phase, tier, motion, unit, label: unit?.name ?? '꽝',
-    detail: unit ? gradeText(event.result) : event.refund ? `${event.refund}냥 돌려받음` : undefined,
-    announcement: `${gradeText(event.result)} 당첨!`,
+    detail: unit ? gradeText(event.result) : lossDetail,
+    announcement: event.result === 0 ? ['꽝', lossDetail].filter(Boolean).join(' · ') : `${gradeText(event.result)} 당첨!`,
   };
 }
 
