@@ -69,7 +69,6 @@ export function startOnline(opts: { roomId?: string }): void {
       ready: v => n.ready(v, msg.stage, msg.difficulty),
       start: () => n.start(),
       difficulty: d => n.setDifficulty(d),
-      stage: s => n.setStage(s),
       copy: () => { void navigator.clipboard?.writeText(location.href).catch(() => undefined); },
     }, notice);
   };

@@ -147,11 +147,6 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .lobby-hint { color: var(--ink-dim); font-size: 13px; text-align: center; }
 .lobby-modes { display: flex; align-items: center; gap: 6px; }
 .lobby-mode-label { color: var(--ink-dim); font-size: 13px; white-space: nowrap; }
-.screen-box .lobby-mode { flex: 1; min-height: 34px; font-size: 14px; background: var(--panel); color: var(--ink-dim); border: 1px solid var(--panel-edge); }
-.screen-box .lobby-mode.on { color: var(--accent); border-color: var(--accent); background: #2a2236; }
-.screen-box .lobby-mode:disabled { cursor: default; opacity: 1; }
-.screen-box .lobby-mode:disabled:not(.on) { opacity: 0.55; }
-.lobby .lobby-mode { flex: 1 0 auto; white-space: nowrap; }
 .entry-solo { display: grid; gap: 6px; }
 .entry-solo .entry-link { justify-self: center; padding: 4px 12px; }
 .difficulty-picker { display: flex; justify-content: center; gap: 3px; }

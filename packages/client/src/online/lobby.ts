@@ -28,12 +28,7 @@ export function lobbyModel(msg: LobbyMsg): LobbyModel {
   };
 }
 
-export interface LobbyActions { ready(v: boolean): void; start(): void; copy(): void; difficulty?(d: Difficulty): void; stage?(stage: MatchStage): void }
-
-const STAGE_CHOICES: { stage: MatchStage; text: string }[] = [
-  { stage: 'stage2', text: TEXT.mode20 },
-  { stage: 'stage3', text: TEXT.mode60 },
-];
+export interface LobbyActions { ready(v: boolean): void; start(): void; copy(): void; difficulty?(d: Difficulty): void }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -57,24 +52,15 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
   });
   box.append(copy);
 
-  // the host picks the round count; everyone else sees the pick
+  // new rooms are 60 rounds and the host picks the difficulty; a 20-round room from an old client only says so
   const modes = el('div', 'lobby-modes');
   modes.setAttribute('role', 'group');
   modes.setAttribute('aria-label', TEXT.modeLabel);
-  modes.append(el('span', 'lobby-mode-label', TEXT.modeLabel));
-  for (const c of STAGE_CHOICES) {
-    const on = m.stage === c.stage;
-    const b = el('button', on ? 'lobby-mode on' : 'lobby-mode', c.text);
-    b.type = 'button';
-    b.setAttribute('aria-pressed', String(on));
-    b.dataset.stage = c.stage;
-    if (!m.isHost) b.disabled = true;
-    else if (!on) b.addEventListener('click', () => actions.stage?.(c.stage));
-    modes.append(b);
-  }
-  if (m.difficulty) modes.append(difficultyPicker(m.difficulty, m.isHost ? actions.difficulty : undefined));
+  if (m.difficulty) {
+    modes.append(el('span', 'lobby-mode-label', TEXT.modeLabel), difficultyPicker(m.difficulty, m.isHost ? actions.difficulty : undefined));
+  } else modes.append(el('span', 'lobby-mode-label', TEXT.legacyMode));
   box.append(modes);
-  if (!m.isHost) box.append(el('div', 'lobby-hint', TEXT.modeHostOnly));
+  if (!m.isHost && m.difficulty) box.append(el('div', 'lobby-hint', TEXT.modeHostOnly));
 
   const list = el('ul', 'lobby-rows');
   for (const r of m.rows) {

@@ -47,9 +47,14 @@ export function devCreateOptions(search: string, dev: boolean): { devJumpTick?: 
   return m ? { devJumpTick: Number(m[1]) } : {};
 }
 
+/** Room options for a new room: always the 60-round game (the server still takes 20-round rooms from old clients). */
+export function roomCreateOptions(name: string, extra: { devJumpTick?: number } = {}): { name: string; stage: 'stage3'; devJumpTick?: number } {
+  return { name, stage: 'stage3', ...extra };
+}
+
 export async function connectCreate(name: string, extra: { devJumpTick?: number } = {}): Promise<RoomLike> {
   try {
-    return wrap(await new Client(serverUrl()).create('match', { name, ...extra }));
+    return wrap(await new Client(serverUrl()).create('match', roomCreateOptions(name, extra)));
   } catch (err) {
     return rethrow(err);
   }

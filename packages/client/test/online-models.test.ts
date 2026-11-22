@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
 import { loadGameData, type ClientView, type GateView, type RowView, type YeoksinView } from '@dorandi/logic';
-import { devCreateOptions } from '../src/net/room';
+import { devCreateOptions, roomCreateOptions } from '../src/net/room';
 import { noteSupport, rightNotices, rowsModel, topModel, watchSupport } from '../src/online/models';
 import { renderRows, renderTop } from '../src/online/panels';
 import { NetClient } from '../src/net/NetClient';
@@ -117,5 +117,9 @@ describe('dev jump option', () => {
     expect(devCreateOptions('?dev=jump4590', false)).toEqual({});
     expect(devCreateOptions('?dev=jumpx', true)).toEqual({});
     expect(devCreateOptions('', true)).toEqual({});
+  });
+  test('a new room is always the 60-round game', () => {
+    expect(roomCreateOptions('하나')).toEqual({ name: '하나', stage: 'stage3' });
+    expect(roomCreateOptions('하나', { devJumpTick: 4590 })).toEqual({ name: '하나', stage: 'stage3', devJumpTick: 4590 });
   });
 });

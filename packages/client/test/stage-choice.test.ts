@@ -22,25 +22,33 @@ class Room implements RoomLike {
   async leave(): Promise<void> {}
 }
 
-describe('20 or 60 rounds', () => {
-  test('lobby shows the pick; only the host can change it', () => {
+describe('60 rounds only on screen; 20-round rooms still load', () => {
+  test('lobby: no round-count choice, the host picks the difficulty, guests see it', () => {
     expect(lobbyModel(msg()).stage).toBe('stage2');
     expect(lobbyModel(msg({ stage: 'stage3' })).stage).toBe('stage3');
     const picks: string[] = [];
     const root = document.createElement('div');
-    renderLobby(root, msg(), { ready: () => {}, start: () => {}, copy: () => {}, stage: s => picks.push(s) });
-    const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('.lobby-mode'));
-    expect(buttons.map(b => b.textContent)).toEqual(['20라운드', '60라운드 (시험판)']);
-    expect(buttons.map(b => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
-    buttons[0]!.click(); buttons[1]!.click();
-    expect(picks).toEqual(['stage3']);
+    renderLobby(root, msg({ stage: 'stage3' }), { ready: () => {}, start: () => {}, copy: () => {}, difficulty: d => picks.push(d) });
+    expect(root.querySelector('.lobby-mode, [data-stage]')).toBeNull();
+    expect(root.textContent).not.toContain('20라운드');
+    expect(root.textContent).not.toContain('시험판');
+    expect(root.querySelector('[data-difficulty="normal"]')?.getAttribute('aria-pressed')).toBe('true');
+    root.querySelector<HTMLButtonElement>('[data-difficulty="hard"]')!.click();
+    expect(picks).toEqual(['hard']);
 
     const guest = document.createElement('div');
-    renderLobby(guest, msg({ you: 2, stage: 'stage3' }), { ready: () => {}, start: () => {}, copy: () => {}, stage: s => picks.push(s) });
-    const gb = Array.from(guest.querySelectorAll<HTMLButtonElement>('.lobby-mode'));
+    renderLobby(guest, msg({ you: 2, stage: 'stage3' }), { ready: () => {}, start: () => {}, copy: () => {} });
+    const gb = Array.from(guest.querySelectorAll<HTMLButtonElement>('[data-difficulty]'));
+    expect(gb).toHaveLength(3);
     expect(gb.every(b => b.disabled)).toBe(true);
-    expect(gb[1]!.getAttribute('aria-pressed')).toBe('true');
-    expect(guest.textContent).toContain('판 길이는 방장이 정합니다');
+    expect(guest.textContent).toContain('난이도는 방장이 정합니다');
+  });
+
+  test('lobby: a 20-round room made by an old client says so and offers no switch', () => {
+    const root = document.createElement('div');
+    renderLobby(root, msg(), { ready: () => {}, start: () => {}, copy: () => {} });
+    expect(root.querySelector('button.lobby-mode, [data-stage], [data-difficulty]')).toBeNull();
+    expect(root.querySelector('.lobby-modes')?.textContent).toBe('20라운드 방');
   });
 
   test('the client sends the pick and plays either data version', () => {
@@ -64,20 +72,20 @@ describe('20 or 60 rounds', () => {
     expect(kinds).toEqual(['view', 'versionMismatch']);
   });
 
-  test('solo: the entry page links both lengths; only ?rounds=60 changes the data', () => {
+  test('solo: the entry page shows only the 60-round difficulty buttons; ?rounds=60 still picks the data', () => {
     expect(soloStage('')).toBe('stage1');
     expect(soloStage('?rounds=20')).toBe('stage1');
     expect(soloStage('?rounds=60')).toBe('stage3');
     const root = document.createElement('div');
     renderEntry(root, { onSubmit: async () => {} });
-    expect(root.querySelector('[data-difficulty]')).toBeNull();
-    root.querySelector<HTMLButtonElement>('[data-rounds="60"]')!.click();
+    expect(root.querySelector('[data-rounds], .lobby-mode')).toBeNull();
+    expect(root.textContent).not.toContain('시험판');
     expect(root.querySelector('[data-difficulty="normal"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo?rounds=60&difficulty=normal');
+    expect(root.querySelector('a')?.textContent).toBe('혼자 하기');
     root.querySelector<HTMLButtonElement>('[data-difficulty="hard"]')!.click();
+    expect(root.querySelector('[data-difficulty="hard"]')?.getAttribute('aria-pressed')).toBe('true');
     expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo?rounds=60&difficulty=hard');
-    root.querySelector<HTMLButtonElement>('[data-rounds="20"]')!.click();
-    expect(root.querySelector('[data-difficulty]')).toBeNull();
-    expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo');
   });
 
   test('stage three shows the room choice to guests and on the HUD', () => {
