@@ -1,4 +1,5 @@
 import { gameAudio } from '../audio/engine';
+import { audioSettingsHtml, wireAudioSettings } from '../audio/settings-ui';
 import { NetClient, knownDataVersions, stageOfVersion, type NetEvent } from '../net/NetClient';
 import { connectCreate, connectJoin, devCreateOptions, type RoomLike } from '../net/room';
 import { clearSession, lastName, loadSession } from '../net/session';
@@ -67,6 +68,17 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     root.append(box);
   };
 
+  // one sound panel for the whole lobby stay, moved into each re-rendered box so it keeps its state
+  let lobbyAudio: HTMLDetailsElement | undefined;
+  const lobbyAudioPanel = (): HTMLDetailsElement => {
+    if (lobbyAudio) return lobbyAudio;
+    const panel = document.createElement('details');
+    panel.className = 'lobby-audio';
+    panel.innerHTML = `<summary>${TEXT.soundSettings}</summary>${audioSettingsHtml()}`;
+    wireAudioSettings(panel);
+    return (lobbyAudio = panel);
+  };
+
   const showLobby = (): void => {
     const msg = net?.lobby;
     if (!net || !msg) return;
@@ -78,6 +90,8 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
       difficulty: d => n.setDifficulty(d),
       copy: () => { void navigator.clipboard?.writeText(location.href).catch(() => undefined); },
     }, notice);
+    gameAudio.musicMode('normal');
+    root.querySelector('.lobby .lobby-modes')?.append(lobbyAudioPanel());
   };
 
   const flashNotice = (text: string): void => {

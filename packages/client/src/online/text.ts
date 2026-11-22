@@ -14,6 +14,7 @@ export const TEXT = {
   connecting: '연결하는 중',
   started: '판이 시작되었습니다',
   lobbyTitle: '대기실',
+  soundSettings: '소리 설정',
   copy: '링크 복사',
   copied: '복사했습니다',
   host: '방장',

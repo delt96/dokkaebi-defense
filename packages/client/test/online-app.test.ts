@@ -189,3 +189,24 @@ describe('online app: leaving and coming back (spec 6)', () => {
     expect(sessionStorage.getItem('dorandi.rematch')).toBeNull();
   });
 });
+
+describe('online app: music in the ready room', () => {
+  test('the lobby plays the normal track and offers the sound controls, kept across lobby updates', async () => {
+    const { gameAudio } = await import('../src/audio/engine');
+    const music = vi.spyOn(gameAudio, 'musicMode');
+    saveSession('r1', { key: 'k0', name: '하나' });
+    const room = new FakeRoom('r1');
+    join.mockResolvedValueOnce(room);
+    startOnline({ roomId: 'r1' });
+    await vi.advanceTimersByTimeAsync(0);
+    const lobby = { roomId: 'r1', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: false }] };
+    room.emit('lobby', lobby);
+    expect(music).toHaveBeenLastCalledWith('normal');
+    const panel = screen().querySelector('.lobby .lobby-audio');
+    expect(panel?.querySelector('#audio-music')).not.toBeNull();
+    expect(panel?.querySelector('#audio-effects')).not.toBeNull();
+    room.emit('lobby', { ...lobby, seats: [{ seat: 1, name: '하나', ready: true }] });
+    expect(screen().querySelector('.lobby .lobby-audio')).toBe(panel);
+    music.mockRestore();
+  });
+});

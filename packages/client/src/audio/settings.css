@@ -23,3 +23,17 @@ body.online #modal .modal.settings-pop:has(.audio-settings) {
 .music-credits ul { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 6px; padding: 0; margin: 0; list-style: none; }
 .music-credits a { color: var(--accent); }
 .entry-credits { border-top: 1px solid var(--panel-edge); }
+.lobby-audio { position: relative; margin-left: auto; }
+.lobby-audio > summary {
+  list-style: none; cursor: pointer; white-space: nowrap;
+  font-size: 12px; padding: 5px 8px; border: 1px solid var(--panel-edge); background: var(--panel); color: var(--ink);
+}
+.lobby-audio > summary::-webkit-details-marker { display: none; }
+.lobby-audio[open] > summary { border-color: var(--accent); color: var(--accent); }
+.lobby-audio > .audio-settings {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 5; width: 290px;
+  margin: 0; padding: 4px 8px 6px; background: var(--panel); border: 1px solid var(--accent);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.5); font-size: 13px;
+}
+.lobby-audio .audio-row { grid-template-columns: 76px minmax(0, 1fr) auto; }
+.lobby-audio .audio-row button { min-height: 24px; padding: 1px 6px; font-size: 12px; white-space: nowrap; }
