@@ -55,28 +55,29 @@ export function marketCommands(state: GameState, target: string | null, freeAfte
  */
 export const BOT_HUNT_SHARE = 0.15;
 
+const GAMBLE_RESERVE = 85;
+
+export function surplusGamble(state: GameState, target: string | null): GambleCommand | null {
+  const g = state.data.economy?.market?.gamble;
+  if (!g) return null;
+  const surplusMuk = state.buckwheat - buckwheatNeed(state, target);
+  for (const table of ['big', 'small'] as const) {
+    const cmd = { type: 'gambleUnit', table } as const;
+    if (surplusMuk >= g.units.tables[table].buckwheatCost && gambleCheck(state, cmd) === null) return cmd;
+  }
+  const surplusCoins = state.coins - GAMBLE_RESERVE;
+  for (const stake of [...g.coins.stakes].sort((a, b) => b - a)) {
+    const cmd = { type: 'gambleCoins', stake } as const;
+    if (surplusCoins >= stake && gambleCheck(state, cmd) === null) return cmd;
+  }
+  return null;
+}
+
 /**
  * One 격파 summon per decision: the first target that is ready, whose HP at its level is at most BOT_HUNT_SHARE of the
  * board's DPS over the time limit, whose fee leaves the final-combine reserve, while no lane boss is alive and the lane
  * is under half its enemy limit.
  */
-const GAMBLE_RESERVE = 85;
-
-export function surplusGamble(state: GameState): GambleCommand | null {
-  const g = state.data.economy?.market?.gamble;
-  if (!g) return null;
-  const surplus = state.coins - GAMBLE_RESERVE;
-  for (const table of ['big', 'small'] as const) {
-    const cmd = { type: 'gambleUnit', table } as const;
-    if (surplus >= g.units.tables[table].price && gambleCheck(state, cmd) === null) return cmd;
-  }
-  for (const stake of [...g.coins.stakes].sort((a, b) => b - a)) {
-    const cmd = { type: 'gambleCoins', stake } as const;
-    if (surplus >= stake && gambleCheck(state, cmd) === null) return cmd;
-  }
-  return null;
-}
-
 export function huntCommands(state: GameState, target: string | null): Command[] {
   const hunts = state.data.economy?.hunts;
   if (!hunts || !state.econ || state.phase !== 'round') return [];

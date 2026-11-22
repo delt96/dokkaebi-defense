@@ -4,7 +4,7 @@ import {
 } from '@dorandi/logic';
 import { forceRound, jumpToTick, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import {
-  BOT_HUNT_SHARE, buckwheatNeed, huntCommands, marketCommands, questCommands, reserveCoins, switchBot, tameCommands, type EconPolicy,
+  BOT_HUNT_SHARE, buckwheatNeed, huntCommands, marketCommands, questCommands, reserveCoins, surplusGamble, switchBot, tameCommands, type EconPolicy,
 } from '../src/stage3/econBot';
 import { EconDriver } from '../src/stage3/econDriver';
 import { expandTree, targetBot } from '../src/stage3/targetBot';
@@ -28,6 +28,26 @@ const count = (cmds: Command[], type: string, item?: string) =>
   cmds.filter(c => c.type === type && (item === undefined || (c as { item?: string }).item === item)).length;
 
 describe('stage 3 economy bot policies', () => {
+  test('gamble driver protects the last 묵 for its final combine', () => {
+    const m = createMatch(d3, 1, [1]);
+    const s = m.lanes[1]!;
+    forceRound(s, 30);
+    s.econ!.marketOpen = true;
+    for (const [i, id] of d3.recipes.find(r => r.result === T)!.materials.entries()) placeUnitForTest(s, id, i);
+    s.coins = 185;
+    s.buckwheat = 1;
+    const driver = new EconDriver(m, [{ name: 'recipe', decide: () => [], currentTarget: () => T }], true);
+    expect(buckwheatNeed(s, T)).toBe(1);
+    expect(driver.inputs().map(i => i.cmd)).toEqual([{ type: 'gambleCoins', stake: 100 }]);
+    s.coins = 0;
+    s.buckwheat = 2;
+    expect(surplusGamble(s, T)).toEqual({ type: 'gambleUnit', table: 'small' });
+    s.buckwheat = 3;
+    expect(surplusGamble(s, T)).toEqual({ type: 'gambleUnit', table: 'big' });
+    forceRound(s, 29);
+    expect(surplusGamble(s, T)).toEqual({ type: 'gambleUnit', table: 'small' });
+  });
+
   test('격파 policy summons a ready target the board can kill, never during a boss or near the limit', () => {
     const s = lane(5, 100);
     s.spawned = d3.balance.spawnCount;
@@ -243,8 +263,13 @@ describe('economy measurement additions', () => {
   });
 
   test('a match row counts draws, jige grants and uses, paid tame tries and 묵 checkpoints; CSV round-trips', () => {
-    const r = econMatchRun(d3, 1, { name: 'synergy-x', bot: 'synergy', noDefeat: true, market: true, quests: 2, tame: true, useJige: true });
+    const r = econMatchRun(d3, 1, { name: 'synergy-x', bot: 'synergy', noDefeat: true, market: true, quests: 2, tame: true, useJige: true, gamble: true });
+    expect(r.rows.some(row => row.unitMuk! > 0)).toBe(true);
+    expect(r.rows.some(row => row.huntWins)).toBe(true);
     for (const row of r.rows) {
+      expect(row.unitMuk).toBe(row.smallPlays! + 2 * row.bigPlays!);
+      expect(row.unitConsolation).toBeGreaterThanOrEqual(15 * row.gambleMiss!);
+      expect(row.huntWins!.split('+').filter(Boolean)).toHaveLength(row.huntKills);
       expect(row.draws).toBeLessThanOrEqual(18);
       expect(row.jigeGrants - row.jigeUses).toBe(row.jigeHeld);
       expect(row.tameTries).toBeGreaterThanOrEqual(row.tames);
