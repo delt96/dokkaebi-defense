@@ -1,4 +1,4 @@
-import type { Command, GameData, GameEvent, GameState, RejectReason, StepResult } from './types';
+import type { Command, Difficulty, GameData, GameEvent, GameState, RejectReason, StepResult } from './types';
 import { createRng, deriveSeed } from './rng';
 import { createEcon } from './econ/ledger';
 import { eventsTick } from './econ/events';
@@ -20,7 +20,7 @@ import './econ/tame';
 export { laneOf } from './lane';
 export { registerAfterCommands, registerCommand, registerPhase } from './registry';
 
-export function createGame(data: GameData, seed: number): GameState {
+export function createGame(data: GameData, seed: number, difficulty?: Difficulty): GameState {
   const { cols, rows, initialOpenRows } = data.balance.grid;
   const total = cols * rows;
   const state: GameState = {
@@ -38,6 +38,7 @@ export function createGame(data: GameData, seed: number): GameState {
     rng: { summon: createRng(deriveSeed(seed, 'summon')), combat: createRng(deriveSeed(seed, 'combat')) },
     nextId: 1,
   };
+  if (data.balance.difficulties) state.difficulty = difficulty ?? data.balance.defaultDifficulty!;
   if (data.economy) state.econ = createEcon(seed, data.economy);
   return state;
 }

@@ -30,7 +30,7 @@ export function startRound(state: GameState, round: number, events: GameEvent[])
   state.roundStartTick = state.tick;
   state.roundEndTick = state.tick + toTicks(wave.type === 'boss' ? b.bossRoundSeconds : b.roundSeconds);
   state.spawned = 0;
-  state.tokens += b.tokens.perRound;
+  state.tokens += b.difficulties?.[state.difficulty ?? 'normal'].tokensPerRound ?? b.tokens.perRound;
   state.stats.push({ round, hpSpawned: 0, damageDealt: 0, damageInRound: 0, maxEnemies: countNormalEnemies(state), endEnemies: 0, bossKillSeconds: null });
   events.push({ type: 'roundStart', round });
   if (state.econ) econRoundStart(state, events);

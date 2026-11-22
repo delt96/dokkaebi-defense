@@ -1,4 +1,4 @@
-import type { GameData } from './types';
+import { DIFFICULTIES, type GameData } from './types';
 import { gradeValue, recipeDemand, recipeValue } from './data';
 
 const SHAPES: Record<number, number[][]> = { 2: [[1, 1]], 3: [[1, 1, 2]], 4: [[2, 2, 3]], 5: [[4, 4]], 6: [[3, 5, 5], [4, 5, 5]] };
@@ -9,6 +9,13 @@ const costKey = (c: { buckwheat?: number; coins?: number } | undefined): string 
 
 export function validateData(data: GameData): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
+  if (data.balance.rounds === 60) {
+    if (data.balance.defaultDifficulty !== 'normal') errors.push('invalid defaultDifficulty');
+    for (const d of DIFFICULTIES) {
+      const grant = data.balance.difficulties?.[d]?.tokensPerRound;
+      if (grant === undefined || !Number.isInteger(grant) || grant <= 0) errors.push(`invalid difficulties.${d}`);
+    }
+  }
   const eco = data.economy;
   if (eco && (!Number.isInteger(eco.startingBuckwheat) || eco.startingBuckwheat < 0)) errors.push('invalid startingBuckwheat');
   const market = eco?.market;

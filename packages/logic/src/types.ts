@@ -51,7 +51,15 @@ export interface GridDef {
   cols: number; rows: number; initialOpenRows: number;
   frame?: { cols: number; rows: number };
 }
+export const DIFFICULTIES = ['easy', 'normal', 'hard'] as const;
+export type Difficulty = typeof DIFFICULTIES[number];
+export function isDifficulty(value: unknown): value is Difficulty {
+  return DIFFICULTIES.some(d => d === value);
+}
+
 export interface BalanceDef {
+  defaultDifficulty?: Difficulty;
+  difficulties?: Record<Difficulty, { tokensPerRound: number }>;
   tickMs: number; prepSeconds: number; roundSeconds: number; bossRoundSeconds: number;
   spawnCount: number; spawnIntervalSeconds: number; rounds: number;
   hp: { base: number; coef: number; exp: number };
@@ -151,6 +159,7 @@ export interface GroundFire { source: string; from: number; to: number; basePerP
 export interface RoundStats { round: number; hpSpawned: number; damageDealt: number; damageInRound: number; maxEnemies: number; endEnemies: number; bossKillSeconds: number | null }
 export interface GameResult { outcome: 'clear' | 'defeat'; reason: 'limit' | 'boss' | null; round: number }
 export interface GameState {
+  difficulty?: Difficulty;
   data: GameData; tick: number; phase: 'prep' | 'round' | 'ended';
   round: number; roundStartTick: number; roundEndTick: number; spawned: number;
   result: GameResult | null;

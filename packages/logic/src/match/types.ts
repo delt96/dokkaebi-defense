@@ -1,4 +1,4 @@
-import type { Command, Enemy, GameData, GameEvent, GameState, GroundFire, RejectReason, RngState } from '../types';
+import type { Command, Difficulty, Enemy, GameData, GameEvent, GameState, GroundFire, RejectReason, RngState } from '../types';
 
 export type EliminationCause = 'limit' | 'boss' | 'forfeit' | 'disconnect';
 /** 'tamed': the boss joined the seat (stage 3); it counts as dealt with, never as a kill. */
@@ -21,7 +21,7 @@ export interface SeatResult {
   series: number[]; bestUnit: { defId: string; grade: number } | null; yeoksinDamage: number; helperOpens: number;
 }
 export interface MatchResult { outcome: TeamOutcome; tick: number; round: number; yeoksinKills: number; started: number; alive: number; seats: SeatResult[] }
-export interface MatchOptions { noElimination?: boolean; noGate?: boolean }
+export interface MatchOptions { difficulty?: Difficulty; noElimination?: boolean; noGate?: boolean }
 export interface MatchEcon { rng: RngState; team: { streak: number; paid: boolean }; ssireumSeat: number | null }
 export interface MatchState {
   data: GameData; dataVersion: string; seed: number; ring: number[];

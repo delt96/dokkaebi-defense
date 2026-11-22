@@ -33,11 +33,13 @@ export function createMatch(data: GameData, seed: number, seats: number[], optio
   if (seats.length === 0) throw new Error('createMatch needs at least one seat');
   for (const s of seats) if (!Number.isInteger(s) || s < 1 || s > MAX_SEAT) throw new Error(`bad seat ${s}`);
   if (new Set(seats).size !== seats.length) throw new Error('duplicate seat');
+  const { difficulty, ...rules } = options;
+  options = data.balance.difficulties ? { ...rules, difficulty: difficulty ?? data.balance.defaultDifficulty! } : rules;
   const ring = [...seats].sort((a, b) => a - b);
   const lanes: Record<number, GameState> = {};
   const seatStates: Record<number, SeatState> = {};
   for (const s of ring) {
-    lanes[s] = createGame(data, laneSeed(seed, s));
+    lanes[s] = createGame(data, laneSeed(seed, s), options.difficulty);
     seatStates[s] = freshSeat(s, data);
   }
   const match: MatchState = {
