@@ -24,3 +24,20 @@ test('paired combat differences use each seed and count timeouts at the limit', 
   expect(debuffSummary([{ control: 30, treatment: 20 }, { control: null, treatment: 50 }], 60))
     .toEqual({ n: 2, controlKills: 1, treatmentKills: 2, control: 45, treatment: 35, delta: -10 });
 });
+
+test('report reload preserves every spent currency and the actual roll outcome', async () => {
+  const { readSamples } = await import('../src/stage3/measurement');
+  const csv = 'seed,seat,round,enemyId,base,kind,chance,success,coins,muk,grown\n1,2,10,8,jinegaksi,attempt,0.1,0,30,0,0\n';
+  expect(readSamples(csv)[0]).toMatchObject({ success: 0, coins: 30, muk: 0, chance: 0.1 });
+});
+
+test('matched probe gives identical seeded outcomes when both supports have no matching vulnerability', async () => {
+  const { debuffProbe } = await import('../src/stage3/synergy');
+  const d = structuredClone(data);
+  for (const id of ['moru', 'yaktanggi']) {
+    for (const skill of d.units.find(u => u.id === id)!.skills) skill.effects = skill.effects.filter(e => e.kind !== 'vuln');
+  }
+  const rows = debuffProbe(d, 3);
+  expect(rows).toHaveLength(6);
+  expect(rows.every(r => r.control === r.treatment)).toBe(true);
+});

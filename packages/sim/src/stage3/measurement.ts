@@ -60,12 +60,7 @@ export function jigePairs(on: DrawSeat[], off: DrawSeat[]) {
     if (r.finished && c.finished) counts.push(r.grade6AtFinal - c.grade6AtFinal);
     if (r.firstGrade6Round !== null && c.firstGrade6Round !== null) rounds.push(r.firstGrade6Round - c.firstGrade6Round);
   }
-  const inventory = new Map<string, number>();
-  for (const r of full) {
-    const key = `${r.jigeHeld}/${r.jigeUses}`;
-    inventory.set(key, (inventory.get(key) ?? 0) + 1);
-  }
-  return { full: full.length, received: full.filter(r => r.jigeGrants > 0).length, inventory,
+  return { full: full.length, received: full.filter(r => r.jigeGrants > 0).length,
     pairs: counts.length, countDelta: mean(counts), firstPairs: rounds.length, firstDelta: mean(rounds) };
 }
 
@@ -92,11 +87,19 @@ const unitName = (data: GameData, id: string) => data.units.find(u => u.id === i
 
 export function drawMarkdown(on: DrawSeat[], off: DrawSeat[]) {
   const s = jigePairs(on,off);
+  const distribution = (rows: DrawSeat[]) => {
+    const inventory = new Map<string,number>();
+    for (const r of rows) {
+      const key = `${r.jigeHeld}/${r.jigeUses}`;
+      inventory.set(key,(inventory.get(key) ?? 0)+1);
+    }
+    return [...inventory].sort().map(([k,n]) => `${k}=${n}`).join(' · ');
+  };
   const arms = ([['켬',on],['끔',off]] as const).map(([name,seats]) => {
     const arm = jigePairs(seats,[]);
-    return [name, seats.length,arm.full,rate(arm.received,arm.full),[...arm.inventory].sort().map(([k,n]) => `${k}=${n}`).join(' · ')];
+    return [name, seats.length,arm.full,rate(arm.received,arm.full),distribution(seats.filter(r => r.draws === 18)),distribution(seats)];
   });
-  return table(['지게 사용','시작','18회','18회 중 지게 획득','18회 보유/사용=자리'],arms)+'\n\n'+
+  return table(['지게 사용','시작','18회','18회 중 지게 획득','18회 보유/사용=자리','전체 보유/사용=자리'],arms)+'\n\n'+
     table(['완주 짝','R60 일반 6등급 차이(켬−끔 평균)','양쪽 첫 완성 짝','첫 완성 R 차이(평균)'],
       [[s.pairs,s.countDelta?.toFixed(3) ?? '—',s.firstPairs,s.firstDelta?.toFixed(2) ?? '—']]);
 }
@@ -111,9 +114,11 @@ export function debuffMarkdown(rows: import('./synergy').DebuffPair[], limit: nu
 
 /** Flat sidecar CSVs contain only IDs, labels and numbers. */
 export function readSamples(text: string): TameSample[] {
-  const [, ...lines] = text.trim().split(/\r?\n/);
+  const [header, ...lines] = text.trim().split(/\r?\n/);
+  const columns = header!.split(',');
   return lines.map(line => {
-    const [seed,seat,round,enemyId,base,kind,chance,coins,muk,success,grown] = line.split(',');
+    const cells = line.split(',');
+    const { seed,seat,round,enemyId,base,kind,chance,coins,muk,success,grown } = Object.fromEntries(columns.map((key,i) => [key,cells[i]]));
     return { seed: Number(seed), seat: Number(seat), round: Number(round), enemyId: Number(enemyId), base: base!,
       kind: kind as TameSample['kind'], chance: Number(chance), coins: Number(coins), muk: Number(muk), success: Number(success), grown: Number(grown) };
   });
