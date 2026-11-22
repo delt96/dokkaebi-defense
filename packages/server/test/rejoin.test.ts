@@ -243,3 +243,28 @@ test('a swap confirmed before a rejoin comes back with its place, cost and held 
   expect(full.mine.lastSeq).toBe(1);
   expect(a2.all('mine').flatMap((m: { acks: unknown[] }) => m.acks)).toEqual([]);
 });
+
+test('a rejoin receives the target cooldown computed under the room rules', () => {
+  const d3 = loadGameData('stage3');
+  const { enemy, fromRound, cooldownSeconds } = d3.economy!.hunts!.targets[0]!;
+  const r = started(['가', '나'], { dev: true }, { stage: 'stage3', devJumpTick: roundStartTick(d3, fromRound) + 1 });
+  const { core, deps, links } = r;
+  const lane = core.match!.lanes[1]!;
+  lane.coins = 500;
+  send(core, 'a', 1, 'hunt', { enemy });
+  tickOnce(core, deps);
+  lane.enemies.find(e => e.defId === enemy)!.hp = 0;
+  const killedAt = core.match!.tick;
+  tickOnce(core, deps);
+
+  const key = links[0]!.last('full').me.key;
+  core.leave('a', false);
+  tickOnce(core, deps);
+  const a2 = new FakeLink('a2');
+  core.join(a2, { rejoinKey: key });
+  tickOnce(core, deps);
+  expect(a2.last('full').dataVersion).toBe(core.match!.dataVersion);
+  expect(a2.last('full').mine.econ.hunts).toContainEqual(expect.objectContaining({
+    enemy, level: 2, why: 'cooldown', readyTick: killedAt + cooldownSeconds! * 1000 / d3.balance.tickMs,
+  }));
+});

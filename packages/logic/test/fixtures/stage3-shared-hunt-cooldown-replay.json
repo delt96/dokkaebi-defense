@@ -1,0 +1,71 @@
+{
+  "rulesRevision": "2a788d6abf064ce38814a26576a116f090343835",
+  "dataVersion": "ff0893ce",
+  "stage": "stage3",
+  "seed": 3,
+  "seats": [
+    1
+  ],
+  "options": {
+    "noGate": true,
+    "noElimination": true,
+    "difficulty": "easy"
+  },
+  "log": [
+    {
+      "tick": 3801,
+      "inputs": [
+        {
+          "seat": 1,
+          "seq": 1,
+          "cmd": {
+            "type": "hunt",
+            "enemy": "ev_soebap"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 5900,
+      "inputs": [
+        {
+          "seat": 1,
+          "seq": 2,
+          "cmd": {
+            "type": "hunt",
+            "enemy": "ev_soebap"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 5901,
+      "inputs": [
+        {
+          "seat": 1,
+          "seq": 3,
+          "cmd": {
+            "type": "hunt",
+            "enemy": "ev_soebap"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 5902,
+      "inputs": [
+        {
+          "seat": 1,
+          "seq": 4,
+          "cmd": {
+            "type": "forfeit"
+          }
+        }
+      ]
+    }
+  ],
+  "finalHash": [
+    5903,
+    "4c609938"
+  ]
+}

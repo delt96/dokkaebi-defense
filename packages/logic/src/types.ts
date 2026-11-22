@@ -110,7 +110,7 @@ export interface TameTargetDef {
  * Level n has round(hp × hpGrowth^(n-1)) HP and pays reward.buckwheat 묵 plus reward.coins + coinsPerLevel × (n-1) 냥.
  */
 export interface HuntTargetDef {
-  enemy: string; fromRound: number; hp: number; fee: number;
+  enemy: string; fromRound: number; hp: number; fee: number; cooldownSeconds?: number;
   reward: { buckwheat: number; coins: number; coinsPerLevel: number };
 }
 export interface HuntsDef { seconds: number; cooldownSeconds: number; hpGrowth: number; targets: HuntTargetDef[] }

@@ -10,8 +10,8 @@ const hunts = d3.economy!.hunts!;
 const [first, second, third] = hunts.targets as [typeof hunts.targets[0], typeof hunts.targets[0], typeof hunts.targets[0]];
 const TICKS = (s: number) => Math.round((s * 1000) / d3.balance.tickMs);
 
-function lane(round: number, coins = 500): GameState {
-  const s = createGame(d3, 1);
+function lane(round: number, coins = 500, data = d3): GameState {
+  const s = createGame(data, 1);
   forceRound(s, round);
   // no wave spawns, so the lane holds only what a test puts there
   s.spawned = d3.balance.spawnCount;
@@ -35,6 +35,7 @@ describe('격파 data', () => {
     expect(hunts.targets.map(t => [t.enemy, t.fromRound])).toEqual([['ev_soebap', 5], ['ev_oenun', 15], ['ev_yagwang', 30]]);
     expect(hunts.targets.map(t => t.reward.buckwheat)).toEqual([1, 1, 2]);
     expect([hunts.seconds, hunts.cooldownSeconds, hunts.hpGrowth]).toEqual([45, 60, 2]);
+    expect(hunts.targets.map(t => t.cooldownSeconds)).toEqual([180, 240, 300]);
     for (const t of hunts.targets) expect(d3.enemies.find(e => e.id === t.enemy)!.event).toBe(true);
     expect(d3.economy).not.toHaveProperty('mission');
   });
@@ -50,6 +51,11 @@ describe('격파 data', () => {
     expect(broken(d => { d.economy!.hunts!.targets[0]!.reward.coinsPerLevel = 0.5; })).toContain('invalid hunt fee or reward: ev_soebap');
     expect(broken(d => { d.economy!.hunts!.hpGrowth = 0.9; })).toContain('invalid hunts timing or growth');
     expect(broken(d => { d.economy!.hunts!.seconds = 0; })).toContain('invalid hunts timing or growth');
+    for (const value of [0, -1, 1.5, Infinity, NaN]) {
+      expect(broken(d => { d.economy!.hunts!.cooldownSeconds = value; })).toContain('invalid hunts timing or growth');
+      expect(broken(d => { d.economy!.hunts!.targets[0]!.cooldownSeconds = value; })).toContain('invalid hunt cooldownSeconds: ev_soebap');
+    }
+    expect(broken(d => { delete d.economy!.hunts!.targets[0]!.cooldownSeconds; })).toEqual([]);
   });
 });
 
@@ -133,22 +139,22 @@ describe('kill, level and pay', () => {
 });
 
 describe('time-out and cooldown', () => {
-  test('at the time limit the target leaves with nothing paid; the level stays', () => {
-    const s = lane(first.fromRound);
-    summon(s);
-    const t = targetOf(s)!;
+  test.each(hunts.targets)('$enemy leaves at the time limit without pay or a level change', ({ enemy, fromRound, cooldownSeconds }) => {
+    const s = lane(fromRound);
+    summon(s, enemy);
+    const t = targetOf(s, enemy)!;
     t.hp = t.maxHp = 1e9;
-    const deadline = s.econ!.hunts![first.enemy]!.deadlineTick;
+    const deadline = s.econ!.hunts![enemy]!.deadlineTick;
     s.tick = deadline - 1;
     step(s, []);
-    expect(targetOf(s)).toBeDefined();
+    expect(targetOf(s, enemy)).toBeDefined();
     const coins = s.coins;
     const ev = step(s, []).events;
-    expect(targetOf(s)).toBeUndefined();
+    expect(targetOf(s, enemy)).toBeUndefined();
     expect(ev).toContainEqual({ type: 'flee', enemyId: t.id });
-    expect(huntEvents(ev)).toEqual([{ type: 'hunt', enemy: first.enemy, level: 1, outcome: 'fled', coins: 0, buckwheat: 0 }]);
+    expect(huntEvents(ev)).toEqual([{ type: 'hunt', enemy, level: 1, outcome: 'fled', coins: 0, buckwheat: 0 }]);
     expect([s.coins, s.buckwheat]).toEqual([coins, 0]);
-    expect(s.econ!.hunts![first.enemy]).toMatchObject({ level: 1, enemyId: null, last: 'fled', readyTick: deadline + TICKS(hunts.cooldownSeconds) });
+    expect(s.econ!.hunts![enemy]).toMatchObject({ level: 1, enemyId: null, last: 'fled', readyTick: deadline + TICKS(cooldownSeconds!) });
   });
 
   test('a target outlives the round end; only its own clock sends it away', () => {
@@ -160,15 +166,27 @@ describe('time-out and cooldown', () => {
     expect(targetOf(s)).toBeDefined();
   });
 
-  test('a new summon opens only after the cooldown, after a kill or a time-out', () => {
-    const s = lane(first.fromRound);
-    summon(s);
-    kill(s);
-    const ready = s.econ!.hunts![first.enemy]!.readyTick;
-    expect(ready).toBe(s.tick - 1 + TICKS(hunts.cooldownSeconds));
-    s.tick = ready - 1;
+  test('each kill starts its own cooldown, with the shared value as fallback', () => {
+    const data = makeData(d => {
+      const config = d.economy!.hunts!;
+      config.cooldownSeconds = 5;
+      config.targets[0]!.cooldownSeconds = 2;
+      delete config.targets[1]!.cooldownSeconds;
+      config.targets[2]!.cooldownSeconds = 8;
+    }, 'stage3');
+    const s = lane(third.fromRound, 500, data);
+    for (const { enemy } of hunts.targets) expect(summon(s, enemy).rejected).toEqual([]);
+    s.tick += TICKS(1);
+    for (const [target, seconds] of [[first, 2], [second, 5], [third, 8]] as const) {
+      const killedAt = s.tick;
+      kill(s, target.enemy);
+      expect(s.econ!.hunts![target.enemy]!.readyTick).toBe(killedAt + TICKS(seconds));
+    }
+    s.tick = s.econ!.hunts![first.enemy]!.readyTick - 1;
     expect(reason(s)).toBe('cooldown');
-    expect(huntCheck(s, first.enemy)).toBe(null);
+    expect(huntCheck(s, first.enemy)).toBeNull();
+    expect(huntCheck(s, second.enemy)).toBe('cooldown');
+    expect(huntCheck(s, third.enemy)).toBe('cooldown');
     expect(summon(s).rejected).toEqual([]);
   });
 

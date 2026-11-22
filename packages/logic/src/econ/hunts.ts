@@ -56,9 +56,10 @@ registerCommand('hunt', (state, cmd, events) => {
 
 function close(state: GameState, enemy: string, last: HuntSeat['last'], levelUp: boolean): HuntSeat {
   const seat = huntSeat(state, enemy);
+  const cooldown = huntDef(state, enemy)?.cooldownSeconds ?? state.data.economy!.hunts!.cooldownSeconds;
   const next: HuntSeat = {
     level: seat.level + (levelUp ? 1 : 0), enemyId: null, deadlineTick: 0,
-    readyTick: state.tick + toTicks(state.data.economy!.hunts!.cooldownSeconds), last,
+    readyTick: state.tick + toTicks(cooldown), last,
   };
   put(state, enemy, next);
   return next;

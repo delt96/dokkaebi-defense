@@ -56,7 +56,7 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
 
   const hunts = eco?.hunts;
   if (hunts) {
-    if (!(hunts.seconds > 0) || !(hunts.cooldownSeconds >= 0) || !(Number.isFinite(hunts.hpGrowth) && hunts.hpGrowth >= 1))
+    if (!(hunts.seconds > 0) || !positiveInt(hunts.cooldownSeconds) || !(Number.isFinite(hunts.hpGrowth) && hunts.hpGrowth >= 1))
       errors.push('invalid hunts timing or growth');
     if (!Array.isArray(hunts.targets) || hunts.targets.length === 0) errors.push('invalid hunts targets');
     const seenHunt = new Set<string>();
@@ -67,6 +67,7 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
       seenHunt.add(t.enemy);
       if (!Number.isInteger(t.fromRound) || t.fromRound < 1 || t.fromRound > data.balance.rounds) errors.push(`invalid hunt fromRound: ${t.enemy}`);
       if (!(Number.isInteger(t.hp) && t.hp > 0)) errors.push(`invalid hunt hp: ${t.enemy}`);
+      if (t.cooldownSeconds !== undefined && !positiveInt(t.cooldownSeconds)) errors.push(`invalid hunt cooldownSeconds: ${t.enemy}`);
       const r = t.reward;
       if (!(Number.isInteger(t.fee) && t.fee >= 0) || !r || ![r.buckwheat, r.coins, r.coinsPerLevel].every(n => Number.isInteger(n) && n >= 0))
         errors.push(`invalid hunt fee or reward: ${t.enemy}`);

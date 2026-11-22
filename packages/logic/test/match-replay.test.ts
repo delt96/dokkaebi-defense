@@ -51,3 +51,15 @@ test('the pinned pre-bundle replay accepts both its retired draw and its unit ga
     expect((await replayRecorded({ ...record, log })).at(-1)).not.toEqual(fixture.finalHash);
   }
 }, 30_000);
+
+test('a pinned hunt replay reopens the target at the archived shared cooldown', async () => {
+  const { replayRecorded } = await import('../../sim/scripts/replay-version');
+  const { default: fixture } = await import('./fixtures/stage3-shared-hunt-cooldown-replay.json');
+  const record = { ...fixture, stage: 'stage3' as const, options: { ...fixture.options, difficulty: 'easy' as const } };
+  expect((await replayRecorded(record)).at(-1)).toEqual(fixture.finalHash);
+
+  // The preceding attempt was too early, but the one on the old ready tick changed the match.
+  const withoutAttempt = (i: number) => ({ ...record, log: record.log.filter((_, j) => j !== i) });
+  expect((await replayRecorded(withoutAttempt(1))).at(-1)).toEqual(fixture.finalHash);
+  expect((await replayRecorded(withoutAttempt(2))).at(-1)).not.toEqual(fixture.finalHash);
+}, 30_000);
