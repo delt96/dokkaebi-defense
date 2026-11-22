@@ -303,7 +303,8 @@ export class LaneScene extends Phaser.Scene {
       view.add(this.add.circle(0, 0, 11 * k, view.gradeColor).setStrokeStyle(1, 0x000000));
       view.add(this.add.text(0, 0, def.name.slice(0, 1), { fontSize: '11px', color: '#10101a', fontFamily: 'sans-serif' }).setOrigin(0.5));
     }
-    view.combineMarker = this.add.circle(12 * k, -12 * k, 3, 0xffd65c);
+    // the bottom-right corner, apart from the grade marks at the top
+    view.combineMarker = this.add.circle(12 * k, 12 * k, 2, 0xffd65c).setStrokeStyle(1, 0x10101a);
     view.add(view.combineMarker);
     view.setSize(cellPx(this.lane), cellPx(this.lane)).setInteractive({ draggable: true, useHandCursor: true }).setDepth(3);
     view.on('pointerover', () => { this.hoveredId = unitId; });

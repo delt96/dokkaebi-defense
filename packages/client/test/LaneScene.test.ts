@@ -13,7 +13,10 @@ function setupScene() {
   const state = createGame(loadGameData(), 1);
   const driver = new GameDriver(state);
   const scene = new LaneScene(driver);
-  const circle = vi.fn((_x: number, _y: number, _radius: number, _color: number) => ({ setVisible: vi.fn() }));
+  const circle = vi.fn((_x: number, _y: number, _radius: number, _color: number) => {
+    const arc = { setVisible: vi.fn(), setStrokeStyle: vi.fn(() => arc) };
+    return arc;
+  });
   const container = vi.fn(() => {
     const view = Object.assign(new EventEmitter(), {
       x: 0, y: 0, add: vi.fn(), destroy: vi.fn(),
@@ -71,7 +74,7 @@ test('drop moves the dragged unit after a pending swap', () => {
 test('combine markers appear for every eligible copy and clear when a material is consumed', () => {
   const { state, driver, scene, circle, tweens } = setupScene();
   const markers = () => circle.mock.calls.flatMap(([, , radius], i) =>
-    radius === 3 ? [circle.mock.results[i]!.value.setVisible] : [],
+    radius === 2 ? [circle.mock.results[i]!.value.setVisible] : [],
   );
 
   placeUnitForTest(state, 'sotlid', 0);

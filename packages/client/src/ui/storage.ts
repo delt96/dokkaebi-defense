@@ -18,6 +18,11 @@ function iconHtml(defId: string, name: string, grade: number): string {
   return `<span class="stack-disc" style="background:${GRADE_COLOR[grade]}">${esc(name.slice(0, 1))}</span>`;
 }
 
+/** A small face for the 상세 window and the left card: the sprite, or the grade disc when the unit has none. */
+export function unitFaceHtml(defId: string, name: string, grade: number): string {
+  return `<span class="unit-face" style="--g:${GRADE_COLOR[grade]}">${iconHtml(defId, name, grade)}</span>`;
+}
+
 /** The storage column: a 모두 보관 button and one stack per kind (sprite, grade colour, ×N, a small sell button). */
 /** `jige` is the 지게 held on a 60-round lane (each stack then gets its swap button), undefined elsewhere. */
 export function storageHtml(state: GameState, jige?: number): string {

@@ -382,6 +382,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       act(modal === 'quests' ? 'closeModal' : 'openQuests', '');
       return;
     }
+    // Tab opens the selected unit's 상세 and closes it again
+    if (ev.code === 'Tab' && modal === 'unitDetails') { ev.preventDefault(); act('closeModal', ''); return; }
     if (modal || driver.state.phase === 'ended') return;
     if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button')) return;
     const card = displayedCard;
@@ -394,7 +396,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     else if (ev.code === 'KeyT' && driver.state.data.economy?.tame) act('tame', '');
     else if (ev.code === 'KeyR' && driver.state.data.economy?.market && card?.unitId != null) act('jigeOpen', `board:${card.unitId}`);
     else if (ev.code === 'KeyP' && !online) { driver.paused = !driver.paused; render(); }
-    else if (ev.code === 'Tab' || ev.code === 'KeyW') {
+    else if (ev.code === 'Tab') {
+      ev.preventDefault();
+      if (card?.unitId != null) act('unitDetails', '');
+    }
+    else if (ev.code === 'KeyW') {
       ev.preventDefault();
       scene.selectedId = nextUnitId(driver.state, scene.selectedId);
       render();

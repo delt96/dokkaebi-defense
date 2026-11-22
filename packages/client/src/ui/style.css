@@ -84,7 +84,12 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .unit-panel.compact { flex: none; max-height: 62%; border-top: 1px solid var(--panel-edge); padding-top: 3px; }
 .unit-panel.empty { justify-content: center; text-align: center; color: var(--ink-dim); line-height: 1.5; word-break: keep-all; }
 .unit-panel.empty.compact { justify-content: flex-start; }
-.up-name { font-size: 11px; }
+.up-name { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+.unit-face { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 1px solid var(--g); border-radius: 3px; background: rgba(0, 0, 0, .25); }
+.unit-face img { width: 18px; height: 18px; image-rendering: pixelated; }
+.unit-face .stack-disc { width: 14px; height: 14px; font-size: 8px; }
+.ud-head .unit-face { width: 24px; height: 24px; }
+.ud-head .unit-face img { width: 22px; height: 22px; }
 .up-sub, .up-stats { color: #bfbbca; }
 .up-stats { display: grid; font-variant-numeric: tabular-nums; }
 .up-skill { margin: 0; color: var(--ink-dim); line-height: 1.4; word-break: keep-all; }

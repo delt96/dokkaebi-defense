@@ -3,10 +3,14 @@ import { describe, expect, test } from 'vitest';
 import { createGame, loadGameData, type GameData } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { combineOptions, unitCard, unitNotes } from '../src/ui/models';
-import { unitDetailsHtml } from '../src/ui/panels';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { unitDetailsHtml, unitPanelHtml } from '../src/ui/panels';
 
 const d1 = loadGameData();
 const d3 = loadGameData('stage3');
+const SPRITES = join(dirname(fileURLToPath(import.meta.url)), '../public/sprites');
 
 function details(data: GameData, defId: string): { root: HTMLElement; state: ReturnType<typeof createGame> } {
   const state = createGame(data, 1);
@@ -30,7 +34,7 @@ describe('unit details window', () => {
     expect(head.querySelector('.ud-name')!.textContent).toBe(unit.name);
     expect(head.querySelector('.ud-grade')!.textContent).toBe(`${unit.grade}등급`);
     expect(head.querySelector('.type-badge')!.getAttribute('data-type')).toBe(unit.damageType);
-    expect(head.querySelector('.dot')).not.toBeNull();
+    expect(head.querySelector('.unit-face')).not.toBeNull();
     expect(head.querySelector('[data-action="closeModal"]')).not.toBeNull();
   });
 
@@ -72,5 +76,26 @@ describe('unit details window', () => {
     const unit = d3.units.find(u => u.hidden)!;
     const { root } = details(d3, unit.id);
     expect(root.querySelector('.ud-grade')!.textContent).toBe(`${unit.grade}등급 · 숨은 유닛`);
+  });
+});
+
+describe('unit face', () => {
+  const hasSprite = (id: string): boolean => existsSync(join(SPRITES, `${id}.png`));
+
+  test('the details head and the left card show a small face, a grade disc when there is no picture', () => {
+    const drawn = d3.units.find(u => hasSprite(u.id))!;
+    const { root } = details(d3, drawn.id);
+    expect(root.querySelector('.ud-head .unit-face img')!.getAttribute('src')).toMatch(new RegExp(`sprites/${drawn.id}\.png$`));
+    const state = createGame(d3, 1);
+    placeUnitForTest(state, drawn.id, 0);
+    const host = document.createElement('div');
+    host.innerHTML = unitPanelHtml(state, 0);
+    expect(host.querySelector('.up-name .unit-face img')).not.toBeNull();
+
+    const plain = d3.units.find(u => !hasSprite(u.id));
+    if (plain) {
+      const { root: r } = details(d3, plain.id);
+      expect(r.querySelector('.ud-head .unit-face .stack-disc')!.textContent).toBe(plain.name.slice(0, 1));
+    }
   });
 });

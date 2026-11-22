@@ -3,7 +3,7 @@ import { GRADE_COLOR } from '../layout';
 import { combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
-import { STORE_ALL_KEY } from './storage';
+import { STORE_ALL_KEY, unitFaceHtml } from './storage';
 import { roleText } from './dex-roles';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `quests`: the 60-round quest box, laid at the
@@ -62,9 +62,9 @@ export function unitDetailsHtml(state: GameState, selected: number): string {
     const notes = combineNoteLines(state.data, option.result);
     return notes.length ? `<div class="recipe">${recipeHtml(state, option, unit.id, false)}${notesHtml(notes)}</div>` : recipeHtml(state, option, unit.id, false);
   });
-  const head = `<div class="modal-head ud-head"><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span><b class="ud-name">${esc(card.name)}</b>
+  const head = `<div class="modal-head ud-head">${unitFaceHtml(unit.defId, card.name, card.grade)}<b class="ud-name">${esc(card.name)}</b>
     <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
-    <button class="ud-close" data-action="closeModal">Esc 닫기</button></div>`;
+    <button class="ud-close" data-action="closeModal">Tab·Esc 닫기</button></div>`;
   const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', `${card.range}칸`)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>`;
   const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
   const lines = card.skillText ? card.skillText.split(' / ') : [];
@@ -81,7 +81,7 @@ export function unitDetailsHtml(state: GameState, selected: number): string {
 /** `hotkeys`: extra keys for the help line (stage 3 adds the market); stage 1-2 pass nothing and keep the old line. */
 /** The hotkey help line under the board (the 도움말 setting hides it). */
 export function helpLineHtml(hotkeys?: string): string {
-  return `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · E 강화 · D 도감 · ${STORE_ALL_KEY} 1·2등급 보관 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`;
+  return `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · W 다음 유닛 · Tab 상세 · Space 소환 · E 강화 · D 도감 · ${STORE_ALL_KEY} 1·2등급 보관 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`;
 }
 
 /** The selected unit and the recipes its card offers (Z/X/C press them). */
@@ -120,7 +120,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
         <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</span>
         <span>공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${card.range}칸</span></span>
         ${options ? `<div class="combine-options">${options}</div>` : ''}
-        <button data-action="unitDetails">상세</button>
+        <button data-action="unitDetails">상세(Tab)</button>
         ${jigeHtml(state, selected!, unitId, jige)}
         <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`);
   return pick;
@@ -135,10 +135,10 @@ export function unitPanelHtml(state: GameState, selected: number | null, opts: {
   if (!card) return '<div class="unit-panel empty">유닛을 누르면 여기에 정보가 나옵니다</div>';
   const { unitId, recipes } = cardRecipes(state, selected);
   const options = quickRecipes(state, recipes, false).map(option => recipeHtml(state, option, unitId, true)).join('');
-  const details = state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세</button>' : '';
+  const details = state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세(Tab)</button>' : '';
   const jige = jigeHtml(state, selected!, unitId, opts.jige);
   return `<div class="unit-panel${opts.compact ? ' compact' : ''}">
-    <div class="up-name"><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span><b>${esc(card.name)}</b></div>
+    <div class="up-name">${unitFaceHtml(state.slots[selected!]!.defId, card.name, card.grade)}<b>${esc(card.name)}</b></div>
     <div class="up-sub">${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</div>
     <div class="up-stats"><span>공격 ${card.attack} · ${card.interval}초마다</span><span>사거리 ${card.range}칸</span></div>
     <p class="up-skill${opts.compact ? ' compact' : ''}" title="${esc(card.skillText)}">${esc(card.skillText)}</p>
