@@ -7,6 +7,8 @@ import { GameDriver } from '../src/driver';
 import { mountUi } from '../src/ui/mount';
 import { combineOptions, hudModel, helperModel, upgradeRows, unitCard, dexEntries } from '../src/ui/models';
 import { renderRight } from '../src/ui/panels';
+import { renderHud } from '../src/ui/hud';
+import { settingsHtml } from '../src/ui/settings';
 
 const data = loadGameData();
 
@@ -117,12 +119,12 @@ test('the card and physical keys combine at the selected slot while the helper u
   const chosen = placeUnitForTest(s, 'bujigaengi', 3);
   const { driver, queue, press, click, panels, select, scene } = mountTestUi(s);
   select(3);
-  const card = panels.get('bottom')!;
+  const card = panels.get('left')!;
   expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}">[Z] 가마솥 <span class="type-badge`);
   expect(card.innerHTML).toContain('화로 <span class="type-badge');
   expect(card.innerHTML).toContain('(모자람: 호롱)');
   expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
-  click('bottom', `gamasot@${chosen.id}`);
+  click('left', `gamasot@${chosen.id}`);
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
   press('KeyQ');
   expect(panels.get('left')!.innerHTML).toContain('data-arg="gamasot"');
@@ -156,7 +158,7 @@ test('Z uses the recipe shown on the card until it refreshes', () => {
   press('KeyQ');
   click('left', 'gamasot');
   driver.update(50);
-  expect(panels.get('bottom')!.innerHTML).toContain('[Z] 가마솥');
+  expect(panels.get('left')!.innerHTML).toContain('[Z] 가마솥');
   press('KeyZ');
   driver.update(50);
   expect(s.slots[1]?.defId).toBe('bujigaengi');
@@ -169,10 +171,10 @@ test('a stale sell button cannot sell the combine result', () => {
   placeUnitForTest(s, 'bujigaengi', 3);
   const { select, click, driver, press, panels } = mountTestUi(s);
   select(3);
-  const sale = panels.get('bottom')!.innerHTML.match(/data-action="sell" data-arg="(\d+)"/)![1]!;
+  const sale = panels.get('left')!.innerHTML.match(/data-action="sell" data-arg="(\d+)"/)![1]!;
   press('KeyZ');
   driver.update(50);
-  click('bottom', sale, 'sell');
+  click('left', sale, 'sell');
   driver.update(50);
   expect(s.slots[3]?.defId).toBe('gamasot');
   expect(s.coins).toBe(0);
@@ -206,7 +208,7 @@ test('moving then combining before a render selects the result', () => {
   vi.advanceTimersByTime(100);
   scene.onFrame();
   expect(s.slots[2]?.defId).toBe('gamasot');
-  expect(panels.get('bottom')!.innerHTML).toContain('<b>가마솥</b>');
+  expect(panels.get('left')!.innerHTML).toContain('<b>가마솥</b>');
 });
 
 test('paused helper opens are counted on resume and discarded on restart', () => {
@@ -232,7 +234,7 @@ test('ready recipes precede missing materials on the card', () => {
   placeUnitForTest(s, 'buchae', 2);
   const { select, panels } = mountTestUi(s);
   select(0);
-  const html = panels.get('bottom')!.innerHTML;
+  const html = panels.get('left')!.innerHTML;
   expect(html).toContain('[Z] 풀무');
   expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('combine-missing">절구'));
 });
@@ -251,7 +253,7 @@ describe('final review fixes: right panel and reject notices', () => {
     const s = createGame(data, 1);
     s.tokens = 3;
     s.grade1Summons = 3;
-    const panel = { innerHTML: '', querySelectorAll: () => [] };
+    const panel = { innerHTML: '', querySelectorAll: () => [], classList: { toggle: () => {} } };
     vi.stubGlobal('document', { getElementById: () => panel });
     try {
       renderRight(s);
@@ -263,9 +265,14 @@ describe('final review fixes: right panel and reject notices', () => {
       expect(panel.innerHTML).toContain('1등급 77% · 2등급 20% · 3등급 3%');
       expect(panel.innerHTML).not.toContain('보너스까지');
       expect(panel.innerHTML).not.toContain('보관 중');
+      // no dim 도우미 or 배속 buttons; the settings gear lives in the top bar
       expect(panel.innerHTML).not.toContain('data-action="speed"');
-      renderRight(s, { speed: 2 });
-      expect(panel.innerHTML).toContain('<button data-action="speed" class="speed-btn" aria-pressed="true">배속 2×</button>');
+      expect(panel.innerHTML).not.toContain('data-action="toggleHelper"');
+      expect(panel.innerHTML).not.toContain('data-action="openSettings"');
+      const top = { ...panel, innerHTML: '' };
+      vi.stubGlobal('document', { getElementById: (id: string) => (id === 'top' ? top : panel) });
+      renderHud(s, false);
+      expect(top.innerHTML).toMatch(/<button class="settings-open" data-action="openSettings" aria-label="설정"[^>]*>/);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -423,5 +430,26 @@ describe('dex hotkey', () => {
     const { panels } = mountTestUi(createGame(data, 1));
     expect(panels.get('right')!.innerHTML).toContain('도감 (D)');
     expect(panels.get('bottom')!.innerHTML).toContain('D 도감');
+  });
+});
+
+describe('settings window', () => {
+  const rows = (html: string) => Array.from(html.matchAll(/<div class="settings-row"[^>]*><span>([^<]+)<\/span>/g)).map(m => m[1]);
+  const pressed = (html: string) => Array.from(html.matchAll(/data-action="(\w+)" data-arg="(\w+)" aria-pressed="true"/g)).map(m => `${m[1]}:${m[2]}`);
+
+  test('solo: helper, speed and reduce-effects rows show the current choice', () => {
+    const html = settingsHtml({ helper: false, speed: 1, reducedFx: false, help: true });
+    expect(html).toContain('설정');
+    expect(rows(html)).toEqual(['조합 도우미', '배속', '효과 줄이기', '도움말']);
+    expect(pressed(html)).toEqual(['setHelper:off', 'speed:1', 'setFx:off', 'setHelp:on']);
+    expect(html).toContain('data-action="closeModal"');
+    expect(pressed(settingsHtml({ helper: true, speed: 3, reducedFx: true, help: false }))).toEqual(['setHelper:on', 'speed:3', 'setFx:on', 'setHelp:off']);
+    expect(Array.from(html.matchAll(/data-action="speed" data-arg="\d"[^>]*>([^<]+)</g)).map(m => m[1])).toEqual(['1×', '2×', '3×']);
+  });
+
+  test('online: no speed row', () => {
+    const html = settingsHtml({ helper: true, reducedFx: false, help: true });
+    expect(rows(html)).toEqual(['조합 도우미', '효과 줄이기', '도움말']);
+    expect(html).not.toContain('data-action="speed"');
   });
 });

@@ -7,8 +7,8 @@ import { STORE_ALL_KEY } from './storage';
 import { roleText } from './dex-roles';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `quests`: the 60-round quest box, laid at the
- * bottom above the dex button. `helper`: the combine helper switch, and beside it `speed` (solo game speed), dim, under them. */
-export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; quests?: string; helper?: boolean; speed?: number }
+ * bottom above the dex button; the settings gear sits under both. */
+export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; quests?: string }
 
 export function renderRight(state: GameState, opts: RightOpts = {}): void {
   const m = rightModel(state);
@@ -24,7 +24,7 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     ${opts.market === undefined ? '' : `<button data-action="toggleMarket" class="market-btn" aria-pressed="${opts.market}">장터 (B)</button>`}
     ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}
     <div class="right-foot">${opts.quests ?? ''}<button class="dex-open" data-action="openDex">도감 (D)</button>
-    <div class="foot-row">${opts.helper === undefined ? '' : `<button data-action="toggleHelper" class="speed-btn" aria-pressed="${opts.helper}">도우미 ${opts.helper ? '켬' : '끔'}</button>`}${opts.speed === undefined ? '' : `<button data-action="speed" class="speed-btn" aria-pressed="${opts.speed > 1}">배속 ${opts.speed}×</button>`}</div></div>`);
+    </div>`);
 }
 
 function recipeHtml(state: GameState, option: CombineOption, unitId: number | null, short: boolean): string {
@@ -79,25 +79,72 @@ export function unitDetailsHtml(state: GameState, selected: number): string {
 }
 
 /** `hotkeys`: extra keys for the help line (stage 3 adds the market); stage 1-2 pass nothing and keep the old line. */
-export function renderBottom(state: GameState, selected: number | null, online = false, hotkeys?: string, jige?: number) {
-  const card = selected === null ? null : unitCard(state, selected);
-  const unitId = selected === null ? null : state.slots[selected]?.id ?? null;
-  const recipes = selected === null ? [] : combineOptions(state, selected);
-  // online, and solo on the 60-round data (its card has 상세), the card lists only what can be pressed now or is short of its cost
-  const quick = online || state.data.balance.extendedCombat ? recipes.filter(option => option.key !== null || option.short) : recipes;
-  const options = quick.map(option => recipeHtml(state, option, unitId, true)).join('');
-  setHtml(el('bottom'), card
-    ? `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
+/** The hotkey help line under the board (the 도움말 setting hides it). */
+export function helpLineHtml(hotkeys?: string): string {
+  return `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · E 강화 · D 도감 · ${STORE_ALL_KEY} 1·2등급 보관 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`;
+}
+
+/** The selected unit and the recipes its card offers (Z/X/C press them). */
+export function cardRecipes(state: GameState, selected: number | null): { unitId: number | null; recipes: CombineOption[] } {
+  return {
+    unitId: selected === null ? null : state.slots[selected]?.id ?? null,
+    recipes: selected === null ? [] : combineOptions(state, selected),
+  };
+}
+
+/** Online, and solo on the 60-round data (its card has 상세), the card lists only what can be pressed now or is short of its cost. */
+function quickRecipes(state: GameState, recipes: CombineOption[], online: boolean): CombineOption[] {
+  return online || state.data.balance.extendedCombat ? recipes.filter(option => option.key !== null || option.short) : recipes;
+}
+
+function jigeHtml(state: GameState, selected: number, unitId: number | null, jige: number | undefined): string {
+  return jige !== undefined && unitId !== null && jigeCandidates(state.data, state.slots[selected]!.defId).length > 0
+    ? `<span class="jige-held">보유 지게 ${jige}개</span><button data-action="jigeOpen" data-arg="board:${unitId}"${jige < 1 ? ' disabled' : ''}>R 지게 바꾸기</button>` : '';
+}
+
+/**
+ * Online: the selected unit's one-line card under the board, or the help line (null hotkeys = 도움말 off).
+ * Solo shows the card in the left panel (unitPanelHtml) and only the help line here.
+ */
+export function renderBottom(state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number) {
+  const pick = cardRecipes(state, selected);
+  const card = online && selected !== null ? unitCard(state, selected) : null;
+  const help = hotkeys === null ? '' : helpLineHtml(hotkeys);
+  if (!card) {
+    setHtml(el('bottom'), help);
+    return pick;
+  }
+  const { unitId, recipes } = pick;
+  const options = quickRecipes(state, recipes, true).map(option => recipeHtml(state, option, unitId, true)).join('');
+  setHtml(el('bottom'), `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
         <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</span>
         <span>공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${card.range}칸</span></span>
-        ${online ? '' : `<span class="skill" title="${esc(card.skillText)}">${esc(card.skillText)}</span>`}
         ${options ? `<div class="combine-options">${options}</div>` : ''}
-        ${online || state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세</button>' : ''}
-        ${jige !== undefined && unitId !== null && jigeCandidates(state.data, state.slots[selected!]!.defId).length > 0
-          ? `<span class="jige-held">보유 지게 ${jige}개</span><button data-action="jigeOpen" data-arg="board:${unitId}"${jige < 1 ? ' disabled' : ''}>R 지게 바꾸기</button>` : ''}
-        <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`
-    : `<div class="card hint">유닛을 눌러 선택하고 끌어서 옮기세요. · Tab/W 다음 유닛 · Space 소환 · E 강화 · D 도감 · ${STORE_ALL_KEY} 1·2등급 보관 · Esc 선택 해제${hotkeys ? ` · ${esc(hotkeys)}` : ''}</div>`);
-  return { unitId, recipes };
+        <button data-action="unitDetails">상세</button>
+        ${jigeHtml(state, selected!, unitId, jige)}
+        <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`);
+  return pick;
+}
+
+/**
+ * Solo: the selected unit's card for the left panel. Alone it shows the whole skill text; `compact` (the helper list
+ * sits above it) cuts the skill to two lines. With nothing selected it says how to fill it.
+ */
+export function unitPanelHtml(state: GameState, selected: number | null, opts: { compact?: boolean; jige?: number } = {}): string {
+  const card = selected === null ? null : unitCard(state, selected);
+  if (!card) return '<div class="unit-panel empty">유닛을 누르면 여기에 정보가 나옵니다</div>';
+  const { unitId, recipes } = cardRecipes(state, selected);
+  const options = quickRecipes(state, recipes, false).map(option => recipeHtml(state, option, unitId, true)).join('');
+  const details = state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세</button>' : '';
+  const jige = jigeHtml(state, selected!, unitId, opts.jige);
+  return `<div class="unit-panel${opts.compact ? ' compact' : ''}">
+    <div class="up-name"><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span><b>${esc(card.name)}</b></div>
+    <div class="up-sub">${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</div>
+    <div class="up-stats"><span>공격 ${card.attack} · ${card.interval}초마다</span><span>사거리 ${card.range}칸</span></div>
+    <p class="up-skill${opts.compact ? ' compact' : ''}" title="${esc(card.skillText)}">${esc(card.skillText)}</p>
+    ${options ? `<div class="combine-options">${options}</div>` : ''}
+    ${jige ? `<div class="up-jige">${jige}</div>` : ''}
+    <div class="up-actions">${details}<button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div></div>`;
 }
 
 export function upgradesHtml(state: GameState): string {

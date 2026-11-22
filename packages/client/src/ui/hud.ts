@@ -1,6 +1,7 @@
 import type { GameState } from '@dorandi/logic';
 import { hudModel } from './models';
 import { el, esc, setHtml } from './dom';
+import { SETTINGS_BUTTON } from './settings';
 
 export function renderHud(state: GameState, paused: boolean, notice: string | null = null): void {
   const m = hudModel(state);
@@ -14,6 +15,7 @@ export function renderHud(state: GameState, paused: boolean, notice: string | nu
       ${notice ? `<span class="notice">${esc(notice)}</span>` : ''}
       <span class="enemies">${esc(m.enemyText)}</span>
       <span class="gauge" title="장승: ${crack}"><i style="width:${Math.round(m.danger * 100)}%"></i></span>
+      ${SETTINGS_BUTTON}
     </div>`);
   renderAlert(state);
 }

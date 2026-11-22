@@ -6,13 +6,14 @@ export interface EntryOptions {
   roomId?: string;
   name?: string;
   error?: string;
-  onSubmit(name: string): Promise<void>;
+  /** `difficulty`: the pick on the start screen; a new room starts with it (joining keeps the host's). */
+  onSubmit(name: string, difficulty: Difficulty): Promise<void>;
 }
 
-/** Query that opens the solo page on the 60-round trial data. */
+/** Query that opens the solo page on the 60-round data. */
 export const SOLO_LONG_QUERY = 'rounds=60';
 
-/** Solo rule data from the page query: the 60-round trial on `?rounds=60`, else the solo game as before. */
+/** Solo rule data from the page query: the 60-round game on `?rounds=60`, else the old 20-round solo game. */
 export function soloStage(search: string): 'stage1' | 'stage3' {
   return new URLSearchParams(search).get('rounds') === '60' ? 'stage3' : 'stage1';
 }
@@ -53,6 +54,7 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   message.textContent = opts.error ?? '';
   form.append(label, button, message);
 
+  let difficulty: Difficulty = 'normal';
   let busy = false;
   const setBusy = (v: boolean): void => {
     busy = v;
@@ -76,7 +78,7 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
     setBusy(true);
     let pending: Promise<void>;
     try {
-      pending = opts.onSubmit(name);
+      pending = opts.onSubmit(name, difficulty);
     } catch (err) {
       pending = Promise.reject(err);
     }
@@ -86,27 +88,14 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   });
 
   box.append(form);
+  // solo is the 60-round game; the 20-round data stays reachable only through an old /solo link
   const solo = el('div', 'entry-solo');
-  const choices = el('div', 'lobby-modes');
-  choices.setAttribute('role', 'group');
-  choices.setAttribute('aria-label', '혼자 하기 판 길이');
   const link = el('a', 'entry-link', TEXT.solo);
-  let rounds = 20;
-  let difficulty: Difficulty = 'normal';
   function drawSolo(): void {
-    choices.replaceChildren();
-    for (const length of [20, 60]) {
-      const selected = rounds === length;
-      const b = el('button', selected ? 'lobby-mode on' : 'lobby-mode', length === 20 ? TEXT.mode20 : TEXT.mode60);
-      b.type = 'button';
-      b.dataset.rounds = String(length);
-      b.setAttribute('aria-pressed', String(selected));
-      if (!selected) b.onclick = () => { rounds = length; difficulty = 'normal'; drawSolo(); };
-      choices.append(b);
-    }
-    solo.replaceChildren(choices);
-    if (rounds === 60) solo.append(difficultyPicker(difficulty, d => { difficulty = d; drawSolo(); }));
-    link.href = rounds === 60 ? `/solo?${SOLO_LONG_QUERY}&difficulty=${difficulty}` : '/solo';
+    const row = el('div', 'entry-difficulty');
+    row.append(el('span', 'entry-difficulty-label', TEXT.modeLabel), difficultyPicker(difficulty, d => { difficulty = d; drawSolo(); }));
+    solo.replaceChildren(row);
+    link.href = `/solo?${SOLO_LONG_QUERY}&difficulty=${difficulty}`;
     solo.append(link);
   }
   drawSolo();

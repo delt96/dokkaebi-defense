@@ -76,19 +76,43 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 #left { padding: 4px; display: flex; flex-direction: column; gap: 4px; }
 .panel-title { width: 100%; text-align: left; }
 .panel-title em { color: var(--accent); font-style: normal; float: right; }
-.helper { list-style: none; margin: 0; padding: 0; flex: 1; overflow: auto; }
+.helper { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow: auto; }
+/* solo: the selected unit's card; alone it fills the panel, under the helper it keeps to the lower part and scrolls */
+.unit-panel { display: flex; flex-direction: column; gap: 3px; min-height: 0; overflow: auto; }
+.unit-panel:only-child { flex: 1; }
+.unit-panel > * { flex: none; }
+.unit-panel.compact { flex: none; max-height: 62%; border-top: 1px solid var(--panel-edge); padding-top: 3px; }
+.unit-panel.empty { justify-content: center; text-align: center; color: var(--ink-dim); line-height: 1.5; word-break: keep-all; }
+.unit-panel.empty.compact { justify-content: flex-start; }
+.up-name { font-size: 11px; }
+.up-sub, .up-stats { color: #bfbbca; }
+.up-stats { display: grid; font-variant-numeric: tabular-nums; }
+.up-skill { margin: 0; color: var(--ink-dim); line-height: 1.4; word-break: keep-all; }
+.up-skill.compact { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.unit-panel .combine-options { display: flex; flex-direction: column; gap: 2px; }
+.unit-panel .combine-options button { width: 100%; text-align: left; white-space: normal; line-height: 1.3; padding: 2px 4px; }
+.unit-panel .combine-missing { color: var(--ink-dim); line-height: 1.3; }
+.up-jige { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.up-actions { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; }
+.up-actions button { flex: 1 0 auto; }
+.unit-panel.compact .up-actions { margin-top: 0; }
 .helper li { display: flex; align-items: center; gap: 3px; padding: 2px 0; }
 .helper li button { margin-left: auto; min-height: 18px; }
 .helper .empty { color: var(--ink-dim); }
-.fx-toggle { font-size: 9px; color: var(--ink-dim); }
-.fx-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 3px; }
 
 #right { padding: 6px; display: flex; flex-direction: column; gap: 4px; }
 #right .right-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
-#right .foot-row { display: flex; justify-content: flex-end; gap: 2px; }
-#right .speed-btn { min-height: 0; padding: 0 4px; font-size: 8px; color: var(--ink-dim); background: transparent; border-color: transparent; opacity: 0.6; }
-#right .speed-btn:hover, #right .speed-btn[aria-pressed="true"] { opacity: 1; border-color: var(--panel-edge); }
+/* the settings gear ends the top bar (online just before 메뉴); its window opens down from it */
+.settings-open { display: grid; place-items: center; flex: none; width: 18px; min-height: 18px; padding: 0; color: var(--ink-dim); background: transparent; border-color: transparent; }
+.settings-open:hover { color: var(--accent); }
+.settings-open svg { display: block; }
+#modal .modal.settings-pop, body.online #modal .modal.settings-pop { left: auto; right: 4px; top: 26px; bottom: auto; transform: none; width: 168px; max-height: none; padding: 6px 8px; font-size: 11px; }
+#modal .settings-pop .modal-head, body.online #modal .settings-pop .modal-head { position: static; padding: 0; margin-bottom: 4px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 0; border-top: 1px solid var(--panel-edge); }
+.settings-choices { display: flex; gap: 2px; }
+.settings-choices button { min-width: 26px; min-height: 20px; padding: 0 4px; color: var(--ink-dim); }
+.settings-choices button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: #3a2a1a; }
 .res { display: flex; justify-content: space-between; }
 .res span { color: var(--accent); }
 
@@ -147,12 +171,9 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .lobby-hint { color: var(--ink-dim); font-size: 13px; text-align: center; }
 .lobby-modes { display: flex; align-items: center; gap: 6px; }
 .lobby-mode-label { color: var(--ink-dim); font-size: 13px; white-space: nowrap; }
-.screen-box .lobby-mode { flex: 1; min-height: 34px; font-size: 14px; background: var(--panel); color: var(--ink-dim); border: 1px solid var(--panel-edge); }
-.screen-box .lobby-mode.on { color: var(--accent); border-color: var(--accent); background: #2a2236; }
-.screen-box .lobby-mode:disabled { cursor: default; opacity: 1; }
-.screen-box .lobby-mode:disabled:not(.on) { opacity: 0.55; }
-.lobby .lobby-mode { flex: 1 0 auto; white-space: nowrap; }
 .entry-solo { display: grid; gap: 6px; }
+.entry-difficulty { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.entry-difficulty-label { color: var(--ink-dim); font-size: 13px; }
 .entry-solo .entry-link { justify-self: center; padding: 4px 12px; }
 .difficulty-picker { display: flex; justify-content: center; gap: 3px; }
 .screen-box .difficulty-picker button { min-height: 28px; padding: 2px 6px; font-size: 12px; white-space: nowrap; }
@@ -166,7 +187,7 @@ body.online #bottom { top: 316px; height: 44px; }
 button.big.pressed { transform: translateY(1px) scale(0.97); background: #5a3e22; }
 
 /* Online top bar: two 12px lines (spec 7). */
-body.online #top { border: 0; box-shadow: inset 0 -1px var(--panel-edge); padding: 0 52px 0 8px; display: flex; flex-direction: column; }
+body.online #top { border: 0; box-shadow: inset 0 -1px var(--panel-edge); padding: 0 70px 0 8px; display: flex; flex-direction: column; }
 body.online #top .line { height: 12px; line-height: 12px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 body.online #top .line:first-child { color: var(--accent); font-weight: bold; }
 body.online #top .line.second { color: var(--ink); }
@@ -198,6 +219,7 @@ body.online #right .notices { margin-top: auto; color: var(--accent); }
 
 /* Spirit card, menu, notices (Task 18). */
 .menu-btn { position: absolute; right: 6px; top: 1px; height: 22px; font-size: 10px; padding: 0 8px; }
+body.online #top .settings-open { position: absolute; right: 46px; top: 3px; }
 .lane-row.pickable { cursor: pointer; }
 .lane-row.pickable:hover, .lane-row.pickable:focus-visible { background: #32293c; }
 .lane-row.pickable.watching { background: #302837; box-shadow: inset 3px 0 #9bbdcf; }

@@ -2,6 +2,7 @@ import type { ClientView, GameData } from '@dorandi/logic';
 import { el, esc, setHtml } from '../ui/dom';
 import { myTurnText, rowsModel, topModel } from './models';
 import { spiritModel } from './spirit';
+import { SETTINGS_BUTTON } from '../ui/settings';
 
 /** Left panel: a 28px title and six 44px rows, one per seat. */
 /** `quests` is the folded J line of the 60-round rules, kept in the title bar. */
@@ -28,5 +29,5 @@ export function renderRows(view: ClientView, data: GameData, overlay = ''): void
 export function renderTop(view: ClientView, data: GameData): void {
   const m = topModel(view, data);
   const second = m.myTurn ? `${m.line2} · ${m.myTurn}` : m.line2;
-  setHtml(el('top'), `<div class="line">${esc(m.line1)}</div><div class="line second${m.myTurn ? ' turn' : ''}">${esc(second)}</div><button class="menu-btn" data-action="openMenu">메뉴</button>`);
+  setHtml(el('top'), `<div class="line">${esc(m.line1)}</div><div class="line second${m.myTurn ? ' turn' : ''}">${esc(second)}</div>${SETTINGS_BUTTON}<button class="menu-btn" data-action="openMenu">메뉴</button>`);
 }

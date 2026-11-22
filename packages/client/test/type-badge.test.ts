@@ -4,7 +4,8 @@ import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { combineOptions, helperModel } from '../src/ui/models';
 import { renderHelper } from '../src/ui/helper';
-import { renderBottom, unitDetailsHtml } from '../src/ui/panels';
+import { renderBottom, unitDetailsHtml, unitPanelHtml } from '../src/ui/panels';
+import { setHtml } from '../src/ui/dom';
 import { typeBadgeHtml } from '../src/ui/badge';
 
 const data = loadGameData();
@@ -34,10 +35,13 @@ describe('type badge', () => {
     const modal = unitDetailsHtml(s, 0);
     expect(types(modal)).toEqual([own, ...expected]);
 
-    renderBottom(s, 0);
-    expect(types(document.getElementById('bottom')!.innerHTML)).toEqual([own, ...expected]);
-    expect(document.querySelectorAll('#bottom .combine-options .type-badge').length).toBe(expected.length);
-    document.querySelectorAll('#bottom .combine-options .type-badge').forEach(b => expect(b.textContent).toHaveLength(1));
+    // solo the card is in the left panel, online under the board
+    setHtml(document.getElementById('left')!, unitPanelHtml(s, 0));
+    expect(types(document.getElementById('left')!.innerHTML)).toEqual([own, ...expected]);
+    expect(document.querySelectorAll('#left .combine-options .type-badge').length).toBe(expected.length);
+    document.querySelectorAll('#left .combine-options .type-badge').forEach(b => expect(b.textContent).toHaveLength(1));
+    renderBottom(s, 0, true);
+    expect(types(document.getElementById('bottom')!.innerHTML)[0]).toBe(own);
 
     renderHelper(s, true);
     expect(types(document.getElementById('left')!.innerHTML)).toEqual(helperModel(s).map(i => unitDefFast(data, i.recipe).damageType));

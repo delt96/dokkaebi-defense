@@ -1,0 +1,182 @@
+// @vitest-environment happy-dom
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { createGame, loadGameData } from '@dorandi/logic';
+import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
+import { GameDriver } from '../src/driver';
+import { mountUi } from '../src/ui/mount';
+import { key, press, STAGE_HTML } from './fixtures/net';
+
+class FakeScene {
+  selectedId: number | null = null;
+  reduceEffects = false;
+  onFrame?: () => void;
+  private selectCb: ((slot: number | null) => void) | null = null;
+  onSelect(cb: (slot: number | null) => void): void { this.selectCb = cb; }
+  onEvents(): void {}
+  setReduceEffects(on: boolean): void { this.reduceEffects = on; }
+  select(slot: number | null): void { this.selectCb?.(slot); }
+}
+
+const modal = () => document.getElementById('modal')!;
+const gear = () => document.querySelector<HTMLElement>('#top [data-action="openSettings"]')!;
+const row = (name: string) => modal().querySelector<HTMLElement>(`.settings-row[data-setting="${name}"]`);
+const choice = (action: string, arg: string) => modal().querySelector<HTMLButtonElement>(`[data-action="${action}"][data-arg="${arg}"]`)!;
+const helperList = () => document.querySelector('#left .helper li');
+const bottom = () => document.getElementById('bottom')!;
+const left = () => document.getElementById('left')!;
+
+describe('solo settings window', () => {
+  let driver: GameDriver;
+  let scene: FakeScene;
+  beforeEach(() => {
+    localStorage.clear();
+    document.body.innerHTML = STAGE_HTML;
+    const s = createGame(loadGameData('stage3'), 1);
+    forceRound(s, 24);
+    driver = new GameDriver(s);
+    scene = new FakeScene();
+    mountUi(driver, scene as never);
+  });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  test('the gear sits at the right end of the top bar, not in the right panel', () => {
+    expect(gear().getAttribute('aria-label')).toBe('설정');
+    expect(document.querySelector('#top')!.lastElementChild!.lastElementChild).toBe(gear());
+    expect(document.querySelector('#right [data-action="openSettings"]')).toBeNull();
+  });
+
+  test('the gear opens a window with the helper, speed, reduce-effects and help-line rows; Esc closes it', () => {
+    expect(modal().textContent).toBe('');
+    press(gear());
+    expect(Array.from(modal().querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'speed', 'fx', 'help']);
+    expect(row('help')!.textContent).toContain('도움말');
+    expect(choice('setHelp', 'on').getAttribute('aria-pressed')).toBe('true');
+    expect(row('helper')!.textContent).toContain('조합 도우미');
+    expect(choice('setHelper', 'off').getAttribute('aria-pressed')).toBe('true');
+    expect(choice('speed', '1').getAttribute('aria-pressed')).toBe('true');
+    expect(choice('setFx', 'off').getAttribute('aria-pressed')).toBe('true');
+    key('Escape');
+    expect(modal().textContent).toBe('');
+  });
+
+  test('the helper row shows the list in the left panel and keeps the window open', () => {
+    press(gear());
+    expect(helperList()).toBeNull();
+    press(choice('setHelper', 'on'));
+    expect(helperList()).not.toBeNull();
+    expect(choice('setHelper', 'on').getAttribute('aria-pressed')).toBe('true');
+    expect(document.activeElement).toBe(choice('setHelper', 'on'));
+    press(choice('setHelper', 'on'));
+    expect(helperList()).not.toBeNull();
+    press(choice('setHelper', 'off'));
+    expect(helperList()).toBeNull();
+    expect(row('helper')).not.toBeNull();
+  });
+
+  test('Q flips the helper with the window open and leaves the window as it is', () => {
+    press(gear());
+    key('KeyQ');
+    expect(helperList()).not.toBeNull();
+    expect(choice('setHelper', 'on').getAttribute('aria-pressed')).toBe('true');
+    key('KeyQ');
+    expect(helperList()).toBeNull();
+    expect(row('helper')).not.toBeNull();
+    key('Escape');
+    key('KeyQ');
+    expect(helperList()).not.toBeNull();
+    expect(modal().textContent).toBe('');
+  });
+
+  test('the speed row sets the game speed', () => {
+    press(gear());
+    press(choice('speed', '3'));
+    expect(driver.speed).toBe(3);
+    expect(choice('speed', '3').getAttribute('aria-pressed')).toBe('true');
+    press(choice('speed', '2'));
+    expect(driver.speed).toBe(2);
+    press(choice('speed', '1'));
+    expect(driver.speed).toBe(1);
+  });
+
+  test('the reduce-effects row flips the scene setting', () => {
+    press(gear());
+    press(choice('setFx', 'on'));
+    expect(scene.reduceEffects).toBe(true);
+    expect(choice('setFx', 'on').getAttribute('aria-pressed')).toBe('true');
+    press(choice('setFx', 'off'));
+    expect(scene.reduceEffects).toBe(false);
+    expect(document.querySelector('#left [data-action="toggleFx"], #left .fx-toggle')).toBeNull();
+  });
+});
+
+describe('solo help line and unit card', () => {
+  let scene: FakeScene;
+  let driver: GameDriver;
+  const mount = () => {
+    document.body.innerHTML = STAGE_HTML;
+    scene = new FakeScene();
+    mountUi(driver, scene as never);
+  };
+  beforeEach(() => {
+    localStorage.clear();
+    const s = createGame(loadGameData('stage3'), 1);
+    forceRound(s, 24);
+    placeUnitForTest(s, 'jipsin', 3);
+    driver = new GameDriver(s);
+    mount();
+  });
+
+  test('도움말 끔 hides the hotkey line under the board and is remembered', () => {
+    expect(bottom().textContent).toContain('Space 소환');
+    press(gear());
+    press(choice('setHelp', 'off'));
+    expect(bottom().textContent).toBe('');
+    expect(choice('setHelp', 'off').getAttribute('aria-pressed')).toBe('true');
+    mount();
+    expect(bottom().textContent).toBe('');
+    press(gear());
+    press(choice('setHelp', 'on'));
+    expect(bottom().textContent).toContain('Space 소환');
+  });
+
+  test('the selected unit shows in the left panel, not under the board', () => {
+    expect(left().textContent).toContain('유닛을 누르면 여기에 정보가 나옵니다');
+    scene.select(3);
+    const card = left().querySelector('.unit-panel')!;
+    expect(card.textContent).toContain('짚신');
+    expect(card.querySelector('.type-badge')).not.toBeNull();
+    expect(card.textContent).toMatch(/공격 \d+/);
+    expect(card.querySelector('[data-action="unitDetails"]')).not.toBeNull();
+    expect(card.querySelector('[data-action="sell"]')!.textContent).toContain('판매(S)');
+    // with the panel to itself the skill text is shown whole
+    expect(card.querySelector('.up-skill:not(.compact)')).not.toBeNull();
+    expect(left().textContent).not.toContain('유닛을 누르면');
+    expect(bottom().querySelector('[data-action="sell"], .unit-info')).toBeNull();
+    expect(bottom().textContent).toContain('Space 소환');
+    press(card.querySelector('[data-action="unitDetails"]'));
+    expect(modal().querySelector('.unit-details')).not.toBeNull();
+  });
+
+  test('with the helper on the list comes first and the card stays under it', () => {
+    scene.select(3);
+    key('KeyQ');
+    const kids = Array.from(left().children).map(c => c.className.split(' ')[0]);
+    expect(kids.indexOf('helper')).toBeGreaterThanOrEqual(0);
+    expect(kids.indexOf('unit-panel')).toBeGreaterThan(kids.indexOf('helper'));
+    expect(left().querySelector('.unit-panel .up-skill.compact')).not.toBeNull();
+    key('Escape');
+    expect(left().querySelector('.unit-panel')!.textContent).toContain('유닛을 누르면');
+    expect(helperList()).not.toBeNull();
+  });
+});
+
+describe('20-round solo', () => {
+  test('keeps the gear and the speed row', () => {
+    document.body.innerHTML = STAGE_HTML;
+    const driver = new GameDriver(createGame(loadGameData(), 1));
+    mountUi(driver, new FakeScene() as never);
+    press(gear());
+    press(choice('speed', '2'));
+    expect(driver.speed).toBe(2);
+  });
+});

@@ -1,7 +1,7 @@
 import { NetClient, knownDataVersions, stageOfVersion, type NetEvent } from '../net/NetClient';
 import { connectCreate, connectJoin, devCreateOptions, type RoomLike } from '../net/room';
 import { clearSession, lastName, loadSession } from '../net/session';
-import { JOIN_ERROR_CODES, loadGameData } from '@dorandi/logic';
+import { JOIN_ERROR_CODES, loadGameData, type Difficulty } from '@dorandi/logic';
 import { startBattle } from './battle';
 import { renderEntry } from './entry';
 import { renderLobby } from './lobby';
@@ -69,7 +69,6 @@ export function startOnline(opts: { roomId?: string }): void {
       ready: v => n.ready(v, msg.stage, msg.difficulty),
       start: () => n.start(),
       difficulty: d => n.setDifficulty(d),
-      stage: s => n.setStage(s),
       copy: () => { void navigator.clipboard?.writeText(location.href).catch(() => undefined); },
     }, notice);
   };
@@ -198,10 +197,10 @@ export function startOnline(opts: { roomId?: string }): void {
     else showEntry(joinErrorText(code), name);
   }
 
-  async function submit(name: string): Promise<void> {
+  async function submit(name: string, difficulty: Difficulty): Promise<void> {
     showConnecting();
     try {
-      attach(opts.roomId ? await connectJoin(opts.roomId, { name }) : await connectCreate(name, devCreateOptions(location.search, import.meta.env.DEV)));
+      attach(opts.roomId ? await connectJoin(opts.roomId, { name }) : await connectCreate(name, { ...devCreateOptions(location.search, import.meta.env.DEV), difficulty }));
     } catch (err) {
       const code = errorCode(err);
       showJoinError(code, name);
