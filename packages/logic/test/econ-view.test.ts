@@ -3,10 +3,10 @@ import {
   applyFull, applyLane, applyMine, applyTick, buildFull, buildTick, buyCheck, createGame, createMatch, diffViews, econView, loadGameData,
   MatchStreamer, roundStartTick, step, stepMatch, type LaneBatch, type MatchCommand, type MatchState,
 } from '../src/index';
-import { forceRound, jumpToTick, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
+import { forceRound, jumpToTick, placeUnitForTest, spawnEnemyForTest, withoutMarketLock } from '../src/testing';
 
 const d2 = loadGameData('stage2');
-const d3 = loadGameData('stage3');
+const d3 = withoutMarketLock(loadGameData('stage3'));
 const names = { 1: '가', 2: '나' };
 
 describe('econView', () => {

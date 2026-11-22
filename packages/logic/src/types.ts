@@ -111,6 +111,8 @@ export interface EconomyDef {
   ledger: { tokenValue: number; totalCap: number; ratio: number };
   market?: {
     dayRounds: number; jigeChance: number; maxSwapGrade: number;
+    /** Draws stay locked until this round's personal boss is killed or tamed. */
+    openAfterBossRound?: number;
     draw: { buckwheatCost: number; perDay: number; weights: number[] };
   };
   drops?: { round: number; grade: number }[];
@@ -128,6 +130,8 @@ export interface EconState {
   ledger: { tokens: number };
   pendingDrops: string[];
   market: { day: number; draws: number };
+  /** False until the boss named by market.openAfterBossRound is killed or tamed; missing (older snapshots) means open. */
+  marketOpen?: boolean;
   jige: number;
   mission: { phase: 'idle' | 'active' | 'won' | 'lost'; beastId: number | null; beastDown: boolean };
   collection: { done: string[]; paid: boolean };
@@ -188,7 +192,7 @@ export type Command =
   | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string };
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
-  | 'marketClosed' | 'soldOut' | 'missionClosed' | 'noTarget' | 'tameCondition'
+  | 'marketClosed' | 'marketLocked' | 'soldOut' | 'missionClosed' | 'noTarget' | 'tameCondition'
   | 'cooldown' | 'noJige'
   | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
 export type HitEffect = 'crit' | 'execute' | 'explosion';

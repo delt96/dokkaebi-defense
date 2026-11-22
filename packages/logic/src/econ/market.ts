@@ -33,6 +33,7 @@ export function buyCheck(state: GameState, item: EconItem) {
   const m = state.data.economy?.market;
   if (!state.econ || !m || state.phase !== 'round' || state.round < 1) return 'marketClosed';
   if (item !== 'draw') return 'badArgs';
+  if (state.econ.marketOpen === false) return 'marketLocked';
   if (drawsToday(state) >= m.draw.perDay) return 'soldOut';
   if (state.buckwheat < m.draw.buckwheatCost) return 'noBuckwheat';
   if (!hasFreeSlot(state)) return 'noSlot';
@@ -55,6 +56,12 @@ registerCommand('buy', (state, cmd, events) => {
   receive(state, defId, events, gradeValue(grade));
   return null;
 });
+
+/** A personal boss killed or tamed: from the unlock round's boss on, the draw opens. */
+export function openMarketAfterBoss(state: GameState, round: number): void {
+  const unlock = state.data.economy?.market?.openAfterBossRound;
+  if (state.econ && unlock !== undefined && round >= unlock) state.econ.marketOpen = true;
+}
 
 /** Boss-kill drop for the boss's spawn round, placed now or queued for the next free slot. */
 export function bossDrop(state: GameState, events: GameEvent[], round = state.round): void {

@@ -1,6 +1,6 @@
 import type { Enemy, GameEvent, GameState } from '../types';
 import { isEvent } from '../stats';
-import { bossDrop } from './market';
+import { bossDrop, openMarketAfterBoss } from './market';
 import { eventKill, eventsRoundEnd, eventsRoundStart } from './events';
 import { collectionRoundEnd, missionRoundEnd } from './quests';
 
@@ -26,5 +26,6 @@ export function econEventKill(state: GameState, enemy: Enemy, events: GameEvent[
 }
 
 export function econBossKill(state: GameState, round: number, events: GameEvent[]): void {
+  openMarketAfterBoss(state, round);
   bossDrop(state, events, round);
 }

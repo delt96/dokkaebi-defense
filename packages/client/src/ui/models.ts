@@ -274,6 +274,7 @@ const REJECT_TEXT: Record<string, string> = {
   badArgs: '잘못된 입력입니다',
   // stage 3 economy
   marketClosed: '장터는 1라운드부터 엽니다',
+  marketLocked: '보따리는 10라운드 보스를 잡은 뒤에 열립니다',
   soldOut: '이번 장날 몫을 다 샀습니다',
   missionClosed: '입장 시간이 지났습니다',
   noTarget: '길들일 대상이 사라졌습니다',

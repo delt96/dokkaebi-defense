@@ -27,6 +27,8 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     if (!Array.isArray(w) || w.length !== 2 || !w.every(n => Number.isFinite(n) && n >= 0) || !(w[0]! + w[1]! > 0))
       errors.push('invalid market weights');
     if (!(market.jigeChance >= 0 && market.jigeChance <= 1)) errors.push('invalid jige chance');
+    const unlock = market.openAfterBossRound;
+    if (unlock !== undefined && !(Number.isInteger(unlock) && unlock > 0)) errors.push('invalid market unlock round');
     for (const grade of [2, 3]) if (!data.units.some(u => !u.hidden && u.grade === grade)) errors.push('empty market pool');
   }
 

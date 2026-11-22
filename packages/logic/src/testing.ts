@@ -10,6 +10,14 @@ import './index';
 
 export { jumpToTick } from './match/jump';
 
+/** Stage 3 data with the draw open from round 1, for tests about the draw itself rather than its round-10 lock. */
+export function withoutMarketLock(data: GameData): GameData {
+  const market = data.economy?.market;
+  if (!market || market.openAfterBossRound === undefined) return data;
+  const { openAfterBossRound: _unlock, ...open } = market;
+  return { ...data, economy: { ...data.economy!, market: open } };
+}
+
 export function forceRound(state: GameState, round: number): void {
   state.enemies = [];
   state.fires = [];

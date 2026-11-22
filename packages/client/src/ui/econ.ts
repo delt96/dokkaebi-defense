@@ -20,7 +20,7 @@ const freeSlots = (state: GameState): number[] => state.slots.flatMap((u, i) => 
 
 /** Short reason on a disabled draw button, said before any 묵 is paid. */
 const BUY_BLOCK: Partial<Record<RejectReason, string>> = {
-  noSlot: '진영 한 칸 비우기', soldOut: '이번 장날 3회를 다 씀', marketClosed: '1라운드부터',
+  noSlot: '진영 한 칸 비우기', soldOut: '이번 장날 3회를 다 씀', marketClosed: '1라운드부터', marketLocked: '10라운드 보스를 잡으면 열림',
 };
 
 export type DrawReceipt = Extract<EconNote, { type: 'buy' }>;

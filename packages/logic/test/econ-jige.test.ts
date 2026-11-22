@@ -3,7 +3,7 @@ import { applyCommand, createGame, jigeCandidates, loadGameData, nonQuestValue, 
 import { forceRound, makeData, placeUnitForTest } from '../src/testing';
 
 test('every successful draw can grant another jige', () => {
-  const data = makeData(d => { d.economy!.market!.jigeChance = 1; }, 'stage3');
+  const data = makeData(d => { d.economy!.market!.jigeChance = 1; delete d.economy!.market!.openAfterBossRound; }, 'stage3');
   const s = createGame(data, 1);
   forceRound(s, 1);
   s.buckwheat = 2;

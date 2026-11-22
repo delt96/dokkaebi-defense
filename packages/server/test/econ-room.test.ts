@@ -17,6 +17,7 @@ describe('stage 3 economy commands through the room', () => {
     const r = room60(2);
     const lane = r.core.match!.lanes[1]!;
     lane.coins = 200;
+    lane.econ!.marketOpen = true;
     send(r.core, 'a', 1, 'buy', { item: 'draw' });
     tickOnce(r.core, r.deps);
     const mine = r.links[0]!.last('mine');

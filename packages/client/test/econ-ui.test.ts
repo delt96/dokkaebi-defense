@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createGame, econView, loadGameData, step, type ClientView, type EconMine, type GameState } from '@dorandi/logic';
-import { forceRound, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
+import { forceRound, placeUnitForTest, spawnEnemyForTest, withoutMarketLock } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import {
   econPanelHtml, marketModel, noteText, questChips, tameModel, tameRejectText,
@@ -10,7 +10,7 @@ import { rejectText, unitSkillText } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
 import { press, STAGE_HTML } from './fixtures/net';
 
-const d3 = loadGameData('stage3');
+const d3 = withoutMarketLock(loadGameData('stage3'));
 const eco = d3.economy!;
 const market = eco.market!;
 
@@ -167,7 +167,7 @@ describe('tame button', () => {
 
 describe('refusals', () => {
   test('every economy refusal has a line', () => {
-    for (const r of ['marketClosed', 'soldOut', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'cooldown', 'noJige']) {
+    for (const r of ['marketClosed', 'marketLocked', 'soldOut', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'cooldown', 'noJige']) {
       expect(rejectText(r), r).toBeTruthy();
     }
   });
