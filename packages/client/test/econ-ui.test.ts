@@ -87,16 +87,7 @@ describe('B market', () => {
 });
 
 describe('quest tracker text', () => {
-  test('mission entry window, then kills and the beast; collection marks', () => {
-    const m = eco.mission!;
-    const s = lane(m.round, m.fee);
-    s.roundStartTick = s.tick;
-    let chips = questChips(econOf(s), s, null);
-    expect(chips[0]).toMatchObject({ title: '쇠밥 한 끼', text: `입장 ${m.fee}냥 · ${m.entrySeconds}초 안에`, action: { name: 'missionEnter', label: '입장' } });
-    step(s, [{ type: 'missionEnter' }]);
-    s.econ!.roundKills = 14;
-    chips = questChips(econOf(s), s, null);
-    expect(chips[0]!.text).toMatch(new RegExp(`^잡귀 14/${m.kills} · 짐승 남음 · 체력 \\d+%$`));
+  test('collection marks', () => {
     const c = eco.collection!;
     const t = lane(c.fromRound);
     t.econ!.collection.done = [c.items[0]!];
@@ -167,7 +158,7 @@ describe('tame button', () => {
 
 describe('refusals', () => {
   test('every economy refusal has a line', () => {
-    for (const r of ['marketClosed', 'marketLocked', 'soldOut', 'missionClosed', 'noTarget', 'tameHp', 'tameCondition', 'cooldown', 'noJige']) {
+    for (const r of ['marketClosed', 'marketLocked', 'soldOut', 'huntClosed', 'huntOut', 'noTarget', 'tameHp', 'tameCondition', 'cooldown', 'noJige']) {
       expect(rejectText(r), r).toBeTruthy();
     }
   });
@@ -177,7 +168,7 @@ describe('refusals', () => {
 describe('notes and particles', () => {
   test('purchase, reward and taming lines', () => {
     expect(noteText({ type: 'buy', item: 'draw', defId: 'moru', spentBuckwheat: 1, jige: true }, d3)).toMatch(/^보따리에서 모루 \(\d등급\) · 지게 도깨비가 왔습니다!$/);
-    expect(noteText({ type: 'questReward', quest: 'mission', coins: 30, buckwheat: 1, tokens: 0 }, d3)).toBe('쇠밥 한 끼 성공 · +30냥 · 묵 +1');
+    expect(noteText({ type: 'questReward', quest: 'collection', coins: 20, buckwheat: 0, tokens: 0 }, d3)).toBe('살림 한 벌 완성 · +20냥');
     expect(noteText({ type: 'tame', enemyId: 1, defId: 'gangcheori', unitId: 2, slot: 0 }, d3)).toBe('길들이기 성공 · 강철이가 우리 편이 됐습니다');
   });
 });

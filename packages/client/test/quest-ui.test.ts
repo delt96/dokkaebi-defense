@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { createGame, econView, loadGameData, type ClientView, type EconMine, type GameState, type QuestRecord } from '@dorandi/logic';
+import { createGame, econView, loadGameData, step, type ClientView, type EconMine, type GameState, type QuestRecord } from '@dorandi/logic';
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
-import { questBoxModel, questRows } from '../src/ui/econ';
+import { huntRows, noteText, questBoxHtml, questBoxModel, questChips, questListHtml, questRows } from '../src/ui/econ';
 import { mountUi } from '../src/ui/mount';
 import { press, STAGE_HTML } from './fixtures/net';
 
@@ -26,51 +26,112 @@ describe('questRows', () => {
     const s = lane(0);
     const rows = questRows(econOf(s), s, false);
     expect(rows.map(r => [r.id, r.group])).toEqual([
-      ['mission', '곧 열림'], ['collection', '곧 열림'], ['team', '곧 열림'], ['ssireum', '곧 열림'], ['shadow', '곧 열림'],
+      ['collection', '곧 열림'], ['team', '곧 열림'], ['ssireum', '곧 열림'], ['shadow', '곧 열림'],
     ]);
     expect(row(rows, 'team').outcome).toBe('협동 전용');
     expect(row(rows, 'ssireum').outcome).toBe('협동 전용');
     expect(row(questRows(econOf(s), s, true), 'team').outcome).toBe('');
   });
 
-  test('at 24: 살림 한 벌 runs, 쇠밥 한 끼 keeps its result, 32R 씨름 is next online', () => {
+  test('at 24: 살림 한 벌 runs, 32R 씨름 is next online', () => {
     const s = lane(24);
-    put(s, 'mission', { outcome: 'won', reward: { coins: 30, buckwheat: 1, tokens: 0 }, progress: { kills: 20, beastDown: true } });
     s.econ!.collection.done = ['gamasot', 'hwaro'];
     const rows = questRows(econOf(s), s, true);
     expect(row(rows, 'collection')).toMatchObject({ group: '진행 중', short: '2/3' });
     expect(row(rows, 'collection').progress).toContain('가마솥 ✓');
     expect(row(rows, 'collection').progress).toContain('멍석 □');
-    expect(row(rows, 'mission')).toMatchObject({ group: '끝남', outcome: '성공', reward: '+30냥 · 묵 1' });
     expect(row(rows, 'ssireum').group).toBe('곧 열림');
     const box = questBoxModel(econOf(s), s, true);
     expect(box.active.map(a => a.title)).toEqual(['살림 한 벌', '서낭당 정성']);
-    expect(box.next).toBe('다음 32라운드 씨름');
+    expect(box.next).toBe('다음 30라운드 야광귀 격파');
+    expect(box.hunts.map(h => h.name)).toEqual(['쇠밥짐승', '외눈박이']);
+    s.econ!.hunts = { ev_yagwang: { level: 1, enemyId: null, deadlineTick: 0, readyTick: 0, last: null } };
+    forceRound(s, 31);
+    expect(questBoxModel(econOf(s), s, true).next).toBe('다음 32라운드 씨름');
     expect(questBoxModel(econOf(s), s, false).next).toBe('다음 43라운드 그늘손');
   });
 
   test('settled outcomes are told apart with the rewards actually paid', () => {
     const s = lane(50);
-    put(s, 'mission', { outcome: 'missedEntry' });
     put(s, 'collection', { outcome: 'timedOut', progress: { done: ['gamasot'] } });
     put(s, 'team', { outcome: 'capped', progress: { remaining: 40, survivors: 6, streak: 3 } });
     put(s, 'ssireum', { outcome: 'otherSeat', progress: { winnerSeat: 2 } });
     put(s, 'shadow', { outcome: 'tamed', progress: { tamedDefId: 'eoduksini' } });
     const rows = questRows(econOf(s), s, true);
     expect(rows.every(r => r.group === '끝남')).toBe(true);
-    expect(rows.map(r => r.outcome)).toEqual(['미입장', '시간 종료', '지급 한도', '2번 고개 당첨', '그늘손 획득']);
+    expect(rows.map(r => r.outcome)).toEqual(['시간 종료', '지급 한도', '2번 고개 당첨', '그늘손 획득']);
     expect(row(rows, 'shadow').reward).toBe('처치 보상 0냥');
     expect(row(rows, 'team').reward).toBe('보상 없음');
     put(s, 'ssireum', { outcome: 'fled', progress: { winnerSeat: 1 } });
     expect(row(questRows(econOf(s), s, true), 'ssireum').outcome).toBe('도주');
   });
 
-  test('round 12 after the entry window says 미입장 before the round closes', () => {
-    const s = lane(12);
-    s.tick = s.roundStartTick + 99;
-    expect(row(questRows(econOf(s), s, false), 'mission').group).toBe('진행 중');
-    s.tick = s.roundStartTick + 100;
-    expect(row(questRows(econOf(s), s, false), 'mission')).toMatchObject({ group: '끝남', outcome: '미입장' });
+});
+
+describe('격파 rows', () => {
+  const hunts = d3.economy!.hunts!;
+  const [first, second, third] = hunts.targets;
+  const fresh = (round: number, coins = 500) => {
+    const s = lane(round);
+    s.spawned = d3.balance.spawnCount;
+    s.coins = coins;
+    return s;
+  };
+
+  test('each target shows name, level, pay and a summon button; closed ones say their round', () => {
+    const s = fresh(first!.fromRound);
+    const rows = huntRows(econOf(s), s);
+    expect(rows.map(r => [r.name, r.level, r.reward, r.ready, r.short])).toEqual([
+      ['쇠밥짐승', 1, `묵 1 · ${first!.reward.coins}냥`, true, '소환'],
+      ['외눈박이', 1, `묵 1 · ${second!.reward.coins}냥`, false, `${second!.fromRound}R`],
+      ['야광귀', 1, `묵 2 · ${third!.reward.coins}냥`, false, `${third!.fromRound}R`],
+    ]);
+    expect(rows[1]!.label).toBe(`${second!.fromRound}라운드부터`);
+    expect(rows[0]!.hp).toBe(`체력 ${first!.hp.toLocaleString('ko-KR')}`);
+  });
+
+  test('button states: out with seconds left, cooldown seconds, coins short', () => {
+    const s = fresh(first!.fromRound);
+    step(s, [{ type: 'hunt', enemy: first!.enemy }]);
+    let r = huntRows(econOf(s), s)[0]!;
+    expect([r.ready, r.out, r.short, r.label]).toEqual([false, true, `${hunts.seconds}초`, `이미 나와 있음 · ${hunts.seconds}초 남음`]);
+    s.enemies.find(e => e.defId === first!.enemy)!.hp = 0;
+    step(s, []);
+    r = huntRows(econOf(s), s)[0]!;
+    expect([r.level, r.best, r.short, r.label]).toEqual([2, 1, `${hunts.cooldownSeconds}초`, `${hunts.cooldownSeconds}초 뒤 다시 소환`]);
+    s.tick = s.econ!.hunts![first!.enemy]!.readyTick;
+    s.coins = first!.fee - 3;
+    r = huntRows(econOf(s), s)[0]!;
+    expect([r.ready, r.poor, r.short, r.label]).toEqual([false, true, `${first!.fee}냥`, '엽전 3냥 부족']);
+  });
+
+  test('the box draws open targets with their buttons; the J list adds the best level', () => {
+    const s = fresh(second!.fromRound);
+    s.econ!.hunts = { [first!.enemy]: { level: 4, enemyId: null, deadlineTick: 0, readyTick: 0, last: 'won' } };
+    const box = questBoxModel(econOf(s), s, false);
+    const host = document.createElement('div');
+    host.innerHTML = questBoxHtml(box, false);
+    const buttons = Array.from(host.querySelectorAll<HTMLButtonElement>('[data-action="hunt"]'));
+    expect(buttons.map(b => [b.dataset.arg, b.disabled])).toEqual([[first!.enemy, false], [second!.enemy, false]]);
+    expect(host.querySelector('.hunt-line')!.textContent).toBe('쇠밥짐승4묵1소환');
+    expect(host.querySelector('.hunt-lv')!.getAttribute('title')).toBe('4단계');
+    host.innerHTML = questBoxHtml(box, true);
+    expect(host.querySelectorAll('[data-action="hunt"]').length).toBe(2);
+    host.innerHTML = questListHtml(questRows(econOf(s), s, false), 'hunts', huntRows(econOf(s), s));
+    expect(host.querySelector('.quest-row.focus')!.getAttribute('data-quest')).toBe('hunts');
+    expect(host.textContent).toContain('최고 3단계 격파');
+    expect(host.textContent).toContain('아직 격파 없음');
+    expect(host.textContent).toContain(`${hunts.seconds}초 안에 잡으면`);
+    expect(Array.from(host.querySelectorAll<HTMLButtonElement>('[data-action="hunt"]')).map(b => b.disabled)).toEqual([false, false, true]);
+  });
+
+  test('a lane chip counts down while the target is out; notes for a kill and a getaway', () => {
+    const s = fresh(first!.fromRound);
+    step(s, [{ type: 'hunt', enemy: first!.enemy }]);
+    s.tick += 200;
+    expect(questChips(econOf(s), s, null)).toContainEqual({ title: '쇠밥짐승 1단계', quest: 'hunts', text: `${hunts.seconds - 10}초 남음 · 체력 100%`, tone: 'hot' });
+    expect(noteText({ type: 'hunt', enemy: first!.enemy, level: 2, outcome: 'won', coins: 20, buckwheat: 1 }, d3)).toBe('쇠밥짐승 2단계 격파 · 묵 +1 · +20냥');
+    expect(noteText({ type: 'hunt', enemy: third!.enemy, level: 1, outcome: 'fled', coins: 0, buckwheat: 0 }, d3)).toBe('야광귀 1단계가 달아났습니다');
   });
 });
 
@@ -102,7 +163,8 @@ describe('J list and the quest box', () => {
     expect(order.indexOf('quest-box')).toBe(0);
     expect(order.indexOf('dex-open')).toBe(1);
     expect(left.querySelector('.quest-box')!.textContent).toContain('살림 한 벌');
-    expect(left.querySelector('.quest-box')!.textContent).toContain('다음 43라운드 그늘손');
+    expect(left.querySelector('.quest-box')!.textContent).toContain('다음 30라운드 야광귀 격파');
+    expect(left.querySelector('.quest-box [data-action="hunt"][data-arg="ev_soebap"]')).not.toBeNull();
     const unit = placeUnitForTest(driver.state, 'jipsin', 3);
     scene.selectedId = unit.id;
     keydown(window, { code: 'KeyJ' });
@@ -119,6 +181,19 @@ describe('J list and the quest box', () => {
     expect(modal().querySelector('.quest-modal')).not.toBeNull();
     keydown(window, { code: 'Escape' });
     expect(modal().textContent).toBe('');
+  });
+
+  test('a summon button in the box queues the 격파 command for that target', () => {
+    const queued: unknown[] = [];
+    const queue = driver.queue.bind(driver);
+    vi.spyOn(driver, 'queue').mockImplementation(cmd => { queued.push(cmd); queue(cmd); });
+    driver.state.coins = 500;
+    vi.spyOn(performance, 'now').mockReturnValue(1e9);
+    scene.onFrame!();
+    const btn = document.querySelector<HTMLButtonElement>('#right .quest-box [data-action="hunt"][data-arg="ev_oenun"]')!;
+    expect(btn.disabled).toBe(false);
+    press(btn);
+    expect(queued).toEqual([{ type: 'hunt', enemy: 'ev_oenun' }]);
   });
 
   test('opening Q leaves the box and D where they are', () => {

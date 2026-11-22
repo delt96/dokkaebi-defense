@@ -12,7 +12,7 @@ import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, tameButtonHtml, marketModel, noteText, questChips, tameModel,
-  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, jigeRowsHtml, type DrawReceipt, type JigeList,
+  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type DrawReceipt, type JigeList,
 } from './econ';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
@@ -31,13 +31,13 @@ const RENDER_MS = 100;
 const NOTICE_MS = 1500;
 /** Economy results (a purchase, a reward, a tame) stay a little longer than a refusal. */
 const NOTE_MS = 2500;
-const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'jigeSwap', 'questReward', 'tame', 'tameTry']);
+const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'jigeSwap', 'questReward', 'tame', 'tameTry', 'hunt']);
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void; onHome?: () => void }
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
-  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'missionEnter', 'tame', 'jigeOpen', 'jigeSwap',
+  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
   'storeAll', 'retrieve', 'sellStored',
 ]);
 const PRESS_MS = 120;
@@ -61,7 +61,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let helperOpen = false;
   let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | 'jige' | 'quests' | null = null;
   // the J list row to bring into view (a chip or a box line opened it)
-  let questFocus: QuestId | null = null;
+  let questFocus: QuestId | 'hunts' | null = null;
   let shownModal: string | null = null;
   // the open R list (modal 'jige'); see jigeStale for when a pick is dropped
   let jigeList: JigeList | null = null;
@@ -121,7 +121,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'econTab': econTab = 'market'; helperOpen = false; break;
       case 'econClose': econTab = null; break;
       case 'buy': driver.queue({ type: 'buy', item: arg as EconItem }); break;
-      case 'missionEnter': driver.queue({ type: 'missionEnter' }); break;
+      case 'hunt': if (arg) driver.queue({ type: 'hunt', enemy: arg }); break;
       case 'tame': {
         const e = econ();
         const t = e ? tameModel(e, driver.state) : null;
@@ -178,7 +178,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'openUpgrades': modal = 'upgrades'; break;
       case 'openQuests':
         if (!econ()) break;
-        questFocus = (arg || null) as QuestId | null;
+        questFocus = (arg || null) as QuestId | 'hunts' | null;
         modal = 'quests';
         break;
       case 'jigeOpen': {
@@ -446,7 +446,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null, scene.reduceEffects) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus, huntRows(econ()!, s)) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
