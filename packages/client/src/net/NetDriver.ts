@@ -81,6 +81,12 @@ export class NetDriver implements Driver {
     this.listeners.push(cb);
   }
 
+  onAccepted(cb: (type: Command['type']) => void): void {
+    this.net.on(event => {
+      if (event.kind === 'accepted') cb(commandOf(event.cmd).type);
+    });
+  }
+
   onGambleNotice(cb: (text: string) => void): void {
     this.net.on(e => {
       if (e.kind === 'notice' && e.msg.kind === 'gamble') cb(`${e.msg.name} · ${e.msg.hit}`);

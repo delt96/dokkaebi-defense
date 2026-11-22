@@ -38,6 +38,7 @@ export interface Driver {
   readonly laneEpoch?: number;
   queue(cmd: Command): void;
   onEvents(cb: Listener): void;
+  onAccepted?(cb: (type: Command['type']) => void): void;
   onGambleNotice?(cb: (text: string) => void): void;
   /** Online only: old unit id → new unit id when the server's board replaced a unit in place. */
   onRemap?(cb: (ids: Map<number, number>) => void): void;
@@ -73,6 +74,7 @@ export class GameDriver implements Driver {
   }
   private pending: QueuedCommand[] = [];
   private listeners: Listener[] = [];
+  private accepted?: (type: Command['type']) => void;
 
   constructor(state: GameState) {
     this.state = state;
@@ -116,6 +118,10 @@ export class GameDriver implements Driver {
     this.listeners.push(cb);
   }
 
+  onAccepted(cb: (type: Command['type']) => void): void {
+    this.accepted = cb;
+  }
+
   update(elapsedMs: number): void {
     if (this.failed || this.paused) return;
     const { ticks, carryMs } = ticksToRun(elapsedMs * this.speed, this.carry, this.state.data.balance.tickMs);
@@ -125,6 +131,7 @@ export class GameDriver implements Driver {
       this.previousDistances.clear();
       for (const enemy of this.state.enemies) this.previousDistances.set(enemy.id, enemy.d);
       const r = step(this.state, cmds);
+      for (const cmd of cmds) if (!r.rejected.some(({ command }) => command === cmd)) this.accepted?.(cmd.type);
       if (r.events.length || r.rejected.length) for (const l of this.listeners) l(r.events, r.rejected);
     }
   }
