@@ -1,10 +1,9 @@
-import type { Command, EconItem, GameState, UpgradeId } from '../types';
+import type { Command, GameState, UpgradeId } from '../types';
 import type { MatchCommand } from './types';
 import type { WireCommand } from './wire';
 
 const INVALID: MatchCommand = { type: 'invalid' };
 const UPGRADE_IDS: ReadonlySet<string> = new Set<UpgradeId>(['physical', 'magical', 'polish', 'slots']);
-const ECON_ITEMS: ReadonlySet<string> = new Set<EconItem>(['draw']);
 const TOP_KEYS: ReadonlySet<string> = new Set(['seq', 'type', 'args']);
 const MAX_SEAT = 6;
 const MAX_RESULT_LENGTH = 32;
@@ -54,11 +53,6 @@ const PARSERS: Record<string, Parser> = {
     // a stored index is checked against the seat's storage when the swap runs
     if (zone === 'board' && index >= slotCount) return null;
     return { type: 'jigeSwap', result, source: { zone, index, unitId } };
-  },
-  buy: args => {
-    const keys = ['item'];
-    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
-    return typeof args.item === 'string' && ECON_ITEMS.has(args.item) ? { type: 'buy', item: args.item as EconItem } : null;
   },
   gambleCoins: args => onlyKeys(args, ['stake']) && isInt(args.stake) && args.stake > 0
     ? { type: 'gambleCoins', stake: args.stake } : null,
@@ -161,8 +155,6 @@ export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand
     case 'support':
       return { type: 'support', args: { target: cmd.target } };
     case 'jigeSwap': return { type: cmd.type, args: { source: { ...cmd.source }, result: cmd.result } };
-    case 'buy':
-      return { type: 'buy', args: { item: cmd.item } };
     case 'gambleCoins': return { type: cmd.type, args: { stake: cmd.stake } };
     case 'gambleUnit': return { type: cmd.type, args: { table: cmd.table } };
     case 'tame':

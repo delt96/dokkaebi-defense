@@ -43,8 +43,9 @@ function draw<T>(outcomes: GambleOdds<T>[], roll: number): T {
 
 function gambleRng(state: GameState, kind: GambleCommand['type']) {
   const rng = state.econ!.rng;
-  // Older snapshots have no dedicated streams. Derive one once without advancing an existing stream.
-  return rng[kind] ??= createRng(deriveSeed(rng.marketGrade.s, kind));
+  // Keep the existing fallback for snapshots taken before dedicated gamble streams existed.
+  const legacySeed = (rng as typeof rng & { marketGrade?: { s: number } }).marketGrade?.s;
+  return rng[kind] ??= createRng(deriveSeed(legacySeed ?? rng.jige.s, kind));
 }
 
 registerCommand('gambleCoins', (state, cmd, events) => {
@@ -70,9 +71,11 @@ registerCommand('gambleUnit', (state, cmd, events) => {
   const rng = gambleRng(state, cmd.type);
   const result = draw(table.outcomes, nextFloat(rng));
   const consolation = result === 0 ? table.consolation : 0;
+  const jige = nextFloat(state.econ!.rng.jige) < state.data.economy!.market!.jigeChance;
+  if (jige) state.econ!.jige++;
   state.buckwheat -= table.buckwheatCost;
   state.coins += consolation;
-  const receipt = { type: cmd.type, table: cmd.table, buckwheatCost: table.buckwheatCost, consolation };
+  const receipt = { type: cmd.type, table: cmd.table, buckwheatCost: table.buckwheatCost, consolation, jige };
   if (result === 0) {
     events.push({ ...receipt, result });
   } else {

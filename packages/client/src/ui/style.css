@@ -292,24 +292,18 @@ body.online #econ-panel { height: 292px; }
 .econ-head button.on { border-color: var(--accent); color: var(--accent); }
 .econ-head .econ-close { margin-left: auto; color: var(--ink-dim); }
 .econ-body { flex: 1; min-height: 0; overflow-y: auto; padding: 3px; display: flex; flex-direction: column; gap: 3px; }
-.econ-sub { color: var(--ink-dim); }
 .shop { display: flex; flex-direction: column; gap: 1px; padding: 3px; background: #1f1829; border: 1px solid var(--panel-edge); }
-.shop-title { display: flex; justify-content: space-between; gap: 4px; }
-.shop-title span { color: var(--accent); white-space: nowrap; }
 .shop-line { color: #c9c0d6; line-height: 12px; word-break: keep-all; }
 .shop button { margin-top: 2px; min-height: 20px; }
-.shop-short { color: #ffab99; line-height: 12px; }
 .shop-held { color: var(--accent); }
 .econ-head b { align-self: center; padding: 0 2px; }
 .shop.receipt { border-color: var(--accent); }
 .gamble-shop { gap: 2px; }
-.gamble-shop h3 { margin: 0; color: var(--accent); font-size: 11px; }
 .gamble-group { display: grid; gap: 1px; }
 .gamble-count { color: #dfd3e7; }
 .gamble-buttons { display: flex; gap: 2px; }
 .gamble-buttons > span { flex: 1; min-width: 0; }
 .gamble-buttons button { width: 100%; margin: 0; padding: 1px 0; font-size: 10px; line-height: 11px; }
-.gamble-buttons small { display: block; color: #d8bd90; font-size: 9px; }
 .gamble-why { color: #ffab99; font-size: 9px; line-height: 10px; }
 .gamble-reveal { position: relative; isolation: isolate; overflow: hidden; min-height: 33px; padding: 2px;
   border: 1px solid #4b3a56; background: #15101d; display: flex; gap: 3px; align-items: center; justify-content: center; }

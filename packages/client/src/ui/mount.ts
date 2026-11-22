@@ -1,5 +1,5 @@
 import {
-  laneOf, unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type GambleCommand, type QuestId, type UpgradeId,
+  laneOf, unitDefFast, type ClientView, type EconMine, type EconNote, type GameData, type GameEvent, type GambleCommand, type QuestId, type UpgradeId,
 } from '@dorandi/logic';
 import { SPEEDS, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
@@ -12,7 +12,7 @@ import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, tameButtonHtml, marketModel, noteText, questChips, tameModel,
-  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type DrawReceipt, type JigeList,
+  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type JigeList,
 } from './econ';
 import { advanceReveal, revealDisplay, startReveal, type Reveal } from './gamble';
 import { el, onAction, setHtml } from './dom';
@@ -31,9 +31,9 @@ const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
 };
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
-/** Economy results (a purchase, a reward, a tame) stay a little longer than a refusal. */
+/** Economy notices stay a little longer than a refusal. */
 const NOTE_MS = 2500;
-const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'jigeSwap', 'questReward', 'tame', 'tameTry', 'hunt']);
+const NOTE_TYPES: ReadonlySet<string> = new Set(['jigeSwap', 'questReward', 'tame', 'tameTry', 'hunt']);
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void; onHome?: () => void }
 
@@ -42,7 +42,7 @@ const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'set
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
-  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'gambleCoins', 'gambleUnit', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
+  'summon', 'convert', 'combine', 'sell', 'upgrade', 'gambleCoins', 'gambleUnit', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
   'storeAll', 'retrieve', 'sellStored',
 ]);
 const PRESS_MS = 120;
@@ -76,8 +76,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let notice: Notice | null = null;
   // stage 3 economy: the B panel (null = closed)
   let econTab: 'market' | null = null;
-  // the last draw the server confirmed for this seat, shown in B until the next one
-  let lastDraw: DrawReceipt | null = null;
   let reveal: Reveal | null = null;
   let revealEpoch = driver.laneEpoch;
 
@@ -140,7 +138,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'econClose': econTab = null; break;
       case 'gambleCoins': gamble({ type: 'gambleCoins', stake: Number(arg) }); break;
       case 'gambleUnit': if (arg === 'small' || arg === 'big') gamble({ type: 'gambleUnit', table: arg }); break;
-      case 'buy': driver.queue({ type: 'buy', item: arg as EconItem }); break;
       case 'hunt': if (arg) driver.queue({ type: 'hunt', enemy: arg }); break;
       case 'tame': {
         const e = econ();
@@ -331,7 +328,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         drew = true;
       }
       if (!NOTE_TYPES.has(event.type) || driver.readOnly) continue;
-      if (event.type === 'buy') { lastDraw = event as DrawReceipt; drew = true; }
       const text = noteText(event as EconNote, driver.state.data);
       if (text) say(text, NOTE_MS);
     }
@@ -340,7 +336,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       const fullBoard = r.command.type === 'summon' && !freeSlot();
       const tame = r.command.type === 'tame' ? tameRejectText(econ(), r.command.enemyId, r.reason, driver.state.data) : null;
       const table = r.command.type === 'gambleUnit' ? econ()?.market?.gamble?.units.tables[r.command.table] : undefined;
-      const gate = table && r.reason === 'gambleRound' ? `큰 판은 ${table.fromRound}라운드부터입니다` : null;
+      const gate = table && r.reason === 'gambleRound' ? `큰 보따리는 ${table.fromRound}라운드부터입니다` : null;
       const text = tame ?? gate ?? rejectText(fullBoard ? 'noSlot' : r.reason);
       if (text) notice = { text, until: performance.now() + NOTICE_MS };
     }
@@ -565,7 +561,7 @@ ${dex.mine.join()}`;
       scene.showGambleResult(reveal.tier, display.announcement, id);
       playSfx(reveal.tier === 'big' ? 'gambleBig' : reveal.tier === 'small' ? 'gambleSmall' : 'gambleLose', scene.reduceEffects);
     }
-    if (e && econTab) setHtml(el('econ-panel'), econPanelHtml(marketModel(e, s, lastDraw), display));
+    if (e && econTab) setHtml(el('econ-panel'), econPanelHtml(marketModel(e, s), display));
     return 0;
   }
 
@@ -612,7 +608,6 @@ ${dex.mine.join()}`;
     best = null;
     notice = null;
     econTab = null;
-    lastDraw = null;
     reveal = null;
     render();
   }

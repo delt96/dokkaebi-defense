@@ -40,12 +40,13 @@ test.each([
 ] as const)('%s table outcome in [%s, %s) is %s', (table, lo, hi, result) => {
   const s = lane();
   s.econ!.rng.gambleUnit = fixedRoll(lo, hi);
+  s.econ!.rng.jige = fixedRoll(.03, 1);
   const events: GameEvent[] = [];
   expect(applyCommand(s, { type: 'gambleUnit', table }, events)).toBeNull();
   const ev = events.find(e => e.type === 'gambleUnit')!;
   const buckwheatCost = table === 'small' ? 1 : 2;
   const consolation = result === 0 ? (table === 'small' ? 15 : 40) : 0;
-  expect(ev).toMatchObject({ result, buckwheatCost, consolation });
+  expect(ev).toMatchObject({ result, buckwheatCost, consolation, jige: false });
   expect(ev).not.toHaveProperty('refund');
   expect(s.coins).toBe(2000 + consolation);
   expect(s.buckwheat).toBe(3 - buckwheatCost);
@@ -88,7 +89,13 @@ test('market lock, big-table gate and full board refuse without mutating the lan
 });
 
 test('quotas are shared between stakes and tables, reset each round, and default on old snapshots', () => {
-  const s = lane();
+  const oldSnapshot = lane();
+  Object.assign(oldSnapshot.econ!, { market: { day: 3, draws: 3 }, jige: 2, gamble: { round: 30, coins: 3, units: 1 } });
+  Object.assign(oldSnapshot.econ!.rng, { marketGrade: { s: 123 }, marketUnit: { s: 456 } });
+  const s = JSON.parse(JSON.stringify(oldSnapshot)) as ReturnType<typeof lane>;
+  s.data = data;
+  expect(s.econ!.jige).toBe(2);
+  expect(marketView(s)!.gamble).toMatchObject({ coins: { left: 2 }, units: { left: 1 } });
   delete s.econ!.gamble;
   delete s.econ!.rng.gambleCoins;
   delete s.econ!.rng.gambleUnit;
@@ -120,7 +127,7 @@ test('gamble config validates odds, pools, stakes, prices and limits', () => {
   }
 });
 
-test('the old pinned data refuses both commands without changing the lane', () => {
+test('data without table configuration refuses both commands without changing the lane', () => {
   const old = structuredClone(data);
   delete old.economy!.market!.gamble;
   const s = createGame(old, 51);
@@ -164,4 +171,16 @@ test('accepted gambles replay deterministically and change the recorded state', 
   const hashes = replayMatch(d, 932, [1, 2], log, 200);
   expect(replayMatch(d, 932, [1, 2], log, 200)).toEqual(hashes);
   expect(replayMatch(d, 932, [1, 2], [{ tick, inputs: [...inputs.slice(0, -2), { seat: 1, seq: 12, cmd: { type: 'invalid' } }] }], 200)).not.toEqual(hashes);
+});
+
+test.each([
+  [small, 0, .4], [small, .85, .98], [big, 0, .35], [big, .8, .97],
+] as const)('%j grants 지게 on both a miss and a hit', (cmd, lo, hi) => {
+  const s = lane();
+  s.econ!.rng.gambleUnit = fixedRoll(lo, hi);
+  s.econ!.rng.jige = fixedRoll(0, .03);
+  const events: GameEvent[] = [];
+  expect(applyCommand(s, cmd, events)).toBeNull();
+  expect(s.econ!.jige).toBe(1);
+  expect(events.find(e => e.type === 'gambleUnit')).toMatchObject({ jige: true });
 });

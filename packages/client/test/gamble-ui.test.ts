@@ -14,13 +14,13 @@ test('the market model gives both round quotas, odds and live button reasons', (
   s.econ!.marketOpen = true;
   s.coins = 20;
   expect(view().coins.count).toBe('돈 도박 5/5');
-  expect(view().units.count).toBe('유닛 도박 2/2');
+  expect(view().units.count).toBe('보따리 남은 횟수 2/2');
   expect(view().coins.buttons[1]!).toMatchObject({ label: '100냥', blocked: '엽전 80냥 부족' });
   expect(view().coins.buttons[1]!.odds).toContain('×10 0.5%');
   expect(view().units.buttons[1]!.blocked).toBe('30라운드부터');
   s.econ!.gamble = { round: 29, coins: 5, units: 1 };
   expect(view().coins.buttons[0]!.blocked).toBe('이번 라운드 몫을 다 씀');
-  expect(view().units.count).toBe('유닛 도박 1/2');
+  expect(view().units.count).toBe('보따리 남은 횟수 1/2');
   for (let i = 0; i < s.slots.length; i++) if (s.open[i]) placeUnitForTest(s, 'jipsin', i);
   expect(view().units.buttons[0]!.blocked).toBe('진영 한 칸 비우기');
 });
@@ -32,20 +32,20 @@ test('unit buttons show 묵 prices and consolation odds, with the bundle-style s
   s.buckwheat = 1;
   const model = gambleModel(econView(s)!.market!.gamble!, s.coins, s.buckwheat);
   expect(model.units.buttons).toMatchObject([
-    { price: '묵 1', blocked: null },
-    { price: '묵 2', blocked: '메밀묵 1개 부족' },
+    { label: '보따리 · 묵 1', blocked: null },
+    { label: '큰 보따리 · 묵 2', blocked: '메밀묵 1개 부족' },
   ]);
   expect(model.units.buttons[0]!.odds).toContain('꽝이면 15냥 위로금');
   expect(model.units.buttons[1]!.odds).toContain('꽝이면 40냥 위로금');
-  expect(gambleHtml(model, null)).toContain('작은 판<small>묵 1</small>');
+  expect(gambleHtml(model, null)).toContain('보따리 · 묵 1');
 });
 
 test.each([
   [{ type: 'gambleCoins', stake: 10, multiplier: 0, payout: 0 }, 'lose', 700],
   [{ type: 'gambleCoins', stake: 10, multiplier: 1.5, payout: 15 }, 'small', 850],
   [{ type: 'gambleCoins', stake: 100, multiplier: 10, payout: 1000 }, 'big', 850],
-  [{ type: 'gambleUnit', table: 'small', buckwheatCost: 1, result: 0, consolation: 15 }, 'lose', 700],
-  [{ type: 'gambleUnit', table: 'big', buckwheatCost: 2, result: 'hidden', defId: 'baekbalbaneulgaksi', unitId: 3, consolation: 0 }, 'big', 850],
+  [{ type: 'gambleUnit', table: 'small', buckwheatCost: 1, result: 0, consolation: 15, jige: true }, 'lose', 700],
+  [{ type: 'gambleUnit', table: 'big', buckwheatCost: 2, result: 'hidden', defId: 'baekbalbaneulgaksi', unitId: 3, consolation: 0, jige: false }, 'big', 850],
 ] satisfies [GambleEvent, string, number][])('%j settles as %s after the reveal', (event, tier, duration) => {
   const start = startReveal(100);
   expect(start.phase).toBe('start');
@@ -60,7 +60,7 @@ test.each([
   expect(revealDisplay(result, 125 + duration, data, true)?.motion).toBe(false);
   if (event.type === 'gambleUnit' && event.result === 0) {
     expect(revealDisplay(result, 125 + duration, data, true)).toMatchObject({
-      label: '꽝', detail: '위로금 +15냥', announcement: '꽝 · 위로금 +15냥',
+      label: '꽝', detail: '위로금 +15냥 · 지게 획득', announcement: '꽝 · 위로금 +15냥 · 지게 획득',
     });
   }
 });

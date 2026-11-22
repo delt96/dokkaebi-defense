@@ -64,23 +64,29 @@ describe('stage 3 economy commands through the room', () => {
     expect(r.links[0]!.last('notice')).toBeUndefined();
   });
 
-  test('a bundle buy is parsed, stepped, acked and shows in the buyer\'s mine', () => {
-    const r = room60(2);
+  test.each([[67, '6등급'], [43, '숨은 유닛']])('a big bundle hit is sent to peers (seed %s)', (seed, label) => {
+    const r = room60(30);
     const lane = r.core.match!.lanes[1]!;
-    lane.coins = 200;
     lane.econ!.marketOpen = true;
+    lane.buckwheat = 2;
+    lane.econ!.rng.gambleUnit = { s: seed };
+    send(r.core, 'a', 1, 'gambleUnit', { table: 'big' });
+    tickOnce(r.core, r.deps);
+    expect(r.links[1]!.last('notice')).toMatchObject({ kind: 'gamble', hit: `${label} 당첨` });
+    expect(r.links[0]!.last('notice')).toBeUndefined();
+  });
+
+  test('the retired draw is invalid and leaves the wallet and quota untouched', () => {
+    const r = room60(30);
+    const lane = r.core.match!.lanes[1]!;
+    lane.econ!.marketOpen = true;
+    lane.buckwheat = 3;
     send(r.core, 'a', 1, 'buy', { item: 'draw' });
     tickOnce(r.core, r.deps);
     const mine = r.links[0]!.last('mine');
-    expect(mine.acks).toEqual([{ seat: 1, seq: 1, tick: expect.any(Number), ok: true }]);
-    expect(mine.coins).toBe(200);
-    expect(mine.econ.market.draw.left).toBe(d3.economy!.market!.draw.perDay - 1);
-    expect(mine.units.filter(Boolean).length).toBe(1);
-    // the other seat's mine carries its own economy, untouched
-    expect(r.links[1]!.last('full').mine.econ.market.draw.left).toBe(d3.economy!.market!.draw.perDay);
-    send(r.core, 'a', 2, 'buy', { item: 'crate' });
-    tickOnce(r.core, r.deps);
-    expect(r.links[0]!.last('mine').acks).toEqual([{ seat: 1, seq: 2, tick: expect.any(Number), ok: false, reason: 'badArgs' }]);
+    expect(mine.acks).toMatchObject([{ seat: 1, seq: 1, ok: false, reason: 'badArgs' }]);
+    expect(lane.buckwheat).toBe(3);
+    expect(lane.econ!.gamble).toBeUndefined();
   });
 
   test('delivery inputs are invalid in a new room', () => {
@@ -135,7 +141,7 @@ describe('stage 3 economy commands through the room', () => {
     send(r.core, 'a', 3, 'hunt', { enemy: 'ev_soebap' });
     tickOnce(r.core, r.deps);
     const acks = r.links[0]!.last('mine').acks.map((a: { reason?: string }) => a.reason);
-    expect(acks).toEqual(['marketClosed', 'badArgs', 'noTarget']);
+    expect(acks).toEqual(['badArgs', 'badArgs', 'noTarget']);
     expect('econ' in r.links[0]!.last('mine')).toBe(false);
   });
 });

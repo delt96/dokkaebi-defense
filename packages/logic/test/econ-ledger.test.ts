@@ -27,9 +27,8 @@ describe('economy ledger', () => {
 
   test('stage 3 lane starts with a fresh econ seeded from the lane seed', () => {
     const s = createGame(d3, 7);
-    expect(s.econ!.rng.marketGrade.s).toBe(createRng(deriveSeed(7, 'marketGrade')).s);
+    expect(s.econ!.rng.gambleUnit!.s).toBe(createRng(deriveSeed(7, 'gambleUnit')).s);
     expect(s.econ!.rng.drop.s).toBe(createRng(deriveSeed(7, 'drop')).s);
-    expect(s.econ!.market).toEqual({ day: 0, draws: 0 });
     expect(s.econ!.questTokens).toBe(0);
     expect(s.econ!.ledger).toEqual({ tokens: 0 });
   });

@@ -5,8 +5,10 @@ import { loadGameData } from '../src/index';
 const d3 = loadGameData('stage3');
 const eco = d3.economy!;
 const b = d3.balance;
-const docs = ['stage3-economy-draft.md', 'content-draft-116-v5.md']
-  .map(f => [f, readFileSync(new URL(`../../../docs/design/${f}`, import.meta.url), 'utf8')] as const);
+const readDocs = (...files: string[]) =>
+  files.map(f => [f, readFileSync(new URL(`../../../docs/${f}`, import.meta.url), 'utf8')] as const);
+const draft = 'design/stage3-economy-draft.md';
+const docs = readDocs(draft, 'superpowers/specs/2026-11-21-stage3-economy-simplify-design.md');
 
 // the spec's budget path: normal, six seats all alive, 29 kills a normal round, every boss and 역신 down, no taming,
 // five 불 changed and four grade-1 units sold every ten rounds, the collection/team won, ssireum at 1/6.
@@ -42,13 +44,10 @@ function windowRow(w: readonly [number, number], i: number) {
   return { coins, muk, tokens, start: i === 0 ? eco.startingBuckwheat : 0 };
 }
 
-describe('six market days reconcile with the personal budget', () => {
-  const m = eco.market!;
+describe('six ten-round windows reconcile with the personal budget', () => {
   const rows = WINDOWS.map(windowRow);
 
-  test('18 draws cost 18묵 and 0냥; 묵 earnings by window are 3, 3, 2, 3⅙, 2, 3', () => {
-    const days = b.rounds / m.dayRounds;
-    expect([days * m.draw.perDay, days * m.draw.perDay * m.draw.buckwheatCost]).toEqual([18, 18]);
+  test('묵 earnings by window are 3, 3, 2, 3⅙, 2, 3', () => {
     expect(rows.map(r => fmt(r.muk))).toEqual(['3', '3', '2', '3⅙', '2', '3']);
     let total = 0;
     const cumulative = rows.map(r => fmt((total += r.start + r.muk)));
@@ -69,20 +68,19 @@ describe('six market days reconcile with the personal budget', () => {
       rows.forEach((r, i) => {
         total += r.start + r.muk;
         const [from, to] = WINDOWS[i]!;
-        const line = `| ${from}~${to} | ${fmt(r.coins)} | ${r.start} | ${fmt(r.muk)} | ${fmt(total)} | ${m.draw.perDay} | 0 | ${r.tokens} |`;
+        const line = `| ${from}~${to} | ${fmt(r.coins)} | ${r.start} | ${fmt(r.muk)} | ${fmt(total)} | ${r.tokens} |`;
         expect(text, `${name}: ${line}`).toContain(line);
       });
     }
   });
 
-  test('ordinary unit inflow and material value: 175 units and 261.6 after sales', () => {
+  test('ordinary unit inflow before bundles: 157 units and 201.6 after sales', () => {
     // every 불 but the team one (reserved) and the 30 changed into coins is a summon
     const summons = rows.reduce((s, r) => s + r.tokens, 0) - eco.team!.tokens - CONVERT * WINDOWS.length;
     const perSummon = [1, 2, 4].reduce((s, v, i) => s + v * b.summonOdds[i]!, 0);
-    const draw = 4 * (m.draw.weights[0]! / 3) + 2 * (m.draw.weights[1]! / 3);
     const drops = eco.drops!.reduce((s, d) => s + 2 ** (d.grade - 1), 0);
-    expect(summons + 18 + eco.drops!.length).toBe(175);
-    expect(Math.round((summons * perSummon + 18 * draw + drops - 24) * 10) / 10).toBe(261.6);
+    expect(summons + eco.drops!.length).toBe(157);
+    expect(Math.round((summons * perSummon + drops - 24) * 10) / 10).toBe(201.6);
   });
 
   test('four grade-6 example: 4/8/4묵, 3,365냥 spent and 117.7냥 left', () => {
@@ -106,8 +104,8 @@ describe('six market days reconcile with the personal budget', () => {
     expect(supply - spend).toBeCloseTo(2, 9);
   });
 
-  test('no former request or delivery route is left in the references', () => {
-    for (const [name, text] of docs) {
+  test('no former request or delivery route is left in the design drafts', () => {
+    for (const [name, text] of readDocs(draft, 'design/content-draft-116-v5.md')) {
       for (const stale of ['설화 의뢰', '의뢰 거절', '묵장수', '배달 버튼', 'storyTarget', 'transferOffer', '쇠밥 한 끼', 'R12 입장', '미션 입장']) {
         expect(text.includes(stale), `${name}: ${stale}`).toBe(false);
       }

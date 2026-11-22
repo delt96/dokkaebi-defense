@@ -12,7 +12,7 @@ export class EconDriver {
   private readonly bots = new Map<number, DriverBot>();
   private readonly seqs = new Map<number, number>();
 
-  constructor(private readonly match: MatchState, bots: DriverBot[], private readonly gamble = false) {
+  constructor(private readonly match: MatchState, bots: DriverBot[], private readonly betCoins = false) {
     match.ring.forEach((seat, i) => {
       this.bots.set(seat, bots[i]!);
       this.seqs.set(seat, 0);
@@ -37,8 +37,8 @@ export class EconDriver {
         const commands = bot.decide(lane);
         for (const cmd of commands) push(seat, cmd);
         // Recheck on the next decision after purchases, combos and board changes settle.
-        if (this.gamble && commands.every(cmd => cmd.type === 'move')) {
-          const cmd = surplusGamble(lane, bot.currentTarget?.() ?? null);
+        if ((this.betCoins || bot.currentTarget) && commands.every(cmd => cmd.type === 'move')) {
+          const cmd = surplusGamble(lane, bot.currentTarget?.() ?? null, this.betCoins);
           if (cmd) push(seat, cmd);
         }
       } else {

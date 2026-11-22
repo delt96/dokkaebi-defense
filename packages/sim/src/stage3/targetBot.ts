@@ -4,7 +4,7 @@ import {
 } from '@dorandi/logic';
 import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
 import {
-  betterTarget, huntCommands, jigeCommands, marketCommands, questCommands, remainingValue, tameCommands, type EconPolicy, type TargetBot,
+  betterTarget, huntCommands, jigeCommands, questCommands, remainingValue, tameCommands, type EconPolicy, type TargetBot,
 } from './econBot';
 import { auraPlacement, mainType, supportSlots, synergyScore, synergyUpgrade } from './synergy';
 
@@ -168,10 +168,9 @@ export function targetBot(
       const main = opts.synergy ? mainType(state, target) : null;
       const protect = policy ? strongestOutside(state, tree, BOSS_GUARD) : new Set<number>();
       if (main) for (const i of supportSlots(state, tree, main, SUPPORT_GUARD)) protect.add(i);
-      let sold = false;
       if (emptyOpenSlots(state).length === 0 && state.tokens > 0 && !recipe) {
         const sell = sellCandidate(state, tree, kept, protect, main);
-        if (sell !== null) { cmds.push({ type: 'sell', slot: sell }, { type: 'summon' }); sold = true; }
+        if (sell !== null) { cmds.push({ type: 'sell', slot: sell }, { type: 'summon' }); }
         else cmds.push({ type: 'convertToken' });
       }
 
@@ -180,18 +179,6 @@ export function targetBot(
         if (policy.quests) cmds.push(...questCommands(state, target));
         if (policy.hunts) cmds.push(...huntCommands(state, target));
         if (policy.tame) cmds.push(...tameCommands(state, target));
-        if (policy.market) {
-          const free = Math.max(0, emptyOpenSlots(state).length - cmds.filter(c => c.type === 'summon').length);
-          let buys = marketCommands(state, target, free);
-          if (buys.length === 0 && free === 0 && !sold && !recipe) {
-            const sell = sellCandidate(state, tree, kept, protect, main);
-            if (sell !== null) {
-              buys = marketCommands(state, target, 1).slice(0, 1);
-              if (buys.length) cmds.push({ type: 'sell', slot: sell });
-            }
-          }
-          cmds.push(...buys);
-        }
       }
 
       const holdsTree5 = state.slots.some(u => u && tree.has(u.defId) && unitDefFast(state.data, u.defId).grade === 5);

@@ -39,12 +39,6 @@ export function seatSpread(rows: { seed: number; finished: boolean; grade6AtFina
   return sds.length ? sds.reduce((a, b) => a + b, 0) / sds.length : null;
 }
 
-/** Among seats that opened all 18 bags, how many got at least one 지게. */
-export function jigeIncidence(rows: { draws: number; jigeGrants: number }[]): { seats: number; withJige: number } {
-  const full = rows.filter(r => r.draws === 18);
-  return { seats: full.length, withJige: full.filter(r => r.jigeGrants > 0).length };
-}
-
 export function toCsvRows(rows: object[]): string {
   if (!rows.length) return '';
   const cols = Object.keys(rows[0]!);

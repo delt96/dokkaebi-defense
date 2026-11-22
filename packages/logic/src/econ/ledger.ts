@@ -6,7 +6,6 @@ import { unitDefFast } from '../units';
 export function createEcon(seed: number, economy: EconomyDef): EconState {
   return {
     rng: {
-      marketGrade: createRng(deriveSeed(seed, 'marketGrade')), marketUnit: createRng(deriveSeed(seed, 'marketUnit')),
       jige: createRng(deriveSeed(seed, 'jige')), drop: createRng(deriveSeed(seed, 'drop')),
       tame: createRng(deriveSeed(seed, 'tame')),
       ...(economy.market?.gamble && {
@@ -17,7 +16,6 @@ export function createEcon(seed: number, economy: EconomyDef): EconState {
     roundKills: 0, questTokens: 0,
     ledger: { tokens: 0 },
     pendingDrops: [],
-    market: { day: 0, draws: 0 },
     marketOpen: economy.market?.openAfterBossRound === undefined,
     jige: 0,
     collection: { done: [], paid: false },

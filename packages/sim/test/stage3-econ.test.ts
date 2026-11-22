@@ -4,7 +4,7 @@ import {
 } from '@dorandi/logic';
 import { forceRound, jumpToTick, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import {
-  BOT_HUNT_SHARE, buckwheatNeed, huntCommands, marketCommands, questCommands, reserveCoins, surplusGamble, switchBot, tameCommands, type EconPolicy,
+  BOT_HUNT_SHARE, buckwheatNeed, huntCommands, questCommands, reserveCoins, surplusGamble, switchBot, tameCommands, type EconPolicy,
 } from '../src/stage3/econBot';
 import { EconDriver } from '../src/stage3/econDriver';
 import { expandTree, targetBot } from '../src/stage3/targetBot';
@@ -14,7 +14,7 @@ import {
 import { toCsvRows } from '../src/stage3/report';
 
 const d3 = loadGameData('stage3');
-const ALL: EconPolicy = { market: true, quests: true, tame: true };
+const ALL: EconPolicy = { quests: true, tame: true };
 const T = 'cheonnyeonjing';
 
 function lane(round: number, coins = 0): GameState {
@@ -67,15 +67,14 @@ describe('stage 3 economy bot policies', () => {
     expect(huntCommands(b, T)).toEqual([]);
   });
 
-  test('draw policy reserves recipe buckwheat after the opening draw', () => {
-    const s = lane(1, 0);
-    expect(marketCommands(s, T)).toEqual([{ type: 'buy', item: 'draw' }]);
-    forceRound(s, 11);
-    s.buckwheat = buckwheatNeed(s, T);
-    expect(marketCommands(s, T)).toEqual([]);
-    s.buckwheat += 5;
-    expect(marketCommands(s, T)).toHaveLength(3);
-    expect(marketCommands(s, T, 1)).toHaveLength(1);
+  test('bundle policy respects the shared quota and leaves the coin switch independent', () => {
+    const s = lane(30, 185);
+    s.econ!.marketOpen = true;
+    s.buckwheat = buckwheatNeed(s, T) + 5;
+    expect(surplusGamble(s, T, false)).toEqual({ type: 'gambleUnit', table: 'big' });
+    s.econ!.gamble = { round: 30, units: 2, coins: 0 };
+    expect(surplusGamble(s, T, false)).toBeNull();
+    expect(surplusGamble(s, T)).toEqual({ type: 'gambleCoins', stake: 100 });
   });
 
   test('quest policy makes the missing collection combines', () => {
@@ -136,7 +135,7 @@ describe('stage 3 economy bot policies', () => {
       return (cmds.find(c => c.type === 'sell') as { slot: number } | undefined)?.slot;
     };
     expect(sold()).toBeLessThan(4);
-    const withPolicy = sold({ market: false, quests: false, tame: false });
+    const withPolicy = sold({ quests: false, tame: false });
     expect(withPolicy).toBeDefined();
     expect(withPolicy).toBeGreaterThanOrEqual(4);
   });
@@ -251,15 +250,13 @@ describe('economy measurement additions', () => {
     expect(on[0]!.name).not.toBe(off[0]!.name);
   });
 
-  test('report helpers: in-band share, timeouts at the limit, seat spread and jige incidence', async () => {
-    const { inBandShare, timeoutMedian, seatSpread, jigeIncidence } = await import('../src/stage3/report');
+  test('report helpers: in-band share, timeouts at the limit, seat spread', async () => {
+    const { inBandShare, timeoutMedian, seatSpread } = await import('../src/stage3/report');
     expect(inBandShare([2, 3, 4, 5])).toBe(0.5);
     expect(inBandShare([])).toBeNull();
     expect(timeoutMedian([20, null, 30], 40)).toBe(30);
-    const rows = [1, 2, 3].flatMap(seed => [0, 1].map(i => ({ seed, finished: true, grade6AtFinal: i === 0 ? 3 : seed === 1 ? 3 : 4, draws: 18, jigeGrants: seed === 2 ? 0 : 1 })));
+    const rows = [1, 2, 3].flatMap(seed => [0, 1].map(i => ({ seed, finished: true, grade6AtFinal: i === 0 ? 3 : seed === 1 ? 3 : 4 })));
     expect(seatSpread(rows as never)).toBeCloseTo((0 + 0.5 + 0.5) / 3, 9);
-    expect(jigeIncidence(rows as never)).toEqual({ seats: 6, withJige: 4 });
-    expect(1 - 0.97 ** 18).toBeCloseTo(0.422, 3);
   });
 
   test('a match row counts draws, jige grants and uses, paid tame tries and 묵 checkpoints; CSV round-trips', () => {
@@ -270,7 +267,11 @@ describe('economy measurement additions', () => {
       expect(row.unitMuk).toBe(row.smallPlays! + 2 * row.bigPlays!);
       expect(row.unitConsolation).toBeGreaterThanOrEqual(15 * row.gambleMiss!);
       expect(row.huntWins!.split('+').filter(Boolean)).toHaveLength(row.huntKills);
-      expect(row.draws).toBeLessThanOrEqual(18);
+      expect(row.draws).toBe(row.smallPlays! + row.bigPlays!);
+      expect(row.earnedMuk).toBe(row.bossMuk! + row.huntMuk + row.questMuk! + row.yeoksinMuk!);
+      expect(row.yeoksinMuk).toBe(row.yeoksinKills * d3.coop!.killReward.buckwheat);
+      expect(row.lostMuk).toBe(0);
+      expect(row.startMuk! + row.earnedMuk!).toBe(row.unitMuk! + row.grade5Muk! + row.finalMuk! + row.tameMuk! + row.endMuk!);
       expect(row.jigeGrants - row.jigeUses).toBe(row.jigeHeld);
       expect(row.tameTries).toBeGreaterThanOrEqual(row.tames);
       expect(typeof row.muk10 === 'number' || row.muk10 === null).toBe(true);
