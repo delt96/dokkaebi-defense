@@ -41,3 +41,8 @@ test('matched probe gives identical seeded outcomes when both supports have no m
   expect(rows).toHaveLength(6);
   expect(rows.every(r => r.control === r.treatment)).toBe(true);
 });
+
+test('a first grade six in only one arm counts in the all-start R61 comparison', () => {
+  const r = { seed: 7, seat: 4, draws: 18, jigeGrants: 2, jigeHeld: 0, jigeUses: 2, finished: false, grade6AtFinal: 0, firstGrade6Round: 59 };
+  expect(jigePairs([r], [{ ...r, firstGrade6Round: null }])).toMatchObject({ firstPairs: 0, firstDelta: null, starts: 1, cappedDelta: -2 });
+});

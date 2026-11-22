@@ -114,6 +114,10 @@ export function cliConfigs(arg: Arg): EconConfig[] {
   }
   const eager = arg('tame-policy', 'default') === 'eager';
   const maxDraws = arg('draws', 'default') === 'max';
+  if (eager && maxDraws) throw new Error('Choose eager recruitment or maximum draws for a measurement run');
+  if ((eager || maxDraws) && bots.some(b => b === 'normal' || b === 'clumsy')) {
+    throw new Error('These measurement policies require a target, switch or synergy bot');
+  }
   if (eager || maxDraws) configs = configs.map(c => ({ ...c, eager, maxDraws, name: c.name + (eager ? '-eager' : '') + (maxDraws ? '-max' : '') }));
   const only = arg('config', '');
   if (only) configs = configs.filter(c => only.split(',').includes(c.name));

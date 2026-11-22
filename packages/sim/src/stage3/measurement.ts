@@ -53,15 +53,17 @@ type DrawSeat = Pick<EconRow,'seed'|'seat'|'draws'|'jigeGrants'|'jigeHeld'|'jige
 export function jigePairs(on: DrawSeat[], off: DrawSeat[]) {
   const full = on.filter(r => r.draws === 18);
   const control = new Map(off.map(r => [seatKey(r), r]));
-  const counts: number[] = [], rounds: number[] = [];
+  const counts: number[] = [], rounds: number[] = [], censoredRounds: number[] = [];
   for (const r of on) {
     const c = control.get(seatKey(r));
     if (!c) continue;
+    // Score a seat with no normal grade 6 by the R60 horizon at R61.
+    censoredRounds.push((r.firstGrade6Round ?? 61) - (c.firstGrade6Round ?? 61));
     if (r.finished && c.finished) counts.push(r.grade6AtFinal - c.grade6AtFinal);
     if (r.firstGrade6Round !== null && c.firstGrade6Round !== null) rounds.push(r.firstGrade6Round - c.firstGrade6Round);
   }
   return { full: full.length, received: full.filter(r => r.jigeGrants > 0).length,
-    pairs: counts.length, countDelta: mean(counts), firstPairs: rounds.length, firstDelta: mean(rounds) };
+    pairs: counts.length, countDelta: mean(counts), firstPairs: rounds.length, firstDelta: mean(rounds), starts: censoredRounds.length, cappedDelta: mean(censoredRounds) };
 }
 
 export function debuffSummary(rows: { control: number | null; treatment: number | null }[], limit: number) {
@@ -77,7 +79,7 @@ const table = (head: string[], rows: (string | number)[][]) =>
 export function tameMarkdown(data: GameData, events: TameSample[], starts: number) {
   const s = tameSummary(data,events,starts);
   const bands = data.economy!.tame!.hpBands;
-  return table(['대상','시도한 등장','재시도','재지출 냥/묵','포기 냥/묵/드롭', ...bands.map(b => `체력 ≤${b.upTo*100}% 성공/시도`)],
+  return table(['대상','시도한 등장','재시도','재지출 냥/묵','포기 냥/묵/드롭', ...bands.map((b,i) => `체력 ${100*(bands[i-1]?.upTo ?? 0)}~${b.upTo*100}% 성공/시도`)],
     s.map(r => [unitName(data,r.unit),rate(r.attempted,r.appearances),r.retries,`${r.retryCoins}/${r.retryMuk}`,
       `${r.lostCoins}/${r.lostMuk}/${r.lostDrops}`,...r.bands.map(b => rate(b.successes,b.attempts))]))+'\n\n'+
     table(['전용 조합','전체 완성','영입 후 완성','첫 완성 R 중앙값'],s.map(r => [unitName(data,r.result),rate(r.completed,starts),rate(r.completed,r.recruited),r.firstRound ?? '—']));
@@ -100,8 +102,8 @@ export function drawMarkdown(on: DrawSeat[], off: DrawSeat[]) {
     return [name, seats.length,arm.full,rate(arm.received,arm.full),distribution(seats.filter(r => r.draws === 18)),distribution(seats)];
   });
   return table(['지게 사용','시작','18회','18회 중 지게 획득','18회 보유/사용=자리','전체 보유/사용=자리'],arms)+'\n\n'+
-    table(['완주 짝','R60 일반 6등급 차이(켬−끔 평균)','양쪽 첫 완성 짝','첫 완성 R 차이(평균)'],
-      [[s.pairs,s.countDelta?.toFixed(3) ?? '—',s.firstPairs,s.firstDelta?.toFixed(2) ?? '—']]);
+    table(['완주 짝','R60 일반 6등급 차이(켬−끔 평균)','양쪽 첫 완성 짝','첫 완성 R 차이(평균)','시작 짝','미완성 R61 포함 차이'],
+      [[s.pairs,s.countDelta?.toFixed(3) ?? '—',s.firstPairs,s.firstDelta?.toFixed(2) ?? '—',s.starts,s.cappedDelta?.toFixed(3) ?? '—']]);
 }
 
 export function debuffMarkdown(rows: import('./synergy').DebuffPair[], limit: number) {
