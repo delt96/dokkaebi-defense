@@ -10,13 +10,18 @@ import { key, press, STAGE_HTML } from './fixtures/net';
 
 const d3 = loadGameData('stage3');
 
-test('attack range uses the exact combat distance in reference tiles, ally auras use board cells', () => {
-  const data = structuredClone(d3);
-  data.balance.grid = { ...data.balance.grid, cols: 8, frame: { cols: 6, rows: 4 } };
-  const unit = data.units.find(u => u.skills.some(s => s.effects.some(e => e.kind === 'auraAttackSpeed')))!;
-  expect(laneOf({ data }).pitch).toBeLessThan(1);
-  expect(attackRangeText(unit.range)).toBe(`${unit.range}기준칸`);
-  expect(unitSkillText(data, unit)).toContain(`주변 ${data.balance.auraRadius}칸`);
+test('attack range is shown in board cells, so it matches the ring on a board with smaller cells too', () => {
+  const unit = d3.units.find(u => u.skills.some(s => s.effects.some(e => e.kind === 'auraAttackSpeed')))!;
+  expect(laneOf({ data: d3 }).pitch).toBe(1);
+  expect(attackRangeText(d3, unit.range)).toBe(`${unit.range}칸`);
+  expect(unitSkillText(d3, unit)).toContain(`주변 ${d3.balance.auraRadius}칸`);
+  const small = structuredClone(d3);
+  small.balance.grid = { ...small.balance.grid, cols: 8, frame: { cols: 6, rows: 4 } };
+  const pitch = laneOf({ data: small }).pitch;
+  expect(pitch).toBe(0.75);
+  // combat measures path units: 3 of them span 4 of the smaller cells
+  expect(attackRangeText(small, 3)).toBe('4칸');
+  expect(attackRangeText(small, 2.5)).toBe('3.3칸');
 });
 
 test('all recipes sort by readiness then missing material count, with cost gaps and stored materials', () => {

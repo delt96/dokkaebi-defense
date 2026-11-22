@@ -46,7 +46,7 @@ describe('unit details window', () => {
     const body = root.querySelector('.ud-body')!;
     expect(body.firstElementChild!.className).toBe('ud-stats');
     const stats = Array.from(body.querySelectorAll('.ud-stat')).map(s => [s.querySelector('dt')!.textContent, s.querySelector('dd')!.firstChild!.textContent]);
-    expect(stats).toEqual([['공격력', String(card.attack)], ['공격 간격', `${card.interval}초`], ['사거리', `${card.range}기준칸`], ['판매가', `${card.sellPrice}냥`]]);
+    expect(stats).toEqual([['공격력', String(card.attack)], ['공격 간격', `${card.interval}초`], ['사거리', `${card.range}칸`], ['판매가', `${card.sellPrice}냥`]]);
     expect(headings(root)).toEqual(['능력', '메모', '조합']);
     expect(root.querySelectorAll('.ud-sec')[1]!.querySelectorAll('.card-notes li').length).toBe(card.notes.length);
     expect(root.querySelectorAll('.ud-sec')[2]!.querySelectorAll('.recipe-list [data-action="combine"], .recipe-list .combine-missing').length)

@@ -67,7 +67,7 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
   const head = `<div class="modal-head ud-head">${unitFaceHtml(unit.defId, card.name, card.grade)}<b class="ud-name">${esc(card.name)}</b>
     <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
     <button class="ud-close" data-action="closeModal">Tab·Esc 닫기</button></div>`;
-  const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', attackRangeText(card.range), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>`;
+  const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', attackRangeText(state.data, card.range), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>`;
   const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
   const lines = card.skillText ? card.skillText.split(' / ') : [];
   const skill = lines.length ? `<ul class="ud-lines">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="ud-empty">특수 능력 없음</p>';
@@ -123,7 +123,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
   const options = compactRecipes(state, recipes, unitId, 2);
   setHtml(el('bottom'), `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
         <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</span>
-        <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${attackRangeText(card.range)}</span></span>
+        <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${attackRangeText(state.data, card.range)}</span></span>
         ${options}
         <button data-action="unitDetails">상세(Tab)</button>
         ${jigeHtml(state, selected!, unitId, jige)}
@@ -145,7 +145,7 @@ export function unitPanelHtml(state: GameState, selected: number | null, opts: {
   return `<div class="unit-panel${opts.compact ? ' compact' : ''}">
     <div class="up-name">${unitFaceHtml(state.slots[selected!]!.defId, card.name, card.grade)}<b>${esc(card.name)}</b></div>
     <div class="up-sub">${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</div>
-    <div class="up-stats"><span>공격 ${card.attack} · ${card.interval}초마다</span><span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(card.range)}</span></div>
+    <div class="up-stats"><span>공격 ${card.attack} · ${card.interval}초마다</span><span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(state.data, card.range)}</span></div>
     <p class="up-skill${opts.compact ? ' compact' : ''}" title="${esc(card.skillText)}">${esc(card.skillText)}</p>
     ${options}
     ${jige ? `<div class="up-jige">${jige}</div>` : ''}

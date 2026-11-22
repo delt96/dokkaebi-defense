@@ -1,6 +1,6 @@
 import { difficultySuffix } from './difficulty';
 import {
-  attackIntervalTicks, damageBonus, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
+  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
   slotsOpenedAt, upgradeCost, summonOddsForRound,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
@@ -32,8 +32,13 @@ function triggerText(t: Trigger): string {
  */
 export interface SkillCtx { interval: number; pulseSeconds: number; nameOf?: (id: string) => string; extended?: boolean; auraRadius?: number }
 
-export const attackRangeText = (range: number): string => `${range}기준칸`;
-export const ATTACK_RANGE_HINT = '유닛 중심에서 적까지 직선거리입니다. 노란 길 표시가 닿는 범위입니다.';
+/**
+ * Attack range in the board's own cells. Combat measures it in path units, a straight line from the cell centre to the
+ * enemy; a board with more cells than its frame draws them smaller (lane pitch < 1), so the same range spans more cells.
+ */
+export const attackRangeText = (data: GameData, range: number): string =>
+  `${Math.round((range / laneOf({ data }).pitch) * 10) / 10}칸`;
+export const ATTACK_RANGE_HINT = '칸 가운데에서 적까지 잰 직선거리입니다. 유닛을 고르면 닿는 길이 노랗게 보입니다.';
 
 /** Who a status lands on (stage 3 `radius` / `area`); empty for the plain target. */
 function areaText(a: StatusArea): string {
@@ -205,7 +210,7 @@ const INHERIT_CTX = (data: GameData): SkillCtx => ({ interval: Number.POSITIVE_I
 export function combineNoteLines(data: GameData, result: string): string[] {
   const n = combineNotes(data, result);
   if (!n) return [];
-  const lines = [`사거리 ${attackRangeText(n.range)}`];
+  const lines = [`사거리 ${attackRangeText(data, n.range)}`];
   if (n.inherited.length) lines.push(`이어받는 지원 효과: ${n.inherited.join(' / ')}`);
   if (n.lostAuras.length) lines.push(`조합하면 사라지는 오라: ${n.lostAuras.join(' / ')}`);
   if (n.lostControls.length) lines.push(`조합하면 사라지는 제어: ${n.lostControls.join(', ')}`);

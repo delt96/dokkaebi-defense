@@ -39,7 +39,7 @@ export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, e
     return `
     <tr data-dex-id="${esc(d.id)}"><td><span class="dot" style="background:${GRADE_COLOR[d.grade]}"></span>${d.grade}</td>
     <td><div class="dex-name">${esc(d.name)}</div>${d.roles.length ? `<div class="dex-roles">${d.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${d.recipeIds.length ? pinButton(d.id, extra.target ?? null) : ''}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
-    <div class="dex-skill">${d.typeText} · <span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(d.range)}</span>${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>`;
+    <div class="dex-skill">${d.typeText} · <span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(data, d.range)}</span>${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>`;
   }).join('');
   const grades = [...new Set(entries.map(d => d.grade))].sort((a, b) => a - b);
   const filters = ['all', ...grades.map(String), 'hidden'].map(key => {
