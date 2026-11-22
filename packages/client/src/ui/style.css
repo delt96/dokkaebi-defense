@@ -518,12 +518,12 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 .quest-box .quest-line b { color: var(--accent); }
 .quest-next { color: var(--ink-dim); line-height: 12px; padding: 0 2px; }
 .quest-box.folded { border: 0; padding: 0; }
-.hunt-line { display: flex; align-items: center; gap: 2px; min-height: 13px; padding: 0 2px; font-size: 9px; line-height: 11px; white-space: nowrap; }
+.hunt-line { display: flex; align-items: center; gap: 1px; min-height: 13px; padding: 0 1px; font-size: 9px; line-height: 11px; white-space: nowrap; }
 .hunt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .hunt-lv { font-style: normal; min-width: 9px; padding: 0 1px; border: 1px solid var(--panel-edge); text-align: center; color: var(--ink-dim); font-size: 8px; line-height: 9px; }
 .hunt-line b { margin-left: auto; color: var(--accent); }
-.quest-box .hunt-go { min-height: 12px; padding: 0 3px; font-size: 9px; line-height: 10px; }
-.quest-box .hunt-go[disabled] { color: var(--ink-dim); }
+.quest-box .hunt-go { min-height: 12px; padding: 0 1px; font-size: 9px; line-height: 10px; }
+.hunt-go[disabled] { color: var(--ink-dim); opacity: 0.85; }
 .quest-box .hunt-go.poor[disabled] { color: var(--danger); }
 .hunt-name { flex-shrink: 0; }
 .hunt-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }

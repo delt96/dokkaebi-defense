@@ -90,20 +90,40 @@ describe('격파 rows', () => {
     expect(rows[0]!.hp).toBe(`체력 ${first!.hp.toLocaleString('ko-KR')}`);
   });
 
-  test('button states: out with seconds left, cooldown seconds, coins short', () => {
+  test('button states: out with seconds left, cooldown countdown, coins short', () => {
     const s = fresh(first!.fromRound);
     step(s, [{ type: 'hunt', enemy: first!.enemy }]);
-    let r = huntRows(econOf(s), s)[0]!;
-    expect([r.ready, r.out, r.short, r.label]).toEqual([false, true, `${hunts.seconds}초`, `이미 나와 있음 · ${hunts.seconds}초 남음`]);
+    const out = huntRows(econOf(s), s)[0]!;
+    expect([out.ready, out.out, out.short, out.label]).toEqual([false, true, `${hunts.seconds}초`, `이미 나와 있음 · ${hunts.seconds}초 남음`]);
     s.enemies.find(e => e.defId === first!.enemy)!.hp = 0;
     step(s, []);
-    r = huntRows(econOf(s), s)[0]!;
-    expect([r.level, r.best, r.short, r.label]).toEqual([2, 1, `${hunts.cooldownSeconds}초`, `${hunts.cooldownSeconds}초 뒤 다시 소환`]);
+    expect(huntRows(econOf(s), s)[0]).toMatchObject({ level: 2, best: 1, ready: false });
     s.tick = s.econ!.hunts![first!.enemy]!.readyTick;
     s.coins = first!.fee - 3;
-    r = huntRows(econOf(s), s)[0]!;
+    const r = huntRows(econOf(s), s)[0]!;
     expect([r.ready, r.poor, r.short, r.label]).toEqual([false, true, `${first!.fee}냥`, '엽전 3냥 부족']);
   });
+
+  test.each([[135, '2:15'], [65, '1:05'], [60, '1:00'], [59, '59초']])(
+    'renders a disabled summon in the box and list with %i seconds remaining', (seconds, time) => {
+      const s = fresh(first!.fromRound);
+      const readyTick = s.tick + seconds * 1000 / d3.balance.tickMs - 1;
+      s.econ!.hunts = { [first!.enemy]: { level: 2, enemyId: null, deadlineTick: 0, readyTick, last: 'won' } };
+      const econ = econOf(s);
+      const hunts = huntRows(econ, s);
+      expect(hunts[0]).toMatchObject({ short: `${time} 뒤`, label: `${time} 뒤 다시 소환`, ready: false });
+      const host = document.createElement('div');
+      for (const [html, text] of [
+        [questBoxHtml(questBoxModel(econ, s, false), false), `${time} 뒤`],
+        [questListHtml(questRows(econ, s, false), 'hunts', hunts), `${time} 뒤 다시 소환`],
+      ] as const) {
+        host.innerHTML = html;
+        const button = host.querySelector<HTMLButtonElement>(`[data-action="hunt"][data-arg="${first!.enemy}"]`)!;
+        expect(button.disabled).toBe(true);
+        expect(button.textContent).toBe(text);
+      }
+    },
+  );
 
   test('the box draws open targets with their buttons; the J list adds the best level', () => {
     const s = fresh(second!.fromRound);

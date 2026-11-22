@@ -278,7 +278,8 @@ export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
       }
       case 'cooldown': {
         const left = secondsOf(data, h.readyTick - state.tick);
-        short = `${left}초`; label = `${left}초 뒤 다시 소환`; break;
+        const wait = left < 60 ? `${left}초` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+        short = `${wait} 뒤`; label = `${short} 다시 소환`; break;
       }
       // the narrow box shows the price in red; the J list and the tooltip say how much is missing
       case 'noCoins': short = `${h.fee}냥`; label = `엽전 ${h.fee - state.coins}냥 부족`; break;
