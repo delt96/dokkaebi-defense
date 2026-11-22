@@ -1,4 +1,4 @@
-import type { DamageType, Enemy, GameEvent, GameState, HitEffect } from './types';
+import type { BalanceDef, DamageType, Enemy, GameData, GameEvent, GameState, HitEffect } from './types';
 import { unitAttack } from './data';
 import { dist } from './lane';
 import { registerPhase } from './registry';
@@ -11,8 +11,19 @@ import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnKillExplosions, vulnOf } from './effects';
 import { runIncome } from './income';
 
-export function computeHitDamage(a: { attack: number; mult: number; bonus: number; resist: number; vuln: number }): number {
-  return Math.max(1, Math.round(a.attack * a.mult * (1 + a.bonus) * (1 - a.resist) * (1 + a.vuln)));
+/** `cutsResist` (stage 3 vulnCutsResist): weakening adds to what resistance leaves instead of multiplying it. */
+export function computeHitDamage(a: { attack: number; mult: number; bonus: number; resist: number; vuln: number; cutsResist?: boolean }): number {
+  const base = a.attack * a.mult * (1 + a.bonus);
+  // the multiplied form keeps its exact evaluation order, so stage 1 and 2 numbers do not move
+  return Math.max(1, Math.round(a.cutsResist ? base * (1 - a.resist + a.vuln) : base * (1 - a.resist) * (1 + a.vuln)));
+}
+
+/** What a hit on `enemy` takes from resistance and weakening, as computeHitDamage's resist, vuln and cutsResist. */
+export function hitTerms(state: GameState, enemy: Enemy, damageType: DamageType): { resist: number; vuln: number; cutsResist: boolean } {
+  return {
+    resist: enemyResist(state, enemy, damageType), vuln: vulnOf(state, enemy, damageType),
+    cutsResist: state.data.balance.vulnCutsResist === true,
+  };
 }
 
 export function attackIntervalTicks(intervalSeconds: number, speedBonus: number): number {
@@ -35,8 +46,39 @@ export function damageBonus(state: GameState, slot: number): number {
   return upgradePct(state, def.damageType) + polish + auraAttackPower(state, slot);
 }
 
+/** The resistance added in `round` by resistByRound: 0 without it or up to fromRound, then linear to top at toRound. */
+export function roundResistBonus(b: BalanceDef, round: number): number {
+  const r = b.resistByRound;
+  if (!r) return 0;
+  return r.top * Math.min(1, Math.max(0, (round - r.fromRound) / (r.toRound - r.fromRound)));
+}
+
+/** A data resist `base` in `round`, grown and capped by resistByRound (unchanged without it). */
+export function resistAt(b: BalanceDef, base: number, round: number): number {
+  const r = b.resistByRound;
+  return r ? Math.min(base + roundResistBonus(b, round), r.cap) : base;
+}
+
+/** An enemy keeps the resistance of the round it came in; event enemies never grow. */
 export function enemyResist(state: GameState, enemy: Enemy, damageType: DamageType): number {
-  return enemyDefFast(state.data, enemy.defId).resist[damageType];
+  const def = enemyDefFast(state.data, enemy.defId);
+  const base = def.resist[damageType];
+  return def.event ? base : resistAt(state.data.balance, base, enemy.round);
+}
+
+export type ResistRange = Record<DamageType, [min: number, max: number]>;
+
+/** The lowest and highest resist of each type among the enemies of `round`'s wave; null without resistByRound. */
+export function roundResistRange(data: GameData, round: number): ResistRange | null {
+  if (!data.balance.resistByRound) return null;
+  const wave = data.waves.find(w => w.round === round);
+  if (!wave) return null;
+  const ids = wave.type === 'normal' ? [...new Set(wave.pattern)] : [wave.boss];
+  const range = (t: DamageType): [number, number] => {
+    const xs = ids.map(id => resistAt(data.balance, enemyDefFast(data, id).resist[t], round));
+    return [Math.min(...xs), Math.max(...xs)];
+  };
+  return { physical: range('physical'), magical: range('magical') };
 }
 
 export function inRange(state: GameState, slot: number, enemy: Enemy, range: number): boolean {
@@ -76,8 +118,7 @@ export function hitDamage(state: GameState, slot: number, enemy: Enemy, mult: nu
   return computeHitDamage({
     attack: unitAttack(def, state.data.balance), mult,
     bonus: damageBonus(state, slot),
-    resist: enemyResist(state, enemy, def.damageType),
-    vuln: vulnOf(state, enemy, def.damageType),
+    ...hitTerms(state, enemy, def.damageType),
   });
 }
 

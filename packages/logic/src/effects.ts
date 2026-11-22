@@ -6,7 +6,7 @@ import { dist, loopPos } from './lane';
 import { registerPhase } from './registry';
 import { cellDistance, laneOf } from './lane';
 import { enemySpeed, toTicks } from './flow';
-import { computeHitDamage, damageBonus, dealDamage, enemyResist, hitDamage, inRange, pickTarget } from './combat';
+import { computeHitDamage, damageBonus, dealDamage, hitDamage, hitTerms, inRange, pickTarget } from './combat';
 import { unitDefFast } from './units';
 import { isEvent, isShared } from './stats';
 import { payFirstHit } from './income';
@@ -121,8 +121,10 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
     case 'slow': {
       const t = ccTicks(state, target, eff.seconds);
       if (!target.slow || eff.pct >= target.slow.pct) {
+        // a whole-lane slow refreshes many enemies at once: only a change of speed is sent
+        const before = b.wholeLaneSlow ? enemySpeed(state, target) : NaN;
         target.slow = { pct: eff.pct, ticks: t };
-        emitSpeed(state, target, events);
+        if (enemySpeed(state, target) !== before) emitSpeed(state, target, events);
       }
       break;
     }
@@ -157,6 +159,21 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
     default:
       break;
   }
+}
+
+/**
+ * Lands `eff` on `targets`. With wholeLaneSlow a slow that meets any non-shared enemy goes to every enemy in the lane
+ * instead (applyStatus still passes over shared visits), its pct scaled by pctFactor.
+ */
+function landStatus(state: GameState, slot: number, source: string, targets: Enemy[], eff: Effect, events: GameEvent[]): void {
+  const whole = state.data.balance.wholeLaneSlow;
+  if (eff.kind === 'slow' && whole) {
+    if (!targets.some(o => !isShared(state.data, o))) return;
+    const scaled = { ...eff, pct: eff.pct * whole.pctFactor };
+    for (const o of state.enemies) applyStatus(state, slot, source, o, scaled, events);
+    return;
+  }
+  for (const o of targets) applyStatus(state, slot, source, o, eff, events);
 }
 
 /** A basic hit landed from `slot`: neighbours with a neighbour-hit trigger count it and fire on the last count. */
@@ -196,10 +213,7 @@ export function vulnKillExplosions(state: GameState, events: GameEvent[]): void 
     const at = lane.pointAt(dead.d);
     for (const o of state.enemies) {
       if (o.hp <= 0 || dist(lane.pointAt(o.d), at) > eff.radius + 1e-9) continue;
-      const amount = computeHitDamage({
-        attack: caster.attack, mult: eff.mult, bonus: 0,
-        resist: enemyResist(state, o, def.damageType), vuln: vulnOf(state, o, def.damageType),
-      });
+      const amount = computeHitDamage({ attack: caster.attack, mult: eff.mult, bonus: 0, ...hitTerms(state, o, def.damageType) });
       dealDamage(state, o, amount, def.id, events, 'explosion');
       if (o.hp <= 0) delete o.vulnCaster;
     }
@@ -338,9 +352,7 @@ export function applyPackage(
       for (const o of state.enemies) if (o !== target && dist(lane.pointAt(o.d), origin) <= r + 1e-9) hit(o, extra.splashPct, false, undefined, false);
     }
   }
-  for (const e of fired) {
-    for (const o of statusTargets(state, e, target, origin, struck)) applyStatus(state, slot, def.id, o, e, events);
-  }
+  for (const e of fired) landStatus(state, slot, def.id, statusTargets(state, e, target, origin, struck), e, events);
   if (explode && (!explode.requireExecute || executeKill)) {
     for (const k of explode.requireExecute ? [target] : killed) {
       const at = lane.pointAt(k.d);
@@ -377,7 +389,7 @@ export function runPeriodics(state: GameState, slot: number, events: GameEvent[]
     }
     for (const eff of skill.effects) {
       if (eff.kind !== 'stun' && eff.kind !== 'slow' && eff.kind !== 'dot' && eff.kind !== 'vuln') continue;
-      for (const e of damaged) applyStatus(state, slot, def.id, e, eff, events);
+      landStatus(state, slot, def.id, damaged, eff, events);
     }
     unit.periodic[idx] = toTicks(skill.trigger.seconds) - 1;
   }
@@ -428,7 +440,7 @@ export function tickStatuses(state: GameState, events: GameEvent[]): void {
       const last = e.fireHit[f.source];
       if (last !== undefined && state.tick - last < pulse) continue;
       e.fireHit[f.source] = state.tick;
-      const amount = computeHitDamage({ attack: f.basePerPulse, mult: 1, bonus: 0, resist: enemyResist(state, e, type), vuln: vulnOf(state, e, type) });
+      const amount = computeHitDamage({ attack: f.basePerPulse, mult: 1, bonus: 0, ...hitTerms(state, e, type) });
       dealDamage(state, e, amount, f.source, events);
     }
   }

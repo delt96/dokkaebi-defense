@@ -61,7 +61,7 @@ describe('stage 3 data, grades 1-4', () => {
       trigger: { kind: 'always' },
       effects: [{ kind: 'groundFire', length: 1.5, seconds: 2.5, pulseMult: 0.28, align: 'behind' }],
     }]);
-    expect(unitDef(d3, 'indupan').skills[0]!.effects[1]).toEqual({ kind: 'stun', seconds: 0.6, radius: 1 });
+    expect(unitDef(d3, 'indupan').skills[0]!.effects[1]).toEqual({ kind: 'stun', seconds: 0.9, radius: 1 });
     expect(unitDef(d3, 'mulle').skills[1]).toEqual({ trigger: { kind: 'aura' }, effects: [{ kind: 'auraAttackSpeed', pct: 0.12, damageType: 'physical' }] });
   });
 });
@@ -132,18 +132,17 @@ describe('stage 3 balance stands on its own', () => {
       bossBuckwheat: 2,
       sellPrice: [5, 10, 20, 40, 80, 180],
       limit: 60, limitSeconds: 5,
-      summonOddsByRound: [
-        { fromRound: 1, odds: [0.85, 0.15, 0] },
-        { fromRound: 5, odds: [0.77, 0.2, 0.03] },
-        { fromRound: 10, odds: [0.7, 0.25, 0.05] },
-      ],
-      summonOdds: [0.7, 0.25, 0.05], pityEvery: 5,
+      summonOddsByRound: [{ fromRound: 1, odds: [0.9, 0.1, 0] }],
+      summonOdds: [0.9, 0.1, 0], pityEvery: 5,
       grid: { cols: 6, rows: 4, initialOpenRows: 3 },
       bossCcFactor: 0.5, vulnCap: 0.5, auraRadius: 1.5, pulseSeconds: 0.5,
       onBasicHitRadius: 3,
       auraCaps: { attackSpeed: 0.5, attackPower: 0.4 },
       periodicReady: true, extendedCombat: true,
       bossControl: { windowTicks: 200, stunTicks: 60, pushDistance: 3, maxStoppedShare: 0.3 },
+      vulnCutsResist: true,
+      resistByRound: { fromRound: 20, toRound: 60, top: 0.45, cap: 0.8 },
+      wholeLaneSlow: { pctFactor: 1 },
     });
     expect(d3.coop).toEqual({
       yeoksin: [

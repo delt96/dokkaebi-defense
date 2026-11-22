@@ -23,6 +23,16 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
       if (grant === undefined || !Number.isInteger(grant) || grant <= 0) errors.push(`invalid difficulties.${d}`);
     }
   }
+  const growth = data.balance.resistByRound;
+  if (growth !== undefined) {
+    const { fromRound, toRound, top, cap } = growth ?? {};
+    if (!Number.isInteger(fromRound) || fromRound < 1 || !Number.isInteger(toRound) || toRound <= fromRound
+      || !(Number.isFinite(top) && top >= 0 && top < 1) || !(Number.isFinite(cap) && cap > 0 && cap < 1)) errors.push('invalid resistByRound');
+    else if (data.enemies.some(e => !e.event && (e.resist.physical > cap || e.resist.magical > cap))) errors.push('resistByRound cap is below a base resist');
+    if (data.balance.rounds !== 60) errors.push('resistByRound requires 60 rounds');
+  }
+  const slow = data.balance.wholeLaneSlow;
+  if (slow !== undefined && !(Number.isFinite(slow?.pctFactor) && slow.pctFactor > 0 && slow.pctFactor <= 1)) errors.push('invalid wholeLaneSlow');
   const eco = data.economy;
   if (eco && (!Number.isInteger(eco.startingBuckwheat) || eco.startingBuckwheat < 0)) errors.push('invalid startingBuckwheat');
   const market = eco?.market;
