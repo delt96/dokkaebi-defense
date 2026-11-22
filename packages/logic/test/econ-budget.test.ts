@@ -8,7 +8,7 @@ const b = d3.balance;
 const docs = ['stage3-economy-draft.md', 'content-draft-116-v5.md']
   .map(f => [f, readFileSync(new URL(`../../../docs/design/${f}`, import.meta.url), 'utf8')] as const);
 
-// the spec's budget path: hard, six seats all alive, 29 kills a normal round, every boss and 역신 down, no taming,
+// the spec's budget path: normal, six seats all alive, 29 kills a normal round, every boss and 역신 down, no taming,
 // five 불 changed and four grade-1 units sold every ten rounds, the mission/collection/team won, ssireum at 1/6
 const KILLS = 29;
 const CONVERT = 5;
@@ -39,7 +39,7 @@ function windowRow(w: readonly [number, number], i: number) {
   const muk = bosses * b.bossBuckwheat + gates * d3.coop!.killReward.buckwheat
     + (within(eco.mission!.round, w) ? eco.mission!.reward.buckwheat : 0)
     + (within(eco.ssireum!.round, w) ? eco.ssireum!.buckwheat / SEATS : 0);
-  const tokens = (i === 0 ? b.tokens.start : 0) + 10 * b.tokens.perRound + (within(eco.team!.toRound, w) ? eco.team!.tokens : 0);
+  const tokens = (i === 0 ? b.tokens.start : 0) + 10 * b.difficulties!.normal.tokensPerRound + (within(eco.team!.toRound, w) ? eco.team!.tokens : 0);
   return { coins, muk, tokens, start: i === 0 ? eco.startingBuckwheat : 0 };
 }
 
