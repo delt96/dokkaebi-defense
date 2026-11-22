@@ -13,6 +13,7 @@ import {
   type EconBotKind, type EconConfig, type EconRow,
 } from './econRun';
 
+import { exclusivePower } from './exclusivePower';
 import { debuffProbe, type DebuffPair } from './synergy';
 import { debuffMarkdown, drawMarkdown, readSamples, tameMarkdown, type TameSample } from './measurement';
 
@@ -75,6 +76,10 @@ export function stage3Cli(arg: Arg): void {
     writeFileSync(file, toCsvRows(rows));
     console.log(`## first grade 6 round, one lane, no economy (seeds ${runs}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
     console.log(grade6Markdown(rows) + '\n');
+  }
+  if (check === 'exclusive-power') {
+    const rows = Array.from({ length: seeds }, (_,i) => exclusivePower(data,i+1)).flat();
+    writeFileSync(join(out, 'exclusive-power.csv'), toCsvRows(rows));
   }
   if (check === 'grade6') econGrade6(arg, data, out, elapsed);
   if (check === 'r10probe') {
