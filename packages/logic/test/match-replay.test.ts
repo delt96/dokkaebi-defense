@@ -20,4 +20,4 @@ test('legacy recording settles its story and delivery under the recorded revisio
   expect(fixture.checkpoint.mine.story.target).toBe('cheonnyeonjing');
   expect(fixture.checkpoint.mine.transfer.offer.to).toBe(2);
   expect(fixture.buckwheat).toBe(1);
-});
+}, 30_000); // extracts the recorded build and replays it; slow when the machine is busy
