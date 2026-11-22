@@ -54,15 +54,12 @@ describe('stage 3 validator rules', () => {
 });
 
 test('invalid market settings fail validation', () => {
-  for (const weights of [[0, 0], [-1, 3], [1, Infinity], [3]]) {
-    expect(validateData(makeData(d => { d.economy!.market!.draw.weights = weights; }, 'stage3')).errors).toContain('invalid market weights');
-  }
   const invalid = makeData(d => {
     d.economy!.startingBuckwheat = -1;
-    d.economy!.market!.draw.perDay = 0.5;
+    d.economy!.market!.openAfterBossRound = 0.5;
     d.economy!.market!.jigeChance = 1.1;
   }, 'stage3');
-  expect(validateData(invalid).errors).toEqual(expect.arrayContaining(['invalid startingBuckwheat', 'invalid market price or limit', 'invalid jige chance']));
+  expect(validateData(invalid).errors).toEqual(expect.arrayContaining(['invalid startingBuckwheat', 'invalid market unlock round', 'invalid jige chance']));
 });
 
 describe('exclusive recipe checks', () => {

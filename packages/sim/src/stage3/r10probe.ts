@@ -48,7 +48,7 @@ function arm(data: GameData, seed: number, treat: boolean) {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS);
   const tried = new Set<number>();
-  const bots = SEATS.map(s => r10Bot(synergyBot(laneSeed(seed, s), { market: true, quests: true, tame: false, jige: true }), treat, () => tried.add(s)));
+  const bots = SEATS.map(s => r10Bot(synergyBot(laneSeed(seed, s), { quests: true, tame: false, jige: true }), treat, () => tried.add(s)));
   const driver = new EconDriver(match, bots);
   const from = roundStartTick(d, R10);
   const to = roundStartTick(d, R20 + 1);

@@ -27,16 +27,9 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
   if (eco && (!Number.isInteger(eco.startingBuckwheat) || eco.startingBuckwheat < 0)) errors.push('invalid startingBuckwheat');
   const market = eco?.market;
   if (market) {
-    const draw = market.draw;
-    if (!draw || ![market.dayRounds, draw.perDay, draw.buckwheatCost].every(n => Number.isInteger(n) && n > 0))
-      errors.push('invalid market price or limit');
-    const w = draw?.weights;
-    if (!Array.isArray(w) || w.length !== 2 || !w.every(n => Number.isFinite(n) && n >= 0) || !(w[0]! + w[1]! > 0))
-      errors.push('invalid market weights');
     if (!(market.jigeChance >= 0 && market.jigeChance <= 1)) errors.push('invalid jige chance');
     const unlock = market.openAfterBossRound;
     if (unlock !== undefined && !(Number.isInteger(unlock) && unlock > 0)) errors.push('invalid market unlock round');
-    for (const grade of [2, 3]) if (!data.units.some(u => !u.hidden && u.grade === grade)) errors.push('empty market pool');
   }
 
   const gamble = market?.gamble;

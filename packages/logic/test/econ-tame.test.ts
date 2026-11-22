@@ -105,7 +105,7 @@ describe('paid attempts', () => {
   test('success: one roll, the target leaves with no kill, reward or drop, and one cost-zero recruit arrives', () => {
     const { s, boss } = gangcheoriLane(0.15);
     rig(s, true, 0.7);
-    const other = structuredClone({ g: s.econ!.rng.marketGrade, u: s.econ!.rng.marketUnit, j: s.econ!.rng.jige, d: s.econ!.rng.drop, c: s.rng });
+    const other = structuredClone({ g: s.econ!.rng.gambleCoins, u: s.econ!.rng.gambleUnit, j: s.econ!.rng.jige, d: s.econ!.rng.drop, c: s.rng });
     const tameBefore = { ...s.econ!.rng.tame };
     const r = step(s, [{ type: 'tame', enemyId: boss.id }]);
     expect(r.rejected).toEqual([]);
@@ -120,7 +120,7 @@ describe('paid attempts', () => {
     expect(s.slots.filter(Boolean)).toHaveLength(1);
     const after = nextFloat({ ...tameBefore });
     expect(after).toBeLessThan(0.7);
-    expect({ g: s.econ!.rng.marketGrade, u: s.econ!.rng.marketUnit, j: s.econ!.rng.jige, d: s.econ!.rng.drop }).toEqual({ g: other.g, u: other.u, j: other.j, d: other.d });
+    expect({ g: s.econ!.rng.gambleCoins, u: s.econ!.rng.gambleUnit, j: s.econ!.rng.jige, d: s.econ!.rng.drop }).toEqual({ g: other.g, u: other.u, j: other.j, d: other.d });
     expect(s.econ!.tamed).toEqual(['gangcheori']);
     // the round's boss is resolved: the round closes without a defeat
     s.tick = s.roundEndTick;

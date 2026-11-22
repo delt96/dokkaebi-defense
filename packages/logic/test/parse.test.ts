@@ -32,7 +32,7 @@ describe('parseClientCommand', () => {
   });
 
   test('parses the new economy commands and rejects bad args', () => {
-    expect(parseClientCommand({ seq: 1, type: 'buy', args: { item: 'draw' } })!.cmd).toEqual({ type: 'buy', item: 'draw' });
+    expect(parseClientCommand({ seq: 1, type: 'buy', args: { item: 'draw' } })!.cmd).toEqual({ type: 'invalid' });
     expect(parseClientCommand({ seq: 2, type: 'buy', args: { item: 'gold' } })!.cmd).toEqual({ type: 'invalid' });
     expect(parseClientCommand({ seq: 5, type: 'tame', args: { enemyId: 1.5 } })!.cmd).toEqual({ type: 'invalid' });
     expect(parseClientCommand({ seq: 6, type: 'tame', args: { enemyId: 12 } })!.cmd).toEqual({ type: 'tame', enemyId: 12 });
@@ -51,7 +51,7 @@ describe('parseClientCommand', () => {
   });
   test('toWire round-trips every new command through parseClientCommand', () => {
     const cmds: Parameters<typeof toWire>[0][] = [
-      { type: 'buy', item: 'draw' },
+      { type: 'gambleUnit', table: 'small' },
       { type: 'hunt', enemy: 'ev_oenun' },
       { type: 'tame', enemyId: -3 },
     ];

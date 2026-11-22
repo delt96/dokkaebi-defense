@@ -1,7 +1,6 @@
-import { marketGrade } from '../src/econ/market';
 import { describe, expect, test } from 'vitest';
 import {
-  applyCommand, canonicalJson, createGame, createMatch, loadGameData, marketDay, marketView, roundStartTick, step, stepMatch,
+  canonicalJson, createGame, createMatch, loadGameData, marketView, roundStartTick, step, stepMatch,
   type GameData, type GameState,
 } from '../src/index';
 import { forceRound, jumpToTick, makeData, placeUnitForTest, spawnEnemyForTest, withoutMarketLock } from '../src/testing';
@@ -22,42 +21,8 @@ function fillOpen(s: GameState, except: number[] = []): void {
   for (let i = 0; i < s.slots.length; i++) if (s.open[i] && !s.slots[i] && !except.includes(i)) placeUnitForTest(s, 'jipsin', i);
 }
 
-const draw = { type: 'buy', item: 'draw' } as const;
+const draw = { type: 'gambleUnit', table: 'small' } as const;
 
-test('grade boundary belongs to grade two', () => {
-  expect(marketGrade([2, 1], 2 / 3 - Number.EPSILON)).toBe(3);
-  expect(marketGrade([2, 1], 2 / 3)).toBe(2);
-});
-
-test('draw quota resets at round 11', () => {
-  const s = lane(1, 0);
-  s.buckwheat = 4;
-  const r = step(s, [draw, draw, draw, draw]);
-  expect(r.rejected.map(x => x.reason)).toEqual(['soldOut']);
-  expect([s.buckwheat, s.coins, marketView(s)!.draw.left]).toEqual([1, 0, 0]);
-  expect(units(s)).toHaveLength(3);
-  for (const u of units(s)) expect(u.cost).toBe(2 ** (gradeOf(d3, u.defId) - 1));
-  forceRound(s, 11);
-  expect(marketView(s)).toMatchObject({ day: 2, endRound: 20, draw: { left: 3 } });
-});
-
-test('new stage 3 seats can draw at round 1', () => {
-  for (const s of [createGame(d3, 1), ...Object.values(createMatch(d3, 1, [1, 2]).lanes)]) {
-    expect([s.buckwheat, s.coins]).toEqual([1, 0]);
-    expect(step(s, [draw]).rejected[0]?.reason).toBe('marketClosed');
-    forceRound(s, 1);
-    expect(step(s, [draw, draw]).rejected.map(x => x.reason)).toEqual(['noBuckwheat']);
-    expect(s.buckwheat).toBe(0);
-  }
-});
-
-test('full board rejects draw even with empty storage', () => {
-  const s = lane(1);
-  fillOpen(s);
-  const before = canonicalJson(s);
-  expect(applyCommand(s, draw, [])).toBe('noSlot');
-  expect(canonicalJson(s)).toBe(before);
-});
 describe('market in a match and boss drops', () => {
   test('one seat shopping leaves the other seats unchanged in a match', () => {
     const a = createMatch(d3, 5, [1, 2]);
@@ -67,7 +32,7 @@ describe('market in a match and boss drops', () => {
     const r1 = roundStartTick(d3, 1);
     while (a.tick < r3) {
       const buy = a.tick === r1 + 5 || a.tick === r1 + 6;
-      stepMatch(a, buy ? [{ seat: 1, seq: 0, cmd: { type: 'buy', item: 'draw' } }] : []);
+      stepMatch(a, buy ? [{ seat: 1, seq: 0, cmd: { type: 'gambleUnit', table: 'small' } }] : []);
       stepMatch(b, []);
     }
     expect(a.lanes[1]!.buckwheat).not.toBe(b.lanes[1]!.buckwheat);
@@ -94,7 +59,7 @@ describe('market in a match and boss drops', () => {
     step(full, []);
     expect(full.econ!.pendingDrops.length).toBe(1);
     const coins = full.coins;
-    expect(step(full, [{ type: 'buy', item: 'draw' }]).rejected[0]!.reason).toBe('noSlot');
+    expect(step(full, [{ type: 'gambleUnit', table: 'small' }]).rejected[0]!.reason).toBe('noSlot');
     expect(full.coins).toBe(coins);
     step(full, [{ type: 'sell', slot: 0 }]);
     expect(full.econ!.pendingDrops.length).toBe(0);
@@ -137,14 +102,14 @@ describe('the draw opens once the round-10 boss is gone', () => {
     const s = lane(1, 0, 1, locked);
     s.buckwheat = 3;
     expect(step(s, [draw]).rejected[0]?.reason).toBe('marketLocked');
-    expect(marketView(s)!.why.draw).toBe('marketLocked');
+    expect(marketView(s)!.gamble!.units.tables.small.why).toBe('marketLocked');
     forceRound(s, 10);
     step(s, []);
     const boss = s.enemies.find(e => e.boss)!;
     expect(step(s, [draw]).rejected[0]?.reason).toBe('marketLocked');
     boss.hp = 0;
     step(s, []);
-    expect(marketView(s)!.why.draw).toBeNull();
+    expect(marketView(s)!.gamble!.units.tables.small.why).toBeNull();
     expect(step(s, [draw]).rejected).toEqual([]);
   });
 
@@ -160,6 +125,6 @@ describe('the draw opens once the round-10 boss is gone', () => {
       boss.hp = Math.min(boss.hp, 1);
     }
     expect(s.econ!.tamed).toContain('jinegaksi');
-    expect(marketView(s)!.why.draw).toBeNull();
+    expect(marketView(s)!.gamble!.units.tables.small.why).toBeNull();
   });
 });

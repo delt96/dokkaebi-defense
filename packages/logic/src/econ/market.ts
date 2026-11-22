@@ -1,63 +1,14 @@
-import type { EconItem, EconomyDef, GameEvent, GameState, RngState } from '../types';
+import type { GameEvent, GameState, RngState } from '../types';
 import { gradeValue } from '../data';
-import { nextFloat, nextInt } from '../rng';
-import { registerAfterCommands, registerCommand } from '../registry';
+import { nextInt } from '../rng';
+import { registerAfterCommands } from '../registry';
 import { receive } from '../units';
-import { unitValue } from './ledger';
 import { gambleView, type GambleView } from './gamble';
-
-type MarketDef = NonNullable<EconomyDef['market']>;
-
-const hasFreeSlot = (state: GameState): boolean => state.slots.some((u, i) => !u && state.open[i]);
-
-/** Market day of the current round (1 for rounds 1-10, ...); 0 during prep. */
-export function marketDay(state: GameState): number {
-  const m = state.data.economy?.market;
-  if (!m || state.round < 1) return 0;
-  return Math.ceil(state.round / m.dayRounds);
-}
 
 function pickNormal(state: GameState, grade: number, rng: RngState): string {
   const pool = state.data.units.filter(u => u.grade === grade && !u.hidden);
   return pool[nextInt(rng, pool.length)]!.id;
 }
-
-export function marketGrade(weights: readonly number[], roll: number): 2 | 3 {
-  return roll < weights[0]! / (weights[0]! + weights[1]!) ? 3 : 2;
-}
-
-function drawsToday(state: GameState): number {
-  const market = state.econ!.market;
-  return market.day === marketDay(state) ? market.draws : 0;
-}
-
-export function buyCheck(state: GameState, item: EconItem) {
-  const m = state.data.economy?.market;
-  if (!state.econ || !m || state.phase !== 'round' || state.round < 1) return 'marketClosed';
-  if (item !== 'draw') return 'badArgs';
-  if (state.econ.marketOpen === false) return 'marketLocked';
-  if (drawsToday(state) >= m.draw.perDay) return 'soldOut';
-  if (state.buckwheat < m.draw.buckwheatCost) return 'noBuckwheat';
-  if (!hasFreeSlot(state)) return 'noSlot';
-  return null;
-}
-
-registerCommand('buy', (state, cmd, events) => {
-  if (cmd.type !== 'buy') return 'unknown';
-  const why = buyCheck(state, cmd.item);
-  if (why) return why;
-  const econ = state.econ!;
-  const m = state.data.economy!.market!;
-  const grade = marketGrade(m.draw.weights, nextFloat(econ.rng.marketGrade));
-  const defId = pickNormal(state, grade, econ.rng.marketUnit);
-  const jige = nextFloat(econ.rng.jige) < m.jigeChance;
-  if (jige) econ.jige++;
-  state.buckwheat -= m.draw.buckwheatCost;
-  econ.market = { day: marketDay(state), draws: drawsToday(state) + 1 };
-  events.push({ type: 'buy', item: 'draw', defId, spentBuckwheat: m.draw.buckwheatCost, jige });
-  receive(state, defId, events, unitValue(state.data, defId));
-  return null;
-});
 
 /** A personal boss killed or tamed: from the unlock round's boss on, the draw opens. */
 export function openMarketAfterBoss(state: GameState, round: number): void {
@@ -88,20 +39,13 @@ export function placePendingDrops(state: GameState, events: GameEvent[]): void {
 registerAfterCommands(placePendingDrops);
 
 export interface MarketView {
-  day: number;
-  endRound: number;
-  draw: { buckwheatCost: number; left: number; weights: number[] };
   jigeChance: number;
   gamble?: GambleView;
-  why: { draw: ReturnType<typeof buyCheck> };
 }
 
 export function marketView(state: GameState): MarketView | null {
   const m = state.data.economy?.market;
   if (!m || !state.econ) return null;
-  const day = marketDay(state);
   const gamble = gambleView(state);
-  return { ...(gamble && { gamble }), day, endRound: Math.max(day, 1) * m.dayRounds, jigeChance: m.jigeChance,
-    draw: { buckwheatCost: m.draw.buckwheatCost, left: m.draw.perDay - drawsToday(state), weights: [...m.draw.weights] },
-    why: { draw: buyCheck(state, 'draw') } };
+  return { ...(gamble && { gamble }), jigeChance: m.jigeChance };
 }

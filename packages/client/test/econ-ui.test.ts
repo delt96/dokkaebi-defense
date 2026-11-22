@@ -6,13 +6,12 @@ import { GameDriver } from '../src/driver';
 import {
   econPanelHtml, marketModel, noteText, questChips, tameModel, tameRejectText,
 } from '../src/ui/econ';
-import { rejectText, unitSkillText } from '../src/ui/models';
+import { rejectText } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
 import { press, STAGE_HTML } from './fixtures/net';
 
 const d3 = withoutMarketLock(loadGameData('stage3'));
 const eco = d3.economy!;
-const market = eco.market!;
 
 function lane(round: number, coins = 1000): GameState {
   const s = createGame(d3, 1);
@@ -32,52 +31,24 @@ function view(me: number, rows: { seat: number; name: string; alive?: boolean; c
 }
 
 describe('B market', () => {
-  const panel = (s: GameState, receipt: Parameters<typeof marketModel>[2] = null, extra: Partial<EconMine> = {}) => {
+  const panel = (s: GameState, extra: Partial<EconMine> = {}) => {
     const div = document.createElement('div');
-    div.innerHTML = econPanelHtml(marketModel(econOf(s, extra), s, receipt));
+    div.innerHTML = econPanelHtml(marketModel(econOf(s, extra), s));
     return div;
   };
 
-  test('B shows daily terms and the confirmed draw', () => {
-    const s = lane(10, 0);
-    s.buckwheat = 0;
-    let p = panel(s, null, { jige: 2 });
-    for (const text of ['10라운드까지', '헌 살림 보따리 · 메밀묵 1', '3등급 2/3 · 2등급 1/3', '3회 남음', '3%', '보유 지게 2개', '메밀묵 1개 부족']) {
+  test('B shows the unified draw and 지게 without the daily section', () => {
+    const s = lane(30, 0);
+    s.buckwheat = 1;
+    const p = panel(s, { jige: 2 });
+    for (const text of ['보따리 · 묵 1', '큰 보따리 · 묵 2', '보따리 남은 횟수 2/2', '3%', '보유 지게 2개', '메밀묵 1개 부족']) {
       expect(p.textContent, text).toContain(text);
     }
-    expect(p.querySelector<HTMLButtonElement>('[data-action="buy"]')!.disabled).toBe(true);
-    s.buckwheat = 1;
-    p = panel(s);
-    expect(p.querySelector<HTMLButtonElement>('[data-action="buy"]')!.disabled).toBe(false);
-    expect(p.textContent).toContain('보유 지게 0개');
+    expect(p.textContent).not.toMatch(/헌 살림|라운드까지/);
+    expect(p.querySelectorAll('[data-action="gambleUnit"]')).toHaveLength(2);
+    expect(p.querySelector<HTMLButtonElement>('[data-action="gambleUnit"][data-arg="small"]')!.disabled).toBe(false);
     fill(s);
-    p = panel(s);
-    expect(p.textContent).toContain('진영 한 칸 비우기');
-    expect(p.textContent).toContain('1·2등급은 G로 보관');
-    expect(p.querySelector<HTMLButtonElement>('[data-action="buy"]')!.disabled).toBe(true);
-  });
-
-  test('the receipt names the confirmed unit, its grade, damage type and one skill line, and the bonus', () => {
-    const s = lane(3, 0);
-    const def = d3.units.find(u => !u.hidden && u.grade === 3 && u.skills.length > 0)!;
-    const receipt = { type: 'buy' as const, item: 'draw' as const, defId: def.id, spentBuckwheat: 1, jige: true };
-    const text = panel(s, receipt).textContent!;
-    expect(text).toContain(`${def.name} · 3등급 · ${def.damageType === 'physical' ? '물딜' : '마딜'}`);
-    expect(text).toContain(unitSkillText(d3, def).split(' / ')[0]!);
-    expect(text).toContain('지게도 얻었습니다');
-    expect(panel(s, { ...receipt, jige: false }).textContent).not.toContain('지게도 얻었습니다');
-  });
-
-  test('cost and odds come from the data', () => {
-    const data = structuredClone(d3);
-    data.economy!.market!.draw = { ...data.economy!.market!.draw, buckwheatCost: 2, weights: [1, 3] };
-    data.economy!.market!.jigeChance = 0.05;
-    const s = createGame(data, 1);
-    forceRound(s, 2);
-    const text = panel(s).textContent!;
-    expect(text).toContain('헌 살림 보따리 · 메밀묵 2');
-    expect(text).toContain('3등급 1/4 · 2등급 3/4');
-    expect(text).toContain('5%');
+    expect(panel(s).textContent).toContain('진영 한 칸 비우기');
   });
 
   test('prep says when the market opens', () => {
@@ -158,7 +129,7 @@ describe('tame button', () => {
 
 describe('refusals', () => {
   test('every economy refusal has a line', () => {
-    for (const r of ['marketClosed', 'marketLocked', 'soldOut', 'huntClosed', 'huntOut', 'noTarget', 'tameHp', 'tameCondition', 'cooldown', 'noJige']) {
+    for (const r of ['marketClosed', 'marketLocked', 'gambleLimit', 'gambleRound', 'huntClosed', 'huntOut', 'noTarget', 'tameHp', 'tameCondition', 'cooldown', 'noJige']) {
       expect(rejectText(r), r).toBeTruthy();
     }
   });
@@ -166,8 +137,7 @@ describe('refusals', () => {
 });
 
 describe('notes and particles', () => {
-  test('purchase, reward and taming lines', () => {
-    expect(noteText({ type: 'buy', item: 'draw', defId: 'moru', spentBuckwheat: 1, jige: true }, d3)).toMatch(/^보따리에서 모루 \(\d등급\) · 지게 도깨비가 왔습니다!$/);
+  test('reward and taming lines', () => {
     expect(noteText({ type: 'questReward', quest: 'collection', coins: 20, buckwheat: 0, tokens: 0 }, d3)).toBe('살림 한 벌 완성 · +20냥');
     expect(noteText({ type: 'tame', enemyId: 1, defId: 'gangcheori', unitId: 2, slot: 0 }, d3)).toBe('길들이기 성공 · 강철이가 우리 편이 됐습니다');
   });
@@ -204,23 +174,22 @@ describe('market hotkey', () => {
     mountSolo();
     expect(document.getElementById('bottom')!.textContent).toContain('B 장터');
     keydown(window, { code: 'KeyB' });
-    expect(panel()).toContain('헌 살림 보따리');
+    expect(panel()).toContain('보따리 · 묵 1');
     keydown(window, { code: 'KeyB' });
     expect(panel()).toBe('');
   });
 
 
-  test('the draw button queues one draw and B shows the confirmed unit', () => {
+  test('the draw button spends 묵 and decrements the displayed quota', () => {
     const driver = mountSolo();
     forceRound(driver.state, 1);
     driver.state.buckwheat = 1;
     driver.update(0);
     keydown(window, { code: 'KeyB' });
-    press(document.querySelector('#econ-panel [data-action="buy"]'));
+    press(document.querySelector('#econ-panel [data-action="gambleUnit"][data-arg="small"]'));
     driver.update(50);
-    const bought = driver.state.slots.find(Boolean)!;
-    expect(panel()).toContain(d3.units.find(u => u.id === bought.defId)!.name);
-    expect(panel()).toContain('2회 남음');
+    expect(panel()).toContain('보따리 남은 횟수 1/2');
+    expect(driver.state.buckwheat).toBe(0);
     expect(panel()).toContain('메밀묵 1개 부족');
   });
 

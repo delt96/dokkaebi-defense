@@ -1,5 +1,5 @@
 import {
-  availableRecipes, boardDps, countNormalEnemies, gambleCheck, huntCheck, huntHp, jigeCandidates, marketView, tameCheck, unitDefFast,
+  availableRecipes, boardDps, countNormalEnemies, gambleCheck, huntCheck, huntHp, jigeCandidates, tameCheck, unitDefFast,
   type Command, type GambleCommand, type GameState,
 } from '@dorandi/logic';
 import type { Bot } from '../bots';
@@ -9,7 +9,7 @@ import { expandTree, remainingNeed, targetBot } from './targetBot';
  * `jige`: spend held 지게 on missing materials (off: hold them; the grant rolls are the same either way).
  * `hunts`: summon 격파 targets the board can kill (missing: off).
  */
-export interface EconPolicy { market: boolean; quests: boolean; tame: boolean; jige?: boolean; hunts?: boolean }
+export interface EconPolicy { quests: boolean; tame: boolean; jige?: boolean; hunts?: boolean }
 export type TargetBot = Bot & { currentTarget(): string | null };
 
 const FINAL_COMBINE_COINS = 60;
@@ -37,17 +37,6 @@ export function buckwheatNeed(state: GameState, target: string | null): number {
   return Math.min(2, fives) + (held ? 0 : 1);
 }
 
-const freeSlots = (state: GameState): number => state.slots.filter((u, i) => !u && state.open[i]).length;
-
-export function marketCommands(state: GameState, target: string | null, freeAfter = freeSlots(state)): Command[] {
-  const view = marketView(state);
-  if (!view || state.phase !== 'round' || state.round < 1) return [];
-  const reserve = state.round === 1 ? 0 : buckwheatNeed(state, target);
-  const affordable = Math.floor((state.buckwheat - reserve) / view.draw.buckwheatCost);
-  const count = Math.max(0, Math.min(affordable, freeAfter, view.draw.left));
-  return Array.from({ length: count }, () => ({ type: 'buy', item: 'draw' }));
-}
-
 /**
  * Share of the board's basic-attack DPS × the time limit a 격파 target's HP may reach for the bots to summon it.
  * Probing synergy boards, one event enemy took about a quarter to a third of that figure in 45 s (units out of reach,
@@ -57,7 +46,7 @@ export const BOT_HUNT_SHARE = 0.15;
 
 const GAMBLE_RESERVE = 85;
 
-export function surplusGamble(state: GameState, target: string | null): GambleCommand | null {
+export function surplusGamble(state: GameState, target: string | null, betCoins = true): GambleCommand | null {
   const g = state.data.economy?.market?.gamble;
   if (!g) return null;
   const surplusMuk = state.buckwheat - buckwheatNeed(state, target);
@@ -65,6 +54,7 @@ export function surplusGamble(state: GameState, target: string | null): GambleCo
     const cmd = { type: 'gambleUnit', table } as const;
     if (surplusMuk >= g.units.tables[table].buckwheatCost && gambleCheck(state, cmd) === null) return cmd;
   }
+  if (!betCoins) return null;
   const surplusCoins = state.coins - GAMBLE_RESERVE;
   for (const stake of [...g.coins.stakes].sort((a, b) => b - a)) {
     const cmd = { type: 'gambleCoins', stake } as const;

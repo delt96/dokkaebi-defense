@@ -89,7 +89,6 @@ export interface GameData {
 }
 
 export interface JigeSource { zone: 'board' | 'storage'; index: number; unitId: number }
-export type EconItem = 'draw';
 export type GeneralQuestId = 'collection' | 'team' | 'ssireum';
 export type EconSection = 'market' | 'drops' | GeneralQuestId | 'shadow' | 'tame' | 'hunts';
 export type QuestId = GeneralQuestId | 'shadow';
@@ -134,10 +133,9 @@ export interface EconomyDef {
   startingBuckwheat: number;
   ledger: { tokenValue: number; totalCap: number; ratio: number };
   market?: {
-    dayRounds: number; jigeChance: number; maxSwapGrade: number;
+    jigeChance: number; maxSwapGrade: number;
     /** Draws stay locked until this round's personal boss is killed or tamed. */
     openAfterBossRound?: number;
-    draw: { buckwheatCost: number; perDay: number; weights: number[] };
     gamble?: GambleDef;
   };
   drops?: { round: number; grade: number }[];
@@ -150,11 +148,10 @@ export interface EconomyDef {
   tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[] };
 }
 export interface EconState {
-  rng: { marketGrade: RngState; marketUnit: RngState; jige: RngState; drop: RngState; tame: RngState; gambleCoins?: RngState; gambleUnit?: RngState };
+  rng: { jige: RngState; drop: RngState; tame: RngState; gambleCoins?: RngState; gambleUnit?: RngState };
   roundKills: number; questTokens: number;
   ledger: { tokens: number };
   pendingDrops: string[];
-  market: { day: number; draws: number };
   gamble?: { round: number; coins: number; units: number };
   /** False until the boss named by market.openAfterBossRound is killed or tamed; missing (older snapshots) means open. */
   marketOpen?: boolean;
@@ -213,7 +210,6 @@ export type Command =
   | { type: 'move'; from: number; to: number; unitId?: number; toUnitId?: number | null } | { type: 'convertToken' }
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' }
   | { type: 'jigeSwap'; source: JigeSource; result: string }
-  | { type: 'buy'; item: EconItem }
   | GambleCommand
   | { type: 'hunt'; enemy: string } | { type: 'tame'; enemyId: number }
   | { type: 'store'; slot: number; unitId?: number } | { type: 'storeAll' }
@@ -221,13 +217,13 @@ export type Command =
 export type GambleCommand = { type: 'gambleCoins'; stake: number } | { type: 'gambleUnit'; table: GambleTable };
 export type GambleEvent =
   | { type: 'gambleCoins'; stake: number; multiplier: number; payout: number }
-  | ({ type: 'gambleUnit'; table: GambleTable; buckwheatCost: number; consolation: number } & (
+  | ({ type: 'gambleUnit'; table: GambleTable; buckwheatCost: number; consolation: number; jige: boolean } & (
     { result: 0; defId?: never; unitId?: never } |
     { result: Exclude<GambleUnitResult, 0>; defId: string; unitId: number }
   ));
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
-  | 'marketClosed' | 'marketLocked' | 'soldOut' | 'gambleRound' | 'gambleLimit' | 'huntClosed' | 'huntOut' | 'noTarget' | 'tameCondition'
+  | 'marketClosed' | 'marketLocked' | 'gambleRound' | 'gambleLimit' | 'huntClosed' | 'huntOut' | 'noTarget' | 'tameCondition'
   | 'cooldown' | 'noJige'
   | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
@@ -244,7 +240,6 @@ export type GameEvent =
   | { type: 'kill'; enemyId: number } | { type: 'speedChange'; enemyId: number; d: number; speed: number }
   | { type: 'ended'; result: GameResult }
   | { type: 'jigeSwap'; source: JigeSource; unitId: number; defId: string }
-  | { type: 'buy'; item: EconItem; defId: string; spentBuckwheat: number; jige: boolean }
   | { type: 'questReward'; quest: GeneralQuestId; coins: number; buckwheat: number; tokens: number }
   | { type: 'tame'; enemyId: number; defId: string; unitId: number; slot: number }
   /** One paid attempt: the odds shown before the roll, what was spent, and whether it worked. */

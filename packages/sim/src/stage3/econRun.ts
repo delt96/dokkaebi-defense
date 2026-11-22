@@ -6,7 +6,7 @@ import { EconDriver } from './econDriver';
 import { switchBot, synergyBot, type EconPolicy } from './econBot';
 import { clumsyBot, normalBot, type Bot } from '../bots';
 import { targetBot } from './targetBot';
-import { jigeIncidence, quantile, seatSpread, timeoutMedian } from './report';
+import { quantile, seatSpread, timeoutMedian } from './report';
 
 export type EconBotKind = 'clumsy' | 'normal' | 'target' | 'switch' | 'synergy';
 export const ECON_BOTS: EconBotKind[] = ['clumsy', 'normal', 'target', 'switch', 'synergy'];
@@ -41,6 +41,8 @@ export interface EconRow {
   unitBet?: number; unitRefund?: number;
   gambleMiss?: number; gamble3?: number; gamble4?: number; gamble5?: number; gamble6?: number; gambleHidden?: number;
   smallPlays?: number; bigPlays?: number;
+  startMuk?: number; earnedMuk?: number; bossMuk?: number; questMuk?: number; yeoksinMuk?: number;
+  grade5Muk?: number; finalMuk?: number; tameMuk?: number; endMuk?: number; lostMuk?: number;
   sold: number; missingAtEnd: string; yeoksinKills: number;
   boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null;
 }
@@ -112,13 +114,13 @@ function dropTimedOutBosses(match: MatchState): void {
 export function econMatchRun(data: GameData, seed: number, c: EconConfig): { rows: EconRow[]; yeoksinSeconds: (number | null)[] } {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
-  const policy: EconPolicy = { market: c.market, quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false };
+  const policy: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false };
   const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
   const driver = new EconDriver(match, bots, c.gamble);
   const finalTick = roundStartTick(d, d.balance.rounds);
   const rows = new Map<number, EconRow>();
-  const prev = new Map<number, { coins: number; buckwheat: number }>();
-  const earned = new Map<number, { coins: number; buckwheat: number }>();
+  const prevCoins = new Map<number, number>();
+  const earnedCoins = new Map<number, number>();
   for (const s of SEATS) {
     rows.set(s, {
       seed, config: c.name, bot: c.bot, seat: s, finished: false, teamOutcome: '', endRound: 0,
@@ -126,20 +128,24 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
       draws: 0, questWins: '', tames: 0, jigeGrants: 0, jigeUses: 0, jigeHeld: 0, tameTries: 0,
       muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false,
-      huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, huntWins: '', sold: 0, missingAtEnd: '', yeoksinKills: 0,
-      ...(c.gamble && { coinBet: 0, coinPayout: 0, unitMuk: 0, unitConsolation: 0,
-        gambleMiss: 0, gamble3: 0, gamble4: 0, gamble5: 0, gamble6: 0, gambleHidden: 0, smallPlays: 0, bigPlays: 0 }),
+      huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, huntWins: '',
+      startMuk: match.lanes[s]!.buckwheat, earnedMuk: 0, bossMuk: 0, questMuk: 0, yeoksinMuk: 0,
+      grade5Muk: 0, finalMuk: 0, tameMuk: 0, endMuk: 0, lostMuk: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
+      ...(c.gamble && { coinBet: 0, coinPayout: 0 }),
+      unitMuk: 0, unitConsolation: 0, gambleMiss: 0, gamble3: 0, gamble4: 0, gamble5: 0, gamble6: 0, gambleHidden: 0, smallPlays: 0, bigPlays: 0,
       boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
     });
-    prev.set(s, { coins: 0, buckwheat: 0 });
-    earned.set(s, { coins: 0, buckwheat: 0 });
+    prevCoins.set(s, 0);
+    earnedCoins.set(s, 0);
   }
   const wins = new Map<number, Set<string>>(SEATS.map(s => [s, new Set<string>()]));
   const yeoksinSpawn = new Map<number, number>();
+  const rewardSeats = new Set(SEATS);
   const yeoksinSeconds: (number | null)[] = (d.coop?.yeoksin ?? []).map(() => null);
 
   const checkpoints = new Map(BOSS_ROUNDS.slice(0, -1).map(r => [roundStartTick(d, r + 1), r]));
   const finals = d.recipes.filter(x => unitDefFast(d, x.result).grade === 6);
+  const recipeMuk = new Map(d.recipes.map(x => [x.result, x.cost?.buckwheat ?? 0]));
   while (match.result === null && match.tick < MAX_TICKS) {
     if (c.noDefeat) dropTimedOutBosses(match);
     const settled = checkpoints.get(match.tick);
@@ -169,18 +175,27 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
     for (const a of r.acks) if (a.ok && cmdBySeq.get(`${a.seat}:${a.seq}`)?.type === 'sell') rows.get(a.seat)!.sold++;
     for (const e of r.events) {
       if (e.type === 'yeoksinSpawn') yeoksinSpawn.set(e.stage, r.tick);
-      else if (e.type === 'yeoksinKilled') yeoksinSeconds[e.stage - 1] = (r.tick - (yeoksinSpawn.get(e.stage) ?? r.tick)) / 20;
+      else if (e.type === 'eliminated') rewardSeats.delete(e.seat);
+      else if (e.type === 'yeoksinKilled') {
+        yeoksinSeconds[e.stage - 1] = (r.tick - (yeoksinSpawn.get(e.stage) ?? r.tick)) / 20;
+        // Event order preserves rewards on the same tick a seat was eliminated.
+        for (const seat of rewardSeats) rows.get(seat)!.yeoksinMuk! += d.coop!.killReward.buckwheat;
+      } else if (e.type === 'bossKilled') {
+        const row = rows.get(e.seat)!;
+        row.bossMuk! += d.balance.bossBuckwheat;
+      }
     }
     for (const [key, step] of Object.entries(r.lanes)) {
       const s = Number(key);
       const row = rows.get(s)!;
       const lane = match.lanes[s]!;
       for (const e of step.events) {
-        if (e.type === 'buy') { row.draws++; if (e.jige) row.jigeGrants++; }
-        else if (e.type === 'gambleCoins') {
+        if (e.type === 'gambleCoins') {
           row.coinBet = (row.coinBet ?? 0) + e.stake;
           row.coinPayout = (row.coinPayout ?? 0) + e.payout;
         } else if (e.type === 'gambleUnit') {
+          row.draws++;
+          if (e.jige) row.jigeGrants++;
           row.unitMuk = (row.unitMuk ?? 0) + e.buckwheatCost;
           row.unitConsolation = (row.unitConsolation ?? 0) + e.consolation;
           const plays = e.table === 'small' ? 'smallPlays' : 'bigPlays';
@@ -193,9 +208,9 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
           }
         }
         else if (e.type === 'jigeSwap') row.jigeUses++;
-        else if (e.type === 'tameTry') row.tameTries++;
+        else if (e.type === 'tameTry') { row.tameTries++; row.tameMuk! += e.buckwheat; }
         else if (e.type === 'tame') row.tames++;
-        else if (e.type === 'questReward') wins.get(s)!.add(e.quest);
+        else if (e.type === 'questReward') { wins.get(s)!.add(e.quest); row.questMuk! += e.buckwheat; }
         else if (e.type === 'hunt' && e.outcome === 'won') {
           row.huntKills++;
           row.huntMuk += e.buckwheat;
@@ -204,25 +219,29 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
           row.huntWins = row.huntWins ? `${row.huntWins}+${win}` : win;
         }
         else if (e.type === 'hunt') row.huntFled++;
-        else if ((e.type === 'combine' || e.type === 'summon') && row.firstGrade6Round === null && isNormal6(lane, e.defId)) {
-          row.firstGrade6Round = match.round;
-          row.firstSource = 'combine';
+        else if (e.type === 'combine') {
+          const spent = recipeMuk.get(e.defId) ?? 0;
+          if (unitDefFast(d, e.defId).grade === 6) row.finalMuk! += spent;
+          else row.grade5Muk! += spent;
+          if (row.firstGrade6Round === null && isNormal6(lane, e.defId)) {
+            row.firstGrade6Round = match.round;
+            row.firstSource = 'combine';
+          }
         }
       }
     }
     for (const s of SEATS) {
       const lane = match.lanes[s]!;
-      if (!match.seats[s]!.alive) continue;
-      const p = prev.get(s)!;
-      const acc = earned.get(s)!;
       const row = rows.get(s)!;
-      acc.coins += Math.max(0, lane.coins - p.coins);
-      acc.buckwheat += Math.max(0, lane.buckwheat - p.buckwheat);
-      prev.set(s, { coins: lane.coins, buckwheat: lane.buckwheat });
-      if (acc.buckwheat >= 9) row.buckwheat9Round ??= match.round;
-      if (acc.buckwheat >= 12) row.buckwheat12Round ??= match.round;
-      if (acc.coins >= 180) row.coins180Round ??= match.round;
-      if (acc.coins >= 240) row.coins240Round ??= match.round;
+      const supply = row.startMuk! + row.huntMuk + row.bossMuk! + row.yeoksinMuk! + row.questMuk!;
+      if (supply >= 9) row.buckwheat9Round ??= match.round;
+      if (supply >= 12) row.buckwheat12Round ??= match.round;
+      if (!match.seats[s]!.alive) continue;
+      const coins = earnedCoins.get(s)! + Math.max(0, lane.coins - prevCoins.get(s)!);
+      earnedCoins.set(s, coins);
+      prevCoins.set(s, lane.coins);
+      if (coins >= 180) row.coins180Round ??= match.round;
+      if (coins >= 240) row.coins240Round ??= match.round;
     }
   }
 
@@ -237,6 +256,9 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
     row.endRound = seatResult?.round ?? match.round;
     row.grade6AtEnd = count6(lane);
     row.jigeHeld = lane.econ?.jige ?? 0;
+    row.endMuk = lane.buckwheat;
+    row.earnedMuk = row.huntMuk + row.bossMuk! + row.yeoksinMuk! + row.questMuk!;
+    row.lostMuk = row.startMuk! + row.earnedMuk - row.unitMuk! - row.grade5Muk! - row.finalMuk! - row.tameMuk! - row.endMuk;
     if (st.alive) row.muk60 = lane.buckwheat;
     row.hidden = countHidden(lane);
     row.questWins = [...wins.get(s)!].sort().join('+');
@@ -300,18 +322,18 @@ export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data
     const clears = seeds.filter(seed => rs.find(r => r.seed === seed)!.teamOutcome === 'clear').length;
     out.push(`| ${name} | ${rs[0]!.bot} | ${s.finishers}/${rs.length} | ${s.dist.join(' | ')} | ${pct(s.share34)} | ${pct(s.neverRate)} | ${s.medianCount ?? '-'} | ${rnd(s.median)} | ${rnd(s.p90)} | ${medRound(fin.map(r => r.buckwheat9Round))} / ${medRound(fin.map(r => r.buckwheat12Round))} | ${medRound(fin.map(r => r.coins180Round))} / ${medRound(fin.map(r => r.coins240Round))} | ${clears}/${seeds.length} | ${s.pass ? '합격' : '미달'} |`);
   }
-  out.push('', '| 설정 | 판당 보따리 평균 | 0회 자리 | 18회 자리 | 18회 중 지게 받음 | 지게 사용 평균 | 남은 지게 평균 | 유료 길들이기 평균 | 묵 R10 / 20 / 30 / 40 / 50 / 60 중앙값 (표본) | 최종 조합 묵 막힘 | 자리 간 SD |',
+  out.push('', '| 설정 | 자리당 보따리 평균 | 0회 자리 | 지게 획득 / 뽑기 | 지게 사용 평균 | 남은 지게 평균 | 유료 길들이기 평균 | 묵 R10 / 20 / 30 / 40 / 50 / 60 중앙값 (표본) | 최종 조합 묵 막힘 | 자리 간 SD |',
     '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |');
   for (const name of configs) {
     const rs = rows.filter(r => r.config === name);
     const mean = (xs: number[]) => (xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(2) : '-');
-    const inc = jigeIncidence(rs);
+    const sum = (k: 'draws' | 'jigeGrants') => rs.reduce((n, r) => n + r[k], 0);
     const muk = BOSS_ROUNDS.map(r => {
       const xs = rs.map(x => x[`muk${r}` as MukCol]).filter((v): v is number => v !== null);
       return `${quantile(xs, 0.5) ?? '-'} (${xs.length})`;
     }).join(' / ');
     const sd = seatSpread(rs);
-    out.push(`| ${name} | ${mean(rs.map(r => r.draws))} | ${rs.filter(r => r.draws === 0).length} | ${rs.filter(r => r.draws === 18).length} | ${inc.seats ? `${inc.withJige}/${inc.seats} (${pct(inc.withJige / inc.seats)})` : '0명'} | ${mean(rs.map(r => r.jigeUses))} | ${mean(rs.map(r => r.jigeHeld))} | ${mean(rs.map(r => r.tameTries))} | ${muk} | ${pct(rs.filter(r => r.mukBlocked).length / rs.length)} | ${sd === null ? '-' : sd.toFixed(2)} |`);
+    out.push(`| ${name} | ${mean(rs.map(r => r.draws))} | ${rs.filter(r => r.draws === 0).length} | ${sum('jigeGrants')} / ${sum('draws')} | ${mean(rs.map(r => r.jigeUses))} | ${mean(rs.map(r => r.jigeHeld))} | ${mean(rs.map(r => r.tameTries))} | ${muk} | ${pct(rs.filter(r => r.mukBlocked).length / rs.length)} | ${sd === null ? '-' : sd.toFixed(2)} |`);
   }
   if (rows.some(r => (r.huntKills ?? 0) + (r.huntFled ?? 0) > 0)) {
     out.push('', '| 설정 | 격파 처치 평균 (자리당) | 시간 초과 평균 | 최고 단계 중앙값 / 최대 | 격파로 받은 묵 평균 |', '| --- | ---: | ---: | --- | ---: |');
@@ -322,8 +344,8 @@ export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data
       out.push(`| ${name} | ${mean(rs.map(r => r.huntKills ?? 0))} | ${mean(rs.map(r => r.huntFled ?? 0))} | ${quantile(best, 0.5) ?? '-'} / ${Math.max(0, ...best)} | ${mean(rs.map(r => r.huntMuk ?? 0))} |`);
     }
   }
-  if (rows.some(r => r.coinBet !== undefined)) {
-    out.push('', '| 설정 | 돈 도박 베팅 / 지급 (냥) | 유닛 도박 지출 / 꽝 위로금 | 작은 판 / 큰 판 | 꽝 / 3 / 4 / 5 / 6 / 숨은 유닛 |',
+  if (rows.some(r => r.coinBet !== undefined || r.unitMuk !== undefined)) {
+    out.push('', '| 설정 | 돈 도박 베팅 / 지급 (냥) | 보따리 지출 / 꽝 위로금 | 보따리 / 큰 보따리 | 꽝 / 3 / 4 / 5 / 6 / 숨은 유닛 |',
       '| --- | ---: | ---: | ---: | ---: |');
     for (const name of configs) {
       const rs = rows.filter(r => r.config === name);
@@ -334,8 +356,19 @@ export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data
       out.push(`| ${name} | ${sum('coinBet', 'coinPayout')} | ${unitFlow} | ${sum('smallPlays', 'bigPlays')} | ${sum('gambleMiss', 'gamble3', 'gamble4', 'gamble5', 'gamble6', 'gambleHidden')} |`);
     }
   }
+  if (rows.some(r => r.earnedMuk !== undefined)) {
+    const bigCost = data?.economy?.market?.gamble?.units.tables.big.buckwheatCost ?? 2;
+    out.push('', '| 설정 | 자리당 묵 시작 / 획득 | 격파 / 개인 보스 / 역신 / 과제 | 보따리 / 큰 보따리 / 5등급 조합 / 최종 조합 / 길들이기 | 종료 잔액 / 탈락 소멸 |',
+      '| --- | ---: | ---: | ---: | ---: |');
+    for (const name of configs) {
+      const rs = rows.filter(r => r.config === name);
+      const mean = (k: keyof EconRow) => rs.reduce((n, r) => n + Number(r[k] ?? 0), 0) / rs.length;
+      const fmt = (...xs: number[]) => xs.map(x => x.toFixed(2)).join(' / ');
+      out.push(`| ${name} | ${fmt(mean('startMuk'), mean('earnedMuk'))} | ${fmt(mean('huntMuk'), mean('bossMuk'), mean('yeoksinMuk'), mean('questMuk'))} | ${fmt(mean('unitMuk') - bigCost * mean('bigPlays'), bigCost * mean('bigPlays'), mean('grade5Muk'), mean('finalMuk'), mean('tameMuk'))} | ${fmt(mean('endMuk'), mean('lostMuk'))} |`);
+    }
+  }
   if (yeoksin.length && data?.coop) {
-    out.push('', '| 역신 관문 | 처치 판 수 | 처치 시간 중앙값(초, 미처치는 제한) | 제한 시간(초) | 제한 대비 |', '| --- | ---: | ---: | ---: | ---: |');
+    out.push('', '| 역신 관문 | 처치 게임 수 | 처치 시간 중앙값(초, 미처치는 제한) | 제한 시간(초) | 제한 대비 |', '| --- | ---: | ---: | ---: | ---: |');
     data.coop.yeoksin.forEach((y, i) => {
       const samples = yeoksin.map(t => t[i] ?? null);
       const killed = samples.filter(x => x !== null).length;
@@ -359,6 +392,7 @@ export const STANDARD_CONFIGS: EconConfig[] = ECON_BOTS.flatMap(bot => [
 ]);
 
 const NUMBER_COLS = new Set([
+  'startMuk', 'earnedMuk', 'bossMuk', 'questMuk', 'yeoksinMuk', 'grade5Muk', 'finalMuk', 'tameMuk', 'endMuk', 'lostMuk',
   'coinBet', 'coinPayout', 'unitMuk', 'unitConsolation', 'unitBet', 'unitRefund',
   'gambleMiss', 'gamble3', 'gamble4', 'gamble5', 'gamble6', 'gambleHidden', 'smallPlays', 'bigPlays',
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 

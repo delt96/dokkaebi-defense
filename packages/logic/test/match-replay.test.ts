@@ -24,14 +24,10 @@ test('legacy recording settles its story and delivery under the recorded revisio
 
 test('the archived pre-gamble engine treats both gamble inputs as rejected', async () => {
   const { replayRecorded } = await import('../../sim/scripts/replay-version');
-  const data = loadGameData('stage3');
-  delete data.economy!.market!.gamble;
-  // that build still had the 20 s hunt cooldown
-  data.economy!.hunts!.cooldownSeconds = 20;
-  const old = createMatch(data, 3, [1, 2]);
+  const old = createMatch(loadGameData('stage3'), 3, [1, 2]);
   const record = {
     rulesRevision: '0d98d7a50098d646513c13b4f5576ee62762a2b4',
-    dataVersion: old.dataVersion, stage: 'stage3' as const, seed: old.seed, seats: old.ring, options: old.options,
+    dataVersion: 'bda95206', stage: 'stage3' as const, seed: old.seed, seats: old.ring, options: old.options,
     log: [{ tick: 0, inputs: [
       { seat: 1, seq: 1, cmd: { type: 'gambleCoins', stake: 10 } },
       { seat: 2, seq: 1, cmd: { type: 'gambleUnit', table: 'small' } },
@@ -40,5 +36,18 @@ test('the archived pre-gamble engine treats both gamble inputs as rejected', asy
   const invalid = record.log.map(({ tick, inputs }) => ({
     tick, inputs: inputs.map(input => ({ ...input, cmd: { type: 'invalid' as const } })),
   }));
-  expect(await replayRecorded(record)).toEqual(replayMatch(data, old.seed, old.ring, invalid, 100, old.options));
+  expect(await replayRecorded(record)).toEqual(await replayRecorded({ ...record, log: invalid }));
+}, 30_000);
+
+test('the pinned pre-bundle replay accepts both its retired draw and its unit gamble', async () => {
+  const { replayRecorded } = await import('../../sim/scripts/replay-version');
+  const { default: fixture } = await import('./fixtures/stage3-pre-bundle-replay.json');
+  const record = { ...fixture, stage: 'stage3' as const, options: { ...fixture.options, difficulty: 'easy' as const } };
+  expect((await replayRecorded(record)).at(-1)).toEqual(fixture.finalHash);
+  for (const retired of ['buy', 'gambleUnit']) {
+    const log = record.log.map(entry => ({
+      ...entry, inputs: entry.inputs.map(input => input.cmd.type === retired ? { ...input, cmd: { type: 'invalid' } } : input),
+    }));
+    expect((await replayRecorded({ ...record, log })).at(-1)).not.toEqual(fixture.finalHash);
+  }
 }, 30_000);

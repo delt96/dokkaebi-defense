@@ -23,12 +23,12 @@ export function advanceReveal(reveal: Reveal | null, now: number, data: GameData
 }
 
 interface ButtonModel {
-  action: 'gambleCoins' | 'gambleUnit'; arg: string; label: string; price?: string;
+  action: 'gambleCoins' | 'gambleUnit'; arg: string; label: string;
   blocked: string | null; odds: string;
 }
 interface GroupModel { count: string; buttons: ButtonModel[] }
 export interface GambleModel { coins: GroupModel; units: GroupModel }
-const TABLE_LABEL: Record<GambleTable, string> = { small: '작은 판', big: '큰 판' };
+const TABLE_LABEL: Record<GambleTable, string> = { small: '보따리', big: '큰 보따리' };
 const gradeText = (result: number | 'hidden') => result === 0 ? '꽝' : result === 'hidden' ? '숨은 유닛' : `${result}등급`;
 const percent = (chance: number) => `${+(chance * 100).toFixed(4)}%`;
 
@@ -56,12 +56,12 @@ export function gambleModel(view: GambleView, coins: number, buckwheat: number):
       })),
     },
     units: {
-      count: `유닛 도박 ${view.units.left}/${view.units.limit}`,
+      count: `보따리 남은 횟수 ${view.units.left}/${view.units.limit}`,
       buttons: (['small', 'big'] as const).map(id => {
         const table = view.units.tables[id];
         const odds = table.outcomes.map(o => `${gradeText(o.result)} ${percent(o.chance)}`).join(' · ');
         return {
-          action: 'gambleUnit', arg: id, label: TABLE_LABEL[id], price: `묵 ${table.buckwheatCost}`,
+          action: 'gambleUnit', arg: id, label: `${TABLE_LABEL[id]} · 묵 ${table.buckwheatCost}`,
           blocked: blockedText(table.why, table.buckwheatCost, buckwheat, table.fromRound),
           odds: `${odds} · 꽝이면 ${table.consolation}냥 위로금`,
         };
@@ -102,11 +102,14 @@ export function revealDisplay(reveal: Reveal | null, now: number, data: GameData
     return { phase, tier, motion, label, detail, coin: tier !== 'lose', announcement: `대박! ${label} · ${detail}` };
   }
   const unit = event.defId ? data.units.find(u => u.id === event.defId) : undefined;
-  const lossDetail = event.consolation ? `위로금 +${event.consolation}냥` : undefined;
+  const detail = [
+    unit ? gradeText(event.result) : event.consolation ? `위로금 +${event.consolation}냥` : null,
+    event.jige ? '지게 획득' : null,
+  ].filter(Boolean).join(' · ');
   return {
     phase, tier, motion, unit, label: unit?.name ?? '꽝',
-    detail: unit ? gradeText(event.result) : lossDetail,
-    announcement: event.result === 0 ? ['꽝', lossDetail].filter(Boolean).join(' · ') : `${gradeText(event.result)} 당첨!`,
+    detail,
+    announcement: [unit ? `${gradeText(event.result)} 당첨!` : '꽝', unit ? (event.jige ? '지게 획득' : '') : detail].filter(Boolean).join(' · '),
   };
 }
 
@@ -120,7 +123,7 @@ export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null): st
     return `<div class="gamble-group"><b class="gamble-count">${esc(count)}</b>
       <div class="gamble-buttons">${buttons.map(b => {
         const title = esc(b.blocked ? `${b.blocked} · ${b.odds}` : b.odds);
-        return `<span title="${title}"><button data-action="${b.action}" data-arg="${esc(b.arg)}" title="${title}"${busy || b.blocked ? ' disabled' : ''}>${esc(b.label)}${b.price ? `<small>${esc(b.price)}</small>` : ''}</button></span>`;
+        return `<span title="${title}"><button data-action="${b.action}" data-arg="${esc(b.arg)}" title="${title}"${busy || b.blocked ? ' disabled' : ''}>${esc(b.label)}</button></span>`;
       }).join('')}</div>${reasons.map(r => `<span class="gamble-why">${esc(r)}</span>`).join('')}</div>`;
   };
   const face = reveal?.unit ? unitFaceHtml(reveal.unit.id, reveal.unit.name, reveal.unit.grade)
@@ -129,6 +132,6 @@ export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null): st
   const result = allBlocked && !reveal ? '' : `<div class="gamble-reveal ${reveal?.phase ?? ''} ${reveal?.tier ?? ''}${effect}"${reveal?.phase === 'result' ? ' role="status"' : ''}>
       ${reveal ? `${face}<div><b>${esc(reveal.label)}</b>${reveal.detail ? `<small>${esc(reveal.detail)}</small>` : ''}</div>` : ''}
     </div>`;
-  return `<section class="shop gamble-shop"><h3>도박</h3>${group(model.coins)}${group(model.units)}
+  return `<section class="shop gamble-shop">${group(model.units)}${group(model.coins)}
     ${shared ? `<span class="gamble-why">${esc(shared)}</span>` : ''}${result}</section>`;
 }

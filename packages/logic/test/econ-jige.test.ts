@@ -8,7 +8,7 @@ test('every successful draw can grant another jige', () => {
   forceRound(s, 1);
   s.buckwheat = 2;
   for (const n of [1, 2]) {
-    expect(applyCommand(s, { type: 'buy', item: 'draw' }, [])).toBeNull();
+    expect(applyCommand(s, { type: 'gambleUnit', table: 'small' }, [])).toBeNull();
     expect(s.econ!.jige).toBe(n);
   }
 });
