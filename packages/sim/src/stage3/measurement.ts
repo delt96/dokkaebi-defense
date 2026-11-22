@@ -87,7 +87,8 @@ export function tameMarkdown(data: GameData, events: TameSample[], starts: numbe
 
 const unitName = (data: GameData, id: string) => data.units.find(u => u.id === id)!.name;
 
-export function drawMarkdown(on: DrawSeat[], off: DrawSeat[]) {
+export function drawMarkdown(on: DrawSeat[], off: DrawSeat[], chance: number) {
+  const expected = 1 - (1 - chance) ** 18;
   const s = jigePairs(on,off);
   const distribution = (rows: DrawSeat[]) => {
     const inventory = new Map<string,number>();
@@ -99,9 +100,11 @@ export function drawMarkdown(on: DrawSeat[], off: DrawSeat[]) {
   };
   const arms = ([['켬',on],['끔',off]] as const).map(([name,seats]) => {
     const arm = jigePairs(seats,[]);
-    return [name, seats.length,arm.full,rate(arm.received,arm.full),distribution(seats.filter(r => r.draws === 18)),distribution(seats)];
+    const gap = arm.full ? 100 * (arm.received / arm.full - expected) : null;
+    return [name, seats.length, arm.full, rate(arm.received, arm.full), (expected * 100).toFixed(1) + '%',
+      gap === null ? '—' : (gap >= 0 ? '+' : '') + gap.toFixed(1) + '%p', distribution(seats.filter(r => r.draws === 18)),distribution(seats)];
   });
-  return table(['지게 사용','시작','18회','18회 중 지게 획득','18회 보유/사용=자리','전체 보유/사용=자리'],arms)+'\n\n'+
+  return table(['지게 사용','시작','18회','18회 중 지게 획득','18회 기대','관측−기대','18회 보유/사용=자리','전체 보유/사용=자리'],arms)+'\n\n'+
     table(['완주 짝','R60 일반 6등급 차이(켬−끔 평균)','양쪽 첫 완성 짝','첫 완성 R 차이(평균)','시작 짝','미완성 R61 포함 차이'],
       [[s.pairs,s.countDelta?.toFixed(3) ?? '—',s.firstPairs,s.firstDelta?.toFixed(2) ?? '—',s.starts,s.cappedDelta?.toFixed(3) ?? '—']]);
 }

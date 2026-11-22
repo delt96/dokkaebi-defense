@@ -195,7 +195,7 @@ function econGrade6(arg: Arg, data: GameData, out: string, elapsed: () => string
         const file = join(out, name.replace(/-j[01]-/, `-j${j}-`) + '.csv');
         return existsSync(file) ? parseEconCsv(readFileSync(file,'utf8')) : [];
       };
-      console.log(drawMarkdown(readArm(1),readArm(0)));
+      console.log(drawMarkdown(readArm(1), readArm(0), data.economy!.market!.jigeChance));
     }
   }
 }

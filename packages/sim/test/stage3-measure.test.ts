@@ -98,3 +98,9 @@ test('max draws carries unspent muk into the next day after selling out', async 
   s.econ!.market = { day: 6, draws: 3 };
   expect(bot.decide(s)).toContainEqual({ type: 'combine', result: 'banjitgori' });
 });
+
+test('the draw report compares 18-draw incidence to the configured grant probability', async () => {
+  const { drawMarkdown } = await import('../src/stage3/measurement');
+  const r = { seed: 1, seat: 1, draws: 18, jigeGrants: 1, jigeHeld: 0, jigeUses: 1, finished: true, grade6AtFinal: 0, firstGrade6Round: null };
+  expect(drawMarkdown([r, { ...r, seat: 2, jigeGrants: 0, jigeUses: 0 }], [], 0.03)).toContain('42.2% | +7.8%p');
+});
