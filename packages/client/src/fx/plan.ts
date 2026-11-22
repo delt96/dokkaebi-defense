@@ -8,7 +8,7 @@ import { cellDistance, dist, laneOf, loopPos, unitDefFast, type Effect, type Ene
 export const PRIORITY = { low: 0, mid: 1, high: 2 } as const;
 export type Priority = (typeof PRIORITY)[keyof typeof PRIORITY];
 
-const GRADE_HEX: Record<number, number> = { 1: 0x4f9dff, 2: 0x4fd27a, 3: 0xb07aff, 4: 0xffb347 };
+const GRADE_HEX: Record<number, number> = { 1: 0x4f9dff, 2: 0x4fd27a, 3: 0xb07aff, 4: 0xffb347, 5: 0xff694e, 6: 0xffe35a };
 export const gradeHex = (grade: number): number => GRADE_HEX[grade] ?? 0xffffff;
 /** Rim colour by damage type (the data has no element, so the damage type stands in for one). */
 const RIM = { physical: 0xfff1d6, magical: 0x9fe8ff } as const;
@@ -27,7 +27,7 @@ export function shotStyle(def: UnitDef): ShotStyle {
     melee: !magical && def.range <= MELEE_RANGE,
     color: gradeHex(def.grade),
     rim: RIM[def.damageType],
-    size: def.grade >= BIG_GRADE ? 3 : def.grade >= 3 ? 2.5 : 2,
+    size: def.grade >= 5 ? def.grade - 1 : def.grade >= BIG_GRADE ? 3 : def.grade >= 3 ? 2.5 : 2,
     trail: def.grade >= BIG_GRADE,
     magical,
     grade: def.grade,
@@ -45,6 +45,7 @@ export type FxCmd =
   | { kind: 'stunHit'; enemyId: number; priority: Priority }
   | { kind: 'knock'; enemyId: number; fromD: number; toD: number; priority: Priority }
   | { kind: 'pulse'; unitId: number; radius: number; color: number; priority: Priority }
+  | { kind: 'cast'; unitId: number; color: number; priority: Priority }
   | { kind: 'bigUnit'; unitId: number; grade: number; name: string; priority: Priority }
   | { kind: 'boss'; enemyId: number; name: string; priority: Priority };
 
@@ -69,10 +70,13 @@ function maxOf<K extends Effect['kind']>(def: UnitDef, kind: K, pick: (e: Extrac
   return v;
 }
 const hasPeriodic = (def: UnitDef): boolean => def.skills.some(s => s.trigger.kind === 'periodic' && s.effects.some(e => e.kind === 'allInRange'));
+const visibleSkill = (kind: Effect['kind']): boolean =>
+  kind !== 'execute' && kind !== 'onKillExplode' && kind !== 'onVulnKillExplode' && kind !== 'coinOnFirstHit' && kind !== 'coinTimer';
+const castOnAttack = (def: UnitDef): boolean => def.skills.some(s => s.trigger.kind === 'always' && s.effects.some(e => visibleSkill(e.kind)));
 
 interface AttackCtx {
   unitId: number; def: UnitDef; target: number;
-  others: number[]; killed: number | null; exploded: boolean; frost: boolean; stunned: Set<number>;
+  others: number[]; exploded: boolean; frost: boolean; stunned: Set<number>; hits: number; cast: boolean;
 }
 
 export function planEvents(events: readonly GameEvent[], ctx: PlanCtx): FxCmd[] {
@@ -80,10 +84,18 @@ export function planEvents(events: readonly GameEvent[], ctx: PlanCtx): FxCmd[] 
   let cur: AttackCtx | null = null;
   /** defId -> enemies its periodic skill may have hit this batch. */
   const periodic = new Map<string, number[]>();
+  const detachedCasts = new Map<string, Set<number>>();
+  const flashed = new Set<number>();
+  const cast = (unitId: number, def: UnitDef) => {
+    if (def.grade < 6 || flashed.has(unitId)) return;
+    flashed.add(unitId);
+    out.push({ kind: 'cast', unitId, color: gradeHex(def.grade), priority: PRIORITY.mid });
+  };
 
   const close = () => {
     if (!cur) return;
     const { def, target, others } = cur;
+    if (cur.cast) cast(cur.unitId, def);
     if (others.length) {
       const splash = maxOf(def, 'splash', e => e.radius);
       const pierce = maxOf(def, 'pierce', e => e.length);
@@ -111,11 +123,13 @@ export function planEvents(events: readonly GameEvent[], ctx: PlanCtx): FxCmd[] 
         const def = ctx.unitDef(e.unitId);
         if (!def) break;
         out.push({ kind: 'shot', unitId: e.unitId, enemyId: e.enemyId, style: shotStyle(def), priority: PRIORITY.low });
-        cur = { unitId: e.unitId, def, target: e.enemyId, others: [], killed: null, exploded: false, frost: false, stunned: new Set() };
+        cur = { unitId: e.unitId, def, target: e.enemyId, others: [], exploded: false, frost: false, stunned: new Set(), hits: 0, cast: def.grade >= 6 && castOnAttack(def) };
         break;
       }
       case 'damage': {
         if (cur && e.source === cur.def.id) {
+          cur.hits++;
+          if (e.effect || (!cur.def.onBasicHit && cur.hits > 1)) cur.cast = true;
           if (e.effect === 'execute') out.push({ kind: 'slash', enemyId: e.enemyId, priority: PRIORITY.mid });
           if (e.effect === 'crit') out.push({ kind: 'crit', enemyId: e.enemyId, priority: PRIORITY.mid });
           if (e.effect === 'explosion') {
@@ -130,6 +144,14 @@ export function planEvents(events: readonly GameEvent[], ctx: PlanCtx): FxCmd[] 
         }
         close();
         const def = ctx.def(e.source);
+        // Detached damage can identify a periodic or neighbor proc by its source definition.
+        if (def?.grade === 6 && def.skills.some(s =>
+          (s.trigger.kind === 'periodic' || s.trigger.kind === 'neighborHits') &&
+          s.effects.some(effect => effect.kind === 'strike' || effect.kind === 'allInRange' || effect.kind === 'pierce'))) {
+          const ids = detachedCasts.get(def.id) ?? new Set<number>();
+          ids.add(e.enemyId);
+          detachedCasts.set(def.id, ids);
+        }
         if (def && hasPeriodic(def)) {
           const list = periodic.get(def.id) ?? [];
           list.push(e.enemyId);
@@ -143,12 +165,15 @@ export function planEvents(events: readonly GameEvent[], ctx: PlanCtx): FxCmd[] 
           out.push({ kind: 'knock', enemyId: e.enemyId, fromD: enemy.prevD, toD: e.d, priority: PRIORITY.mid });
         }
         if (!cur) break;
+        if (enemy?.prevD !== undefined && enemy.prevD - e.d > KNOCK_MIN && maxOf(cur.def, 'knockback', x => x.distance) > 0) cur.cast = true;
         if (e.speed === 0 && maxOf(cur.def, 'stun', x => x.seconds) > 0 && !cur.stunned.has(e.enemyId)) {
+          cur.cast = true;
           cur.stunned.add(e.enemyId);
           out.push({ kind: 'stunHit', enemyId: e.enemyId, priority: PRIORITY.mid });
         }
         const slowRadius = maxOf(cur.def, 'slow', x => x.radius ?? 0);
         if (e.speed > 0 && slowRadius > 0 && !cur.frost) {
+          cur.cast = true;
           cur.frost = true;
           out.push({ kind: 'frost', enemyId: cur.target, radius: slowRadius, priority: PRIORITY.mid });
         }
@@ -177,6 +202,11 @@ export function planEvents(events: readonly GameEvent[], ctx: PlanCtx): FxCmd[] 
     for (const unitId of ctx.pulseUnits(defId, enemyIds)) {
       out.push({ kind: 'pulse', unitId, radius: def.range, color: gradeHex(def.grade), priority: PRIORITY.mid });
     }
+  }
+  for (const [defId, ids] of detachedCasts) {
+    const def = ctx.def(defId)!;
+    const units = ctx.pulseUnits(defId, [...ids]);
+    if (units.length === 1) cast(units[0]!, def);
   }
   return out;
 }

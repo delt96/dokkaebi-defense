@@ -14,7 +14,7 @@ export const FX_DEPTH = { ground: 0.6, status: 2.5, air: 4, unitOverlay: 5, hp: 
  * pixelfx has nothing that fits: the shot in flight (any angle, a few px), the knockback streak, the
  * yeoksin walking out, the edge glow, the boss banner, damage numbers.
  */
-type RecKind = 'sheet' | 'shot' | 'knock' | 'edge' | 'leave' | 'number';
+type RecKind = 'sheet' | 'shot' | 'swing' | 'cast' | 'knock' | 'edge' | 'leave' | 'number';
 
 interface Rec {
   kind: RecKind; t0: number; dur: number; budgeted: boolean;
@@ -170,9 +170,14 @@ export class FxLayer {
     this.numberOf.set(r, t);
   }
 
-  private hitAt(enemyId: number, key: FxKey, priority: Priority, flip: boolean, now: number): void {
+  private hitAt(enemyId: number, key: FxKey, priority: Priority, flip: boolean, now: number, scale = 1): void {
     const at = this.host.enemyPos(enemyId);
-    if (at) this.sheet(key, priority, at.x, at.y + HIT_DROP, FX_DEPTH.air, { flip, follow: 'enemy', id: enemyId }, now);
+    if (at) this.sheet(key, priority, at.x, at.y + HIT_DROP, FX_DEPTH.air, { flip, scale, follow: 'enemy', id: enemyId }, now);
+  }
+
+  private shotHit(enemyId: number, style: ShotStyle, priority: Priority, flip: boolean, now: number): void {
+    const scale = this.budget.reduced || style.grade < 5 ? 1 : style.grade === 6 ? 1.5 : 1.25;
+    this.hitAt(enemyId, hitKey(style), priority, flip, now, scale);
   }
 
   run(cmd: FxCmd, now: number): void {
@@ -184,14 +189,26 @@ export class FxLayer {
         if (!from || !to) return;
         const s = cmd.style;
         if (s.melee) {
-          // a strike: the impact lands at once, facing the way the blow went
-          this.hitAt(cmd.enemyId, hitKey(s), cmd.priority, to.x < from.x, now);
+          this.shotHit(cmd.enemyId, s, cmd.priority, to.x < from.x, now);
+          const swing = s.grade >= 5 && this.flags.trails ? this.add('swing', cmd.priority, 110, now) : null;
+          if (swing) {
+            swing.x = from.x; swing.y = from.y;
+            swing.x2 = to.x; swing.y2 = to.y;
+            swing.style = s;
+          }
           return;
         }
         const r = this.add('shot', cmd.priority, s.magical ? SHOT_MS.magical : SHOT_MS.physical, now);
         if (!r) return;
         r.x = from.x; r.y = from.y - 6; r.x2 = to.x; r.y2 = to.y; r.enemyId = cmd.enemyId; r.style = s;
         r.dir = to.x < from.x ? -1 : 1;
+        return;
+      }
+      case 'cast': {
+        const at = h.unitPos(cmd.unitId);
+        if (!at || !this.flags.trails || this.recs.some(r => r.kind === 'cast' && r.unitId === cmd.unitId)) return;
+        const flash = this.add('cast', cmd.priority, 155, now);
+        if (flash) { flash.x = at.x; flash.y = at.y; flash.color = cmd.color; flash.unitId = cmd.unitId; }
         return;
       }
       case 'splash': case 'frost': case 'explode': {
@@ -329,7 +346,7 @@ export class FxLayer {
     if (r.kind === 'shot' && r.style && r.t0 + r.dur <= this.scene.time.now) {
       const style = r.style, enemyId = r.enemyId, flip = r.dir < 0;
       this.pool.release(r);
-      this.hitAt(enemyId, hitKey(style), PRIORITY.low, flip, this.scene.time.now);
+      this.shotHit(enemyId, style, PRIORITY.low, flip, this.scene.time.now);
       return;
     }
     this.pool.release(r);
@@ -472,7 +489,10 @@ export class FxLayer {
         if (st.trail && this.flags.trails) {
           for (let k = 1; k <= 4; k++) {
             const qq = Math.max(0, q - k * 0.07);
-            a.fillStyle(st.color, 0.5 - k * 0.1).fillRect(Math.round(r.x + (r.x2 - r.x) * qq) - 1, Math.round(r.y + (r.y2 - r.y) * qq) - 1, 2, 2);
+            const tx = r.x + (r.x2 - r.x) * qq;
+            const ty = r.y + (r.y2 - r.y) * qq;
+            if (st.grade >= 5) a.fillStyle(st.color, 0.62 - k * 0.12).fillCircle(tx, ty, st.size * (1.25 - k * 0.2));
+            else a.fillStyle(st.color, 0.5 - k * 0.1).fillRect(Math.round(tx) - 1, Math.round(ty) - 1, 2, 2);
           }
         }
         if (st.magical) {
@@ -487,6 +507,23 @@ export class FxLayer {
           a.lineStyle(st.size + 0.5, st.color, 0.9).lineBetween(x - ux * tail, y - uy * tail, x, y);
           a.fillStyle(st.rim, 1).fillCircle(x, y, st.size * 0.6);
         }
+        return;
+      }
+      case 'swing': {
+        if (!this.flags.trails) return;
+        const style = r.style!;
+        const x = r.x2 - (r.x2 - r.x) * (0.18 + p * 0.32);
+        const y = r.y2 - (r.y2 - r.y) * (0.18 + p * 0.32);
+        a.lineStyle(style.size * 2.5, style.color, 0.45 * (1 - p)).lineBetween(x, y, r.x2, r.y2);
+        a.lineStyle(style.size, style.rim, 0.9 * (1 - p)).lineBetween(x, y, r.x2, r.y2);
+        return;
+      }
+      case 'cast': {
+        if (!this.flags.trails) return;
+        const alpha = 1 - p;
+        a.fillStyle(r.color, 0.36 * alpha).fillCircle(r.x, r.y, 10 + 12 * p);
+        a.fillStyle(0xfff9df, 0.8 * alpha).fillCircle(r.x, r.y, 5 + 3 * p);
+        a.lineStyle(2, r.color, 0.75 * alpha).strokeCircle(r.x, r.y, 8 + 13 * p);
         return;
       }
       case 'knock': {

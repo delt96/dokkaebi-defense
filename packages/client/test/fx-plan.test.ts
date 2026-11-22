@@ -52,6 +52,23 @@ describe('shot style by grade and damage type', () => {
 });
 
 describe('planEvents', () => {
+  test('grade 5 and 6 shots grow, and an observed grade 6 proc flashes only once at its caster', () => {
+    const stage3 = loadGameData('stage3');
+    const s = createGame(stage3, 1);
+    const caster = placeUnitForTest(s, 'gamtudokkaebi', 0);
+    const unit = (id: string) => stage3.units.find(u => u.id === id)!;
+    expect(shotStyle(unit('top')).size).toBeGreaterThan(shotStyle(unit('ja')).size);
+    expect(shotStyle(unit('gamtudokkaebi')).size).toBeGreaterThan(shotStyle(unit('top')).size);
+    const context = planFromState(s, new Map());
+    const attack = { type: 'attack', unitId: caster.id, enemyId: 10 } as const;
+    const hit = { type: 'damage', source: 'gamtudokkaebi', enemyId: 10, amount: 100 } as const;
+    expect(kinds(planEvents([attack, hit], context))).toEqual(['shot']);
+    const crit = { ...hit, effect: 'crit' } as const;
+    expect(planEvents([attack, crit, attack, crit], context).filter(cmd => cmd.kind === 'cast')).toEqual([
+      expect.objectContaining({ unitId: caster.id, priority: PRIORITY.mid }),
+    ]);
+  });
+
   test('an attack becomes a low-priority shot', () => {
     const cmds = planEvents([{ type: 'attack', unitId: 1, enemyId: 10 }], ctx({ 1: 'horong' }, { 10: { d: 3 } }));
     expect(cmds).toEqual([expect.objectContaining({ kind: 'shot', unitId: 1, enemyId: 10, priority: PRIORITY.low })]);
