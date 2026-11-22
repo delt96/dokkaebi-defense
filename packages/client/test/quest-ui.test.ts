@@ -130,12 +130,11 @@ describe('J list and the quest box', () => {
     expect(modal().textContent).toContain('도감');
   });
 
-  test('the gear sits under the box and D at the bottom right; the old 도우미 and 배속 buttons are gone', () => {
+  test('the box and D end the right panel; the gear is in the top bar and the old 도우미 and 배속 buttons are gone', () => {
     const foot = document.querySelector('#right .right-foot')!;
-    const gear = foot.querySelector<HTMLElement>('[data-action="openSettings"]')!;
-    expect(gear.getAttribute('aria-label')).toBe('설정');
-    expect(foot.querySelector('.quest-box')!.compareDocumentPosition(gear) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(foot.querySelector('.dex-open')!.compareDocumentPosition(gear) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(foot.lastElementChild!.className).toBe('dex-open');
+    expect(document.querySelector('#right [data-action="openSettings"]')).toBeNull();
+    expect(document.querySelector('#top [data-action="openSettings"]')!.getAttribute('aria-label')).toBe('설정');
     expect(document.querySelector('[data-action="toggleHelper"], [data-action="speed"], [data-action="toggleFx"]')).toBeNull();
   });
 

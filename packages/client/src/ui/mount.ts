@@ -20,9 +20,9 @@ import { renderAlert, renderHud } from './hud';
 import {
   activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, nextUnitId, rejectText, selectedSlot, type DexNav, type Notice,
 } from './models';
-import { renderBottom, renderRight, unitDetailsHtml, upgradesHtml } from './panels';
+import { renderBottom, renderRight, unitDetailsHtml, unitPanelHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
-import { settingsHtml, SETTINGS_BUTTON } from './settings';
+import { readHelpLine, settingsHtml, writeHelpLine } from './settings';
 import { STORE_ALL_KEY, storageHtml, wireStorage } from './storage';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
@@ -37,7 +37,7 @@ const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'jigeSwap', 'questReward
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void; onHome?: () => void }
 
 /** Settings window presses; the pressed choice keeps the focus after the redraw. */
-const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'setFx']);
+const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'setFx', 'setHelp']);
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
@@ -63,6 +63,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // the list the dex scroll position belongs to: a new filter or search starts at the top
   let dexListKey = '';
   let helperOpen = false;
+  // the hotkey line under the board (도움말 in the settings window)
+  let helpLine = readHelpLine();
   let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | 'jige' | 'quests' | 'settings' | null = null;
   // the J list row to bring into view (a chip or a box line opened it)
   let questFocus: QuestId | null = null;
@@ -222,6 +224,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         modal = null;
         jigeList = null;
         break;
+      case 'setHelp': helpLine = arg === 'on'; writeHelpLine(helpLine); break;
       case 'setFx': if ((arg === 'on') !== !!scene.reduceEffects) scene.setReduceEffects(arg === 'on'); break;
       case 'restart': hooks.onRestart?.(); break;
       case 'home': hooks.onHome?.(); break;
@@ -418,7 +421,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      renderHelper(s, helperOpen);
+      renderHelper(s, helperOpen, s.phase === 'ended' ? '' : unitPanelHtml(s, selected, { compact: helperOpen, jige: held }));
     }
     // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
     // lane is full, so the line goes to the notices in the right column instead
@@ -430,7 +433,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     bannerEl.textContent = prompts >= 2 ? '' : prompts === 1 ? oneLine : bannerText;
     const moved = prompts >= 2 && bannerText ? [oneLine] : [];
     if (view && driver.readOnly) {
-      setHtml(el('right'), `<b class="watch-heading">고개 관전</b><p class="watch-hint">왼쪽에서 살아 있는 고개를 고르세요. 아래 카드로 엽전을 보낼 수 있습니다.</p><div class="right-foot"><div class="foot-row">${SETTINGS_BUTTON}</div></div>`);
+      setHtml(el('right'), `<b class="watch-heading">고개 관전</b><p class="watch-hint">왼쪽에서 살아 있는 고개를 고르세요. 아래 카드로 엽전을 보낼 수 있습니다.</p>`);
     } else {
       renderRight(s, {
         ...(view ? { online: true, notices: [...moved, ...rightNotices(now)] } : {}),
@@ -443,7 +446,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (spiritCard) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), spiritCard);
-    } else displayedCard = renderBottom(s, selected, online, s.data.economy?.market ? 'B 장터' : undefined, held);
+    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held);
     setHtml(el('storage'), storageVisible() ? storageHtml(s, held) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
@@ -459,7 +462,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: helperOpen, reducedFx: !!scene.reduceEffects, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: helperOpen, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;

@@ -80,8 +80,12 @@ describe('online mountUi', () => {
   test('online settings: the gear opens the helper and reduce-effects rows, no speed row', () => {
     const { room } = mountOnline();
     const modal = document.getElementById('modal')!;
-    press(document.querySelector('#right .right-foot [data-action="openSettings"]'));
-    expect(Array.from(modal.querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'fx']);
+    // the gear sits in the top bar, just before 메뉴
+    const gear = document.querySelector('#top [data-action="openSettings"]')!;
+    expect(gear.nextElementSibling?.getAttribute('data-action')).toBe('openMenu');
+    expect(document.querySelector('#right [data-action="openSettings"]')).toBeNull();
+    press(gear);
+    expect(Array.from(modal.querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'fx', 'help']);
     expect(modal.querySelector('[data-action="speed"]')).toBeNull();
     press(modal.querySelector('[data-action="setHelper"][data-arg="on"]'));
     expect(document.querySelector('#left .helper-pop')).not.toBeNull();
@@ -125,8 +129,9 @@ describe('online mountUi', () => {
     const full = fixtureFull([1, 2]);
     full.rows[0]!.status = 'spirit';
     mountOnline(full);
-    // only the settings gear stays, so a spirit can still turn the effects down
-    expect(Array.from(document.querySelectorAll('#right [data-action]')).map(b => b.getAttribute('data-action'))).toEqual(['openSettings']);
+    expect(document.querySelector('#right [data-action]')).toBeNull();
+    // the gear in the top bar stays, so a spirit can still turn the effects down
+    expect(document.querySelector('#top [data-action="openSettings"]')).not.toBeNull();
     expect(document.querySelector('#right')!.textContent).toContain('관전');
   });
 
@@ -137,7 +142,9 @@ describe('online mountUi', () => {
     });
     const { room, scene } = mountOnline(full);
     scene.select(0);
+    // online the left panel holds the six lanes, so the unit card stays under the board
     expect(document.querySelectorAll('#bottom [data-action="combine"]')).toHaveLength(3);
+    expect(document.querySelector('#left .unit-panel')).toBeNull();
     press(document.querySelector('#bottom [data-action="unitDetails"]'));
     const options = document.querySelectorAll('#modal [data-action="combine"]');
     expect(options.length).toBeGreaterThan(3);
@@ -165,13 +172,26 @@ describe('online mountUi', () => {
   test('the settings window holds the reduce-effects switch and pressing it flips the scene setting', () => {
     const { scene } = mountOnline();
     const fx = Object.assign(scene, { reduceEffects: false, setReduceEffects(on: boolean) { this.reduceEffects = on; } });
-    press(document.querySelector('#right [data-action="openSettings"]'));
+    press(document.querySelector('#top [data-action="openSettings"]'));
     const on = () => document.querySelector<HTMLButtonElement>('#modal [data-action="setFx"][data-arg="on"]')!;
     expect(on().getAttribute('aria-pressed')).toBe('false');
     press(on());
     expect(fx.reduceEffects).toBe(true);
     expect(on().getAttribute('aria-pressed')).toBe('true');
     expect(on().textContent).toBe('켬');
+  });
+
+  test('online 도움말 끔 hides the hotkey line but not the unit card', () => {
+    localStorage.clear();
+    const { scene } = mountOnline();
+    expect(document.getElementById('bottom')!.textContent).toContain('Space 소환');
+    press(document.querySelector('#top [data-action="openSettings"]'));
+    press(document.querySelector('#modal [data-action="setHelp"][data-arg="off"]'));
+    key('Escape');
+    expect(document.getElementById('bottom')!.textContent).toBe('');
+    scene.select(0);
+    expect(document.querySelector('#bottom [data-action="sell"]')).not.toBeNull();
+    localStorage.clear();
   });
 
   test('20-round online dex: a material link jumps to its entry, opens its tree, and the back button returns', () => {

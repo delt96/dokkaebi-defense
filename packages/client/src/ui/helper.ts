@@ -20,10 +20,15 @@ export function helperPopHtml(state: GameState): string {
     <ul class="helper">${helperItems(state)}</ul></div>`;
 }
 
-/** The switch is in the settings window (gear at the bottom right); while it is on, the list fills the left panel. */
-export function renderHelper(state: GameState, expanded: boolean): void {
+/**
+ * Solo left panel: while the helper is on (settings window or Q) its list sits on top and scrolls; `card` (the selected
+ * unit's card) stays under it, or has the whole panel when the helper is off.
+ */
+export function renderHelper(state: GameState, expanded: boolean, card = ''): void {
   const items = helperModel(state).filter(i => !i.short);
-  const head = expanded ? `<div class="panel-title">조합 도우미 ${state.data.balance.extendedCombat ? '(Q) ' : ''}<em>${items.length}</em></div>` : '';
-  setHtml(el('left'), `${head}
-    <ul class="helper">${expanded ? helperItems(state) : ''}</ul>`);
+  const list = expanded
+    ? `<div class="panel-title">조합 도우미 ${state.data.balance.extendedCombat ? '(Q) ' : ''}<em>${items.length}</em></div>
+    <ul class="helper">${helperItems(state)}</ul>`
+    : '';
+  setHtml(el('left'), `${list}${card}`);
 }

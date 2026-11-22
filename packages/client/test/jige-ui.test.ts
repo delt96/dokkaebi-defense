@@ -69,7 +69,7 @@ describe('R jige swap in solo', () => {
     const unit = board(g4, 3);
     unit.cost = 8;
     scene.select!(3);
-    const bottom = document.getElementById('bottom')!.textContent!;
+    const bottom = document.getElementById('left')!.textContent!;
     expect(bottom).toContain('보유 지게 2개');
     expect(bottom).toContain('R 지게 바꾸기');
     keydown(window, { code: 'KeyR' });
@@ -144,14 +144,14 @@ describe('R jige swap in solo', () => {
     s.econ!.jige = 0;
     board(normalsOf(2)[0]!, 0);
     scene.select!(0);
-    expect(document.querySelector<HTMLButtonElement>('#bottom [data-action="jigeOpen"]')!.disabled).toBe(true);
+    expect(document.querySelector<HTMLButtonElement>('#left [data-action="jigeOpen"]')!.disabled).toBe(true);
     s.econ!.jige = 3;
     board(d3.units.find(u => !u.hidden && u.grade === 5)!.id, 1);
     scene.select!(1);
-    expect(document.querySelector('#bottom [data-action="jigeOpen"]')).toBeNull();
+    expect(document.querySelector('#left [data-action="jigeOpen"]')).toBeNull();
     board(d3.units.find(u => u.hidden)!.id, 4);
     scene.select!(4);
-    expect(document.querySelector('#bottom [data-action="jigeOpen"]')).toBeNull();
+    expect(document.querySelector('#left [data-action="jigeOpen"]')).toBeNull();
   });
 });
 
