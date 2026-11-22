@@ -1,4 +1,6 @@
 import { difficultyPicker } from '../ui/difficulty';
+import { gameAudio } from '../audio/engine';
+import { musicCreditsHtml } from '../audio/settings-ui';
 import { normalizeNickname, type Difficulty } from '@dorandi/logic';
 import { TEXT } from './text';
 
@@ -72,6 +74,7 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
     if (busy) return;
     const name = normalizeNickname(input.value);
     if (name === null) {
+      gameAudio.play('error');
       message.textContent = TEXT.badName;
       return;
     }
@@ -84,7 +87,7 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
       pending = Promise.reject(err);
     }
     pending
-      .catch(() => { message.textContent = TEXT.connectFail; })
+      .catch(() => { gameAudio.play('error'); message.textContent = TEXT.connectFail; })
       .finally(() => { if (button.isConnected) setBusy(false); });
   });
 
@@ -105,7 +108,9 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
     solo.append(link);
   }
   drawSolo();
-  box.append(solo);
+  const footer = el('footer', 'entry-credits');
+  footer.innerHTML = musicCreditsHtml();
+  box.append(solo, footer);
   root.append(box);
   if (!opts.name) input.focus();
 }

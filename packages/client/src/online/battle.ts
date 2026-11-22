@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { GameData } from '@dorandi/logic';
+import { bindBattleAudio } from '../audio/battle';
 import { LaneScene } from '../LaneScene';
 import { LANE_CANVAS_ONLINE, STAGE_H, STAGE_W, stagePlacement } from '../layout';
 import type { NetClient } from '../net/NetClient';
@@ -13,11 +14,13 @@ import '../ui/style.css';
 export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: string, hostToken?: string) => void): void {
   document.body.classList.add('online');
   const driver = new NetDriver(net, data);
+  bindBattleAudio(driver, net);
   watchSupport(net);
   const scene = new LaneScene(driver, { height: LANE_CANVAS_ONLINE.height });
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
+    audio: { noAudio: true },
     parent: 'lane',
     width: LANE_CANVAS_ONLINE.width,
     height: scene.canvasHeight,

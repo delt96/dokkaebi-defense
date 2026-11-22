@@ -10,6 +10,7 @@ import { lastName, loadSession, saveSession } from './session';
 export type NetEvent =
   | { kind: 'lobby'; msg: LobbyMsg } | { kind: 'view'; view: ClientView } | { kind: 'lane'; batches: LaneBatch[] }
   | { kind: 'rejected'; cmd: PendingCmd; reason: RejectReason } | { kind: 'notice'; msg: NoticeMsg }
+  | { kind: 'accepted'; cmd: PendingCmd }
   | { kind: 'result'; msg: ResultMsg } | { kind: 'left'; code: number } | { kind: 'versionMismatch' };
 
 export type OutgoingCommand = Command | { type: 'support'; target: number } | { type: 'forfeit' };
@@ -230,6 +231,7 @@ export class NetClient {
       if (i < 0) continue;
       const [cmd] = this.pending.splice(i, 1);
       if (!ack.ok) this.emit({ kind: 'rejected', cmd: cmd!, reason: ack.reason });
+      else this.emit({ kind: 'accepted', cmd: cmd! });
     }
     // anything at or below the server's last processed seq will never get an ack of its own
     this.pending = this.pending.filter(p => p.seq > view.mine.lastSeq);
