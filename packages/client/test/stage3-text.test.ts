@@ -37,8 +37,8 @@ describe('stage 3 skill text', () => {
   });
 
   test('who a status lands on, stacking vulns and aura damage lines', () => {
-    expect(text('indupan')).toBe('4번째 공격마다 피해 2.25배, 주변 1칸 스턴 0.6초');
-    expect(text('kkeul')).toBe('4번째 공격마다 뒤따르는 2.5칸 관통 120%, 대상 말고 맞은 적에게 둔화 28% 2초');
+    expect(text('indupan')).toBe('4번째 공격마다 피해 2.25배, 주변 1칸 스턴 0.9초');
+    expect(text('kkeul')).toBe('4번째 공격마다 뒤따르는 2.5칸 관통 120%, 구역 둔화 28% 2초');
     expect(text('jinegaksi')).toContain('맞은 적 모두 받는 물딜 +16% 3초');
     expect(text('cheonnyeonjing')).toContain('받는 물딜 +4% 4초 (최대 5중첩, 모루의 효과와 겹치지 않음)');
     expect(text('mulle')).toBe('3번째 공격마다 한 번 더 공격 / 오라: 주변 1.5칸 물딜 아군 공격 속도 +12%');
@@ -122,9 +122,13 @@ describe('review fixes: aura for all, lockouts, cooldowns, slow radii, tamed uni
     expect(text('duduri')).toContain('약화된 적이 쓰러지면 주변 1.5칸 폭발 80% (1.1초에 한 번)');
   });
 
-  test('stage 3 area slows give their radius; stage 1-2 slows keep the old words', () => {
-    expect(text('samtaegi')).toContain('주변 1칸 둔화 20% 1.5초');
-    expect(text('eomang')).toContain('주변 1.5칸 둔화 42% 3초');
+  test('stage 3 slows reach their quadrant; without that rule area slows give their radius; stage 1-2 keep the old words', () => {
+    expect(text('samtaegi')).toContain('구역 둔화 20% 1.5초');
+    expect(text('eomang')).toContain('구역 둔화 42% 3초');
+    const local = loadGameData('stage3');
+    delete local.balance.zoneSlow;
+    expect(unitSkillText(local, unitDefFast(local, 'samtaegi'))).toContain('주변 1칸 둔화 20% 1.5초');
+    expect(unitSkillText(local, unitDefFast(local, 'eomang'))).toContain('주변 1.5칸 둔화 42% 3초');
     const d2 = loadGameData('stage2');
     const old = d2.units.filter(u => u.skills.some(s => s.effects.some(e => e.kind === 'slow' && e.radius)));
     expect(old.length).toBeGreaterThan(0);

@@ -144,6 +144,8 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .hud { font-size: 11px; gap: 8px; }
 .hud .notice { color: #ffb396; font-weight: bold; }
 .hud .boss { color: #ffab99; }
+.hud .round-block { display: flex; flex-direction: column; line-height: 11px; white-space: nowrap; }
+.hud .round-block .resist { font-size: 10px; color: #c9bfd8; }
 #round-banner, .countdown, #error { position: absolute; text-align: center; pointer-events: none; }
 #round-banner { top: 35px; left: 128px; width: 400px; white-space: pre-line; color: var(--accent); font-size: 13px; font-weight: bold; line-height: 17px; }
 .countdown { top: 50%; left: 328px; transform: translate(-50%, -50%); background: #32171ef0; border: 1px solid #ff836a; padding: 3px 10px; color: #ffb59f; font-size: 11px; }

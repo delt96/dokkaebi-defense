@@ -61,17 +61,24 @@ describe('stage 3 effect extensions', () => {
     const s = quiet3(firstEvery(['indupan'])); placeUnitForTest(s, 'indupan', 2);
     spawnEnemyForTest(s, 'japgwi', 3, 1e6); const close = spawnEnemyForTest(s, 'japgwi', 3.8, 1e6); const away = spawnEnemyForTest(s, 'japgwi', 4.5, 1e6);
     step(s, []);
-    expect([close.stunTicks, away.stunTicks]).toEqual([12, 0]);
+    expect([close.stunTicks, away.stunTicks]).toEqual([18, 0]);
 
-    const k = quiet3(firstEvery(['kkeul'])); placeUnitForTest(k, 'kkeul', 2);
+    // slow areas only matter without the zone slow
+    const local = (ids: string[]) => { const d = firstEvery(ids); delete d.balance.zoneSlow; return d; };
+    const k = quiet3(local(['kkeul'])); placeUnitForTest(k, 'kkeul', 2);
     const kt = spawnEnemyForTest(k, 'japgwi', 3, 1e6); const kf = spawnEnemyForTest(k, 'japgwi', 2, 1e6);
     step(k, []);
     expect([kt.slow, kf.slow?.pct]).toEqual([null, 0.28]);
 
-    const j = quiet3(firstEvery(['jejuheobeok'])); placeUnitForTest(j, 'jejuheobeok', 2);
+    const j = quiet3(local(['jejuheobeok'])); placeUnitForTest(j, 'jejuheobeok', 2);
     const jt = spawnEnemyForTest(j, 'japgwi', 3, 1e6); const jf = spawnEnemyForTest(j, 'japgwi', 2, 1e6); const jo = spawnEnemyForTest(j, 'japgwi', 4.5, 1e6);
     step(j, []);
     expect([jt.slow?.pct, jf.slow?.pct, jo.slow]).toEqual([0.3, 0.3, null]); // the 5% on-hit splash does not carry the slow
+
+    const w = quiet3(firstEvery(['kkeul'])); placeUnitForTest(w, 'kkeul', 2);
+    const wt = spawnEnemyForTest(w, 'japgwi', 3, 1e6); const wf = spawnEnemyForTest(w, 'japgwi', 2, 1e6);
+    step(w, []);
+    expect([wt.slow?.pct, wf.slow?.pct]).toEqual([0.28, 0.28]);
   });
 
   test('aura damage type filter and source dedupe', () => {

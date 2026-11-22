@@ -72,7 +72,18 @@ export interface BalanceDef {
   bossCcFactor: number; vulnCap: number; auraRadius: number; pulseSeconds: number;
   onBasicHitRadius?: number; auraCaps?: { attackSpeed: number; attackPower: number };
   periodicReady?: boolean; extendedCombat?: boolean; bossControl?: BossControlDef;
+  /** Stage 3: weakening adds to what resistance leaves (1 - resist + vuln) instead of multiplying it. */
+  vulnCutsResist?: boolean;
+  /** Stage 3: resistance that grows with the round; see resistAt. */
+  resistByRound?: ResistByRoundDef;
+  /** Stage 3: a slow that lands slows every non-shared enemy in the same board quadrant (lane zoneOf), its pct times pctFactor. */
+  zoneSlow?: { pctFactor: number };
 }
+/**
+ * Both resists of normal enemies, bosses and shared visits rise by `top` × (round - fromRound) / (toRound - fromRound),
+ * 0 up to fromRound and `top` from toRound on; each total resist stops at `cap`. Event enemies keep their own resists.
+ */
+export interface ResistByRoundDef { fromRound: number; toRound: number; top: number; cap: number }
 export type UpgradeId = 'physical' | 'magical' | 'polish' | 'slots';
 export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number; openCount?: number }
 export interface YeoksinStageDef { stage: number; enemy: string; startRound: number; deadlineRound: number; baseHp: number; startIndex: number }

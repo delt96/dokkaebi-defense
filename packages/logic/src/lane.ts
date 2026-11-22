@@ -108,6 +108,20 @@ export function createLane(cols: number, rows: number, frame: { cols: number; ro
   return { cols, rows, frame: { ...frame }, pitch, cells, perimeter, pointAt, coverage, coverageLength };
 }
 
+export type Zone = 0 | 1 | 2 | 3;
+
+/**
+ * The quadrant of the board a path point falls in, split at the frame's centre: 0 top-left, 1 top-right,
+ * 2 bottom-right, 3 bottom-left. Each holds one corner of the loop and half of each side next to it; a point exactly
+ * on a centre line counts as right (x) or bottom (y).
+ */
+export function zoneOf(lane: Lane, d: number): Zone {
+  const p = lane.pointAt(d);
+  const right = p.x >= lane.frame.cols / 2;
+  const bottom = p.y >= lane.frame.rows / 2;
+  return (bottom ? (right ? 2 : 3) : right ? 1 : 0) as Zone;
+}
+
 /** Distance between two cells in cells (unit to unit rules such as auras count cells, not path units). */
 export function cellDistance(lane: Lane, a: number, b: number): number {
   return dist(lane.cells[a]!, lane.cells[b]!) / lane.pitch;

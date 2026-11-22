@@ -1,7 +1,7 @@
 import { difficultySuffix } from './difficulty';
 import {
   attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
-  slotsOpenedAt, upgradeCost, summonOddsForRound,
+  slotsOpenedAt, upgradeCost, summonOddsForRound, roundResistRange,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 import { ROLE_LABEL, unitRoles, type RoleTag } from './dex-roles';
@@ -28,9 +28,12 @@ function triggerText(t: Trigger): string {
 
 /**
  * `nameOf` turns a source id into a unit name for the "does not stack with" notes; `extended` is the stage 3 data's
- * extendedCombat, which spells out the radius of area slows (stage 1-2 text stays as it was).
+ * extendedCombat, which spells out the radius of area slows (stage 1-2 text stays as it was). `zoneSlow` is the
+ * stage 3 slow factor: a slow then reaches its board quadrant at its pct times the factor.
  */
-export interface SkillCtx { interval: number; pulseSeconds: number; nameOf?: (id: string) => string; extended?: boolean; auraRadius?: number }
+export interface SkillCtx {
+  interval: number; pulseSeconds: number; nameOf?: (id: string) => string; extended?: boolean; auraRadius?: number; zoneSlow?: number;
+}
 
 /**
  * Attack range in the board's own cells. Combat measures it in path units, a straight line from the cell centre to the
@@ -89,8 +92,10 @@ function effectText(e: Effect, trigger: Trigger, ctx?: SkillCtx): string {
     }
     case 'allInRange': return `사거리 안 모두에게 공격력 ${pct(e.mult)}`;
     case 'stun': return `${areaText(e)}스턴 ${e.seconds}초`;
-    // stage 1-2 slows with a radius keep their old wording
-    case 'slow': return `${e.radius ? (ctx?.extended ? areaText(e) : '주변 ') : areaText(e)}둔화 ${pct(e.pct)} ${e.seconds}초`;
+    case 'slow':
+      if (ctx?.zoneSlow !== undefined) return `구역 둔화 ${pct(e.pct * ctx.zoneSlow)} ${e.seconds}초`;
+      // stage 1-2 slows with a radius keep their old wording
+      return `${e.radius ? (ctx?.extended ? areaText(e) : '주변 ') : areaText(e)}둔화 ${pct(e.pct)} ${e.seconds}초`;
     case 'knockback': return `${areaText(e)}${e.distance}칸 밀어냄`;
     case 'vuln': return `${areaText(e)}받는 ${typeName(e.damageType)} +${pct(e.pct)} ${e.seconds}초${paren(e.maxStacks && `최대 ${e.maxStacks}중첩`, sourceNote(e.source, ctx))}`;
     case 'dot': return areaText(e) + dotText(e, trigger, ctx);
@@ -115,7 +120,10 @@ export function skillText(skills: SkillDef[], ctx?: SkillCtx): string {
 const nameIn = (data: GameData) => (id: string): string => data.units.find(u => u.id === id)?.name ?? id;
 
 function ctxOf(data: GameData, def: UnitDef): SkillCtx {
-  return { interval: def.interval, pulseSeconds: data.balance.pulseSeconds, nameOf: nameIn(data), extended: data.balance.extendedCombat === true, auraRadius: data.balance.auraRadius };
+  return {
+    interval: def.interval, pulseSeconds: data.balance.pulseSeconds, nameOf: nameIn(data), extended: data.balance.extendedCombat === true,
+    auraRadius: data.balance.auraRadius, zoneSlow: data.balance.zoneSlow?.pctFactor,
+  };
 }
 
 /** Stage 3 extra damage on every basic attack, shown as its own line (v5 6장 "도감 도움말"). */
@@ -204,7 +212,10 @@ export function combineNotes(data: GameData, result: string): CombineNotes | nul
 }
 
 /** Inherited lines read like the material's own effect: no source note, no re-applied dot note, stage 3 radii. */
-const INHERIT_CTX = (data: GameData): SkillCtx => ({ interval: Number.POSITIVE_INFINITY, pulseSeconds: data.balance.pulseSeconds, extended: true, auraRadius: data.balance.auraRadius });
+const INHERIT_CTX = (data: GameData): SkillCtx => ({
+  interval: Number.POSITIVE_INFINITY, pulseSeconds: data.balance.pulseSeconds, extended: true, auraRadius: data.balance.auraRadius,
+  zoneSlow: data.balance.zoneSlow?.pctFactor,
+});
 
 /** The combine notes as card lines; empty for stage 1-2. */
 export function combineNoteLines(data: GameData, result: string): string[] {
@@ -303,7 +314,18 @@ export function rejectText(reason: string): string | null {
   return REJECT_TEXT[reason] ?? null;
 }
 
-export function hudModel(state: GameState): { roundText: string; secondsLeft: number; enemyText: string; danger: number } {
+/**
+ * The 60-round resistance of `round`'s enemies, from the same rule combat uses: "저항 물리 32% · 마법 20%", a range
+ * when the wave mixes enemies ("물리 20~70%"). Null without growing resistance or while every resist is 0.
+ */
+export function resistText(data: GameData, round: number): string | null {
+  const r = roundResistRange(data, Math.max(1, round));
+  if (!r || [...r.physical, ...r.magical].every(x => Math.round(x * 100) === 0)) return null;
+  const span = ([lo, hi]: [number, number]) => (Math.round(lo * 100) === Math.round(hi * 100) ? pct(lo) : `${Math.round(lo * 100)}~${pct(hi)}`);
+  return `저항 물리 ${span(r.physical)} · 마법 ${span(r.magical)}`;
+}
+
+export function hudModel(state: GameState): { roundText: string; secondsLeft: number; enemyText: string; danger: number; resistText: string | null } {
   const b = state.data.balance;
   const n = countNormalEnemies(state);
   const ticksPerSecond = 1000 / b.tickMs;
@@ -314,6 +336,7 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
     secondsLeft: Math.max(0, Math.ceil(left / ticksPerSecond)),
     enemyText: `우리 고개 잡귀 ${n} / ${b.limit}`,
     danger: Math.min(1, n / b.limit),
+    resistText: resistText(state.data, state.round),
   };
 }
 
