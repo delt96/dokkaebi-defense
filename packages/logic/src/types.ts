@@ -76,8 +76,8 @@ export interface BalanceDef {
   vulnCutsResist?: boolean;
   /** Stage 3: resistance that grows with the round; see resistAt. */
   resistByRound?: ResistByRoundDef;
-  /** Stage 3: a slow that lands slows every non-shared enemy in the lane, its pct times pctFactor. */
-  wholeLaneSlow?: { pctFactor: number };
+  /** Stage 3: a slow that lands slows every non-shared enemy in the same board quadrant (lane zoneOf), its pct times pctFactor. */
+  zoneSlow?: { pctFactor: number };
 }
 /**
  * Both resists of normal enemies, bosses and shared visits rise by `top` × (round - fromRound) / (toRound - fromRound),

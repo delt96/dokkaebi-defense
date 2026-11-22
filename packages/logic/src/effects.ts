@@ -4,7 +4,7 @@ import { nextFloat } from './rng';
 import { unitAttack } from './data';
 import { dist, loopPos } from './lane';
 import { registerPhase } from './registry';
-import { cellDistance, laneOf } from './lane';
+import { cellDistance, laneOf, zoneOf, type Zone } from './lane';
 import { enemySpeed, toTicks } from './flow';
 import { computeHitDamage, damageBonus, dealDamage, hitDamage, hitTerms, inRange, pickTarget } from './combat';
 import { unitDefFast } from './units';
@@ -121,8 +121,8 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
     case 'slow': {
       const t = ccTicks(state, target, eff.seconds);
       if (!target.slow || eff.pct >= target.slow.pct) {
-        // a whole-lane slow refreshes many enemies at once: only a change of speed is sent
-        const before = b.wholeLaneSlow ? enemySpeed(state, target) : NaN;
+        // a zone slow refreshes many enemies at once: only a change of speed is sent
+        const before = b.zoneSlow ? enemySpeed(state, target) : NaN;
         target.slow = { pct: eff.pct, ticks: t };
         if (enemySpeed(state, target) !== before) emitSpeed(state, target, events);
       }
@@ -162,15 +162,18 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
 }
 
 /**
- * Lands `eff` on `targets`. With wholeLaneSlow a slow that meets any non-shared enemy goes to every enemy in the lane
+ * Lands `eff` on `targets`. With zoneSlow a slow goes to every enemy in the board quadrants of its non-shared targets
  * instead (applyStatus still passes over shared visits), its pct scaled by pctFactor.
  */
 function landStatus(state: GameState, slot: number, source: string, targets: Enemy[], eff: Effect, events: GameEvent[]): void {
-  const whole = state.data.balance.wholeLaneSlow;
-  if (eff.kind === 'slow' && whole) {
-    if (!targets.some(o => !isShared(state.data, o))) return;
-    const scaled = { ...eff, pct: eff.pct * whole.pctFactor };
-    for (const o of state.enemies) applyStatus(state, slot, source, o, scaled, events);
+  const zone = state.data.balance.zoneSlow;
+  if (eff.kind === 'slow' && zone) {
+    const lane = laneOf(state);
+    const zones = new Set<Zone>();
+    for (const o of targets) if (!isShared(state.data, o)) zones.add(zoneOf(lane, o.d));
+    if (!zones.size) return;
+    const scaled = { ...eff, pct: eff.pct * zone.pctFactor };
+    for (const o of state.enemies) if (zones.has(zoneOf(lane, o.d))) applyStatus(state, slot, source, o, scaled, events);
     return;
   }
   for (const o of targets) applyStatus(state, slot, source, o, eff, events);

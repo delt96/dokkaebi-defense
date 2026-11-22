@@ -11,20 +11,20 @@ const d2 = loadGameData('stage2');
 const d3 = loadGameData('stage3');
 const text = (data: GameData, id: string) => unitSkillText(data, unitDefFast(data, id));
 
-describe('whole-lane slow text', () => {
-  test('every 60-round slow reads as 전체 둔화 without its old radius', () => {
-    expect(text(d3, 'samtaegi')).toBe('25% 주변 1칸에 공격력 85%, 전체 둔화 20% 1.5초');
-    expect(text(d3, 'kkeul')).toContain('전체 둔화 28% 2초');
+describe('zone slow text', () => {
+  test('every 60-round slow reads as 구역 둔화 without its old radius', () => {
+    expect(text(d3, 'samtaegi')).toBe('25% 주변 1칸에 공격력 85%, 구역 둔화 20% 1.5초');
+    expect(text(d3, 'kkeul')).toContain('구역 둔화 28% 2초');
     for (const e of dexEntries(d3)) {
       if (!unitDefFast(d3, e.id).skills.some(s => s.effects.some(x => x.kind === 'slow'))) continue;
-      expect(e.skillText, e.id).toContain('전체 둔화');
+      expect(e.skillText, e.id).toContain('구역 둔화');
       expect(e.skillText, e.id).not.toMatch(/(주변 [0-9.]+칸 |맞은 적 모두 |대상 말고 맞은 적에게 )둔화/);
     }
   });
 
   test('the slow factor shows in the pct', () => {
-    const half = makeData(d => { d.balance.wholeLaneSlow = { pctFactor: 0.5 }; }, 'stage3');
-    expect(text(half, 'kkeul')).toContain('전체 둔화 14% 2초');
+    const half = makeData(d => { d.balance.zoneSlow = { pctFactor: 0.5 }; }, 'stage3');
+    expect(text(half, 'kkeul')).toContain('구역 둔화 14% 2초');
   });
 
   test('stage 1 and 2 slows keep their wording', () => {
@@ -35,7 +35,7 @@ describe('whole-lane slow text', () => {
   test('the unit card and the combine card read the same text', () => {
     const s = createGame(d3, 1);
     placeUnitForTest(s, 'samtaegi', 0);
-    expect(unitCard(s, 0)!.skillText).toContain('전체 둔화 20% 1.5초');
+    expect(unitCard(s, 0)!.skillText).toContain('구역 둔화 20% 1.5초');
     expect(combineNotes(d3, 'jejuyeonggam')!.lostControls).toEqual(['스턴 (북)', '밀어내기 (바가지)']);
   });
 

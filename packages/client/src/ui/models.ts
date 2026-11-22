@@ -28,11 +28,11 @@ function triggerText(t: Trigger): string {
 
 /**
  * `nameOf` turns a source id into a unit name for the "does not stack with" notes; `extended` is the stage 3 data's
- * extendedCombat, which spells out the radius of area slows (stage 1-2 text stays as it was). `wholeLaneSlow` is the
- * stage 3 slow factor: every slow then reaches the whole lane at its pct times the factor.
+ * extendedCombat, which spells out the radius of area slows (stage 1-2 text stays as it was). `zoneSlow` is the
+ * stage 3 slow factor: a slow then reaches its board quadrant at its pct times the factor.
  */
 export interface SkillCtx {
-  interval: number; pulseSeconds: number; nameOf?: (id: string) => string; extended?: boolean; auraRadius?: number; wholeLaneSlow?: number;
+  interval: number; pulseSeconds: number; nameOf?: (id: string) => string; extended?: boolean; auraRadius?: number; zoneSlow?: number;
 }
 
 /**
@@ -93,7 +93,7 @@ function effectText(e: Effect, trigger: Trigger, ctx?: SkillCtx): string {
     case 'allInRange': return `사거리 안 모두에게 공격력 ${pct(e.mult)}`;
     case 'stun': return `${areaText(e)}스턴 ${e.seconds}초`;
     case 'slow':
-      if (ctx?.wholeLaneSlow !== undefined) return `전체 둔화 ${pct(e.pct * ctx.wholeLaneSlow)} ${e.seconds}초`;
+      if (ctx?.zoneSlow !== undefined) return `구역 둔화 ${pct(e.pct * ctx.zoneSlow)} ${e.seconds}초`;
       // stage 1-2 slows with a radius keep their old wording
       return `${e.radius ? (ctx?.extended ? areaText(e) : '주변 ') : areaText(e)}둔화 ${pct(e.pct)} ${e.seconds}초`;
     case 'knockback': return `${areaText(e)}${e.distance}칸 밀어냄`;
@@ -122,7 +122,7 @@ const nameIn = (data: GameData) => (id: string): string => data.units.find(u => 
 function ctxOf(data: GameData, def: UnitDef): SkillCtx {
   return {
     interval: def.interval, pulseSeconds: data.balance.pulseSeconds, nameOf: nameIn(data), extended: data.balance.extendedCombat === true,
-    auraRadius: data.balance.auraRadius, wholeLaneSlow: data.balance.wholeLaneSlow?.pctFactor,
+    auraRadius: data.balance.auraRadius, zoneSlow: data.balance.zoneSlow?.pctFactor,
   };
 }
 
@@ -214,7 +214,7 @@ export function combineNotes(data: GameData, result: string): CombineNotes | nul
 /** Inherited lines read like the material's own effect: no source note, no re-applied dot note, stage 3 radii. */
 const INHERIT_CTX = (data: GameData): SkillCtx => ({
   interval: Number.POSITIVE_INFINITY, pulseSeconds: data.balance.pulseSeconds, extended: true, auraRadius: data.balance.auraRadius,
-  wholeLaneSlow: data.balance.wholeLaneSlow?.pctFactor,
+  zoneSlow: data.balance.zoneSlow?.pctFactor,
 });
 
 /** The combine notes as card lines; empty for stage 1-2. */

@@ -31,8 +31,8 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     else if (data.enemies.some(e => !e.event && (e.resist.physical > cap || e.resist.magical > cap))) errors.push('resistByRound cap is below a base resist');
     if (data.balance.rounds !== 60) errors.push('resistByRound requires 60 rounds');
   }
-  const slow = data.balance.wholeLaneSlow;
-  if (slow !== undefined && !(Number.isFinite(slow?.pctFactor) && slow.pctFactor > 0 && slow.pctFactor <= 1)) errors.push('invalid wholeLaneSlow');
+  const slow = data.balance.zoneSlow;
+  if (slow !== undefined && !(Number.isFinite(slow?.pctFactor) && slow.pctFactor > 0 && slow.pctFactor <= 1)) errors.push('invalid zoneSlow');
   const eco = data.economy;
   if (eco && (!Number.isInteger(eco.startingBuckwheat) || eco.startingBuckwheat < 0)) errors.push('invalid startingBuckwheat');
   const market = eco?.market;

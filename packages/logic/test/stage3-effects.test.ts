@@ -63,8 +63,8 @@ describe('stage 3 effect extensions', () => {
     step(s, []);
     expect([close.stunTicks, away.stunTicks]).toEqual([18, 0]);
 
-    // slow areas only matter without the whole-lane slow
-    const local = (ids: string[]) => { const d = firstEvery(ids); delete d.balance.wholeLaneSlow; return d; };
+    // slow areas only matter without the zone slow
+    const local = (ids: string[]) => { const d = firstEvery(ids); delete d.balance.zoneSlow; return d; };
     const k = quiet3(local(['kkeul'])); placeUnitForTest(k, 'kkeul', 2);
     const kt = spawnEnemyForTest(k, 'japgwi', 3, 1e6); const kf = spawnEnemyForTest(k, 'japgwi', 2, 1e6);
     step(k, []);

@@ -142,7 +142,7 @@ describe('stage 3 balance stands on its own', () => {
       bossControl: { windowTicks: 200, stunTicks: 60, pushDistance: 3, maxStoppedShare: 0.3 },
       vulnCutsResist: true,
       resistByRound: { fromRound: 20, toRound: 60, top: 0.45, cap: 0.8 },
-      wholeLaneSlow: { pctFactor: 1 },
+      zoneSlow: { pctFactor: 1 },
     });
     expect(d3.coop).toEqual({
       yeoksin: [

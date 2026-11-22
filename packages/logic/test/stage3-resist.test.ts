@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  createGame, loadGameData, roundResistBonus, roundResistRange, resistAt, step, summonOddsForRound, validateData,
+  createGame, laneOf, loadGameData, roundResistBonus, zoneOf, roundResistRange, resistAt, step, summonOddsForRound, validateData,
   type GameData, type GameState,
 } from '../src/index';
 import { computeHitDamage, enemyResist, hitDamage } from '../src/combat';
@@ -141,60 +141,101 @@ describe('summon odds', () => {
   });
 });
 
-describe('whole-lane slow', () => {
+// Stage 3 path (frame 6 x 4, centre 3,2): top side d 0-7, right 7-12, bottom 12-19, left 19-24.
+// Quadrants: top-left d < 3.5 or d > 21.5, top-right 3.5-9.5, bottom-right 9.5-15.5, bottom-left 15.5-21.5.
+describe('zone slow', () => {
   const slowData = (patch?: (d: GameData) => void) => makeData(d => { always(d, ['samtaegi']); patch?.(d); }, 'stage3');
+  const pctOf = (data: GameData) =>
+    (data.units.find(u => u.id === 'samtaegi')!.skills[0]!.effects.find(e => e.kind === 'slow') as { pct: number }).pct * data.balance.zoneSlow!.pctFactor;
 
-  test('one slow reaches every non-shared enemy in the lane, the boss for half as long', () => {
+  test('quadrants split at the board centre; a point on a centre line counts as right or bottom', () => {
+    const lane = laneOf({ data: d3 });
+    expect([1, 3.49, 23].map(d => zoneOf(lane, d))).toEqual([0, 0, 0]);
+    expect([3.5, 5, 9.49].map(d => zoneOf(lane, d))).toEqual([1, 1, 1]);
+    expect([9.5, 12, 15.5].map(d => zoneOf(lane, d))).toEqual([2, 2, 2]);
+    expect([15.51, 19, 21.5].map(d => zoneOf(lane, d))).toEqual([3, 3, 3]);
+    expect(zoneOf(lane, 21.51)).toBe(0);
+  });
+
+  test('one slow reaches every non-shared enemy in its quadrant, the boss for half as long; other quadrants stay', () => {
     const data = slowData();
     const s = quiet(data);
     placeUnitForTest(s, 'samtaegi', 2);
     const target = spawnEnemyForTest(s, 'japgwi', 3, 1e6);
-    const far = spawnEnemyForTest(s, 'japgwi', 12, 1e6);
-    const boss = spawnEnemyForTest(s, 'jinegaksi3', 14, 1e6);
-    const event = spawnEnemyForTest(s, 'ev_soebap', 15, 1e6);
-    const shared = spawnEnemyForTest(s, 'yeoksin3', 13, 1e6);
+    const sameZone = spawnEnemyForTest(s, 'japgwi', 23, 1e6);
+    const boss = spawnEnemyForTest(s, 'jinegaksi3', 0.5, 1e6);
+    const event = spawnEnemyForTest(s, 'ev_soebap', 22, 1e6);
+    const shared = spawnEnemyForTest(s, 'yeoksin3', 1, 1e6);
+    const nextZone = spawnEnemyForTest(s, 'japgwi', 5, 1e6);
+    const far = spawnEnemyForTest(s, 'japgwi', 14, 1e6);
     step(s, []);
-    const eff = data.units.find(u => u.id === 'samtaegi')!.skills[0]!.effects.find(e => e.kind === 'slow') as { pct: number; seconds: number };
-    const pct = eff.pct * data.balance.wholeLaneSlow!.pctFactor;
-    expect(target.slow?.pct).toBeCloseTo(pct);
-    expect(far.slow?.pct).toBeCloseTo(pct);
-    expect(event.slow?.pct).toBeCloseTo(pct);
-    expect(boss.slow?.pct).toBeCloseTo(pct);
-    expect(boss.slow!.ticks).toBeLessThan(far.slow!.ticks);
+    const pct = pctOf(data);
+    for (const e of [target, sameZone, event, boss]) expect(e.slow?.pct).toBeCloseTo(pct);
+    expect(boss.slow!.ticks).toBeLessThan(sameZone.slow!.ticks);
     expect(shared.slow).toBeNull();
+    expect(nextZone.slow).toBeNull();
+    expect(far.slow).toBeNull();
   });
 
-  test('the strongest slow is kept on everyone', () => {
+  test('an enemy exactly on the centre line belongs to the right-hand quadrant', () => {
+    const t = quiet(slowData());
+    placeUnitForTest(t, 'samtaegi', 3);
+    const onLine = spawnEnemyForTest(t, 'japgwi', 3.5, 1e6);
+    const sameSide = spawnEnemyForTest(t, 'japgwi', 6, 1e6);
+    const left = spawnEnemyForTest(t, 'japgwi', 0.2, 1e6);
+    step(t, []);
+    expect(onLine.slow).not.toBeNull();
+    expect(sameSide.slow).not.toBeNull();
+    expect(left.slow).toBeNull();
+  });
+
+  test('an area slow over two quadrants reaches both', () => {
     const s = quiet(slowData());
     placeUnitForTest(s, 'samtaegi', 2);
     spawnEnemyForTest(s, 'japgwi', 3, 1e6);
-    const far = spawnEnemyForTest(s, 'japgwi', 12, 1e6);
-    far.slow = { pct: 0.9, ticks: 5 };
+    spawnEnemyForTest(s, 'japgwi', 3.8, 1e6); // inside the 1-cell radius, top-right
+    const tl = spawnEnemyForTest(s, 'japgwi', 23, 1e6);
+    const tr = spawnEnemyForTest(s, 'japgwi', 8, 1e6);
+    const br = spawnEnemyForTest(s, 'japgwi', 12, 1e6);
     step(s, []);
-    expect(far.slow).toEqual({ pct: 0.9, ticks: 4 });
+    expect(tl.slow).not.toBeNull();
+    expect(tr.slow).not.toBeNull();
+    expect(br.slow).toBeNull();
+  });
+
+  test('the strongest slow is kept', () => {
+    const s = quiet(slowData());
+    placeUnitForTest(s, 'samtaegi', 2);
+    spawnEnemyForTest(s, 'japgwi', 3, 1e6);
+    const near = spawnEnemyForTest(s, 'japgwi', 1, 1e6);
+    near.slow = { pct: 0.9, ticks: 5 };
+    step(s, []);
+    expect(near.slow).toEqual({ pct: 0.9, ticks: 4 });
   });
 
   test('a slow that only meets a shared visit slows no one', () => {
     const s = quiet(slowData());
     placeUnitForTest(s, 'samtaegi', 2);
     const shared = spawnEnemyForTest(s, 'yeoksin3', 3, 1e6);
-    const far = spawnEnemyForTest(s, 'japgwi', 12, 1e6);
+    const near = spawnEnemyForTest(s, 'japgwi', 1, 1e6);
     step(s, []);
     expect(shared.slow).toBeNull();
-    expect(far.slow).toBeNull();
+    expect(near.slow).toBeNull();
   });
 
-  test('periodic slows reach the whole lane too', () => {
+  test('periodic slows reach the quadrant too', () => {
     const s = quiet(d3);
     placeUnitForTest(s, 'meok', 2);
     spawnEnemyForTest(s, 'japgwi', 3, 1e6);
-    const far = spawnEnemyForTest(s, 'japgwi', 12, 1e6);
+    const near = spawnEnemyForTest(s, 'japgwi', 22.5, 1e6);
+    const far = spawnEnemyForTest(s, 'japgwi', 13, 1e6);
     step(s, []);
-    expect(far.slow).not.toBeNull();
+    expect(near.slow).not.toBeNull();
+    expect(far.slow).toBeNull();
   });
 
   test('pctFactor scales every slow', () => {
-    const s = quiet(slowData(d => { d.balance.wholeLaneSlow = { pctFactor: 0.5 }; }));
+    const s = quiet(slowData(d => { d.balance.zoneSlow = { pctFactor: 0.5 }; }));
     placeUnitForTest(s, 'samtaegi', 2);
     const t = spawnEnemyForTest(s, 'japgwi', 3, 1e6);
     step(s, []);
@@ -202,24 +243,25 @@ describe('whole-lane slow', () => {
   });
 
   test('without the flag a slow stays where it lands', () => {
-    const s = quiet(slowData(d => { delete d.balance.wholeLaneSlow; }));
+    const s = quiet(slowData(d => { delete d.balance.zoneSlow; }));
     placeUnitForTest(s, 'samtaegi', 2);
     const t = spawnEnemyForTest(s, 'japgwi', 3, 1e6);
-    const far = spawnEnemyForTest(s, 'japgwi', 12, 1e6);
+    const near = spawnEnemyForTest(s, 'japgwi', 1, 1e6);
     step(s, []);
     expect(t.slow?.pct).toBeCloseTo(0.2);
-    expect(far.slow).toBeNull();
+    expect(near.slow).toBeNull();
   });
 
   test('a refresh at the same strength sends no speed change', () => {
     const s = quiet(slowData());
     placeUnitForTest(s, 'samtaegi', 2);
     spawnEnemyForTest(s, 'japgwi', 3, 1e6);
-    const far = spawnEnemyForTest(s, 'japgwi', 12, 1e6);
+    const near = spawnEnemyForTest(s, 'japgwi', 23, 1e6);
     step(s, []);
     s.slots[2]!.cooldown = 0;
     const r = step(s, []);
-    expect(r.events.some(e => e.type === 'speedChange' && e.enemyId === far.id)).toBe(false);
+    expect(near.slow).not.toBeNull();
+    expect(r.events.some(e => e.type === 'speedChange' && e.enemyId === near.id)).toBe(false);
   });
 });
 
@@ -266,8 +308,8 @@ describe('validation', () => {
     expect(bad(d => { d.balance.resistByRound = { fromRound: 20, toRound: 60, top: -0.1, cap: 0.8 }; })).toContain('invalid resistByRound');
     expect(bad(d => { d.balance.resistByRound = { fromRound: 20, toRound: 60, top: 0.4, cap: 1 }; })).toContain('invalid resistByRound');
     expect(bad(d => { d.balance.resistByRound = { fromRound: 20, toRound: 60, top: 0.4, cap: 0.4 }; })).toContain('resistByRound cap is below a base resist');
-    expect(bad(d => { d.balance.wholeLaneSlow = { pctFactor: 0 }; })).toContain('invalid wholeLaneSlow');
-    expect(bad(d => { d.balance.wholeLaneSlow = { pctFactor: 1.5 }; })).toContain('invalid wholeLaneSlow');
+    expect(bad(d => { d.balance.zoneSlow = { pctFactor: 0 }; })).toContain('invalid zoneSlow');
+    expect(bad(d => { d.balance.zoneSlow = { pctFactor: 1.5 }; })).toContain('invalid zoneSlow');
     expect(bad(d => { d.balance.resistByRound = { fromRound: 20, toRound: 60, top: 0.4, cap: 0.8 }; d.balance.rounds = 20; })).toContain('resistByRound requires 60 rounds');
   });
 });
