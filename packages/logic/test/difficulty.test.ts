@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { createGame, createMatch, loadGameData, matchHash, startRound, validateData } from '../src/index';
+import { createGame, createMatch, loadGameData, matchHash, replayMatch, startRound, validateData } from '../src/index';
 
 test.each([['easy', 4], ['normal', 3], ['hard', 2]] as const)('%s grants only the chosen round income', (difficulty, grant) => {
   const state = createGame(loadGameData('stage3'), 42, difficulty);
@@ -19,6 +19,19 @@ test('missing difficulty replays normal and a legacy lane earns normal income', 
   delete lane.difficulty;
   startRound(lane, 1, []);
   expect(lane.tokens).toBe(7);
+});
+
+test('replays without difficulty match normal while hard produces a distinct checkpoint', () => {
+  const data = loadGameData('stage3');
+  const log = [{ tick: 610, inputs: [{ seat: 1, seq: 1, cmd: { type: 'forfeit' as const } }] }];
+  const run = (difficulty?: 'normal' | 'hard') => replayMatch(data, 1, [1], log, 600, difficulty ? { difficulty } : {});
+  expect(run()).toEqual(run('normal'));
+  expect(run('hard')).not.toEqual(run('normal'));
+});
+
+test('stage two match ignores difficulty in options and lanes', () => {
+  const data = loadGameData('stage2');
+  expect(matchHash(createMatch(data, 1, [1], { difficulty: 'easy' }))).toBe(matchHash(createMatch(data, 1, [1])));
 });
 
 test.each(['stage1', 'stage2'] as const)('%s ignores difficulty', stage => {

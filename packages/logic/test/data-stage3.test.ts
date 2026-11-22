@@ -125,7 +125,8 @@ describe('stage 3 balance stands on its own', () => {
       spawnCount: 30, spawnIntervalSeconds: 0.8, rounds: 60,
       hp: { base: 75, coef: 16, exp: 1.5 },
       gradeDps: { base: 10, mult: 2.6 },
-      // 3 per round since the stage three economy pass (was 2)
+      defaultDifficulty: 'normal',
+      difficulties: { easy: { tokensPerRound: 4 }, normal: { tokensPerRound: 3 }, hard: { tokensPerRound: 2 } },
       tokens: { start: 4, perRound: 3, toCoins: 25 },
       coins: { perKill: 1, roundEnd: 10, boss: 60 },
       bossBuckwheat: 2,

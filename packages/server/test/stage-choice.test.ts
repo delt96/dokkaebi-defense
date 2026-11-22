@@ -105,7 +105,10 @@ test('room difficulty is host-owned and pinned on start, rejoin and rematch', as
   core.message('a', 'difficulty', { difficulty: 'bad' });
   expect(a!.last('notice').reason).toBe('badDifficulty');
   core.message('a', 'stage', { stage: 'stage2' });
+  const notices = a!.all('notice').length;
   core.message('a', 'difficulty', { difficulty: 'easy' });
+  expect(a!.all('notice')).toHaveLength(notices + 1);
+  expect(a!.last('notice').reason).toBe('badDifficulty');
   expect(a!.last('lobby')).not.toHaveProperty('difficulty');
   core.message('a', 'stage', { stage: 'stage3' });
   core.message('b', 'ready', { ready: true, stage: 'stage3' });
@@ -115,6 +118,7 @@ test('room difficulty is host-owned and pinned on start, rejoin and rematch', as
   for (const id of ['a', 'b']) core.message(id, 'ready', { ready: true, stage: 'stage3', difficulty: 'hard' });
   core.message('a', 'start', {});
   expect(a!.last('full').difficulty).toBe('hard');
+  expect(core.recording().options.difficulty).toBe('hard');
   core.message('a', 'difficulty', { difficulty: 'easy' });
   expect(a!.last('notice').reason).toBe('notInLobby');
   const key = a!.last('full').me.key;

@@ -25,6 +25,15 @@ if (r.checkpoint) {
 console.log(JSON.stringify(replayMatch(data, r.seed, r.seats, r.log, 100, r.options)));
 `;
 
+// npm can rewrite GitHub clone URLs on install. The repository, exact commit
+// and integrity still have to match the recording's lockfile.
+function pinnedLockfile(directory: string): string {
+  return readFileSync(join(directory, 'package-lock.json'), 'utf8').replace(
+    /("resolved": "git\+)ssh:\/\/git@github\.com\/([^"#]+#[0-9a-f]{40}")/g,
+    '$1https://github.com/$2',
+  );
+}
+
 export async function replayRecorded(record: RecordedMatch): Promise<[number, string][]> {
   const revision = record.rulesRevision;
   if (!/^[0-9a-f]{40}$/.test(revision)) throw new Error('기록의 빌드 버전을 확인해 주세요.');
@@ -36,7 +45,7 @@ export async function replayRecorded(record: RecordedMatch): Promise<[number, st
     const archive = join(dir, 'source.tar');
     execFileSync('git', ['archive', '--output', archive, revision, 'packages/logic', 'package.json', 'package-lock.json'], { cwd: root });
     execFileSync('tar', ['-xf', 'source.tar'], { cwd: dir });
-    if (!readFileSync(join(dir, 'package-lock.json')).equals(readFileSync(join(root, 'package-lock.json')))) {
+    if (pinnedLockfile(dir) !== pinnedLockfile(root)) {
       throw new Error('해당 버전의 의존성을 설치한 작업 폴더에서 실행해 주세요.');
     }
     writeFileSync(join(dir, 'worker.mts'), worker);
