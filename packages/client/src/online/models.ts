@@ -1,4 +1,5 @@
 import { difficultySuffix } from '../ui/difficulty';
+import { resistText } from '../ui/models';
 import type { ClientView, EliminationCause, GameData, RowView } from '@dorandi/logic';
 import type { NetEvent } from '../net/NetClient';
 
@@ -89,7 +90,8 @@ export function topModel(view: ClientView, data: GameData): TopModel {
     line2 = `관문 ${gate}/${stages} · ${def.deadlineRound}라운드 끝까지 · 역신 ${STAGE_NAME[view.yeoksin.stage] ?? ''} 탈 ${view.yeoksin.hp.toLocaleString('ko-KR')} / ${view.yeoksin.maxHp.toLocaleString('ko-KR')}`;
   } else line2 = `관문 ${gate}/${stages} · ${def.startRound}라운드에 역신 등장`;
 
-  return { line1: line1 + difficultySuffix(data, view.difficulty), line2, myTurn: myTurnText(view, data) };
+  const resist = resistText(data, clock.round);
+  return { line1: line1 + difficultySuffix(data, view.difficulty) + (resist ? ` · ${resist}` : ''), line2, myTurn: myTurnText(view, data) };
 }
 
 export function myTurnText(view: ClientView, data: GameData): string | null {

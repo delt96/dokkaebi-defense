@@ -14,6 +14,7 @@ export function renderHud(state: GameState, paused: boolean, notice: string | nu
       ${boss ? `<span class="boss">보스 체력 ${boss.hp} / ${boss.maxHp}</span>` : ''}
       ${notice ? `<span class="notice">${esc(notice)}</span>` : ''}
       <span class="enemies">${esc(m.enemyText)}</span>
+      ${m.resistText ? `<span class="resist" title="이번 라운드 잡귀가 받는 피해를 줄이는 비율입니다. 약화는 이 비율을 깎습니다.">${esc(m.resistText)}</span>` : ''}
       <span class="gauge" title="장승: ${crack}"><i style="width:${Math.round(m.danger * 100)}%"></i></span>
       ${SETTINGS_BUTTON}
     </div>`);
