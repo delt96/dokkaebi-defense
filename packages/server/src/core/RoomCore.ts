@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import {
-  buildFull, buildTick, createMatch, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
+  buildFull, buildTick, createMatch, gambleTier, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
   isDifficulty, type Difficulty, MATCH_STAGES, type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchStage, type MatchState, type NoticeMsg,
   type RecordedMatch, type ResultMsg,
 } from '@dorandi/logic';
@@ -274,6 +274,19 @@ export class RoomCore {
     for (const { link, seat } of this.links.values()) {
       const mine = out.mine[seat];
       if (mine && !this.awaitingFull.has(link.id)) link.send('mine', mine);
+    }
+
+    for (const [seat, lane] of Object.entries(step.lanes)) {
+      for (const event of lane.events) {
+        if (event.type !== 'gambleCoins' && event.type !== 'gambleUnit') continue;
+        if (gambleTier(match.data, event) !== 'big') continue;
+        const prize = event.type === 'gambleCoins' ? `×${event.multiplier}`
+          : event.result === 'hidden' ? '숨은 유닛' : `${event.result}등급`;
+        const name = this.names[Number(seat)]!;
+        for (const peer of this.links.values()) {
+          if (peer.seat !== Number(seat)) this.notice(peer.link, { kind: 'gamble', name, hit: `${prize} 당첨` });
+        }
+      }
     }
 
     // 3. lane events wait for the next update

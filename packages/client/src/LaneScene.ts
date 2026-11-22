@@ -620,6 +620,18 @@ export class LaneScene extends Phaser.Scene {
     for (const cb of this.eventListeners) cb(events);
   }
 
+  showGambleNotice(text: string): void {
+    this.fx?.toast(text, 0xffd28a, this.time.now);
+  }
+
+  showGambleResult(tier: 'lose' | 'small' | 'big', text: string, unitId?: number): void {
+    if (tier === 'big') this.fx?.gambleHit(text, unitId, this.time.now);
+    const unit = unitId === undefined ? undefined : this.units.get(unitId);
+    if (unit && !this.reduceFx) {
+      this.tweens.add({ targets: unit, scale: { from: 0.8, to: 1 }, duration: 220, ease: 'Back.Out' });
+    }
+  }
+
   private revealSummon(view: UnitView, grade: number): void {
     view.setVisible(false);
     const flame = this.add.circle(view.x, view.y, 6, hex(GRADE_COLOR[grade] ?? '#ffffff'), 0.9).setDepth(7);

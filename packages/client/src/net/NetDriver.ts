@@ -81,6 +81,12 @@ export class NetDriver implements Driver {
     this.listeners.push(cb);
   }
 
+  onGambleNotice(cb: (text: string) => void): void {
+    this.net.on(e => {
+      if (e.kind === 'notice' && e.msg.kind === 'gamble') cb(`${e.msg.name} · ${e.msg.hit}`);
+    });
+  }
+
   /** Called with old id → new id when a `mine` puts a new unit where one stood (a combine result in its target slot). */
   onRemap(cb: (ids: Map<number, number>) => void): void {
     this.remapListeners.push(cb);

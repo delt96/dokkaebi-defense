@@ -1,5 +1,5 @@
 import {
-  laneOf, unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type QuestId, type UpgradeId,
+  laneOf, unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type GambleCommand, type QuestId, type UpgradeId,
 } from '@dorandi/logic';
 import { SPEEDS, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
@@ -7,13 +7,14 @@ import { rightNotices } from '../online/models';
 import { renderRows, renderTop } from '../online/panels';
 import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
-import { playSfx } from '../sfx';
+import { playSfx, primeGambleSfx } from '../sfx';
 import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, tameButtonHtml, marketModel, noteText, questChips, tameModel,
   tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type DrawReceipt, type JigeList,
 } from './econ';
+import { advanceReveal, revealDisplay, startReveal, type Reveal } from './gamble';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
 import { renderAlert, renderHud } from './hud';
@@ -41,7 +42,7 @@ const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'set
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
-  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
+  'summon', 'convert', 'combine', 'sell', 'upgrade', 'buy', 'gambleCoins', 'gambleUnit', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
   'storeAll', 'retrieve', 'sellStored',
 ]);
 const PRESS_MS = 120;
@@ -77,6 +78,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let econTab: 'market' | null = null;
   // the last draw the server confirmed for this seat, shown in B until the next one
   let lastDraw: DrawReceipt | null = null;
+  let reveal: Reveal | null = null;
+  let revealEpoch = driver.laneEpoch;
+
+  function gamble(cmd: GambleCommand): void {
+    if (!econTab || !econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
+    primeGambleSfx();
+    reveal = startReveal(performance.now());
+    driver.queue(cmd);
+  }
+
+  driver.onGambleNotice?.(text => scene.showGambleNotice(text));
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
   for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor']) {
@@ -126,6 +138,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       case 'econTab': econTab = 'market'; helperOpen = false; break;
       case 'econClose': econTab = null; break;
+      case 'gambleCoins': gamble({ type: 'gambleCoins', stake: Number(arg) }); break;
+      case 'gambleUnit': if (arg === 'small' || arg === 'big') gamble({ type: 'gambleUnit', table: arg }); break;
       case 'buy': driver.queue({ type: 'buy', item: arg as EconItem }); break;
       case 'hunt': if (arg) driver.queue({ type: 'hunt', enemy: arg }); break;
       case 'tame': {
@@ -305,24 +319,36 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         banner = { text: [reward, title].filter(Boolean).join('\n'), until: performance.now() + 1800 };
       }
     }
+    if (revealEpoch !== driver.laneEpoch) {
+      reveal = null;
+      revealEpoch = driver.laneEpoch;
+    }
     let drew = false;
     for (const event of events) {
+      if (!driver.readOnly && (event.type === 'gambleCoins' || event.type === 'gambleUnit')) {
+        const now = performance.now();
+        reveal = advanceReveal(reveal, now, driver.state.data, event);
+        drew = true;
+      }
       if (!NOTE_TYPES.has(event.type) || driver.readOnly) continue;
       if (event.type === 'buy') { lastDraw = event as DrawReceipt; drew = true; }
       const text = noteText(event as EconNote, driver.state.data);
       if (text) say(text, NOTE_MS);
     }
     for (const r of rejected) {
+      if (r.command.type === 'gambleCoins' || r.command.type === 'gambleUnit') reveal = null;
       const fullBoard = r.command.type === 'summon' && !freeSlot();
       const tame = r.command.type === 'tame' ? tameRejectText(econ(), r.command.enemyId, r.reason, driver.state.data) : null;
-      const text = tame ?? rejectText(fullBoard ? 'noSlot' : r.reason);
+      const table = r.command.type === 'gambleUnit' ? econ()?.market?.gamble?.units.tables[r.command.table] : undefined;
+      const gate = table && r.reason === 'gambleRound' ? `큰 판은 ${table.fromRound}라운드부터입니다` : null;
+      const text = tame ?? gate ?? rejectText(fullBoard ? 'noSlot' : r.reason);
       if (text) notice = { text, until: performance.now() + NOTICE_MS };
     }
     if (drew || scene.selectedId !== priorSelection) render();
   });
   scene.onEvents(events => {
     for (const e of events) {
-      if ((e.type === 'summon' || e.type === 'combine')) {
+      if (e.type === 'summon' || e.type === 'combine' || (e.type === 'gambleUnit' && e.defId)) {
         const grade = unitDefFast(driver.state.data, e.defId).grade;
         if (!best || grade > best.grade) best = { id: e.defId, grade };
       }
@@ -526,7 +552,20 @@ ${dex.mine.join()}`;
     placeTame(tame);
     setHtml(el('econ-bottom'), e ? econBottomHtml(questChips(e, s, view)) : '');
     if (!e || !econTab) setHtml(el('econ-panel'), '');
-    else setHtml(el('econ-panel'), econPanelHtml(marketModel(e, s, lastDraw)));
+    if (driver.readOnly || revealEpoch !== driver.laneEpoch) {
+      reveal = null;
+      revealEpoch = driver.laneEpoch;
+    }
+    const now = performance.now();
+    const prior = reveal;
+    reveal = advanceReveal(reveal, now, s.data);
+    const display = revealDisplay(reveal, now, s.data, scene.reduceEffects);
+    if (prior?.phase === 'rolling' && reveal?.phase === 'result' && display) {
+      const id = reveal.event.type === 'gambleUnit' ? reveal.event.unitId : undefined;
+      scene.showGambleResult(reveal.tier, display.announcement, id);
+      playSfx(reveal.tier === 'big' ? 'gambleBig' : reveal.tier === 'small' ? 'gambleSmall' : 'gambleLose', scene.reduceEffects);
+    }
+    if (e && econTab) setHtml(el('econ-panel'), econPanelHtml(marketModel(e, s, lastDraw), display));
     return 0;
   }
 
@@ -574,6 +613,7 @@ ${dex.mine.join()}`;
     notice = null;
     econTab = null;
     lastDraw = null;
+    reveal = null;
     render();
   }
   return { resetUi };

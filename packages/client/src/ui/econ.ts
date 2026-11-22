@@ -4,6 +4,7 @@ import {
 import { esc } from './dom';
 import { unitSkillText } from './models';
 import { withJosa } from './josa';
+import { gambleHtml, gambleModel, type GambleModel, type RevealDisplay } from './gamble';
 
 // Stage 3 economy on screen: the market panel (B), the T button under a target's health bar and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
@@ -27,6 +28,7 @@ export type DrawReceipt = Extract<EconNote, { type: 'buy' }>;
 export interface MarketModel {
   until: string; title: string; odds: string; left: string; jigeLine: string; held: string;
   blocked: string | null; hint: string | null; receipt: string[] | null;
+  gamble?: GambleModel;
 }
 
 const typeText = (data: GameData, id: string) => (data.units.find(u => u.id === id)?.damageType === 'magical' ? '마딜' : '물딜');
@@ -43,6 +45,7 @@ export function marketModel(econ: EconMine, state: GameState, receipt: DrawRecei
   const blocked = why === 'noBuckwheat' ? `메밀묵 ${m.draw.buckwheatCost - state.buckwheat}개 부족` : why ? BUY_BLOCK[why] ?? '뽑을 수 없음' : null;
   const unit = receipt ? data.units.find(u => u.id === receipt.defId) : undefined;
   return {
+    ...(m.gamble && { gamble: gambleModel(m.gamble, state.coins) }),
     until: m.day > 0 ? `${m.endRound}라운드까지` : '장날은 1라운드부터',
     title: `헌 살림 보따리 · 메밀묵 ${m.draw.buckwheatCost}`,
     odds, left: `${m.draw.left}회 남음`,
@@ -426,6 +429,7 @@ export function questChips(econ: EconMine, state: GameState, view: ClientView | 
 
 export function noteText(ev: EconNote, data: GameData): string | null {
   switch (ev.type) {
+    case 'gambleCoins': case 'gambleUnit': return null;
     case 'buy': {
       const jige = ev.jige ? ' · 지게 도깨비가 왔습니다!' : '';
       return `보따리에서 ${nameOf(data, ev.defId ?? '')} (${gradeOf(data, ev.defId ?? '')}등급)${jige}`;
@@ -454,7 +458,7 @@ const button = (action: string, arg: string, label: string, disabled = false, cl
   `<button data-action="${action}" data-arg="${esc(arg)}"${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
 
 /** The B panel over the left column. */
-export function econPanelHtml(market: MarketModel | null): string {
+export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay | null = null): string {
   const head = `<div class="econ-head"><b>장터 (B)</b>${button('toggleMarket', '', 'B 닫기', false, 'econ-close')}</div>`;
   if (!market) return `<div class="econ-panel">${head}<div class="econ-body"></div></div>`;
   const line = (t: string, cls = 'shop-line') => `<div class="${cls}">${esc(t)}</div>`;
@@ -464,7 +468,7 @@ export function econPanelHtml(market: MarketModel | null): string {
     <section class="shop"><div class="shop-title"><b>${esc(market.title)}</b></div>
       ${line(market.odds)}${line(market.left)}
       ${button('buy', 'draw', market.blocked ?? '뽑기', market.blocked !== null)}${market.hint ? line(market.hint, 'shop-short') : ''}
-      ${line(market.jigeLine)}${line(market.held, 'shop-line shop-held')}</section>${receipt}`;
+      ${line(market.jigeLine)}${line(market.held, 'shop-line shop-held')}</section>${market.gamble ? gambleHtml(market.gamble, reveal) : ''}${receipt}`;
   return `<div class="econ-panel">${head}<div class="econ-body">${body}</div></div>`;
 }
 

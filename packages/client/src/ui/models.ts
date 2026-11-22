@@ -275,6 +275,8 @@ const REJECT_TEXT: Record<string, string> = {
   // stage 3 economy
   marketClosed: '장터는 1라운드부터 엽니다',
   marketLocked: '보따리는 10라운드 보스를 잡은 뒤에 열립니다',
+  gambleRound: '아직 큰 판을 열 수 없습니다',
+  gambleLimit: '이번 라운드 도박 횟수를 다 썼습니다',
   soldOut: '이번 장날 몫을 다 샀습니다',
   huntClosed: '아직 열리지 않은 격파입니다',
   huntOut: '이미 나와 있습니다',

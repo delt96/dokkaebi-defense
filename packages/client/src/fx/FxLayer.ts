@@ -257,6 +257,13 @@ export class FxLayer {
     }
   }
 
+  gambleHit(text: string, unitId: number | undefined, now: number): void {
+    this.toast(text, 0xffd28a, now);
+    const at = unitId === undefined ? null : this.host.unitPos(unitId);
+    if (at && this.flags.rays) this.sheet('firework', PRIORITY.high, at.x, at.y, FX_DEPTH.air, {}, now);
+    if (this.flags.shake) this.scene.cameras.main.shake(140, 0.003);
+  }
+
   toast(text: string, color: number, now: number): void {
     this.toastText.setText(text).setColor(`#${color.toString(16).padStart(6, '0')}`).setVisible(true);
     this.toastStart = now;

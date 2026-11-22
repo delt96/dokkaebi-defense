@@ -13,6 +13,52 @@ function room60(round: number) {
 }
 
 describe('stage 3 economy commands through the room', () => {
+  test('gamble validates shape, configured stake and living seat before rolling', () => {
+    const r = room60(30);
+    const match = r.core.match!;
+    const lane = match.lanes[1]!;
+    lane.coins = 400;
+    lane.econ!.marketOpen = true;
+    send(r.core, 'a', 1, 'gambleCoins', { stake: 10, seat: 2 });
+    send(r.core, 'a', 2, 'gambleCoins', { stake: 11 });
+    send(r.core, 'a', 3, 'gambleUnit', { table: 'huge' });
+    send(r.core, 'a', 4, 'gambleUnit', { table: 'small' });
+    tickOnce(r.core, r.deps);
+    const mine = r.links[0]!.last('mine');
+    expect(mine.acks.map((a: { reason?: string }) => a.reason ?? 'ok')).toEqual(['badArgs', 'badArgs', 'badArgs', 'ok']);
+    expect(mine.econ.market.gamble.units.left).toBe(1);
+    expect(match.lanes[2]!.econ!.gamble).toBeUndefined();
+
+    send(r.core, 'a', 5, 'forfeit');
+    tickOnce(r.core, r.deps);
+    expect(match.seats[1]!.alive).toBe(false);
+    const coins = lane.coins;
+    send(r.core, 'a', 6, 'gambleCoins', { stake: 10 });
+    tickOnce(r.core, r.deps);
+    expect(r.links[0]!.last('mine').acks[0]).toMatchObject({ ok: false, reason: 'notAlive' });
+    expect(lane.coins).toBe(coins);
+  });
+
+  test('a 20-round room declines valid gamble shapes', () => {
+    const r = started(['가', '나']);
+    send(r.core, 'a', 1, 'gambleCoins', { stake: 10 });
+    send(r.core, 'a', 2, 'gambleUnit', { table: 'small' });
+    tickOnce(r.core, r.deps);
+    expect(r.links[0]!.last('mine').acks.map((a: { reason: string }) => a.reason)).toEqual(['badArgs', 'badArgs']);
+  });
+
+  test('only peers get the room notice for a big hit', () => {
+    const r = room60(30);
+    const lane = r.core.match!.lanes[1]!;
+    lane.econ!.marketOpen = true;
+    lane.coins = 100;
+    lane.econ!.rng.gambleCoins = { s: 43 }; // ×10
+    send(r.core, 'a', 1, 'gambleCoins', { stake: 50 });
+    tickOnce(r.core, r.deps);
+    expect(r.links[1]!.last('notice')).toMatchObject({ kind: 'gamble', hit: '×10 당첨' });
+    expect(r.links[0]!.last('notice')).toBeUndefined();
+  });
+
   test('a bundle buy is parsed, stepped, acked and shows in the buyer\'s mine', () => {
     const r = room60(2);
     const lane = r.core.match!.lanes[1]!;

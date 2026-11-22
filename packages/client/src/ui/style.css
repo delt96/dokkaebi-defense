@@ -302,6 +302,31 @@ body.online #econ-panel { height: 292px; }
 .shop-held { color: var(--accent); }
 .econ-head b { align-self: center; padding: 0 2px; }
 .shop.receipt { border-color: var(--accent); }
+.gamble-shop { gap: 2px; }
+.gamble-shop h3 { margin: 0; color: var(--accent); font-size: 11px; }
+.gamble-group { display: grid; gap: 1px; }
+.gamble-count { color: #dfd3e7; }
+.gamble-buttons { display: flex; gap: 2px; }
+.gamble-buttons > span { flex: 1; min-width: 0; }
+.gamble-buttons button { width: 100%; margin: 0; padding: 1px 0; font-size: 10px; line-height: 11px; }
+.gamble-buttons small { display: block; color: #d8bd90; font-size: 9px; }
+.gamble-why { color: #ffab99; font-size: 9px; line-height: 10px; }
+.gamble-reveal { position: relative; isolation: isolate; overflow: hidden; min-height: 33px; padding: 2px;
+  border: 1px solid #4b3a56; background: #15101d; display: flex; gap: 3px; align-items: center; justify-content: center; }
+.gamble-reveal .unit-face { width: 26px; height: 26px; flex: 0 0 26px; }
+.gamble-reveal b { display: block; line-height: 11px; overflow-wrap: anywhere; }
+.gamble-reveal small { display: block; color: #cdb9d4; font-size: 9px; }
+.gamble-reveal.lose { color: #b5aaba; }
+.gamble-reveal.small { color: #ffdeb1; }
+.gamble-reveal.big { color: #ffdf7f; border-color: #b48942; background: #352239; }
+.gamble-reveal .coin { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; flex: 0 0 17px;
+  border: 2px solid #dfa854; color: #ffdc8b; background: #6c492a; font-size: 10px; }
+.gamble-reveal.pop .coin { animation: gamble-pop .32s ease-out; }
+.gamble-reveal.flash::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse, #ffd28a, #b77b3800 65%), repeating-conic-gradient(from 12deg, #ffbb4b80 0deg 7deg, transparent 8deg 34deg);
+  animation: gamble-flash .45s ease-out both; }
+@keyframes gamble-pop { 0% { transform: scale(.7) translateY(4px); } 45% { transform: scale(1.28) translateY(-2px); } }
+@keyframes gamble-flash { from { opacity: .86; transform: scale(.45); } to { opacity: 0; transform: scale(1.8); } }
 #econ-top { position: absolute; left: 132px; top: 26px; width: 392px; z-index: 1; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
 /* each prompt is one 19px row: two of them end at y 66, above the top lane's boss bar (y 68) */
 .prompt { position: relative; height: 19px; overflow: hidden; pointer-events: auto; background: #1d1626ee; border: 1px solid var(--accent); padding: 1px 4px 2px; font-size: 10px; }

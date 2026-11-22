@@ -62,6 +62,7 @@ export const MATCH_STAGES: readonly MatchStage[] = ['stage2', 'stage3'];
 export interface LobbyMsg { roomId: string; you: number; hostSeat: number | null; seats: { seat: number; name: string; ready: boolean }[]; stage?: MatchStage; difficulty?: Difficulty }
 export type NoticeMsg =
   | { kind: 'replaced' } | { kind: 'rematch'; roomId: string; hostToken?: string }
+  | { kind: 'gamble'; name: string; hit: string }
   | { kind: 'rematchReady'; seats: number[] }
   | { kind: 'roomError'; reason: 'notHost' | 'notReady' | 'notInLobby' | 'badDifficulty' };
 export interface WireCommand { seq: number; type: string; args?: Record<string, unknown> }
