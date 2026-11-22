@@ -6,7 +6,8 @@ export interface EntryOptions {
   roomId?: string;
   name?: string;
   error?: string;
-  onSubmit(name: string): Promise<void>;
+  /** `difficulty`: the pick on the start screen; a new room starts with it (joining keeps the host's). */
+  onSubmit(name: string, difficulty: Difficulty): Promise<void>;
 }
 
 /** Query that opens the solo page on the 60-round data. */
@@ -53,6 +54,7 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   message.textContent = opts.error ?? '';
   form.append(label, button, message);
 
+  let difficulty: Difficulty = 'normal';
   let busy = false;
   const setBusy = (v: boolean): void => {
     busy = v;
@@ -76,7 +78,7 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
     setBusy(true);
     let pending: Promise<void>;
     try {
-      pending = opts.onSubmit(name);
+      pending = opts.onSubmit(name, difficulty);
     } catch (err) {
       pending = Promise.reject(err);
     }
@@ -89,9 +91,10 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   // solo is the 60-round game; the 20-round data stays reachable only through an old /solo link
   const solo = el('div', 'entry-solo');
   const link = el('a', 'entry-link', TEXT.solo);
-  let difficulty: Difficulty = 'normal';
   function drawSolo(): void {
-    solo.replaceChildren(difficultyPicker(difficulty, d => { difficulty = d; drawSolo(); }));
+    const row = el('div', 'entry-difficulty');
+    row.append(el('span', 'entry-difficulty-label', TEXT.modeLabel), difficultyPicker(difficulty, d => { difficulty = d; drawSolo(); }));
+    solo.replaceChildren(row);
     link.href = `/solo?${SOLO_LONG_QUERY}&difficulty=${difficulty}`;
     solo.append(link);
   }

@@ -88,6 +88,20 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo?rounds=60&difficulty=hard');
   });
 
+  test('the start screen labels its difficulty row, and 방 만들기 uses the pick too', async () => {
+    const picks: [string, string | undefined][] = [];
+    const root = document.createElement('div');
+    renderEntry(root, { onSubmit: async (name, difficulty) => { picks.push([name, difficulty]); } });
+    const row = root.querySelector('.entry-difficulty')!;
+    expect(row.firstElementChild!.textContent).toBe('난이도');
+    expect(row.querySelectorAll('[data-difficulty]')).toHaveLength(3);
+    root.querySelector<HTMLButtonElement>('[data-difficulty="easy"]')!.click();
+    root.querySelector<HTMLInputElement>('.entry-input')!.value = '하나';
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await Promise.resolve();
+    expect(picks).toEqual([['하나', 'easy']]);
+  });
+
   test('stage three shows the room choice to guests and on the HUD', () => {
     const message = msg({ stage: 'stage3', you: 2, difficulty: 'easy' });
     expect(lobbyModel(message).difficulty).toBe('easy');

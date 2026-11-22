@@ -1,4 +1,5 @@
 import { Client, type Room } from '@colyseus/sdk';
+import type { Difficulty } from '@dorandi/logic';
 
 /** The part of a Colyseus room the net client uses; tests supply a fake. */
 export interface RoomLike {
@@ -47,12 +48,14 @@ export function devCreateOptions(search: string, dev: boolean): { devJumpTick?: 
   return m ? { devJumpTick: Number(m[1]) } : {};
 }
 
+type CreateExtra = { devJumpTick?: number; difficulty?: Difficulty };
+
 /** Room options for a new room: always the 60-round game (the server still takes 20-round rooms from old clients). */
-export function roomCreateOptions(name: string, extra: { devJumpTick?: number } = {}): { name: string; stage: 'stage3'; devJumpTick?: number } {
+export function roomCreateOptions(name: string, extra: CreateExtra = {}): { name: string; stage: 'stage3' } & CreateExtra {
   return { name, stage: 'stage3', ...extra };
 }
 
-export async function connectCreate(name: string, extra: { devJumpTick?: number } = {}): Promise<RoomLike> {
+export async function connectCreate(name: string, extra: CreateExtra = {}): Promise<RoomLike> {
   try {
     return wrap(await new Client(serverUrl()).create('match', roomCreateOptions(name, extra)));
   } catch (err) {

@@ -121,5 +121,6 @@ describe('dev jump option', () => {
   test('a new room is always the 60-round game', () => {
     expect(roomCreateOptions('하나')).toEqual({ name: '하나', stage: 'stage3' });
     expect(roomCreateOptions('하나', { devJumpTick: 4590 })).toEqual({ name: '하나', stage: 'stage3', devJumpTick: 4590 });
+    expect(roomCreateOptions('하나', { difficulty: 'hard' })).toEqual({ name: '하나', stage: 'stage3', difficulty: 'hard' });
   });
 });
