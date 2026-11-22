@@ -18,11 +18,12 @@ export interface EconConfig {
   useJige: boolean;
   /** 격파 targets in the rules and summoned by the bots (missing: on). */
   hunts?: boolean;
+  gamble?: boolean;
 }
 export interface EconRow {
   seed: number; config: string; bot: string; seat: number; finished: boolean; teamOutcome: string; endRound: number;
   grade6AtFinal: number; grade6AtEnd: number; hidden: number; coinsAtFinal: number; buckwheatAtFinal: number;
-  firstGrade6Round: number | null; firstSource: 'combine' | null;
+  firstGrade6Round: number | null; firstSource: 'combine' | 'gamble' | null;
   buckwheat9Round: number | null; buckwheat12Round: number | null; coins180Round: number | null; coins240Round: number | null;
   draws: number; questWins: string; tames: number;
   /** 지게 received, spent and still held at the end; paid tame attempts (successes included). */
@@ -33,6 +34,9 @@ export interface EconRow {
   mukBlocked: boolean;
   /** 격파: kills, time-outs, the highest level killed and the 묵 they paid. */
   huntKills: number; huntFled: number; huntBest: number; huntMuk: number;
+  coinBet?: number; coinPayout?: number; unitBet?: number; unitRefund?: number;
+  gambleMiss?: number; gamble3?: number; gamble4?: number; gamble5?: number; gamble6?: number; gambleHidden?: number;
+  smallPlays?: number; bigPlays?: number;
   sold: number; missingAtEnd: string; yeoksinKills: number;
   boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null;
 }
@@ -106,7 +110,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
   const policy: EconPolicy = { market: c.market, quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false };
   const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
-  const driver = new EconDriver(match, bots);
+  const driver = new EconDriver(match, bots, c.gamble);
   const finalTick = roundStartTick(d, d.balance.rounds);
   const rows = new Map<number, EconRow>();
   const prev = new Map<number, { coins: number; buckwheat: number }>();
@@ -119,6 +123,8 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       draws: 0, questWins: '', tames: 0, jigeGrants: 0, jigeUses: 0, jigeHeld: 0, tameTries: 0,
       muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false,
       huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
+      ...(c.gamble && { coinBet: 0, coinPayout: 0, unitBet: 0, unitRefund: 0,
+        gambleMiss: 0, gamble3: 0, gamble4: 0, gamble5: 0, gamble6: 0, gambleHidden: 0, smallPlays: 0, bigPlays: 0 }),
       boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
     });
     prev.set(s, { coins: 0, buckwheat: 0 });
@@ -167,6 +173,21 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       const lane = match.lanes[s]!;
       for (const e of step.events) {
         if (e.type === 'buy') { row.draws++; if (e.jige) row.jigeGrants++; }
+        else if (e.type === 'gambleCoins') {
+          row.coinBet = (row.coinBet ?? 0) + e.stake;
+          row.coinPayout = (row.coinPayout ?? 0) + e.payout;
+        } else if (e.type === 'gambleUnit') {
+          row.unitBet = (row.unitBet ?? 0) + e.price;
+          row.unitRefund = (row.unitRefund ?? 0) + e.refund;
+          const plays = e.table === 'small' ? 'smallPlays' : 'bigPlays';
+          row[plays] = (row[plays] ?? 0) + 1;
+          const hit = e.result === 0 ? 'gambleMiss' : e.result === 'hidden' ? 'gambleHidden' : `gamble${e.result}` as const;
+          row[hit] = (row[hit] ?? 0) + 1;
+          if (e.result === 6 && row.firstGrade6Round === null) {
+            row.firstGrade6Round = match.round;
+            row.firstSource = 'gamble';
+          }
+        }
         else if (e.type === 'jigeSwap') row.jigeUses++;
         else if (e.type === 'tameTry') row.tameTries++;
         else if (e.type === 'tame') row.tames++;
@@ -291,6 +312,15 @@ export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data
       out.push(`| ${name} | ${mean(rs.map(r => r.huntKills ?? 0))} | ${mean(rs.map(r => r.huntFled ?? 0))} | ${quantile(best, 0.5) ?? '-'} / ${Math.max(0, ...best)} | ${mean(rs.map(r => r.huntMuk ?? 0))} |`);
     }
   }
+  if (rows.some(r => r.coinBet !== undefined)) {
+    out.push('', '| 설정 | 돈 도박 베팅 / 지급 | 유닛 도박 베팅 / 환급 | 작은 판 / 큰 판 | 꽝 / 3 / 4 / 5 / 6 / 숨은 유닛 |',
+      '| --- | ---: | ---: | ---: | ---: |');
+    for (const name of configs) {
+      const rs = rows.filter(r => r.config === name);
+      const sum = (...keys: (keyof EconRow)[]) => keys.map(k => rs.reduce((n, r) => n + Number(r[k] ?? 0), 0)).join(' / ');
+      out.push(`| ${name} | ${sum('coinBet', 'coinPayout')} | ${sum('unitBet', 'unitRefund')} | ${sum('smallPlays', 'bigPlays')} | ${sum('gambleMiss', 'gamble3', 'gamble4', 'gamble5', 'gamble6', 'gambleHidden')} |`);
+    }
+  }
   if (yeoksin.length && data?.coop) {
     out.push('', '| 역신 관문 | 처치 판 수 | 처치 시간 중앙값(초, 미처치는 제한) | 제한 시간(초) | 제한 대비 |', '| --- | ---: | ---: | ---: | ---: |');
     data.coop.yeoksin.forEach((y, i) => {
@@ -316,6 +346,7 @@ export const STANDARD_CONFIGS: EconConfig[] = ECON_BOTS.flatMap(bot => [
 ]);
 
 const NUMBER_COLS = new Set([
+  'coinBet', 'coinPayout', 'unitBet', 'unitRefund', 'gambleMiss', 'gamble3', 'gamble4', 'gamble5', 'gamble6', 'gambleHidden', 'smallPlays', 'bigPlays',
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 
   'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'jigeGrants', 'jigeUses', 'jigeHeld', 'tameTries',
   'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60', 'huntKills', 'huntFled', 'huntBest', 'huntMuk', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',

@@ -111,6 +111,9 @@ export function cliConfigs(arg: Arg): EconConfig[] {
     const tag = `m${+x.market}-q${x.quests}-t${+x.tame}-j${+x.useJige}${x.hunts ? '' : '-h0'}`;
     configs = bots.map(b => ({ name: `${b}-${tag}`, bot: b, noDefeat: false, ...x }));
   }
+  const gamble = arg('gamble', 'off');
+  if (gamble !== 'off' && gamble !== 'on') throw new Error('--gamble off|on');
+  if (gamble === 'on') configs = configs.map(c => ({ ...c, gamble: true, name: `${c.name}-g1` }));
   const only = arg('config', '');
   if (only) configs = configs.filter(c => only.split(',').includes(c.name));
   return configs.map(c => ({ ...c, noDefeat }));

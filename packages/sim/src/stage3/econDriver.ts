@@ -1,6 +1,7 @@
 import type { MatchCommand, MatchInput, MatchState } from '@dorandi/logic';
 import { spiritSupport } from '../coop';
 import type { Bot } from '../bots';
+import { surplusGamble } from './econBot';
 
 const DECIDE_EVERY = 10;
 
@@ -11,7 +12,7 @@ export class EconDriver {
   private readonly bots = new Map<number, DriverBot>();
   private readonly seqs = new Map<number, number>();
 
-  constructor(private readonly match: MatchState, bots: DriverBot[]) {
+  constructor(private readonly match: MatchState, bots: DriverBot[], private readonly gamble = false) {
     match.ring.forEach((seat, i) => {
       this.bots.set(seat, bots[i]!);
       this.seqs.set(seat, 0);
@@ -31,7 +32,14 @@ export class EconDriver {
     const push = (seat: number, cmd: MatchCommand) => out.push({ seat, seq: this.next(seat), cmd });
     for (const seat of m.ring) {
       if (m.seats[seat]!.alive) {
-        for (const cmd of this.bots.get(seat)!.decide(m.lanes[seat]!)) push(seat, cmd);
+        const lane = m.lanes[seat]!;
+        const commands = this.bots.get(seat)!.decide(lane);
+        for (const cmd of commands) push(seat, cmd);
+        // Recheck on the next decision after purchases, combos and board changes settle.
+        if (this.gamble && commands.every(cmd => cmd.type === 'move')) {
+          const cmd = surplusGamble(lane);
+          if (cmd) push(seat, cmd);
+        }
       } else {
         const cmd = spiritSupport(m, seat);
         if (cmd) push(seat, cmd);
