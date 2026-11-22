@@ -5,7 +5,7 @@ import { spiritModel } from './spirit';
 
 /** Left panel: a 28px title and six 44px rows, one per seat. */
 /** `quests` is the folded J line of the 60-round rules, kept in the title bar. */
-export function renderRows(view: ClientView, data: GameData, overlay = '', quests = ''): void {
+export function renderRows(view: ClientView, data: GameData, overlay = ''): void {
   const spirit = spiritModel(view) !== null;
   const turn = myTurnText(view, data);
   const rows = rowsModel(view, data).map(r => {
@@ -21,7 +21,7 @@ export function renderRows(view: ClientView, data: GameData, overlay = '', quest
       ${r.me && turn ? `<div class="arrival">${esc(turn)}</div>` : ''}
     </${tag}>`;
   }).join('');
-  setHtml(el('left'), `<div class="rows-title">고개 현황${quests}</div>${rows}${overlay}`);
+  setHtml(el('left'), `<div class="rows-title">고개 현황</div>${rows}${overlay}`);
 }
 
 /** Top bar: two 12px lines; the my-turn notice is appended to the second one. */

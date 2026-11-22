@@ -316,7 +316,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     hooks.onEvents?.(events);
   });
 
-  /** The left-panel quest box (folded to one J line while Q is open, and always online); empty without an economy. */
+  /** The quest box at the bottom of the right panel (one J line online, where notices need the room); empty without an economy. */
   function questBox(folded: boolean): string {
     const e = driver.state.phase === 'ended' ? null : econ();
     return e ? questBoxHtml(questBoxModel(e, driver.state, online), folded) : '';
@@ -398,11 +398,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const view = online && opts.data ? opts.view?.() ?? null : null;
     if (view && opts.data) {
       renderTop(view, opts.data);
-      renderRows(view, opts.data, helperOpen ? helperPopHtml(s) : '', questBox(true));
+      renderRows(view, opts.data, helperOpen ? helperPopHtml(s) : '');
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      renderHelper(s, helperOpen, scene.reduceEffects, questBox(helperOpen));
+      renderHelper(s, helperOpen, scene.reduceEffects);
     }
     // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
     // lane is full, so the line goes to the notices in the right column instead
@@ -420,6 +420,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         ...(view ? { online: true, notices: [...moved, ...rightNotices(now)] } : {}),
         ...(driver.speed !== undefined ? { speed: driver.speed } : {}),
         ...(s.data.economy?.market ? { market: econTab !== null } : {}),
+        quests: questBox(view !== null),
       });
     }
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');

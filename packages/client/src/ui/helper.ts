@@ -25,13 +25,11 @@ export function fxToggleHtml(reduced: boolean): string {
   return `<button class="fx-toggle" data-action="toggleFx" aria-pressed="${reduced}">효과 줄이기 ${reduced ? '켬' : '끔'}</button>`;
 }
 
-/** `quests` is the 60-round quest box, laid between the helper and the dex button. */
-export function renderHelper(state: GameState, expanded: boolean, reducedFx = false, quests = ''): void {
+export function renderHelper(state: GameState, expanded: boolean, reducedFx = false): void {
   const items = helperModel(state).filter(i => !i.short);
   const list = expanded ? helperItems(state) : '';
   setHtml(el('left'), `
     <button class="panel-title" data-action="toggleHelper">조합 도우미 ${state.data.balance.extendedCombat ? '(Q) ' : ''}${expanded ? '▾' : '▸'} <em>${items.length}</em></button>
-    <ul class="helper">${list}</ul>${quests}
-    <button class="dex-open" data-action="openDex">도감 (D)</button>
+    <ul class="helper">${list}</ul>
     ${fxToggleHtml(reducedFx)}`);
 }

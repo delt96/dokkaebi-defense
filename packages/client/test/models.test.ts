@@ -405,7 +405,7 @@ describe('dex hotkey', () => {
 
   test('labels show the key', () => {
     const { panels } = mountTestUi(createGame(data, 1));
-    expect(panels.get('left')!.innerHTML).toContain('도감 (D)');
+    expect(panels.get('right')!.innerHTML).toContain('도감 (D)');
     expect(panels.get('bottom')!.innerHTML).toContain('D 도감');
   });
 });

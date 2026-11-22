@@ -74,7 +74,7 @@ describe('questRows', () => {
   });
 });
 
-describe('J list and the left quest box', () => {
+describe('J list and the quest box', () => {
   class FakeScene {
     selectedId: number | null = null;
     onFrame?: () => void;
@@ -94,11 +94,13 @@ describe('J list and the left quest box', () => {
     target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
   const modal = () => document.getElementById('modal')!;
 
-  test('the box sits between Q and D, opens the list, and J/Esc close it keeping the selection', () => {
-    const left = document.getElementById('left')!;
-    const order = Array.from(left.children).map(c => c.className.split(' ')[0]);
-    expect(order.indexOf('quest-box')).toBeGreaterThan(order.indexOf('helper'));
-    expect(order.indexOf('quest-box')).toBeLessThan(order.indexOf('dex-open'));
+  test('the box sits at the bottom right above D, opens the list, and J/Esc close it keeping the selection', () => {
+    const left = document.getElementById('right')!;
+    expect(document.querySelector('#left .quest-box, #left .dex-open')).toBeNull();
+    const foot = left.querySelector('.right-foot')!;
+    const order = Array.from(foot.children).map(c => c.className.split(' ')[0]);
+    expect(order.indexOf('quest-box')).toBe(0);
+    expect(order.indexOf('dex-open')).toBe(1);
     expect(left.querySelector('.quest-box')!.textContent).toContain('살림 한 벌');
     expect(left.querySelector('.quest-box')!.textContent).toContain('다음 43라운드 그늘손');
     const unit = placeUnitForTest(driver.state, 'jipsin', 3);
@@ -119,15 +121,13 @@ describe('J list and the left quest box', () => {
     expect(modal().textContent).toBe('');
   });
 
-  test('with Q open the box folds to one J line; the list closes back to Q', () => {
+  test('opening Q leaves the box and D where they are', () => {
     keydown(window, { code: 'KeyQ' });
-    const left = document.getElementById('left')!;
-    const box = left.querySelector('.quest-box')!;
-    expect(box.textContent!.trim()).toMatch(/^J 퀘스트 · 진행 \d+개$/);
-    press(box.querySelector('[data-action="openQuests"]'));
-    expect(modal().querySelector('.quest-modal')).not.toBeNull();
-    press(modal().querySelector('[data-action="closeModal"]'));
-    expect(left.querySelector('.helper li')).not.toBeNull();
+    expect(document.querySelector('#left .helper li')).not.toBeNull();
+    const box = document.querySelector('#right .right-foot .quest-box')!;
+    expect(box.textContent).toContain('살림 한 벌');
+    press(document.querySelector('#right .dex-open'));
+    expect(modal().textContent).toContain('도감');
   });
 
   test('a chip under the lane opens the list on its row', () => {
