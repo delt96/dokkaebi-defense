@@ -29,7 +29,7 @@
   },
   "drops": [ { "round": 20, "grade": 3 }, { "round": 40, "grade": 3 }, { "round": 50, "grade": 2 } ],
   "hunts": {
-    "seconds": 45, "cooldownSeconds": 20, "hpGrowth": 2,
+    "seconds": 45, "cooldownSeconds": 60, "hpGrowth": 2,
     "targets": [
       { "enemy": "ev_soebap", "fromRound": 5, "hp": 1500, "fee": 10, "reward": { "buckwheat": 1, "coins": 10, "coinsPerLevel": 5 } },
       { "enemy": "ev_oenun", "fromRound": 15, "hp": 6000, "fee": 20, "reward": { "buckwheat": 1, "coins": 15, "coinsPerLevel": 5 } },

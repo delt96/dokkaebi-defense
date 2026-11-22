@@ -26,6 +26,8 @@ test('the archived pre-gamble engine treats both gamble inputs as rejected', asy
   const { replayRecorded } = await import('../../sim/scripts/replay-version');
   const data = loadGameData('stage3');
   delete data.economy!.market!.gamble;
+  // that build still had the 20 s hunt cooldown
+  data.economy!.hunts!.cooldownSeconds = 20;
   const old = createMatch(data, 3, [1, 2]);
   const record = {
     rulesRevision: '0d98d7a50098d646513c13b4f5576ee62762a2b4',
