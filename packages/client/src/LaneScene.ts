@@ -268,7 +268,9 @@ export class LaneScene extends Phaser.Scene {
     for (const view of this.units.values()) {
       if (!view.visible) continue;
       this.overlay.fillStyle(view.gradeColor, view.alpha);
-      this.overlay.fillCircle(view.x, view.y - 14 * view.scaleY, 2 * view.scaleY);
+      // grade at the top-left corner; the combine dot takes the top-right
+      const corner = 12 * this.lane.pitch * view.scaleY;
+      this.overlay.fillCircle(view.x - corner, view.y - corner, 2 * view.scaleY);
     }
     this.coverage.clear();
     const draw = (id: number | null, alpha: number) => {
@@ -303,8 +305,8 @@ export class LaneScene extends Phaser.Scene {
       view.add(this.add.circle(0, 0, 11 * k, view.gradeColor).setStrokeStyle(1, 0x000000));
       view.add(this.add.text(0, 0, def.name.slice(0, 1), { fontSize: '11px', color: '#10101a', fontFamily: 'sans-serif' }).setOrigin(0.5));
     }
-    // the bottom-right corner, apart from the grade marks at the top
-    view.combineMarker = this.add.circle(12 * k, 12 * k, 2, 0xffd65c).setStrokeStyle(1, 0x10101a);
+    // the top-right corner, across from the grade dot at the top-left
+    view.combineMarker = this.add.circle(12 * k, -12 * k, 2, 0xffd65c).setStrokeStyle(1, 0x10101a);
     view.add(view.combineMarker);
     view.setSize(cellPx(this.lane), cellPx(this.lane)).setInteractive({ draggable: true, useHandCursor: true }).setDepth(3);
     view.on('pointerover', () => { this.hoveredId = unitId; });

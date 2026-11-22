@@ -34,7 +34,7 @@ function setupScene() {
   return { state, driver, scene, circle, tweens, container };
 }
 
-test('the unit grade dot is drawn above attack effects and follows the visible unit', () => {
+test('the unit grade dot sits at the top-left corner above attack effects and follows the visible unit', () => {
   const { scene, state, container } = setupScene();
   placeUnitForTest(state, 'sotlid', 0);
   scene['placeUnits']();
@@ -47,7 +47,7 @@ test('the unit grade dot is drawn above attack effects and follows the visible u
   expect(FX_DEPTH.unitOverlay).toBeGreaterThan(FX_DEPTH.air);
 
   scene['drawSelection']();
-  expect(overlay.fillCircle).toHaveBeenCalledWith(80, 76, 2);
+  expect(overlay.fillCircle).toHaveBeenCalledWith(68, 78, 2);
   overlay.fillCircle.mockClear();
   view.visible = false;
   scene['drawSelection']();
