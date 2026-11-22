@@ -13,6 +13,9 @@ import {
   type EconBotKind, type EconConfig, type EconRow,
 } from './econRun';
 
+import { debuffProbe, type DebuffPair } from './synergy';
+import { debuffMarkdown, drawMarkdown, readSamples, tameMarkdown, type TameSample } from './measurement';
+
 type Arg = (name: string, fallback: string) => string;
 
 /**
@@ -104,6 +107,9 @@ export function cliConfigs(arg: Arg): EconConfig[] {
     const tag = `m${+x.market}-q${x.quests}-t${+x.tame}-j${+x.useJige}`;
     configs = bots.map(b => ({ name: `${b}-${tag}`, bot: b, noDefeat: false, ...x }));
   }
+  const eager = arg('tame-policy', 'default') === 'eager';
+  const maxDraws = arg('draws', 'default') === 'max';
+  if (eager || maxDraws) configs = configs.map(c => ({ ...c, eager, maxDraws, name: c.name + (eager ? '-eager' : '') + (maxDraws ? '-max' : '') }));
   const only = arg('config', '');
   if (only) configs = configs.filter(c => only.split(',').includes(c.name));
   return configs.map(c => ({ ...c, noDefeat }));
@@ -120,7 +126,23 @@ function econGrade6(arg: Arg, data: GameData, out: string, elapsed: () => string
   const noDefeat = arg('defeat', 'off') !== 'on';
   const rows: EconRow[] = [];
   const yeoksin: (number | null)[][] = [];
-  if (onOff(arg('report', 'off'))) {
+  const reportOnly = onOff(arg('report','off'));
+  if (!configs.length) throw new Error('No matching economy config');
+  if (onOff(arg('debuff','on'))) {
+    const file = join(out,'debuff.csv');
+    const pairs: DebuffPair[] = [];
+    if (!reportOnly) {
+      for (let seed = 1; seed <= Number(arg('seeds','20')); seed++) pairs.push(...debuffProbe(data,seed));
+      writeFileSync(file,toCsvRows(pairs));
+    } else if (existsSync(file)) {
+      for (const line of readFileSync(file,'utf8').trim().split('\n').slice(1)) {
+        const [seed,family,trial,c,t] = line.split(',');
+        pairs.push({ seed: Number(seed), family: family as DebuffPair['family'], trial: trial as DebuffPair['trial'], control: c ? Number(c) : null, treatment: t ? Number(t) : null });
+      }
+    }
+    if (pairs.length) console.log(debuffMarkdown(pairs,data.balance.bossRoundSeconds));
+  }
+  if (reportOnly) {
     for (const c of configs) {
       const file = join(out, `${csvName(c)}.csv`);
       if (!existsSync(file)) continue;
@@ -132,12 +154,15 @@ function econGrade6(arg: Arg, data: GameData, out: string, elapsed: () => string
     const seeds = Number(arg('seeds', '20'));
     for (const c of configs) {
       const cr: EconRow[] = [];
+      const samples: TameSample[] = [];
       const cy: (number | null)[][] = [];
       for (let seed = 1; seed <= seeds; seed++) {
         const r = econMatchRun(data, seed, c);
         cr.push(...r.rows);
+        samples.push(...r.tameSamples);
         cy.push(r.yeoksinSeconds);
       }
+      if (c.eager) writeFileSync(join(out, `${csvName(c)}-tame.csv`), toCsvRows(samples));
       writeFileSync(join(out, `${csvName(c)}.csv`), toCsvRows(cr));
       const yrows = cy.map((t, i) => ({ seed: i + 1, ...Object.fromEntries(t.map((v, j) => [`stage${j + 1}`, v])) }));
       writeFileSync(join(out, `${csvName(c)}-yeoksin.csv`), toCsvRows(yrows));
@@ -148,4 +173,17 @@ function econGrade6(arg: Arg, data: GameData, out: string, elapsed: () => string
   }
   console.log(`## first grade 6 in six-seat matches (defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${out}/econ-*.csv)\n`);
   console.log(econMarkdown(rows, yeoksin, data) + '\n');
+  for (const c of configs) {
+    if (c.eager) {
+      const file = join(out,`${csvName(c)}-tame.csv`);
+      if (existsSync(file)) console.log(tameMarkdown(data,readSamples(readFileSync(file,'utf8')),rows.filter(r => r.config === c.name).length));
+    }
+    if (c.maxDraws) {
+      const readArm = (j: number) => {
+        const file = join(out,csvName(c).replace(/-j[01]/,`-j${j}`)+'.csv');
+        return existsSync(file) ? parseEconCsv(readFileSync(file,'utf8')) : [];
+      };
+      console.log(drawMarkdown(readArm(1),readArm(0)));
+    }
+  }
 }

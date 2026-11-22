@@ -1,7 +1,10 @@
 import {
+  applyCommand, chooseSlot, createGame, createRng, nextInt, runCombat, spawnDue, startRound, toTicks,
   cellDistance, laneOf, unitAttack, unitDefFast, upgradeCost,
-  type Command, type DamageType, type Effect, type GameState, type UnitDef, type UpgradeId,
+  type Command, type DamageType, type Effect, type GameData, type GameState, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
+
+import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 
 const TYPES: DamageType[] = ['physical', 'magical'];
 
@@ -144,4 +147,57 @@ export function auraPlacement(state: GameState): Command | null {
     if (best !== slot && bestV > now * 1.25 + 1) return { type: 'move', from: slot, to: best };
   }
   return null;
+}
+
+export interface DebuffPair {
+  seed: number; family: DamageType; trial: 'visit' | 'r20' | 'r60';
+  control: number | null; treatment: number | null;
+}
+
+/** A six-starter stage-four visit or a personal boss round on a seeded, fixed board.
+ * Both arms make the same opening summons and have the same supports, levels and cells.
+ * Only the named support's vulnerability effect differs. */
+export function debuffProbe(data: GameData, seed: number): DebuffPair[] {
+  const rows: DebuffPair[] = [];
+  for (const family of TYPES) {
+    const support = family === 'physical' ? 'moru' : 'yaktanggi';
+    const controlData = structuredClone(data);
+    for (const skill of unitDefFast(controlData, support).skills) {
+      skill.effects = skill.effects.filter(e => !(e.kind === 'vuln' && e.damageType === family));
+    }
+    for (const trial of ['visit', 'r20', 'r60'] as const) {
+      const round = trial === 'r20' ? 20 : trial === 'r60' ? 60 : data.coop!.yeoksin[3]!.startRound;
+      const arm = (d: GameData): number | null => {
+        const state = createGame(d, seed);
+        startRound(state, round, []);
+        for (let i = 0; i < d.balance.tokens.start; i++) applyCommand(state, { type: 'summon' }, []);
+        const rng = createRng(seed);
+        const grades = round === 20 ? [4,4,4,5,5] : [4,4,5,5,6,6,6];
+        const ids = grades.map(g => {
+          const pool = data.units.filter(u => !u.hidden && u.grade === g && u.damageType === family && supportFor(u,family) === 0);
+          return pool[nextInt(rng,pool.length)]!.id;
+        });
+        for (const id of [support,...ids]) placeUnitForTest(state, id, chooseSlot(state,unitDefFast(d,id))!);
+        state.upgrades[family] = round === 20 ? 4 : 10;
+        if (trial === 'visit') {
+          const coop = d.coop!, stage = coop.yeoksin[3]!;
+          const hp = Math.round(stage.baseHp * (1 + 5 * coop.hpPerExtraPlayer));
+          const enemy = spawnEnemyForTest(state, stage.enemy, 0, hp);
+          const ticks = toTicks(coop.staySeconds);
+          for (; state.tick < ticks && enemy.hp > 0; state.tick++) {
+            runCombat(state, [], { finalClear: false, afterMove: () => { enemy.d = laneOf(state).perimeter * (state.tick + 1) / ticks; } });
+          }
+          return hp - Math.max(0,enemy.hp);
+        }
+        spawnDue(state, []);
+        while (state.tick < state.roundEndTick && state.enemies.some(e => e.boss && e.hp > 0)) {
+          runCombat(state, [], { finalClear: false });
+          state.tick++;
+        }
+        return state.stats.at(-1)!.bossKillSeconds;
+      };
+      rows.push({ seed, family, trial, control: arm(controlData), treatment: arm(data) });
+    }
+  }
+  return rows;
 }

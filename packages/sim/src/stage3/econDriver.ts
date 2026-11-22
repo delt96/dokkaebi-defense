@@ -1,4 +1,5 @@
 import type { MatchCommand, MatchInput, MatchState } from '@dorandi/logic';
+import { eagerTames } from './econBot';
 import { spiritSupport } from '../coop';
 import type { Bot } from '../bots';
 
@@ -11,7 +12,7 @@ export class EconDriver {
   private readonly bots = new Map<number, DriverBot>();
   private readonly seqs = new Map<number, number>();
 
-  constructor(private readonly match: MatchState, bots: DriverBot[]) {
+  constructor(private readonly match: MatchState, bots: DriverBot[], private readonly eager = false) {
     match.ring.forEach((seat, i) => {
       this.bots.set(seat, bots[i]!);
       this.seqs.set(seat, 0);
@@ -27,12 +28,14 @@ export class EconDriver {
   inputs(): MatchInput[] {
     const m = this.match;
     const out: MatchInput[] = [];
-    if (m.tick % DECIDE_EVERY !== 0) return out;
+    const decide = m.tick % DECIDE_EVERY === 0;
+    if (!decide && !this.eager) return out;
     const push = (seat: number, cmd: MatchCommand) => out.push({ seat, seq: this.next(seat), cmd });
     for (const seat of m.ring) {
       if (m.seats[seat]!.alive) {
-        for (const cmd of this.bots.get(seat)!.decide(m.lanes[seat]!)) push(seat, cmd);
-      } else {
+        if (this.eager) for (const cmd of eagerTames(m.lanes[seat]!)) push(seat, cmd);
+        if (decide) for (const cmd of this.bots.get(seat)!.decide(m.lanes[seat]!)) push(seat, cmd);
+      } else if (decide) {
         const cmd = spiritSupport(m, seat);
         if (cmd) push(seat, cmd);
       }

@@ -74,3 +74,47 @@ export function debuffSummary(rows: { control: number | null; treatment: number 
     control: median(rows.map(r => r.control ?? limit)), treatment: median(rows.map(r => r.treatment ?? limit)),
     delta: median(rows.map(r => (r.treatment ?? limit) - (r.control ?? limit))) };
 }
+
+const rate = (n: number, total: number) => `${n}/${total} (${total ? (100*n/total).toFixed(1)+'%' : '—'})`;
+const table = (head: string[], rows: (string | number)[][]) =>
+  [head, head.map(() => '---'), ...rows].map(row => '| '+row.join(' | ')+' |').join('\n');
+
+export function tameMarkdown(data: GameData, events: TameSample[], starts: number) {
+  const s = tameSummary(data,events,starts);
+  const bands = data.economy!.tame!.hpBands;
+  return table(['대상','시도한 등장','재시도','재지출 냥/묵','포기 냥/묵/드롭', ...bands.map(b => `체력 ≤${b.upTo*100}% 성공/시도`)],
+    s.map(r => [unitName(data,r.unit),rate(r.attempted,r.appearances),r.retries,`${r.retryCoins}/${r.retryMuk}`,
+      `${r.lostCoins}/${r.lostMuk}/${r.lostDrops}`,...r.bands.map(b => rate(b.successes,b.attempts))]))+'\n\n'+
+    table(['전용 조합','전체 완성','영입 후 완성','첫 완성 R 중앙값'],s.map(r => [unitName(data,r.result),rate(r.completed,starts),rate(r.completed,r.recruited),r.firstRound ?? '—']));
+}
+
+const unitName = (data: GameData, id: string) => data.units.find(u => u.id === id)!.name;
+
+export function drawMarkdown(on: DrawSeat[], off: DrawSeat[]) {
+  const s = jigePairs(on,off);
+  const arms = ([['켬',on],['끔',off]] as const).map(([name,seats]) => {
+    const arm = jigePairs(seats,[]);
+    return [name, seats.length,arm.full,rate(arm.received,arm.full),[...arm.inventory].sort().map(([k,n]) => `${k}=${n}`).join(' · ')];
+  });
+  return table(['지게 사용','시작','18회','18회 중 지게 획득','18회 보유/사용=자리'],arms)+'\n\n'+
+    table(['완주 짝','R60 일반 6등급 차이(켬−끔 평균)','양쪽 첫 완성 짝','첫 완성 R 차이(평균)'],
+      [[s.pairs,s.countDelta?.toFixed(3) ?? '—',s.firstPairs,s.firstDelta?.toFixed(2) ?? '—']]);
+}
+
+export function debuffMarkdown(rows: import('./synergy').DebuffPair[], limit: number) {
+  return table(['계열','지표','짝','대조','약화','짝차 중앙값','양쪽 처치(대조/약화)'],
+    ['physical','magical'].flatMap(f => ['visit','r20','r60'].map(t => {
+      const s = debuffSummary(rows.filter(r => r.family === f && r.trial === t),limit);
+      return [f,t,s.n,s.control?.toFixed(2) ?? '—',s.treatment?.toFixed(2) ?? '—',s.delta?.toFixed(2) ?? '—', t === 'visit' ? '—' : `${s.controlKills}/${s.treatmentKills}`];
+    })));
+}
+
+/** Flat sidecar CSVs contain only IDs, labels and numbers. */
+export function readSamples(text: string): TameSample[] {
+  const [, ...lines] = text.trim().split(/\r?\n/);
+  return lines.map(line => {
+    const [seed,seat,round,enemyId,base,kind,chance,coins,muk,success,grown] = line.split(',');
+    return { seed: Number(seed), seat: Number(seat), round: Number(round), enemyId: Number(enemyId), base: base!,
+      kind: kind as TameSample['kind'], chance: Number(chance), coins: Number(coins), muk: Number(muk), success: Number(success), grown: Number(grown) };
+  });
+}

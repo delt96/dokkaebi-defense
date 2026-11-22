@@ -1,10 +1,10 @@
 import {
-  availableRecipes, createRng, deriveSeed, nextInt, unitAttack, unitDefFast,
+  availableRecipes, marketView, createRng, deriveSeed, nextInt, unitAttack, unitDefFast,
   type Command, type DamageType, type GameData, type GameState,
 } from '@dorandi/logic';
 import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
 import {
-  betterTarget, jigeCommands, marketCommands, questCommands, remainingValue, tameCommands, type EconPolicy, type TargetBot,
+  betterTarget, focusMoves, jigeCommands, marketCommands, questCommands, remainingValue, tameCommands, type EconPolicy, type TargetBot,
 } from './econBot';
 import { auraPlacement, mainType, supportSlots, synergyScore, synergyUpgrade } from './synergy';
 
@@ -147,7 +147,13 @@ export function targetBot(
         done.add(target);
         nextTarget(state);
       }
-      if (opts.synergy && target !== null && state.round !== lastRound && decisions > 1) {
+      const exclusive = policy?.eager && state.data.recipes.find(r => r.kind === 'tame' && state.slots.some(u => u && r.materials.includes(u.defId) && unitDefFast(state.data, u.defId).hidden));
+      const prepareAnvil = policy?.eager && state.data.economy?.mission && state.round <= state.data.economy.mission.round && !state.slots.some(u => u?.defId === 'moru');
+      if (exclusive) {
+        if (target !== exclusive.result) setTarget(state, exclusive.result);
+      } else if (prepareAnvil) {
+        if (target !== 'moru') setTarget(state, 'moru');
+      } else if (opts.synergy && target !== null && state.round !== lastRound && decisions > 1) {
         const b = bestSynergyTarget(state, done, target, rng);
         if (b.pick && b.pick !== target && b.min <= b.cur - SYNERGY_MARGIN) setTarget(state, b.pick);
       } else if (opts.switchTargets && target !== null && state.round !== lastRound && decisions > 1) {
@@ -155,21 +161,45 @@ export function targetBot(
         if (better) setTarget(state, better);
       }
       lastRound = state.round;
-      const cmds: Command[] = summonAll(state);
+      const freeSlots = emptyOpenSlots(state).length;
+      const tameWindow = policy?.eager && [10,12,20,32,43].includes(state.round);
+      const cmds: Command[] = tameWindow ? summonAll(state).slice(0, Math.max(0, freeSlots - 1)) : summonAll(state);
       const { missing, kept } = target ? remainingNeed(state, target) : { missing: new Map<string, number>(), kept: new Map<string, number>() };
+      const market = policy?.maxDraws ? marketView(state) : null;
+      const drawReserve = market ? market.draw.left * market.draw.buckwheatCost : 0;
       let recipe: string | null = null;
       let grade = 0;
+      let fieldRecipe: string | null = null;
+      let fieldGrade = 0;
       for (const r of availableRecipes(state)) {
         const g = unitDefFast(state.data, r).grade;
+        if (policy?.eager && state.round <= 12 && state.data.economy?.mission && state.data.recipes.find(x => x.result === r)?.materials.includes('moru')) continue;
+        if (market && g <= 4 && g > fieldGrade) { fieldRecipe = r; fieldGrade = g; }
+        if (policy?.eager && !exclusive && state.round <= 43 && g >= 5 && state.buckwheat <= 2) continue;
+        if (market && g >= 5 && state.buckwheat <= drawReserve) continue;
         if ((missing.get(r) ?? 0) > 0 && g > grade) { recipe = r; grade = g; }
       }
+      if (!recipe && fieldRecipe) recipe = fieldRecipe;
       if (recipe) cmds.push({ type: 'combine', result: recipe });
 
       const main = opts.synergy ? mainType(state, target) : null;
       const protect = policy ? strongestOutside(state, tree, BOSS_GUARD) : new Set<number>();
       if (main) for (const i of supportSlots(state, tree, main, SUPPORT_GUARD)) protect.add(i);
+      if (policy?.eager) state.slots.forEach((u,i) => {
+        if (u && (unitDefFast(state.data,u.defId).hidden || (state.round <= 12 && u.defId === 'moru'))) protect.add(i);
+      });
+      if (tameWindow && !freeSlots && !recipe) {
+        const slot = sellCandidate(state, tree, kept, protect, main);
+        if (slot !== null) cmds.push({ type: 'sell', slot });
+      }
+      if (market && market.draw.left && state.buckwheat >= market.draw.buckwheatCost) {
+        const buys = marketCommands(state, null, freeSlots);
+        if (buys.length) return buys;
+        const slot = sellCandidate(state, tree, kept, protect, main);
+        if (slot !== null) return [{ type: 'sell', slot }, { type: 'buy', item: 'draw' }];
+      }
       let sold = false;
-      if (emptyOpenSlots(state).length === 0 && state.tokens > 0 && !recipe) {
+      if (!tameWindow && emptyOpenSlots(state).length === 0 && state.tokens > 0 && !recipe) {
         const sell = sellCandidate(state, tree, kept, protect, main);
         if (sell !== null) { cmds.push({ type: 'sell', slot: sell }, { type: 'summon' }); sold = true; }
         else cmds.push({ type: 'convertToken' });
@@ -178,8 +208,8 @@ export function targetBot(
       if (policy) {
         if (policy.jige) cmds.push(...jigeCommands(state, target));
         if (policy.quests) cmds.push(...questCommands(state, target));
-        if (policy.tame) cmds.push(...tameCommands(state, target));
-        if (policy.market) {
+        if (policy.tame && !policy.eager && !market) cmds.push(...tameCommands(state, target));
+        if (policy.market && !policy.eager && !market) {
           const free = Math.max(0, emptyOpenSlots(state).length - cmds.filter(c => c.type === 'summon').length);
           let buys = marketCommands(state, target, free);
           if (buys.length === 0 && free === 0 && !sold && !recipe) {
@@ -194,7 +224,7 @@ export function targetBot(
       }
 
       const holdsTree5 = state.slots.some(u => u && tree.has(u.defId) && unitDefFast(state.data, u.defId).grade === 5);
-      const keep = holdsTree5 ? FINAL_COMBINE_COINS : 0;
+      const keep = policy?.eager && state.round <= 43 ? 125 : holdsTree5 ? FINAL_COMBINE_COINS : 0;
       const up = main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
       if (up) cmds.push({ type: 'upgrade', id: up });
       const fix = placementFix(state);
@@ -203,7 +233,9 @@ export function targetBot(
         const aura = auraPlacement(state);
         if (aura) cmds.push(aura);
       }
-      if (decisions % 4 === 0) cmds.push(...followBoss(state));
+      if (market) cmds.push(...focusMoves(state,false));
+      else if (policy?.eager && state.round === 12) cmds.push(...focusMoves(state,true));
+      else if (decisions % 4 === 0) cmds.push(...followBoss(state));
       return cmds;
     },
   };

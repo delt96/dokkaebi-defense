@@ -1,11 +1,11 @@
 import {
-  availableRecipes, jigeCandidates, marketView, tameCheck, toTicks, unitDefFast, type Command, type GameState,
+  availableRecipes, dist, laneOf, isShared, unitAttack, jigeCandidates, marketView, tameCheck, toTicks, unitDefFast, type Command, type GameState,
 } from '@dorandi/logic';
 import type { Bot } from '../bots';
 import { expandTree, remainingNeed, targetBot } from './targetBot';
 
 /** `jige`: spend held 지게 on missing materials (off: hold them; the grant rolls are the same either way). */
-export interface EconPolicy { market: boolean; quests: boolean; tame: boolean; jige?: boolean }
+export interface EconPolicy { market: boolean; quests: boolean; tame: boolean; jige?: boolean; eager?: boolean; maxDraws?: boolean }
 export type TargetBot = Bot & { currentTarget(): string | null };
 
 const FINAL_COMBINE_COINS = 60;
@@ -97,6 +97,38 @@ export const BOT_TAME_HP = 0.15;
  * One paid attempt per decision while fewer than two hidden units are tamed, the target is at or under BOT_TAME_HP
  * and the cost leaves the target's needs intact.
  */
+/** Put the strongest out-of-range attacker in reach without displacing a stronger attacker. */
+export function focusMoves(state: GameState, anvil: boolean): Command[] {
+  const enemy = state.enemies.find(e => anvil ? e.defId === state.data.economy?.mission?.enemy : e.boss || isShared(state.data,e));
+  if (!enemy) return [];
+  const lane = laneOf(state);
+  const point = lane.pointAt(enemy.d);
+  const distance = lane.cells.map(c => dist(c,point));
+  const power = (i: number) => {
+    const u = state.slots[i];
+    if (!u) return 0;
+    if (anvil) return u.defId === 'moru' ? 1 : 0;
+    const def = unitDefFast(state.data,u.defId);
+    return unitAttack(def,state.data.balance) / def.interval;
+  };
+  const candidates = state.slots.map((_,i) => i).filter(i => power(i) > 0)
+    .sort((a,b) => power(b) - power(a));
+  for (const i of candidates) {
+    const range = unitDefFast(state.data,state.slots[i]!.defId).range;
+    if (distance[i]! <= range) continue;
+    const best = distance.map((_,j) => j).filter(j => state.open[j] && distance[j]! <= range && power(j) < power(i))
+      .sort((a,b) => power(a)-power(b) || distance[a]!-distance[b]!)[0];
+    if (best !== undefined) return [{ type: 'move', from: i, to: best }];
+  }
+  return [];
+}
+
+export function eagerTames(state: GameState): Command[] {
+  const targets = state.data.economy?.tame?.targets;
+  if (!targets || ![10,12,20,32,43].includes(state.round)) return [];
+  return state.enemies.filter(e => targets.some(t => t.enemy === e.defId) && tameCheck(state, e.id) === null).map(e => ({ type: 'tame', enemyId: e.id }));
+}
+
 export function tameCommands(state: GameState, target: string | null): Command[] {
   const econ = state.econ;
   const tame = state.data.economy?.tame;

@@ -2,6 +2,7 @@ import {
   createMatch, economyVariant, laneSeed, missingMaterials, roundStartTick, stepMatch, unitDefFast, waveOf,
   type EconSection, type GameData, type GameState, type GeneralQuestId, type MatchCommand, type MatchState,
 } from '@dorandi/logic';
+import type { TameSample } from './measurement';
 import { EconDriver } from './econDriver';
 import { switchBot, synergyBot, type EconPolicy } from './econBot';
 import { clumsyBot, normalBot, type Bot } from '../bots';
@@ -15,7 +16,7 @@ export interface EconConfig {
   name: string; bot: EconBotKind; noDefeat: boolean;
   market: boolean; quests: 0 | 2 | 4; tame: boolean;
   /** Whether the bots spend 지게 (the grants come either way). */
-  useJige: boolean;
+  useJige: boolean; eager?: boolean; maxDraws?: boolean;
 }
 export interface EconRow {
   seed: number; config: string; bot: string; seat: number; finished: boolean; teamOutcome: string; endRound: number;
@@ -97,12 +98,15 @@ function dropTimedOutBosses(match: MatchState): void {
 }
 
 /** Plays one six-seat stage 3 match with every seat on the same bot kind and reports a row per seat. */
-export function econMatchRun(data: GameData, seed: number, c: EconConfig): { rows: EconRow[]; yeoksinSeconds: (number | null)[] } {
+export function econMatchRun(data: GameData, seed: number, c: EconConfig): { rows: EconRow[]; yeoksinSeconds: (number | null)[]; tameSamples: TameSample[] } {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
-  const policy: EconPolicy = { market: c.market, quests: c.quests > 0, tame: c.tame, jige: c.useJige };
+  const policy: EconPolicy = { market: c.market, quests: c.quests > 0, tame: c.tame, jige: c.useJige, eager: c.eager, maxDraws: c.maxDraws };
   const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
-  const driver = new EconDriver(match, bots);
+  const driver = new EconDriver(match, bots, c.eager && c.tame);
+  const tameSamples: TameSample[] = [];
+  const baseByEnemy = new Map(d.economy?.tame?.targets.map(t => [t.enemy, t.unit]));
+  const baseByRecipe = new Map(d.recipes.filter(r => r.kind === 'tame').map(r => [r.result, r.materials.find(id => unitDefFast(d,id).hidden)!]));
   const finalTick = roundStartTick(d, d.balance.rounds);
   const rows = new Map<number, EconRow>();
   const prev = new Map<number, { coins: number; buckwheat: number }>();
@@ -150,6 +154,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
     }
     const inputs = driver.inputs();
     const cmdBySeq = new Map<string, MatchCommand>(inputs.map(i => [`${i.seat}:${i.seq}`, i.cmd]));
+    const commandRound = match.round;
     const r = stepMatch(match, inputs);
     for (const a of r.acks) if (a.ok && cmdBySeq.get(`${a.seat}:${a.seq}`)?.type === 'sell') rows.get(a.seat)!.sold++;
     for (const e of r.events) {
@@ -161,6 +166,16 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       const row = rows.get(s)!;
       const lane = match.lanes[s]!;
       for (const e of step.events) {
+        if (c.eager && (e.type === 'spawn' || e.type === 'tameTry' || e.type === 'combine')) {
+          const base = e.type === 'spawn' ? baseByEnemy.get(e.defId) : e.type === 'combine' ? baseByRecipe.get(e.defId) : e.defId;
+          if (base) {
+            const attempt = e.type === 'tameTry' ? e : null;
+            tameSamples.push({ seed, seat: s, round: e.type === 'spawn' ? match.round : commandRound, enemyId: e.type === 'combine' ? 0 : e.enemyId, base,
+              kind: e.type === 'spawn' ? 'spawn' : attempt ? 'attempt' : 'complete', chance: attempt?.chance ?? 0,
+              success: Number(attempt?.success ?? false), coins: attempt?.coins ?? 0, muk: attempt?.buckwheat ?? 0,
+              grown: Number(base === baseByEnemy.get(d.economy?.shadow?.enemy ?? '') && lane.econ?.questResults.shadow?.progress?.grown === true) });
+          }
+        }
         if (e.type === 'buy') { row.draws++; if (e.jige) row.jigeGrants++; }
         else if (e.type === 'jigeSwap') row.jigeUses++;
         else if (e.type === 'tameTry') row.tameTries++;
@@ -216,7 +231,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       }).join('+');
     }
   });
-  return { rows: SEATS.map(s => rows.get(s)!), yeoksinSeconds };
+  return { rows: SEATS.map(s => rows.get(s)!), yeoksinSeconds, tameSamples };
 }
 
 export interface EconSummary {
