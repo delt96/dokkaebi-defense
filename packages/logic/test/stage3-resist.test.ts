@@ -122,9 +122,9 @@ describe('resistance by round', () => {
 });
 
 describe('summon odds', () => {
-  test('every 60-round summon is 90% grade 1 and 10% grade 2', () => {
-    for (let round = 0; round <= 60; round++) expect(summonOddsForRound(d3.balance, round)).toEqual([0.9, 0.1, 0]);
-    expect(d3.balance.summonOdds).toEqual([0.9, 0.1, 0]);
+  test('every 60-round summon is grade 1', () => {
+    for (let round = 0; round <= 60; round++) expect(summonOddsForRound(d3.balance, round)).toEqual([1, 0, 0]);
+    expect(d3.balance.summonOdds).toEqual([1, 0, 0]);
     expect(d3.balance.pityEvery).toBe(5);
   });
 

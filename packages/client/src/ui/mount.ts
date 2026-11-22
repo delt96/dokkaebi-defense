@@ -153,7 +153,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'econTab': econTab = 'market'; helperOpen = false; break;
       case 'econClose': econTab = null; break;
       case 'gambleCoins': gamble({ type: 'gambleCoins', stake: Number(arg) }); break;
-      case 'gambleUnit': if (arg === 'small' || arg === 'big') gamble({ type: 'gambleUnit', table: arg }); break;
+      case 'gambleUnit': if (arg === 'small' || arg === 'big' || arg === 'coin') gamble({ type: 'gambleUnit', table: arg }); break;
       case 'hunt': if (arg) driver.queue({ type: 'hunt', enemy: arg }); break;
       case 'tame': {
         const e = econ();
@@ -167,7 +167,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       // Q and the online helper title flip it; the settings row sets it. Neither closes a window.
       case 'toggleHelper': setHelper(!helperOpen); break;
       case 'setHelper': setHelper(arg === 'on'); break;
-      case 'openSettings': modal = 'settings'; break;
+      // the gear stays above the settings window, so a second press closes it
+      case 'openSettings': modal = modal === 'settings' ? null : 'settings'; break;
       case 'support': opts.actions?.support(); break;
       case 'watch': opts.actions?.watch(Number(arg)); break;
       case 'openMenu': modal = 'menu'; break;

@@ -293,7 +293,7 @@ const REJECT_TEXT: Record<string, string> = {
   badArgs: '잘못된 입력입니다',
   // stage 3 economy
   marketClosed: '장터는 1라운드부터 엽니다',
-  marketLocked: '보따리는 10라운드 보스를 잡은 뒤에 열립니다',
+  marketLocked: '10라운드 보스를 잡은 뒤에 열립니다',
   gambleRound: '아직 큰 보따리를 열 수 없습니다',
   gambleLimit: '이번 라운드 도박 횟수를 다 썼습니다',
   huntClosed: '아직 열리지 않은 격파입니다',
@@ -367,8 +367,8 @@ const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
 /** `short` describes any currency shortfall. */
 export interface CombineOption { result: string; name: string; grade: number; missing: string[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
 
-export function combineOptions(state: GameState, slot: number): CombineOption[] {
-  const options = recipesUsing(state, slot).map(({ result, missing }): CombineOption => {
+function optionsFor(state: GameState, recipes: { result: string; missing: string[] }[]): CombineOption[] {
+  return recipes.map(({ result, missing }): CombineOption => {
     const { name, grade } = unitDefFast(state.data, result);
     const recipe = state.data.recipes.find(r => r.result === result);
     const cost = costText(recipe);
@@ -381,7 +381,19 @@ export function combineOptions(state: GameState, slot: number): CombineOption[] 
       ...(short ? { short } : {}),
     };
   });
-  const ready = (option: CombineOption) => !option.missing.length && !option.short;
+}
+
+const ready = (option: CombineOption) => !option.missing.length && !option.short;
+
+/** Recipes a stored kind can go into right now (board units first, then storage, as the combine command takes them). */
+export function storedCombineOptions(state: GameState, defId: string): CombineOption[] {
+  const recipes = state.data.recipes.filter(r => r.materials.includes(defId))
+    .map(r => ({ result: r.result, missing: missingMaterials(state, r.result) }));
+  return optionsFor(state, recipes).filter(ready);
+}
+
+export function combineOptions(state: GameState, slot: number): CombineOption[] {
+  const options = optionsFor(state, recipesUsing(state, slot));
   options.sort((a, b) => Number(ready(b)) - Number(ready(a)) || a.missing.length - b.missing.length);
   let nextKey = 0;
   for (const option of options) if (ready(option)) option.key = COMBINE_KEYS[nextKey++] ?? null;

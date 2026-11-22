@@ -130,14 +130,27 @@ export interface HuntSeat {
   level: number; enemyId: number | null; deadlineTick: number; readyTick: number;
   last: 'won' | 'fled' | 'tamed' | null;
 }
-export type GambleTable = 'small' | 'big';
+export type GambleTable = 'small' | 'big' | 'coin';
 export type GambleUnitResult = 0 | 3 | 4 | 5 | 6 | 'hidden';
 export interface GambleOdds<T> { result: T; chance: number }
+export interface GambleTableDef {
+  buckwheatCost: number; consolation: number; fromRound: number; outcomes: GambleOdds<GambleUnitResult>[];
+  /** Coins paid per draw, on top of buckwheatCost. */
+  coinCost?: number;
+  /** A quota of its own each round instead of sharing units.perRound. */
+  perRound?: number;
+  /** Drawable before market.openAfterBossRound's boss opens the market. */
+  openBeforeMarket?: boolean;
+}
 export interface GambleDef {
-  coins: { stakes: number[]; perRound: number; bigMultiplier: number; outcomes: GambleOdds<number>[] };
+  coins: {
+    stakes: number[]; perRound: number; bigMultiplier: number; outcomes: GambleOdds<number>[];
+    /** Stakes that can be bet before market.openAfterBossRound's boss opens the market. */
+    openStakes?: number[];
+  };
   units: {
     perRound: number; bigGrade: number;
-    tables: Record<GambleTable, { buckwheatCost: number; consolation: number; fromRound: number; outcomes: GambleOdds<GambleUnitResult>[] }>;
+    tables: Record<'small' | 'big', GambleTableDef> & { coin?: GambleTableDef };
   };
 }
 export interface EconomyDef {
@@ -163,7 +176,7 @@ export interface EconState {
   roundKills: number; questTokens: number;
   ledger: { tokens: number };
   pendingDrops: string[];
-  gamble?: { round: number; coins: number; units: number };
+  gamble?: { round: number; coins: number; units: number; own?: Partial<Record<GambleTable, number>> };
   /** False until the boss named by market.openAfterBossRound is killed or tamed; missing (older snapshots) means open. */
   marketOpen?: boolean;
   jige: number;
@@ -228,7 +241,7 @@ export type Command =
 export type GambleCommand = { type: 'gambleCoins'; stake: number } | { type: 'gambleUnit'; table: GambleTable };
 export type GambleEvent =
   | { type: 'gambleCoins'; stake: number; multiplier: number; payout: number }
-  | ({ type: 'gambleUnit'; table: GambleTable; buckwheatCost: number; consolation: number; jige: boolean } & (
+  | ({ type: 'gambleUnit'; table: GambleTable; buckwheatCost: number; coinCost?: number; consolation: number; jige: boolean } & (
     { result: 0; defId?: never; unitId?: never } |
     { result: Exclude<GambleUnitResult, 0>; defId: string; unitId: number }
   ));

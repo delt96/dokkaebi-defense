@@ -50,15 +50,20 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     if (!coins || !Array.isArray(coins.stakes) || !coins.stakes.length || !coins.stakes.every(positiveInt)
       || new Set(coins.stakes).size !== coins.stakes.length || !positiveInt(coins.perRound)
       || !positiveInt(coins.bigMultiplier) || !validOdds(coins.outcomes)
+      || (coins.openStakes !== undefined && (!Array.isArray(coins.openStakes) || !coins.openStakes.every(s => coins.stakes.includes(s))))
       || !coins.outcomes.every(o => Number.isFinite(o.result) && o.result >= 0
         && coins.stakes.every(s => Number.isSafeInteger(Math.floor(s * o.result))))) errors.push('invalid coin gamble');
     if (!units || !positiveInt(units.perRound) || !positiveInt(units.bigGrade)) errors.push('invalid unit gamble');
-    for (const id of ['small', 'big'] as const) {
+    for (const id of ['small', 'big', 'coin'] as const) {
       const table = units?.tables?.[id];
-      if (!table || !positiveInt(table.buckwheatCost) || !Number.isSafeInteger(table.consolation) || table.consolation < 0
+      if (id === 'coin' && table === undefined) continue;
+      const paid = id === 'coin'
+        ? positiveInt(table?.coinCost) && table!.buckwheatCost === 0 && positiveInt(table!.perRound)
+        : positiveInt(table?.buckwheatCost) && (table!.coinCost === undefined || positiveInt(table!.coinCost));
+      if (!table || !paid || !Number.isSafeInteger(table.consolation) || table.consolation < 0
         || !positiveInt(table.fromRound) || table.fromRound > data.balance.rounds
         || !validOdds(table.outcomes) || !table.outcomes.every(({ result }) => result === 0
-          || ((result === 'hidden' || [3, 4, 5, 6].includes(result)) && gamblePool(data, result).length > 0))) {
+          || ((result === 'hidden' || [1, 2, 3, 4, 5, 6].includes(result)) && gamblePool(data, result).length > 0))) {
         errors.push(`invalid unit gamble table: ${id}`);
       }
     }

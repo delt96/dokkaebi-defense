@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { applyCommand, canonicalJson, createGame, createMatch, loadGameData, marketView, replayMatch, roundStartTick, step, stepMatch, validateData, type Command, type GameEvent } from '../src';
 import { unitValue } from '../src/econ/ledger';
 import { forceRound, placeUnitForTest, withoutMarketLock } from '../src/testing';
@@ -77,7 +77,7 @@ test('unit tables require whole buckwheat and never charge coins', () => {
 test('market lock, big-table gate and full board refuse without mutating the lane', () => {
   const s = lane(29);
   s.econ!.marketOpen = false;
-  expect(applyCommand(s, bet, [])).toBe('marketLocked');
+  expect(applyCommand(s, { ...bet, stake: 100 }, [])).toBe('marketLocked');
   expect(applyCommand(s, small, [])).toBe('marketLocked');
   s.econ!.marketOpen = true;
   expect(applyCommand(s, big, [])).toBe('gambleRound');
@@ -86,6 +86,28 @@ test('market lock, big-table gate and full board refuse without mutating the lan
   const before = canonicalJson(s);
   expect(applyCommand(s, big, [])).toBe('noSlot');
   expect(canonicalJson(s)).toBe(before);
+});
+
+test('the 10-coin bet is open before the R10 boss while the 100-coin bet and bundles stay locked', () => {
+  expect(data.economy!.market!.gamble!.coins.openStakes).toEqual([10]);
+  const s = lane(1);
+  s.econ!.marketOpen = false;
+  const before = canonicalJson(s);
+  expect(applyCommand(s, { ...bet, stake: 100 }, [])).toBe('marketLocked');
+  expect(applyCommand(s, small, [])).toBe('marketLocked');
+  expect(canonicalJson(s)).toBe(before);
+  const events: GameEvent[] = [];
+  expect(applyCommand(s, bet, events)).toBeNull();
+  expect(events).toMatchObject([{ type: 'gambleCoins', stake: 10 }]);
+  const view = marketView(s)!.gamble!;
+  expect(view.coins.stakes.map(x => x.why)).toEqual([null, 'marketLocked']);
+  expect(view.coins.left).toBe(4);
+});
+
+test('open stakes must be listed stakes', () => {
+  const d = structuredClone(data);
+  d.economy!.market!.gamble!.coins.openStakes = [50];
+  expect(validateData(d).errors).toContain('invalid coin gamble');
 });
 
 test('quotas are shared between stakes and tables, reset each round, and default on old snapshots', () => {
@@ -183,4 +205,55 @@ test.each([
   expect(applyCommand(s, cmd, events)).toBeNull();
   expect(s.econ!.jige).toBe(1);
   expect(events.find(e => e.type === 'gambleUnit')).toMatchObject({ jige: true });
+});
+
+describe('the coin bundle draws grade 1 or 2 for coins, without 묵', () => {
+  const coinBundle = { type: 'gambleUnit', table: 'coin' } as const;
+
+  test('stage 3 prices it at 30냥, three a round, 1등급 75% · 2등급 25%', () => {
+    expect(data.economy!.market!.gamble!.units.tables.coin).toMatchObject({
+      coinCost: 30, buckwheatCost: 0, consolation: 0, fromRound: 1, perRound: 3, openBeforeMarket: true,
+      outcomes: [{ result: 1, chance: 0.75 }, { result: 2, chance: 0.25 }],
+    });
+  });
+
+  test.each([[0, .75, 1], [.75, 1, 2]] as const)('roll in [%s, %s) gives a grade %s unit for 30냥 before the market opens', (lo, hi, grade) => {
+    const s = lane(1);
+    s.econ!.marketOpen = false;
+    s.econ!.rng.gambleUnit = fixedRoll(lo, hi);
+    const jige = s.econ!.jige;
+    const events: GameEvent[] = [];
+    expect(applyCommand(s, coinBundle, events)).toBeNull();
+    const ev = events.find(e => e.type === 'gambleUnit')!;
+    expect(ev).toMatchObject({ table: 'coin', result: grade, buckwheatCost: 0, coinCost: 30, consolation: 0, jige: false });
+    const unit = s.slots.find(u => u?.id === (ev as { unitId: number }).unitId)!;
+    expect(data.units.find(u => u.id === unit.defId)!.grade).toBe(grade);
+    expect(unit.cost).toBe(unitValue(data, unit.defId));
+    expect(s.coins).toBe(1970);
+    expect(s.buckwheat).toBe(3);
+    expect(s.econ!.jige).toBe(jige);
+  });
+
+  test('its own three-a-round quota leaves the 묵 bundles alone, and coins, slots refuse without mutating', () => {
+    const s = lane(30);
+    for (let i = 0; i < 3; i++) expect(applyCommand(s, coinBundle, [])).toBeNull();
+    expect(applyCommand(s, coinBundle, [])).toBe('gambleLimit');
+    expect(applyCommand(s, small, [])).toBeNull();
+    expect(marketView(s)!.gamble!.units.tables.coin).toMatchObject({ left: 0, why: 'gambleLimit' });
+    forceRound(s, 31);
+    s.coins = 29;
+    let before = canonicalJson(s);
+    expect(applyCommand(s, coinBundle, [])).toBe('noCoins');
+    expect(canonicalJson(s)).toBe(before);
+    s.coins = 30;
+    for (let i = 0; i < s.slots.length; i++) if (s.open[i] && !s.slots[i]) placeUnitForTest(s, 'jipsin', i);
+    before = canonicalJson(s);
+    expect(applyCommand(s, coinBundle, [])).toBe('noSlot');
+    expect(canonicalJson(s)).toBe(before);
+  });
+});
+
+test('the stage 3 fire summon gives grade 1 only', () => {
+  expect(data.balance.summonOdds).toEqual([1, 0, 0]);
+  expect(data.balance.summonOddsByRound).toEqual([{ fromRound: 1, odds: [1, 0, 0] }]);
 });

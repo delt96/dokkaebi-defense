@@ -15,9 +15,9 @@
   "sellPrice": [5, 10, 20, 40, 80, 180],
   "limit": 60, "limitSeconds": 5,
   "summonOddsByRound": [
-    { "fromRound": 1, "odds": [0.9, 0.1, 0] }
+    { "fromRound": 1, "odds": [1, 0, 0] }
   ],
-  "summonOdds": [0.9, 0.1, 0], "pityEvery": 5,
+  "summonOdds": [1, 0, 0], "pityEvery": 5,
   "grid": { "cols": 6, "rows": 4, "initialOpenRows": 3 },
   "bossCcFactor": 0.5, "vulnCap": 0.5, "auraRadius": 1.5, "pulseSeconds": 0.5,
   "onBasicHitRadius": 3,

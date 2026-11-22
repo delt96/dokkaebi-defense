@@ -87,6 +87,9 @@ describe('online mountUi', () => {
     press(gear);
     expect(Array.from(modal.querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'fx', 'help']);
     expect(modal.querySelector('[data-action="speed"]')).toBeNull();
+    press(gear);
+    expect(modal.querySelector('.settings-row')).toBeNull();
+    press(gear);
     press(modal.querySelector('[data-action="setHelper"][data-arg="on"]'));
     expect(document.querySelector('#left .helper-pop')).not.toBeNull();
     expect(room.cmds('helperOpened')).toHaveLength(1);

@@ -10,7 +10,10 @@ test('the market model gives both round quotas, odds and live button reasons', (
   const s = createGame(data, 1);
   const view = () => gambleModel(econView(s)!.market!.gamble!, s.coins, s.buckwheat);
   forceRound(s, 29);
-  expect(view().coins.buttons[0]!.blocked).toBe('10라운드 보스를 잡으면 열림');
+  expect(view().coins.buttons[0]!.blocked).toBe('엽전 10냥 부족');
+  expect(view().coins.buttons[1]!.blocked).toBe('10라운드 보스를 잡으면 열림');
+  expect(view().cheap!).toMatchObject({ count: '엽전 보따리 3/3', buttons: [{ label: '엽전 보따리 · 30냥', blocked: '엽전 30냥 부족' }] });
+  expect(view().cheap!.buttons[0]!.odds).toBe('1등급 75% · 2등급 25%');
   s.econ!.marketOpen = true;
   s.coins = 20;
   expect(view().coins.count).toBe('돈 도박 5/5');

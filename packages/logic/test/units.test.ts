@@ -15,7 +15,7 @@ describe('units', () => {
   });
   test('stage3 summons the same odds every round', () => {
     const b = loadGameData('stage3').balance;
-    expect([0, 1, 4, 5, 9, 10, 60].map(r => summonOddsForRound(b, r))).toEqual(Array(7).fill([0.9, 0.1, 0]));
+    expect([0, 1, 4, 5, 9, 10, 60].map(r => summonOddsForRound(b, r))).toEqual(Array(7).fill([1, 0, 0]));
   });
   test('a roll near the top of the grade-2 band moves to grade 3 at round 10', () => {
     const s = createGame(data, 11);

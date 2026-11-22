@@ -5,7 +5,7 @@ import { expect, test, vi } from 'vitest';
 import { GameDriver } from '../src/driver';
 import { mountUi } from '../src/ui/mount';
 import { attackRangeText, combineOptions, pinnedTarget, unitSkillText } from '../src/ui/models';
-import { storageInfoModel } from '../src/ui/storage';
+import { storageInfoHtml, storageInfoModel } from '../src/ui/storage';
 import { key, press, STAGE_HTML } from './fixtures/net';
 
 const d3 = loadGameData('stage3');
@@ -54,6 +54,21 @@ test('storage info follows the selected stack and its count', () => {
   step(state, [{ type: 'storeAll' }]);
   expect(storageInfoModel(state, 'ki')).toMatchObject({ name: '키', count: 2, grade: 1, sellPrice: d3.balance.sellPrice[0] });
   expect(storageInfoModel(state, 'sotlid')).toBeNull();
+});
+
+test('a stored stack lists the combines it can make now, and the button combines out of storage', () => {
+  const state = createGame(d3, 1);
+  placeUnitForTest(state, 'jipsin', 0);
+  step(state, [{ type: 'storeAll' }]);
+  expect(storageInfoModel(state, 'jipsin')!.combines).toEqual([]);
+  placeUnitForTest(state, 'jipsin', 0);
+  step(state, [{ type: 'storeAll' }]);
+  const info = storageInfoModel(state, 'jipsin')!;
+  expect(info.combines.map(o => o.result)).toContain('dunggumi');
+  expect(storageInfoHtml(state, info)).toContain('data-action="combine" data-arg="dunggumi"');
+  step(state, [{ type: 'combine', result: 'dunggumi' }]);
+  expect(state.storage ?? []).toHaveLength(0);
+  expect(state.slots.some(u => u?.defId === 'dunggumi')).toBe(true);
 });
 
 test('the pinned tree assigns inventory only once and prioritizes top-level materials', () => {

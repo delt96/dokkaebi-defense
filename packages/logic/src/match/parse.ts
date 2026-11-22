@@ -56,7 +56,7 @@ const PARSERS: Record<string, Parser> = {
   },
   gambleCoins: args => onlyKeys(args, ['stake']) && isInt(args.stake) && args.stake > 0
     ? { type: 'gambleCoins', stake: args.stake } : null,
-  gambleUnit: args => onlyKeys(args, ['table']) && (args.table === 'small' || args.table === 'big')
+  gambleUnit: args => onlyKeys(args, ['table']) && (args.table === 'small' || args.table === 'big' || args.table === 'coin')
     ? { type: 'gambleUnit', table: args.table } : null,
   hunt: args => {
     const keys = ['enemy'];

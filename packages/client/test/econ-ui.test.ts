@@ -45,7 +45,7 @@ describe('B market', () => {
       expect(p.textContent, text).toContain(text);
     }
     expect(p.textContent).not.toMatch(/헌 살림|라운드까지/);
-    expect(p.querySelectorAll('[data-action="gambleUnit"]')).toHaveLength(2);
+    expect(Array.from(p.querySelectorAll('[data-action="gambleUnit"]'), b => b.getAttribute('data-arg'))).toEqual(['small', 'big', 'coin']);
     expect(p.querySelector<HTMLButtonElement>('[data-action="gambleUnit"][data-arg="small"]')!.disabled).toBe(false);
     fill(s);
     expect(panel(s).textContent).toContain('진영 한 칸 비우기');

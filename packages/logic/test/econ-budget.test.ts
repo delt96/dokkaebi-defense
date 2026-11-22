@@ -74,14 +74,14 @@ describe('six ten-round windows reconcile with the personal budget', () => {
     }
   });
 
-  test('ordinary unit inflow before bundles: 157 units and 155.4 after sales', () => {
+  test('ordinary unit inflow before bundles: 157 units and 140 after sales', () => {
     // every 불 but the team one (reserved) and the 30 changed into coins is a summon
     const summons = rows.reduce((s, r) => s + r.tokens, 0) - eco.team!.tokens - CONVERT * WINDOWS.length;
     const perSummon = [1, 2, 4].reduce((s, v, i) => s + v * b.summonOdds[i]!, 0);
     const drops = eco.drops!.reduce((s, d) => s + 2 ** (d.grade - 1), 0);
     expect(summons + eco.drops!.length).toBe(157);
-    expect(Math.round((summons * perSummon + drops - 24) * 10) / 10).toBe(155.4);
-    expect(readDocs(draft)[0]![1]).toContain('| **157** | **155.4** |');
+    expect(Math.round((summons * perSummon + drops - 24) * 10) / 10).toBe(140);
+    expect(readDocs(draft)[0]![1]).toContain('| **157** | **140** |');
   });
 
   test('four grade-6 example: 4/8/4묵, 3,365냥 spent and 117.7냥 left', () => {

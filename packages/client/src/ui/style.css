@@ -401,17 +401,18 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 #bottom .storage-info { height: 100%; display: flex; align-items: center; gap: 8px; border: 0; padding: 0 8px; }
 #bottom .storage-info .up-skill { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #bottom .storage-info [data-action="closeStorageInfo"] { position: static; }
-#target-overlay { position: absolute; left: 198px; top: 26px; width: 124px; z-index: 1; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 10px; }
+/* the right twin of the storage column: right of the lane path and a boss's bar, between the prompts and the trackers */
+#target-overlay { position: absolute; left: 464px; top: 70px; width: 62px; max-height: 200px; z-index: 1; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 10px; }
 #target-overlay:empty { display: none; }
-.has-target #round-banner { left: 324px; width: 202px; }
 .target-head, .target-material { display: flex; align-items: center; justify-content: space-between; gap: 3px; }
 .target-head button { min-height: 16px; padding: 0 4px; }
 .target-head button:first-child { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.target-scroll { max-height: 52px; overflow: auto; padding: 2px 4px; line-height: 12px; }
+.target-scroll { max-height: 182px; overflow: auto; padding: 2px 4px; line-height: 12px; }
 .target-scroll ul { list-style: none; margin: 0; padding: 0; }
 .target-scroll ul ul { border-left: 1px solid var(--panel-edge); padding-left: 4px; }
 .target-material b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: normal; }
-.target-material span { flex: none; }
+.target-material span { flex: none; margin-left: auto; }
+#target-overlay .target-material { flex-wrap: wrap; column-gap: 2px; }
 .target-board, .target-owned { color: #9fe0a8; }
 .target-storage { color: #9bd3ff; }
 .target-missing { color: #ffad97; }

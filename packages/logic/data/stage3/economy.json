@@ -5,7 +5,7 @@
     "openAfterBossRound": 10, "jigeChance": 0.03, "maxSwapGrade": 4,
     "gamble": {
       "coins": {
-        "stakes": [10, 100], "perRound": 5, "bigMultiplier": 5,
+        "stakes": [10, 100], "openStakes": [10], "perRound": 5, "bigMultiplier": 5,
         "outcomes": [
           { "result": 0, "chance": 0.38 }, { "result": 0.5, "chance": 0.20 }, { "result": 1.5, "chance": 0.28 },
           { "result": 2, "chance": 0.09 }, { "result": 5, "chance": 0.045 }, { "result": 10, "chance": 0.005 }
@@ -21,6 +21,9 @@
           "big": { "buckwheatCost": 2, "consolation": 40, "fromRound": 30, "outcomes": [
             { "result": 0, "chance": 0.35 }, { "result": 4, "chance": 0.45 }, { "result": 5, "chance": 0.17 },
             { "result": 6, "chance": 0.025 }, { "result": "hidden", "chance": 0.005 }
+          ] },
+          "coin": { "buckwheatCost": 0, "coinCost": 30, "consolation": 0, "fromRound": 1, "perRound": 3, "openBeforeMarket": true, "outcomes": [
+            { "result": 1, "chance": 0.75 }, { "result": 2, "chance": 0.25 }
           ] }
         }
       }

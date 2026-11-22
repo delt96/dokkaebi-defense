@@ -27,8 +27,8 @@ interface ButtonModel {
   blocked: string | null; odds: string;
 }
 interface GroupModel { count: string; buttons: ButtonModel[] }
-export interface GambleModel { coins: GroupModel; units: GroupModel }
-const TABLE_LABEL: Record<GambleTable, string> = { small: '보따리', big: '큰 보따리' };
+export interface GambleModel { coins: GroupModel; units: GroupModel; cheap?: GroupModel }
+const TABLE_LABEL: Record<GambleTable, string> = { small: '보따리', big: '큰 보따리', coin: '엽전 보따리' };
 const gradeText = (result: number | 'hidden') => result === 0 ? '꽝' : result === 'hidden' ? '숨은 유닛' : `${result}등급`;
 const percent = (chance: number) => `${+(chance * 100).toFixed(4)}%`;
 
@@ -48,7 +48,18 @@ function blockedText(why: RejectReason | null, price: number, balance: number, f
 
 export function gambleModel(view: GambleView, coins: number, buckwheat: number): GambleModel {
   const odds = view.coins.outcomes.map(o => `×${o.result} ${percent(o.chance)}`).join(' · ');
+  const cheap = view.units.tables.coin;
   return {
+    ...(cheap && {
+      cheap: {
+        count: `${TABLE_LABEL.coin} ${cheap.left ?? 0}/${cheap.perRound ?? 0}`,
+        buttons: [{
+          action: 'gambleUnit', arg: 'coin', label: `${TABLE_LABEL.coin} · ${cheap.coinCost ?? 0}냥`,
+          blocked: blockedText(cheap.why, cheap.coinCost ?? 0, coins, cheap.fromRound),
+          odds: cheap.outcomes.map(o => `${gradeText(o.result)} ${percent(o.chance)}`).join(' · '),
+        }],
+      },
+    }),
     coins: {
       count: `돈 도박 ${view.coins.left}/${view.coins.limit}`,
       buttons: view.coins.stakes.map(({ price, why }) => ({
@@ -88,7 +99,7 @@ export function revealDisplay(reveal: Reveal | null, now: number, data: GameData
       const value = g.coins.outcomes[frame % g.coins.outcomes.length]!.result;
       return { phase, label: `×${value}`, coin: true, announcement: '' };
     }
-    const outcomes = g.units.tables[event.table].outcomes;
+    const outcomes = g.units.tables[event.table]!.outcomes;
     const result = outcomes[frame % outcomes.length]!.result;
     const pool = gamblePool(data, result);
     const unit = pool[Math.floor(frame / outcomes.length) % pool.length];
@@ -115,7 +126,7 @@ export function revealDisplay(reveal: Reveal | null, now: number, data: GameData
 
 export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null): string {
   const busy = !!reveal && reveal.phase !== 'result';
-  const buttons = [...model.coins.buttons, ...model.units.buttons];
+  const buttons = [...model.coins.buttons, ...model.units.buttons, ...(model.cheap?.buttons ?? [])];
   const allBlocked = buttons.every(b => b.blocked);
   const shared = allBlocked && buttons.every(b => b.blocked === buttons[0]?.blocked) ? buttons[0]?.blocked : null;
   const group = ({ count, buttons }: GroupModel) => {
@@ -132,6 +143,6 @@ export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null): st
   const result = allBlocked && !reveal ? '' : `<div class="gamble-reveal ${reveal?.phase ?? ''} ${reveal?.tier ?? ''}${effect}"${reveal?.phase === 'result' ? ' role="status"' : ''}>
       ${reveal ? `${face}<div><b>${esc(reveal.label)}</b>${reveal.detail ? `<small>${esc(reveal.detail)}</small>` : ''}</div>` : ''}
     </div>`;
-  return `<section class="shop gamble-shop">${group(model.units)}${group(model.coins)}
+  return `<section class="shop gamble-shop">${group(model.units)}${model.cheap ? group(model.cheap) : ''}${group(model.coins)}
     ${shared ? `<span class="gamble-why">${esc(shared)}</span>` : ''}${result}</section>`;
 }

@@ -2,7 +2,7 @@ import { unitDefFast, type GameState } from '@dorandi/logic';
 import type { Lane } from '@dorandi/logic';
 import { GRADE_COLOR, STAGE_W, stageToCell } from '../layout';
 import { esc } from './dom';
-import { storageStacks, unitSkillText } from './models';
+import { storageStacks, storedCombineOptions, unitSkillText } from './models';
 import { typeBadgeHtml } from './badge';
 import { SPRITE_IDS } from '../art';
 
@@ -25,7 +25,10 @@ export function storageInfoModel(state: GameState, defId: string | null) {
   const stack = storageStacks(state).find(s => s.defId === defId);
   if (!stack) return null;
   const def = unitDefFast(state.data, stack.defId);
-  return { ...stack, skill: unitSkillText(state.data, def).split(' / ')[0] || '특수 능력 없음' };
+  return {
+    ...stack, skill: unitSkillText(state.data, def).split(' / ')[0] || '특수 능력 없음',
+    combines: storedCombineOptions(state, stack.defId).slice(0, 3),
+  };
 }
 
 export function storageInfoHtml(state: GameState, info: NonNullable<ReturnType<typeof storageInfoModel>>): string {
@@ -33,6 +36,7 @@ export function storageInfoHtml(state: GameState, info: NonNullable<ReturnType<t
     <div class="up-name">${unitFaceHtml(info.defId, info.name, info.grade)}<b>${esc(info.name)} ×${info.count}</b></div>
     <div class="up-sub">${info.grade}등급 · ${typeBadgeHtml(state.data, info.defId)}</div>
     <p class="up-skill" title="${esc(info.skill)}">${esc(info.skill)}</p>
+    ${info.combines.map(o => `<button class="storage-combine" data-action="combine" data-arg="${esc(o.result)}" title="${esc(`${o.name} 조합${o.cost ? ` · ${o.cost}` : ''}`)}">${esc(o.name)} 조합</button>`).join('')}
     <button data-action="sellStored" data-arg="${esc(info.defId)}">1개 판매 +${info.sellPrice}냥</button>
     <button data-action="closeStorageInfo" aria-label="보관 정보 닫기">×</button>
   </div>`;
