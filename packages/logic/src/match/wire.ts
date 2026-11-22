@@ -50,7 +50,7 @@ export type LaneEvent =
   // stage 3 only: an event enemy runs off or grows, and economy results the lane's owner is told about
   | { t: 'flee'; id: number } | { t: 'grow'; id: number; hp: number } | { t: 'note'; ev: EconNote };
 /** Economy results streamed for messages on the owner's screen (purchases, rewards, requests, taming). */
-export type EconNote = Extract<GameEvent, { type: 'buy' | 'jigeSwap' | 'questReward' | 'tame' | 'tameTry' | 'hunt' }>;
+export type EconNote = Extract<GameEvent, { type: 'buy' | 'jigeSwap' | 'questReward' | 'tame' | 'tameTry' | 'hunt' | 'gambleCoins' | 'gambleUnit' }>;
 export interface LaneBatch { tick: number; events: LaneEvent[] }
 export interface LaneMsg { n: number; seat: number; batches: LaneBatch[] }
 export type MineMsg = MineView;

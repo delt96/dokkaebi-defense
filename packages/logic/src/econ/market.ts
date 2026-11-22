@@ -3,6 +3,7 @@ import { gradeValue } from '../data';
 import { nextFloat, nextInt } from '../rng';
 import { registerAfterCommands, registerCommand } from '../registry';
 import { receive } from '../units';
+import { gambleView, type GambleView } from './gamble';
 
 type MarketDef = NonNullable<EconomyDef['market']>;
 
@@ -90,6 +91,7 @@ export interface MarketView {
   endRound: number;
   draw: { buckwheatCost: number; left: number; weights: number[] };
   jigeChance: number;
+  gamble?: GambleView;
   why: { draw: ReturnType<typeof buyCheck> };
 }
 
@@ -97,7 +99,8 @@ export function marketView(state: GameState): MarketView | null {
   const m = state.data.economy?.market;
   if (!m || !state.econ) return null;
   const day = marketDay(state);
-  return { day, endRound: Math.max(day, 1) * m.dayRounds, jigeChance: m.jigeChance,
+  const gamble = gambleView(state);
+  return { ...(gamble && { gamble }), day, endRound: Math.max(day, 1) * m.dayRounds, jigeChance: m.jigeChance,
     draw: { buckwheatCost: m.draw.buckwheatCost, left: m.draw.perDay - drawsToday(state), weights: [...m.draw.weights] },
     why: { draw: buyCheck(state, 'draw') } };
 }

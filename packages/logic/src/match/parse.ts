@@ -60,6 +60,10 @@ const PARSERS: Record<string, Parser> = {
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
     return typeof args.item === 'string' && ECON_ITEMS.has(args.item) ? { type: 'buy', item: args.item as EconItem } : null;
   },
+  gambleCoins: args => onlyKeys(args, ['stake']) && isInt(args.stake) && args.stake > 0
+    ? { type: 'gambleCoins', stake: args.stake } : null,
+  gambleUnit: args => onlyKeys(args, ['table']) && (args.table === 'small' || args.table === 'big')
+    ? { type: 'gambleUnit', table: args.table } : null,
   hunt: args => {
     const keys = ['enemy'];
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
@@ -159,6 +163,8 @@ export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand
     case 'jigeSwap': return { type: cmd.type, args: { source: { ...cmd.source }, result: cmd.result } };
     case 'buy':
       return { type: 'buy', args: { item: cmd.item } };
+    case 'gambleCoins': return { type: cmd.type, args: { stake: cmd.stake } };
+    case 'gambleUnit': return { type: cmd.type, args: { table: cmd.table } };
     case 'tame':
       return { type: 'tame', args: { enemyId: cmd.enemyId } };
     case 'hunt':

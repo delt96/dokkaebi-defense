@@ -9,6 +9,10 @@ export function createEcon(seed: number, economy: EconomyDef): EconState {
       marketGrade: createRng(deriveSeed(seed, 'marketGrade')), marketUnit: createRng(deriveSeed(seed, 'marketUnit')),
       jige: createRng(deriveSeed(seed, 'jige')), drop: createRng(deriveSeed(seed, 'drop')),
       tame: createRng(deriveSeed(seed, 'tame')),
+      ...(economy.market?.gamble && {
+        gambleCoins: createRng(deriveSeed(seed, 'gambleCoins')),
+        gambleUnit: createRng(deriveSeed(seed, 'gambleUnit')),
+      }),
     },
     roundKills: 0, questTokens: 0,
     ledger: { tokens: 0 },

@@ -116,6 +116,16 @@ export function enemyHp(def: EnemyDef, round: number, b: BalanceDef): number {
   return Math.round((b.hp.base + b.hp.coef * round ** b.hp.exp) * def.hpMult);
 }
 
+/** The hidden table includes recipe units and excludes direct tame recruits. */
+export function gamblePool(data: GameData, result: number | 'hidden'): UnitDef[] {
+  if (result === 'hidden') {
+    const recruits = new Set(data.economy?.tame?.targets.map(t => t.unit));
+    return data.units.filter(u => u.hidden && !recruits.has(u.id) && !data.recipes.some(r =>
+      r.kind === 'tame' && r.materials.includes(u.id)));
+  }
+  return data.units.filter(u => !u.hidden && u.grade === result);
+}
+
 export function gradeValue(grade: number): number {
   return 2 ** (grade - 1);
 }

@@ -120,6 +120,16 @@ export interface HuntSeat {
   level: number; enemyId: number | null; deadlineTick: number; readyTick: number;
   last: 'won' | 'fled' | 'tamed' | null;
 }
+export type GambleTable = 'small' | 'big';
+export type GambleUnitResult = 0 | 3 | 4 | 5 | 6 | 'hidden';
+export interface GambleOdds<T> { result: T; chance: number }
+export interface GambleDef {
+  coins: { stakes: number[]; perRound: number; bigMultiplier: number; outcomes: GambleOdds<number>[] };
+  units: {
+    perRound: number; refund: number; bigGrade: number;
+    tables: Record<GambleTable, { price: number; fromRound: number; outcomes: GambleOdds<GambleUnitResult>[] }>;
+  };
+}
 export interface EconomyDef {
   startingBuckwheat: number;
   ledger: { tokenValue: number; totalCap: number; ratio: number };
@@ -128,6 +138,7 @@ export interface EconomyDef {
     /** Draws stay locked until this round's personal boss is killed or tamed. */
     openAfterBossRound?: number;
     draw: { buckwheatCost: number; perDay: number; weights: number[] };
+    gamble?: GambleDef;
   };
   drops?: { round: number; grade: number }[];
   collection?: { fromRound: number; toRound: number; items: string[]; coins: number };
@@ -139,11 +150,12 @@ export interface EconomyDef {
   tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[] };
 }
 export interface EconState {
-  rng: { marketGrade: RngState; marketUnit: RngState; jige: RngState; drop: RngState; tame: RngState };
+  rng: { marketGrade: RngState; marketUnit: RngState; jige: RngState; drop: RngState; tame: RngState; gambleCoins?: RngState; gambleUnit?: RngState };
   roundKills: number; questTokens: number;
   ledger: { tokens: number };
   pendingDrops: string[];
   market: { day: number; draws: number };
+  gamble?: { round: number; coins: number; units: number };
   /** False until the boss named by market.openAfterBossRound is killed or tamed; missing (older snapshots) means open. */
   marketOpen?: boolean;
   jige: number;
@@ -202,17 +214,26 @@ export type Command =
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' }
   | { type: 'jigeSwap'; source: JigeSource; result: string }
   | { type: 'buy'; item: EconItem }
+  | GambleCommand
   | { type: 'hunt'; enemy: string } | { type: 'tame'; enemyId: number }
   | { type: 'store'; slot: number; unitId?: number } | { type: 'storeAll' }
   | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string };
+export type GambleCommand = { type: 'gambleCoins'; stake: number } | { type: 'gambleUnit'; table: GambleTable };
+export type GambleEvent =
+  | { type: 'gambleCoins'; stake: number; multiplier: number; payout: number }
+  | ({ type: 'gambleUnit'; table: GambleTable; price: number; refund: number } & (
+    { result: 0; defId?: never; unitId?: never } |
+    { result: Exclude<GambleUnitResult, 0>; defId: string; unitId: number }
+  ));
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
-  | 'marketClosed' | 'marketLocked' | 'soldOut' | 'huntClosed' | 'huntOut' | 'noTarget' | 'tameCondition'
+  | 'marketClosed' | 'marketLocked' | 'soldOut' | 'gambleRound' | 'gambleLimit' | 'huntClosed' | 'huntOut' | 'noTarget' | 'tameCondition'
   | 'cooldown' | 'noJige'
   | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 
 export type GameEvent =
+  | GambleEvent
   | { type: 'roundStart'; round: number }
   /** `hp` only when the spawn does not use the data's HP for the round (a 격파 target's level). */
   | { type: 'spawn'; enemyId: number; defId: string; hp?: number }

@@ -1,11 +1,18 @@
 import { DIFFICULTIES, type GameData } from './types';
-import { gradeValue, recipeDemand, recipeValue } from './data';
+import { gamblePool, gradeValue, recipeDemand, recipeValue } from './data';
 
 const SHAPES: Record<number, number[][]> = { 2: [[1, 1]], 3: [[1, 1, 2]], 4: [[2, 2, 3]], 5: [[4, 4]], 6: [[3, 5, 5], [4, 5, 5]] };
 const COSTS: Record<number, { buckwheat?: number; coins?: number }> = { 5: { buckwheat: 1 }, 6: { buckwheat: 1, coins: 60 } };
 
 const costKey = (c: { buckwheat?: number; coins?: number } | undefined): string =>
   JSON.stringify({ ...(c?.buckwheat && { buckwheat: c.buckwheat }), ...(c?.coins && { coins: c.coins }) });
+
+const positiveInt = (n: unknown): boolean => Number.isSafeInteger(n) && Number(n) > 0;
+const validOdds = (rows: unknown): rows is { result: unknown; chance: number }[] =>
+  Array.isArray(rows) && rows.length > 0
+  && rows.every(r => r && Number.isFinite(r.chance) && r.chance > 0 && r.chance <= 1)
+  && new Set(rows.map(r => r.result)).size === rows.length
+  && Math.abs(rows.reduce((sum, r) => sum + r.chance, 0) - 1) < 1e-9;
 
 export function validateData(data: GameData): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
@@ -30,6 +37,28 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     const unlock = market.openAfterBossRound;
     if (unlock !== undefined && !(Number.isInteger(unlock) && unlock > 0)) errors.push('invalid market unlock round');
     for (const grade of [2, 3]) if (!data.units.some(u => !u.hidden && u.grade === grade)) errors.push('empty market pool');
+  }
+
+  const gamble = market?.gamble;
+  if (gamble !== undefined) {
+    const coins = gamble?.coins;
+    const units = gamble?.units;
+    if (data.balance.rounds !== 60) errors.push('gamble requires 60 rounds');
+    if (!coins || !Array.isArray(coins.stakes) || !coins.stakes.length || !coins.stakes.every(positiveInt)
+      || new Set(coins.stakes).size !== coins.stakes.length || !positiveInt(coins.perRound)
+      || !positiveInt(coins.bigMultiplier) || !validOdds(coins.outcomes)
+      || !coins.outcomes.every(o => Number.isFinite(o.result) && o.result >= 0
+        && coins.stakes.every(s => Number.isSafeInteger(Math.floor(s * o.result))))) errors.push('invalid coin gamble');
+    if (!units || !positiveInt(units.perRound) || !positiveInt(units.bigGrade)
+      || !(units.refund >= 0 && units.refund <= 1)) errors.push('invalid unit gamble');
+    for (const id of ['small', 'big'] as const) {
+      const table = units?.tables?.[id];
+      if (!table || !positiveInt(table.price) || !positiveInt(table.fromRound) || table.fromRound > data.balance.rounds
+        || !validOdds(table.outcomes) || !table.outcomes.every(({ result }) => result === 0
+          || ((result === 'hidden' || [3, 4, 5, 6].includes(result)) && gamblePool(data, result).length > 0))) {
+        errors.push(`invalid unit gamble table: ${id}`);
+      }
+    }
   }
 
   const hunts = eco?.hunts;

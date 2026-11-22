@@ -50,7 +50,7 @@ function updateBestUnit(match: MatchState, seat: number, events: GameEvent[], fr
     const e = events[i]!;
     let grade: number;
     if (e.type === 'summon') grade = e.grade;
-    else if (e.type === 'combine') grade = unitDefFast(match.data, e.defId).grade;
+    else if (e.type === 'combine' || (e.type === 'gambleUnit' && e.defId)) grade = unitDefFast(match.data, e.defId).grade;
     else continue;
     if (!st.bestUnit || grade > st.bestUnit.grade) st.bestUnit = { defId: e.defId, grade };
   }
