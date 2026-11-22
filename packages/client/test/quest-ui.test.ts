@@ -104,6 +104,26 @@ describe('격파 rows', () => {
     expect([r.ready, r.poor, r.short, r.label]).toEqual([false, true, `${first!.fee}냥`, '엽전 3냥 부족']);
   });
 
+  test('failure and next wait use the hunt rules in both views and on the button tooltip', () => {
+    const s = fresh(third!.fromRound);
+    const econ = econOf(s);
+    const host = document.createElement('div');
+    for (const html of [
+      questBoxHtml(questBoxModel(econ, s, false), false),
+      questListHtml(questRows(econ, s, false), 'hunts', huntRows(econ, s)),
+    ]) {
+      host.innerHTML = html;
+      for (const target of hunts.targets) {
+        const button = host.querySelector<HTMLButtonElement>(`[data-action="hunt"][data-arg="${target.enemy}"]`)!;
+        expect(button.title).toContain(`${hunts.seconds}초`);
+        expect(button.title).toContain('놓치면 소환비만 잃고 단계는 그대로');
+        const wait = target.cooldownSeconds ?? hunts.cooldownSeconds;
+        expect(host.textContent).toContain(`재소환 대기 ${wait % 60 ? `${wait}초` : `${wait / 60}분`}`);
+        expect(button.title).toContain('재소환 대기');
+      }
+    }
+  });
+
   test.each([[135, '2:15'], [65, '1:05'], [60, '1:00'], [59, '59초']])(
     'renders a disabled summon in the box and list with %i seconds remaining', (seconds, time) => {
       const s = fresh(first!.fromRound);
@@ -141,7 +161,7 @@ describe('격파 rows', () => {
     expect(host.querySelector('.quest-row.focus')!.getAttribute('data-quest')).toBe('hunts');
     expect(host.textContent).toContain('최고 3단계 격파');
     expect(host.textContent).toContain('아직 격파 없음');
-    expect(host.textContent).toContain(`${hunts.seconds}초 안에 잡으면`);
+    expect(host.textContent).toContain(`제한 ${hunts.seconds}초`);
     expect(Array.from(host.querySelectorAll<HTMLButtonElement>('[data-action="hunt"]')).map(b => b.disabled)).toEqual([false, false, true]);
   });
 

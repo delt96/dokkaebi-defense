@@ -547,10 +547,18 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 .quest-box .quest-line b { color: var(--accent); }
 .quest-next { color: var(--ink-dim); line-height: 12px; padding: 0 2px; }
 .quest-box.folded { border: 0; padding: 0; }
-.hunt-line { display: flex; align-items: center; gap: 1px; min-height: 13px; padding: 0 1px; font-size: 9px; line-height: 11px; white-space: nowrap; }
+#right:has(.hunt-wait) { gap: 1px; padding: 3px 4px; overflow-y: auto; }
+#right:has(.hunt-wait) > .big { min-height: 25px; margin: 1px 0; }
+#right:has(.hunt-wait) > button:not(.big), #right:has(.hunt-wait) .dex-open, .quest-box:has(.hunt-wait) > button:first-child { min-height: 18px; }
+#right:has(.hunt-wait) .right-foot { gap: 2px; flex: none; }
+body.online #right:has(.hunt-wait) .notices { min-height: 0; overflow: auto; }
+.hunt-line { display: flex; align-items: center; gap: 1px; min-height: 12px; padding: 0 1px; font-size: 9px; line-height: 11px; white-space: nowrap; }
 .hunt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .hunt-lv { font-style: normal; min-width: 9px; padding: 0 1px; border: 1px solid var(--panel-edge); text-align: center; color: var(--ink-dim); font-size: 8px; line-height: 9px; }
 .hunt-line b { margin-left: auto; color: var(--accent); }
+.hunt-failure, .hunt-wait { font-size: 9px; line-height: 11px; color: #d5c9df; }
+.hunt-failure { padding: 1px; word-break: keep-all; }
+.hunt-wait { text-align: right; padding-right: 1px; line-height: 10px; }
 .quest-box .hunt-go { min-height: 12px; padding: 0 1px; font-size: 9px; line-height: 10px; }
 .hunt-go[disabled] { color: var(--ink-dim); opacity: 0.85; }
 .quest-box .hunt-go.poor[disabled] { color: var(--danger); }

@@ -257,13 +257,18 @@ function settledProgress(id: QuestId, rec: QuestRecord, data: GameData): string 
  */
 export interface HuntRow {
   enemy: string; name: string; level: number; best: number; reward: string; muk: string; hp: string; open: boolean; seconds: number;
-  out: boolean; ready: boolean; poor: boolean; short: string; label: string;
+  out: boolean; ready: boolean; poor: boolean; short: string; label: string; wait: string;
 }
 
 const won = (n: number) => n.toLocaleString('ko-KR');
+const huntFailure = (seconds: number) => `제한 ${seconds}초. 놓치면 소환비만 잃고 단계는 그대로.`;
+/** The wait after a hunt ends, caught or not (whole minutes read as 분). */
+const huntWait = (seconds: number) => `재소환 대기 ${seconds % 60 ? `${seconds}초` : `${seconds / 60}분`}`;
 
 export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
   const data = state.data;
+  const rules = data.economy?.hunts;
+  if (!rules) return [];
   return (econ.hunts ?? []).map((h: EconHuntView) => {
     const reward = [h.reward.buckwheat ? `묵 ${h.reward.buckwheat}` : '', h.reward.coins ? `${h.reward.coins}냥` : ''].filter(Boolean).join(' · ');
     const fee = h.fee ? ` · ${h.fee}냥` : '';
@@ -287,14 +292,14 @@ export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
     }
     return {
       enemy: h.enemy, name: nameOf(data, h.enemy), level: h.level, best: h.best, reward, muk: h.reward.buckwheat ? `묵${h.reward.buckwheat}` : '', hp: `체력 ${won(h.hp)}`,
-      seconds: data.economy?.hunts?.seconds ?? 0,
+      seconds: rules.seconds, wait: huntWait(rules.targets.find(t => t.enemy === h.enemy)?.cooldownSeconds ?? rules.cooldownSeconds),
       open: state.phase === 'round' && state.round >= h.fromRound, out: h.why === 'huntOut', ready: h.why === null, poor: h.why === 'noCoins', short, label,
     };
   });
 }
 
 const huntButton = (r: HuntRow, text: string) =>
-  `<button class="hunt-go${r.poor ? ' poor' : ''}" data-action="hunt" data-arg="${esc(r.enemy)}"${r.ready ? '' : ' disabled'} title="${esc(`${r.label} · 보상 ${r.reward}`)}">${esc(text)}</button>`;
+  `<button class="hunt-go${r.poor ? ' poor' : ''}" data-action="hunt" data-arg="${esc(r.enemy)}"${r.ready ? '' : ' disabled'} title="${esc(`${r.label} · 보상 ${r.reward} · ${huntFailure(r.seconds)} ${r.wait}`)}">${esc(text)}</button>`;
 
 export interface QuestBoxModel {
   active: { id: QuestId; title: string; short: string }[]; next: string | null; count: number;
@@ -317,7 +322,8 @@ export function questBoxModel(econ: EconMine, state: GameState, online: boolean)
 }
 
 function huntBoxLines(hunts: HuntRow[]): string {
-  return hunts.map(h => `<div class="hunt-line"><span class="hunt-name">${esc(h.name)}</span><i class="hunt-lv" title="${h.level}단계">${h.level}</i><b>${esc(h.muk)}</b>${huntButton(h, h.short)}</div>`).join('');
+  if (!hunts.length) return '';
+  return `<div class="hunt-failure">${huntFailure(hunts[0]!.seconds)}</div>${hunts.map(h => `<div class="hunt-line"><span class="hunt-name">${esc(h.name)}</span><i class="hunt-lv" title="${h.level}단계">${h.level}</i><b>${esc(h.muk)}</b>${huntButton(h, h.short)}</div><div class="hunt-wait">${h.wait}</div>`).join('')}`;
 }
 
 export function questBoxHtml(box: QuestBoxModel, folded: boolean): string {
@@ -332,9 +338,9 @@ export function questBoxHtml(box: QuestBoxModel, folded: boolean): string {
 export function questListHtml(rows: QuestRow[], focus: QuestId | 'hunts' | null, hunts: HuntRow[] = []): string {
   const groups: QuestGroup[] = ['진행 중', '곧 열림', '끝남'];
   const huntSection = hunts.length ? `<section class="quest-group"><h3>격파</h3><div class="quest-row${focus === 'hunts' ? ' focus' : ''}" data-quest="hunts" tabindex="-1">
-    <div class="quest-row-line">${hunts[0]!.seconds}초 안에 잡으면 묵과 엽전을 받고, 다음에는 한 단계 센 상대가 나옵니다. 시간이 지나면 그냥 돌아갑니다.</div>
+    <div class="quest-row-line">${huntFailure(hunts[0]!.seconds)} 시간 안에 잡으면 보상을 받고 다음 단계가 열립니다.</div>
     ${hunts.map(h => `<div class="hunt-row"><div class="hunt-row-text"><b>${esc(h.name)} ${h.level}단계</b><span>${esc(h.hp)} · ${esc(h.reward)}</span>
-      <span>${h.best ? `최고 ${h.best}단계 격파` : '아직 격파 없음'}</span></div>${huntButton(h, h.label)}</div>`).join('')}</div></section>` : '';
+      <span>${h.best ? `최고 ${h.best}단계 격파` : '아직 격파 없음'} · ${h.wait}</span></div>${huntButton(h, h.label)}</div>`).join('')}</div></section>` : '';
   const body = groups.map(g => {
     const list = rows.filter(r => r.group === g);
     if (!list.length) return '';
