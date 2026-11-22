@@ -1,11 +1,15 @@
 import {
-  availableRecipes, jigeCandidates, marketView, tameCheck, toTicks, unitDefFast, type Command, type GameState,
+  availableRecipes, boardDps, countNormalEnemies, huntCheck, huntHp, jigeCandidates, marketView, tameCheck, unitDefFast,
+  type Command, type GameState,
 } from '@dorandi/logic';
 import type { Bot } from '../bots';
 import { expandTree, remainingNeed, targetBot } from './targetBot';
 
-/** `jige`: spend held 지게 on missing materials (off: hold them; the grant rolls are the same either way). */
-export interface EconPolicy { market: boolean; quests: boolean; tame: boolean; jige?: boolean }
+/**
+ * `jige`: spend held 지게 on missing materials (off: hold them; the grant rolls are the same either way).
+ * `hunts`: summon 격파 targets the board can kill (missing: off).
+ */
+export interface EconPolicy { market: boolean; quests: boolean; tame: boolean; jige?: boolean; hunts?: boolean }
 export type TargetBot = Bot & { currentTarget(): string | null };
 
 const FINAL_COMBINE_COINS = 60;
@@ -44,17 +48,38 @@ export function marketCommands(state: GameState, target: string | null, freeAfte
   return Array.from({ length: count }, () => ({ type: 'buy', item: 'draw' }));
 }
 
-/** The personal mission when affordable, and missing collection combines. */
-export function questCommands(state: GameState, target: string | null): Command[] {
+/**
+ * Share of the board's basic-attack DPS × the time limit a 격파 target's HP may reach for the bots to summon it.
+ * Probing synergy boards, one event enemy took about a quarter to a third of that figure in 45 s (units out of reach,
+ * moving target), so 0.15 leaves roughly a 2× margin.
+ */
+export const BOT_HUNT_SHARE = 0.15;
+
+/**
+ * One 격파 summon per decision: the first target that is ready, whose HP at its level is at most BOT_HUNT_SHARE of the
+ * board's DPS over the time limit, whose fee leaves the final-combine reserve, while no lane boss is alive and the lane
+ * is under half its enemy limit.
+ */
+export function huntCommands(state: GameState, target: string | null): Command[] {
+  const hunts = state.data.economy?.hunts;
+  if (!hunts || !state.econ || state.phase !== 'round') return [];
+  if (state.enemies.some(e => e.boss && e.hp > 0) || countNormalEnemies(state) > state.data.balance.limit / 2) return [];
+  const budget = BOT_HUNT_SHARE * boardDps(state) * hunts.seconds;
+  for (const def of hunts.targets) {
+    if (huntCheck(state, def.enemy) !== null) continue;
+    const level = state.econ.hunts?.[def.enemy]?.level ?? 1;
+    if (huntHp(state, def, level) > budget || state.coins - def.fee < reserveCoins(state, target)) continue;
+    return [{ type: 'hunt', enemy: def.enemy }];
+  }
+  return [];
+}
+
+/** Missing collection combines. */
+export function questCommands(state: GameState, _target: string | null): Command[] {
   const econ = state.econ;
   const eco = state.data.economy;
   if (!econ || !eco) return [];
   const cmds: Command[] = [];
-  const m = eco.mission;
-  if (m && state.phase === 'round' && state.round === m.round && econ.mission.phase === 'idle'
-      && state.tick < state.roundStartTick + toTicks(m.entrySeconds) && state.coins - m.fee >= reserveCoins(state, target)) {
-    cmds.push({ type: 'missionEnter' });
-  }
   const c = eco.collection;
   if (c && !econ.collection.paid && state.round >= c.fromRound && state.round <= c.toRound) {
     const can = new Set(availableRecipes(state));

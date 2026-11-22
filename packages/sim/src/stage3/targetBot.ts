@@ -4,7 +4,7 @@ import {
 } from '@dorandi/logic';
 import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
 import {
-  betterTarget, jigeCommands, marketCommands, questCommands, remainingValue, tameCommands, type EconPolicy, type TargetBot,
+  betterTarget, huntCommands, jigeCommands, marketCommands, questCommands, remainingValue, tameCommands, type EconPolicy, type TargetBot,
 } from './econBot';
 import { auraPlacement, mainType, supportSlots, synergyScore, synergyUpgrade } from './synergy';
 
@@ -178,6 +178,7 @@ export function targetBot(
       if (policy) {
         if (policy.jige) cmds.push(...jigeCommands(state, target));
         if (policy.quests) cmds.push(...questCommands(state, target));
+        if (policy.hunts) cmds.push(...huntCommands(state, target));
         if (policy.tame) cmds.push(...tameCommands(state, target));
         if (policy.market) {
           const free = Math.max(0, emptyOpenSlots(state).length - cmds.filter(c => c.type === 'summon').length);

@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import {
-  createGame, createMatch, loadGameData, roundStartTick, step, stepMatch, type Command, type GameState,
+  boardDps, createGame, createMatch, loadGameData, roundStartTick, step, stepMatch, type Command, type GameState,
 } from '@dorandi/logic';
-import { forceRound, jumpToTick, placeUnitForTest } from '@dorandi/logic/testing';
+import { forceRound, jumpToTick, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import {
-  buckwheatNeed, marketCommands, questCommands, reserveCoins, switchBot, tameCommands, type EconPolicy,
+  BOT_HUNT_SHARE, buckwheatNeed, huntCommands, marketCommands, questCommands, reserveCoins, switchBot, tameCommands, type EconPolicy,
 } from '../src/stage3/econBot';
 import { EconDriver } from '../src/stage3/econDriver';
 import { expandTree, targetBot } from '../src/stage3/targetBot';
@@ -28,6 +28,25 @@ const count = (cmds: Command[], type: string, item?: string) =>
   cmds.filter(c => c.type === type && (item === undefined || (c as { item?: string }).item === item)).length;
 
 describe('stage 3 economy bot policies', () => {
+  test('격파 policy summons a ready target the board can kill, never during a boss or near the limit', () => {
+    const s = lane(5, 100);
+    s.spawned = d3.balance.spawnCount;
+    expect(huntCommands(s, T)).toEqual([]);
+    for (let i = 0; i < 6; i++) placeUnitForTest(s, 'samtaegi', i);
+    const hp = d3.economy!.hunts!.targets[0]!.hp;
+    expect(BOT_HUNT_SHARE * boardDps(s) * d3.economy!.hunts!.seconds).toBeGreaterThanOrEqual(hp);
+    expect(huntCommands(s, T)).toEqual([{ type: 'hunt', enemy: 'ev_soebap' }]);
+    s.coins = d3.economy!.hunts!.targets[0]!.fee - 1;
+    expect(huntCommands(s, T)).toEqual([]);
+    s.coins = 100;
+    step(s, huntCommands(s, T));
+    expect(huntCommands(s, T)).toEqual([]);
+    const b = lane(10, 100);
+    for (let i = 0; i < 6; i++) placeUnitForTest(b, 'samtaegi', i);
+    spawnEnemyForTest(b, 'jinegaksi', 3);
+    expect(huntCommands(b, T)).toEqual([]);
+  });
+
   test('draw policy reserves recipe buckwheat after the opening draw', () => {
     const s = lane(1, 0);
     expect(marketCommands(s, T)).toEqual([{ type: 'buy', item: 'draw' }]);
@@ -39,18 +58,7 @@ describe('stage 3 economy bot policies', () => {
     expect(marketCommands(s, T, 1)).toHaveLength(1);
   });
 
-  test('quest policy sets the story target once per change and enters the mission when it can pay', () => {
-    const s = lane(12, 20);
-    s.tick = s.roundStartTick + 10;
-    const first = questCommands(s, T);
-    expect(first).toContainEqual({ type: 'missionEnter' });
-    expect(questCommands(s, T)).toEqual([{ type: 'missionEnter' }]);
-    s.coins = 19;
-    expect(questCommands(s, T)).toEqual([]);
-    s.coins = 100;
-    s.tick = s.roundStartTick + 100;
-    expect(questCommands(s, T)).toEqual([]);
-
+  test('quest policy makes the missing collection combines', () => {
     const c = lane(22, 0);
     placeUnitForTest(c, 'sotlid', 0); placeUnitForTest(c, 'bujigaengi', 1);
     expect(questCommands(c, T)).toEqual([{ type: 'combine', result: 'gamasot' }]);
@@ -121,21 +129,23 @@ function expandHas(target: string, id: string): boolean {
 }
 
 describe('six-seat grade 6 measurement', () => {
-  test('questPair cycles the six pairs of four quests', () => {
-    const pairs = [1, 2, 3, 4, 5, 6].map(s => questPair(s).join('+'));
-    expect(new Set(pairs).size).toBe(6);
-    expect(questPair(7)).toEqual(questPair(1));
+  test('questPair cycles the three pairs of three quests', () => {
+    const pairs = [1, 2, 3].map(s => questPair(s).join('+'));
+    expect(new Set(pairs).size).toBe(3);
+    expect(questPair(4)).toEqual(questPair(1));
     for (const p of pairs) expect(p.split('+').length).toBe(2);
   });
 
   test('configData switches sections off', () => {
     const base = configData(d3, STANDARD_CONFIGS.find(c => c.name === 'target-base')!, 1).economy!;
-    for (const k of ['market', 'drops', 'mission', 'collection', 'team', 'ssireum', 'shadow', 'tame'] as const) {
+    for (const k of ['market', 'drops', 'collection', 'team', 'ssireum', 'shadow', 'tame'] as const) {
       expect(base[k]).toBeUndefined();
     }
     expect(base.ledger).toBeDefined();
+    expect(base.hunts).toBeDefined();
+    expect(configData(d3, { ...STANDARD_CONFIGS[0]!, hunts: false }, 1).economy!.hunts).toBeUndefined();
     const q2 = configData(d3, STANDARD_CONFIGS.find(c => c.name === 'target-full-q2')!, 1).economy!;
-    const general = (['mission', 'collection', 'team', 'ssireum'] as const).filter(k => q2[k] !== undefined);
+    const general = (['collection', 'team', 'ssireum'] as const).filter(k => q2[k] !== undefined);
     expect(general).toEqual(questPair(1));
     expect(q2.market && q2.tame).toBeTruthy();
     const nd = configData(d3, { ...STANDARD_CONFIGS[0]!, noDefeat: true }, 1);
@@ -182,8 +192,8 @@ function econMatchRunStub(): EconRow[] {
     seed: 1, config: 'target-full', bot: 'target', seat: 2, finished: true, teamOutcome: 'clear', endRound: 60,
     grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, coinsAtFinal: 412, buckwheatAtFinal: 2, firstGrade6Round: 33, firstSource: 'combine',
     buckwheat9Round: 30, buckwheat12Round: null, coins180Round: 6, coins240Round: 8,
-    draws: 12, questWins: 'mission+team', tames: 1, jigeGrants: 2, jigeUses: 1, jigeHeld: 1, tameTries: 3,
-    muk10: 2, muk20: 3, muk30: 0, muk40: 1, muk50: null, muk60: null, mukBlocked: true, sold: 30,
+    draws: 12, questWins: 'collection+team', tames: 1, jigeGrants: 2, jigeUses: 1, jigeHeld: 1, tameTries: 3,
+    muk10: 2, muk20: 3, muk30: 0, muk40: 1, muk50: null, muk60: null, mukBlocked: true, huntKills: 7, huntFled: 1, huntBest: 4, huntMuk: 9, sold: 30,
     missingAtEnd: 'moru', yeoksinKills: 4,
     boss10: 21.5, boss20: 48.25, boss30: null, boss40: 60, boss50: null, boss60: 70.1,
   }, {
@@ -191,7 +201,7 @@ function econMatchRunStub(): EconRow[] {
     grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null,
     buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
     draws: 0, questWins: '', tames: 0, jigeGrants: 0, jigeUses: 0, jigeHeld: 0, tameTries: 0,
-    muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false, sold: 0, missingAtEnd: '', yeoksinKills: 4,
+    muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false, huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
     boss10: 30, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
   }];
 }

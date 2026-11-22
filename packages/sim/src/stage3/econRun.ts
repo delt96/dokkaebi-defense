@@ -16,6 +16,8 @@ export interface EconConfig {
   market: boolean; quests: 0 | 2 | 4; tame: boolean;
   /** Whether the bots spend 지게 (the grants come either way). */
   useJige: boolean;
+  /** 격파 targets in the rules and summoned by the bots (missing: on). */
+  hunts?: boolean;
 }
 export interface EconRow {
   seed: number; config: string; bot: string; seat: number; finished: boolean; teamOutcome: string; endRound: number;
@@ -29,6 +31,8 @@ export interface EconRow {
   muk10: number | null; muk20: number | null; muk30: number | null; muk40: number | null; muk50: number | null; muk60: number | null;
   /** Ever had every material and the coins for a final grade 6 combine but not the 묵. */
   mukBlocked: boolean;
+  /** 격파: kills, time-outs, the highest level killed and the 묵 they paid. */
+  huntKills: number; huntFled: number; huntBest: number; huntMuk: number;
   sold: number; missingAtEnd: string; yeoksinKills: number;
   boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null;
 }
@@ -49,11 +53,11 @@ function makeBot(kind: EconBotKind, seed: number, policy: EconPolicy): RunBot {
   }
 }
 
-const QUESTS: GeneralQuestId[] = ['mission', 'collection', 'team', 'ssireum'];
+const QUESTS: GeneralQuestId[] = ['collection', 'team', 'ssireum'];
 const PAIRS: GeneralQuestId[][] = [];
 for (let i = 0; i < QUESTS.length; i++) for (let j = i + 1; j < QUESTS.length; j++) PAIRS.push([QUESTS[i]!, QUESTS[j]!]);
 
-/** For "quests 2": the six pairs of the four general quests, cycled by seed. */
+/** For "quests 2": the three pairs of the three general quests, cycled by seed. */
 export function questPair(seed: number): GeneralQuestId[] {
   return [...PAIRS[(((seed - 1) % PAIRS.length) + PAIRS.length) % PAIRS.length]!];
 }
@@ -65,7 +69,7 @@ export function questPair(seed: number): GeneralQuestId[] {
 export function configData(data: GameData, c: EconConfig, seed: number): GameData {
   const quests = c.quests === 4 ? QUESTS : c.quests === 2 ? questPair(seed) : [];
   const on: Partial<Record<EconSection, boolean>> = {
-    market: c.market, drops: c.market, tame: c.tame, shadow: c.tame,
+    market: c.market, drops: c.market, tame: c.tame, shadow: c.tame, hunts: c.hunts !== false,
   };
   for (const q of QUESTS) on[q] = quests.includes(q);
   const d = economyVariant(data, on);
@@ -100,7 +104,7 @@ function dropTimedOutBosses(match: MatchState): void {
 export function econMatchRun(data: GameData, seed: number, c: EconConfig): { rows: EconRow[]; yeoksinSeconds: (number | null)[] } {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
-  const policy: EconPolicy = { market: c.market, quests: c.quests > 0, tame: c.tame, jige: c.useJige };
+  const policy: EconPolicy = { market: c.market, quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false };
   const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
   const driver = new EconDriver(match, bots);
   const finalTick = roundStartTick(d, d.balance.rounds);
@@ -113,7 +117,8 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null,
       buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
       draws: 0, questWins: '', tames: 0, jigeGrants: 0, jigeUses: 0, jigeHeld: 0, tameTries: 0,
-      muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false, sold: 0, missingAtEnd: '', yeoksinKills: 0,
+      muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false,
+      huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
       boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
     });
     prev.set(s, { coins: 0, buckwheat: 0 });
@@ -166,6 +171,8 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
         else if (e.type === 'tameTry') row.tameTries++;
         else if (e.type === 'tame') row.tames++;
         else if (e.type === 'questReward') wins.get(s)!.add(e.quest);
+        else if (e.type === 'hunt' && e.outcome === 'won') { row.huntKills++; row.huntMuk += e.buckwheat; row.huntBest = Math.max(row.huntBest, e.level); }
+        else if (e.type === 'hunt') row.huntFled++;
         else if ((e.type === 'combine' || e.type === 'summon') && row.firstGrade6Round === null && isNormal6(lane, e.defId)) {
           row.firstGrade6Round = match.round;
           row.firstSource = 'combine';
@@ -275,6 +282,15 @@ export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data
     const sd = seatSpread(rs);
     out.push(`| ${name} | ${mean(rs.map(r => r.draws))} | ${rs.filter(r => r.draws === 0).length} | ${rs.filter(r => r.draws === 18).length} | ${inc.seats ? `${inc.withJige}/${inc.seats} (${pct(inc.withJige / inc.seats)})` : '0명'} | ${mean(rs.map(r => r.jigeUses))} | ${mean(rs.map(r => r.jigeHeld))} | ${mean(rs.map(r => r.tameTries))} | ${muk} | ${pct(rs.filter(r => r.mukBlocked).length / rs.length)} | ${sd === null ? '-' : sd.toFixed(2)} |`);
   }
+  if (rows.some(r => (r.huntKills ?? 0) + (r.huntFled ?? 0) > 0)) {
+    out.push('', '| 설정 | 격파 처치 평균 (자리당) | 시간 초과 평균 | 최고 단계 중앙값 / 최대 | 격파로 받은 묵 평균 |', '| --- | ---: | ---: | --- | ---: |');
+    for (const name of configs) {
+      const rs = rows.filter(r => r.config === name);
+      const mean = (xs: number[]) => (xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(2) : '-');
+      const best = rs.map(r => r.huntBest ?? 0);
+      out.push(`| ${name} | ${mean(rs.map(r => r.huntKills ?? 0))} | ${mean(rs.map(r => r.huntFled ?? 0))} | ${quantile(best, 0.5) ?? '-'} / ${Math.max(0, ...best)} | ${mean(rs.map(r => r.huntMuk ?? 0))} |`);
+    }
+  }
   if (yeoksin.length && data?.coop) {
     out.push('', '| 역신 관문 | 처치 판 수 | 처치 시간 중앙값(초, 미처치는 제한) | 제한 시간(초) | 제한 대비 |', '| --- | ---: | ---: | ---: | ---: |');
     data.coop.yeoksin.forEach((y, i) => {
@@ -302,7 +318,7 @@ export const STANDARD_CONFIGS: EconConfig[] = ECON_BOTS.flatMap(bot => [
 const NUMBER_COLS = new Set([
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 
   'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'jigeGrants', 'jigeUses', 'jigeHeld', 'tameTries',
-  'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
+  'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60', 'huntKills', 'huntFled', 'huntBest', 'huntMuk', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
 ]);
 const NULLABLE_COLS = new Set([
   'firstGrade6Round', 'firstSource', 'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round',
