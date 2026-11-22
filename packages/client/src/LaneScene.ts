@@ -617,8 +617,9 @@ export class LaneScene extends Phaser.Scene {
           this.tweens.add({ targets: view, scale: 1.3, alpha: 0, duration: 145, onComplete: () => view.destroy() });
         }
       }
-      // stage 3 event enemies run off at their time limit or the round end: they fade without a kill
-      if (e.type === 'flee') {
+      // stage 3 event enemies run off at their time limit or the round end, and a tamed one leaves to join the board:
+      // both fade without a kill (online the per-tick sweep in placeEnemies would drop them too)
+      if (e.type === 'flee' || e.type === 'tame') {
         const view = this.enemies.get(e.enemyId);
         if (view) {
           this.enemies.delete(e.enemyId);
