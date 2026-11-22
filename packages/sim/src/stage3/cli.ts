@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { r10Markdown, r10PairRun, r10Summary, type R10Pair } from './r10probe';
 import { join } from 'node:path';
-import { loadGameData, stripEconomy, type GameData } from '@dorandi/logic';
+import { isDifficulty, loadGameData, stripEconomy, type GameData } from '@dorandi/logic';
 import { normalBot } from '../bots';
 import { combineGainAll, parseCombinePlacement, parseUpgradeLevels } from './combineGain';
 import { controlAll } from './control';
@@ -37,8 +37,15 @@ export function withSets(data: GameData, sets: string): GameData {
 export function stage3Cli(arg: Arg): void {
   const check = arg('check', 'all');
   const seeds = Number(arg('seeds', '3'));
-  const out = arg('out', 'sim-out/stage3');
+  const difficulty = arg('difficulty', 'normal');
+  if (!isDifficulty(difficulty)) throw new Error('--difficulty easy|normal|hard');
+  const out = arg('out', difficulty === 'normal' ? 'sim-out/stage3' : `sim-out/stage3-${difficulty}`);
   const data = withSets(loadGameData('stage3'), arg('set', ''));
+  // Each probe creates its own lanes from this private data copy.
+  data.balance.defaultDifficulty = difficulty;
+  if (arg('set', '').split(',').some(item => item.startsWith('balance.tokens.perRound='))) {
+    data.balance.difficulties![difficulty].tokensPerRound = data.balance.tokens.perRound;
+  }
   mkdirSync(out, { recursive: true });
   const t0 = Date.now();
   const elapsed = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
