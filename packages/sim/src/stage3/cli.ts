@@ -189,7 +189,9 @@ function econGrade6(arg: Arg, data: GameData, out: string, elapsed: () => string
     }
     if (c.maxDraws) {
       const readArm = (j: number) => {
-        const file = join(out,csvName(c).replace(/-j[01]/,`-j${j}`)+'.csv');
+        const name = csvName(c);
+        if (!/-j[01]-/.test(name) && Number(c.useJige) !== j) return [];
+        const file = join(out, name.replace(/-j[01]-/, `-j${j}-`) + '.csv');
         return existsSync(file) ? parseEconCsv(readFileSync(file,'utf8')) : [];
       };
       console.log(drawMarkdown(readArm(1),readArm(0)));
