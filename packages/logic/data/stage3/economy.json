@@ -7,11 +7,11 @@
   },
   "drops": [ { "round": 20, "grade": 3 }, { "round": 40, "grade": 3 }, { "round": 50, "grade": 2 } ],
   "hunts": {
-    "seconds": 45, "cooldownSeconds": 20, "hpGrowth": 1.6,
+    "seconds": 45, "cooldownSeconds": 20, "hpGrowth": 2,
     "targets": [
-      { "enemy": "ev_soebap", "fromRound": 5, "hp": 1500, "fee": 10, "reward": { "buckwheat": 1, "coins": 15, "coinsPerLevel": 5 } },
-      { "enemy": "ev_oenun", "fromRound": 15, "hp": 6000, "fee": 20, "reward": { "buckwheat": 1, "coins": 25, "coinsPerLevel": 5 } },
-      { "enemy": "ev_yagwang", "fromRound": 30, "hp": 15000, "fee": 30, "reward": { "buckwheat": 2, "coins": 40, "coinsPerLevel": 10 } }
+      { "enemy": "ev_soebap", "fromRound": 5, "hp": 1500, "fee": 10, "reward": { "buckwheat": 1, "coins": 10, "coinsPerLevel": 5 } },
+      { "enemy": "ev_oenun", "fromRound": 15, "hp": 6000, "fee": 20, "reward": { "buckwheat": 1, "coins": 15, "coinsPerLevel": 5 } },
+      { "enemy": "ev_yagwang", "fromRound": 30, "hp": 15000, "fee": 30, "reward": { "buckwheat": 2, "coins": 25, "coinsPerLevel": 5 } }
     ]
   },
   "collection": { "fromRound": 21, "toRound": 29, "items": ["gamasot", "meongseok", "hwaro"], "coins": 20 },

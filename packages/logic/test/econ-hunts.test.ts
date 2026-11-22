@@ -34,7 +34,7 @@ describe('격파 data', () => {
   test('three targets open at rounds 5, 15 and 30 with their own HP, fee and pay', () => {
     expect(hunts.targets.map(t => [t.enemy, t.fromRound])).toEqual([['ev_soebap', 5], ['ev_oenun', 15], ['ev_yagwang', 30]]);
     expect(hunts.targets.map(t => t.reward.buckwheat)).toEqual([1, 1, 2]);
-    expect([hunts.seconds, hunts.cooldownSeconds, hunts.hpGrowth]).toEqual([45, 20, 1.6]);
+    expect([hunts.seconds, hunts.cooldownSeconds, hunts.hpGrowth]).toEqual([45, 20, 2]);
     for (const t of hunts.targets) expect(d3.enemies.find(e => e.id === t.enemy)!.event).toBe(true);
     expect(d3.economy).not.toHaveProperty('mission');
   });
