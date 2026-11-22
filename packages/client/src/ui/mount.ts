@@ -1,7 +1,7 @@
 import {
   laneOf, unitDefFast, type ClientView, type EconItem, type EconMine, type EconNote, type GameData, type GameEvent, type QuestId, type UpgradeId,
 } from '@dorandi/logic';
-import type { Driver } from '../driver';
+import { nextSpeed, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
 import { rightNotices } from '../online/models';
 import { renderRows, renderTop } from '../online/panels';
@@ -209,6 +209,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         driver.queue({ type: 'jigeSwap', source: { ...list.source }, result: arg });
         break;
       }
+      case 'speed': if (driver.speed !== undefined) driver.speed = nextSpeed(driver.speed); break;
       case 'closeModal':
         // text typed but not searched is kept too
         if (modal === 'dex' && el('modal').querySelector('.dex-search')) dex = { ...dex, ...typedNow() };
@@ -417,6 +418,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else {
       renderRight(s, {
         ...(view ? { online: true, notices: [...moved, ...rightNotices(now)] } : {}),
+        ...(driver.speed !== undefined ? { speed: driver.speed } : {}),
         ...(s.data.economy?.market ? { market: econTab !== null } : {}),
       });
     }

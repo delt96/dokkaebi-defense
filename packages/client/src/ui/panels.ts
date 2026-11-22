@@ -7,7 +7,7 @@ import { STORE_ALL_KEY } from './storage';
 import { roleText } from './dex-roles';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `badge`: a story request not yet looked at. */
-export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; badge?: boolean }
+export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; badge?: boolean; speed?: number }
 
 export function renderRight(state: GameState, opts: RightOpts = {}): void {
   const m = rightModel(state);
@@ -21,7 +21,8 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     <button data-action="convert" ${m.canConvert ? '' : 'disabled'}>불 바꾸기 (+${state.data.balance.tokens.toCoins}냥)</button>
     <button data-action="openUpgrades">강화 (E)</button>
     ${opts.market === undefined ? '' : `<button data-action="toggleMarket" class="market-btn" aria-pressed="${opts.market}">장터 (B)</button>`}
-    ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}`);
+    ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}
+    ${opts.speed === undefined ? '' : `<button data-action="speed" class="speed-btn" aria-pressed="${opts.speed > 1}">배속 ${opts.speed}×</button>`}`);
 }
 
 function recipeHtml(state: GameState, option: CombineOption, unitId: number | null, short: boolean): string {

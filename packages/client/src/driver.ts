@@ -7,6 +7,13 @@ export function ticksToRun(elapsedMs: number, carryMs: number, tickMs = 50, maxT
   return { ticks, carryMs: total - ticks * tickMs };
 }
 
+/** Solo game speeds; the small button at the bottom of the right panel steps through them. */
+export const SPEEDS = [1, 2, 3] as const;
+export function nextSpeed(speed: number): number {
+  const i = SPEEDS.indexOf(speed as 1 | 2 | 3);
+  return SPEEDS[(i + 1) % SPEEDS.length]!;
+}
+
 interface QueuedCommand {
   command: Command;
   unitId?: number;
@@ -18,6 +25,8 @@ type Listener = (events: GameEvent[], rejected: StepResult['rejected']) => void;
 export interface Driver {
   state: GameState;
   paused: boolean;
+  /** Solo only: game speed (1, 2 or 3). */
+  speed?: number;
   /** Set by the scene when a frame throws; the UI stops sending input. */
   failed: boolean;
   readonly online: boolean;
@@ -47,6 +56,8 @@ export interface Driver {
 export class GameDriver implements Driver {
   state: GameState;
   paused = false;
+  /** Game ms per real ms (solo only). */
+  speed = 1;
   failed = false;
   readonly online = false;
   readOnly = false;
@@ -110,7 +121,7 @@ export class GameDriver implements Driver {
 
   update(elapsedMs: number): void {
     if (this.failed || this.paused) return;
-    const { ticks, carryMs } = ticksToRun(elapsedMs, this.carry, this.state.data.balance.tickMs);
+    const { ticks, carryMs } = ticksToRun(elapsedMs * this.speed, this.carry, this.state.data.balance.tickMs);
     this.carry = carryMs;
     for (let i = 0; i < ticks; i++) {
       const cmds = this.takeCommands();

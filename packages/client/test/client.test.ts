@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { GRADE_COLOR, STORAGE_BOX, cellCorner, cellPx, computeZoom, laneToStage, stageToCell } from '../src/layout';
 import { createGame, createLane, laneOf, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
-import { GameDriver, ticksToRun } from '../src/driver';
+import { GameDriver, nextSpeed, ticksToRun } from '../src/driver';
 
 describe('client helpers', () => {
   test('zoom: integer from 2x, a 1.5 step below', () => {
@@ -100,4 +100,19 @@ test('a sale pressed before a queued swap finishes still sells the picked unit',
   expect(state.slots[0]?.id).toBe(other.id);
   expect(state.slots[1]).toBeNull();
   expect(state.coins).toBe(5);
+});
+
+test('solo speed runs two or three steps per real step and cycles 1, 2, 3', () => {
+  const state = createGame(loadGameData(), 1);
+  const driver = new GameDriver(state);
+  expect(driver.speed).toBe(1);
+  driver.update(100);
+  expect(state.tick).toBe(2);
+  driver.speed = 2;
+  driver.update(100);
+  expect(state.tick).toBe(6);
+  driver.speed = 3;
+  driver.update(100);
+  expect(state.tick).toBe(12);
+  expect([1, 2, 3].map(nextSpeed)).toEqual([2, 3, 1]);
 });
