@@ -166,7 +166,11 @@ export function targetBot(
       const cmds: Command[] = tameWindow ? summonAll(state).slice(0, Math.max(0, freeSlots - 1)) : summonAll(state);
       const { missing, kept } = target ? remainingNeed(state, target) : { missing: new Map<string, number>(), kept: new Map<string, number>() };
       const market = policy?.maxDraws ? marketView(state) : null;
-      const drawReserve = market ? market.draw.left * market.draw.buckwheatCost : 0;
+      // Future boss income is conditional on kills. Bank the cost of every remaining
+      // market opportunity before spending surplus muk on a paid combine.
+      const shop = state.data.economy?.market;
+      const futureDays = market && shop ? Math.ceil((state.data.balance.rounds - market.endRound) / shop.dayRounds) : 0;
+      const drawReserve = market && shop ? (market.draw.left + futureDays * shop.draw.perDay) * market.draw.buckwheatCost : 0;
       let recipe: string | null = null;
       let grade = 0;
       let fieldRecipe: string | null = null;

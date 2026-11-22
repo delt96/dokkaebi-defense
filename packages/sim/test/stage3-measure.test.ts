@@ -81,3 +81,20 @@ test('max draws buys the entire available day before summons or combines', async
   const bot = synergyBot(1, { market: true, quests: true, tame: true, maxDraws: true });
   expect(bot.decide(s)).toEqual(Array(3).fill({ type: 'buy', item: 'draw' }));
 });
+
+test('max draws carries unspent muk into the next day after selling out', async () => {
+  const { createGame } = await import('@dorandi/logic');
+  const { forceRound, placeUnitForTest } = await import('@dorandi/logic/testing');
+  const { targetBot } = await import('../src/stage3/targetBot');
+  const s = createGame(data, 1);
+  forceRound(s, 20);
+  s.buckwheat = 1;
+  s.econ!.market = { day: 2, draws: 3 };
+  placeUnitForTest(s, 'gawi', 0);
+  placeUnitForTest(s, 'golmu', 1);
+  const bot = targetBot(1, { targets: ['banjitgori'], policy: { market: true, quests: false, tame: false, maxDraws: true } });
+  expect(bot.decide(s)).not.toContainEqual({ type: 'combine', result: 'banjitgori' });
+  forceRound(s, 60);
+  s.econ!.market = { day: 6, draws: 3 };
+  expect(bot.decide(s)).toContainEqual({ type: 'combine', result: 'banjitgori' });
+});
