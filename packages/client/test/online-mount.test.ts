@@ -55,17 +55,17 @@ describe('online mountUi', () => {
     expect(scene.selectedId).toBe(newUnit.id);
   });
 
-  test('the menu opens the 40-unit dex and the helper; Q shows the helper and only then sends helperOpened (checkpoint 17-19, finding 3)', () => {
+  test('the menu opens the 40-unit dex; Q shows the helper and only then sends helperOpened (checkpoint 17-19, finding 3)', () => {
     const { room } = mountOnline();
     press(document.querySelector('#top [data-action="openMenu"]'));
     const modal = document.getElementById('modal')!;
+    // the helper and reduce-effects switches moved to the settings window
+    expect(modal.querySelector('[data-action="toggleHelper"], [data-action="toggleFx"], [data-action="setHelper"]')).toBeNull();
     press(modal.querySelector('[data-action="openDex"]'));
     expect(modal.querySelectorAll('table.dex tbody tr')).toHaveLength(40);
     key('Escape');
     expect(modal.textContent).toBe('');
-    press(document.querySelector('#top [data-action="openMenu"]'));
-    press(modal.querySelector('[data-action="toggleHelper"]'));
-    expect(modal.textContent).toBe('');
+    key('KeyQ');
     expect(document.querySelector('#left .helper-pop')).not.toBeNull();
     expect(room.cmds('helperOpened')).toHaveLength(1);
     key('KeyQ');
@@ -75,6 +75,24 @@ describe('online mountUi', () => {
     expect(document.querySelector('#left .helper-pop .helper')).not.toBeNull();
     expect(document.querySelectorAll('#left .lane-row')).toHaveLength(6);
     expect(room.cmds('helperOpened')).toHaveLength(2);
+  });
+
+  test('online settings: the gear opens the helper and reduce-effects rows, no speed row', () => {
+    const { room } = mountOnline();
+    const modal = document.getElementById('modal')!;
+    press(document.querySelector('#right .right-foot [data-action="openSettings"]'));
+    expect(Array.from(modal.querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'fx']);
+    expect(modal.querySelector('[data-action="speed"]')).toBeNull();
+    press(modal.querySelector('[data-action="setHelper"][data-arg="on"]'));
+    expect(document.querySelector('#left .helper-pop')).not.toBeNull();
+    expect(room.cmds('helperOpened')).toHaveLength(1);
+    // pressing 켬 again keeps it open and sends nothing more
+    press(modal.querySelector('[data-action="setHelper"][data-arg="on"]'));
+    expect(document.querySelector('#left .helper-pop')).not.toBeNull();
+    expect(room.cmds('helperOpened')).toHaveLength(1);
+    expect(modal.querySelector('.settings-row')).not.toBeNull();
+    key('Escape');
+    expect(modal.textContent).toBe('');
   });
 
   test('forfeit asks first: menu → 포기 sends one forfeit, 취소 sends none (checkpoint 17-19, finding 7)', () => {
@@ -103,19 +121,12 @@ describe('online mountUi', () => {
     expect(actions.watch).toHaveBeenCalledWith(2);
   });
 
-  test('opening the helper from the menu keeps an already open helper visible', () => {
-    mountOnline();
-    key('KeyQ');
-    press(document.querySelector('[data-action="openMenu"]'));
-    press(document.querySelector('#modal [data-action="toggleHelper"]'));
-    expect(document.querySelector('.helper-pop')).not.toBeNull();
-  });
-
   test('spectators see watch instructions instead of unusable battle controls', () => {
     const full = fixtureFull([1, 2]);
     full.rows[0]!.status = 'spirit';
     mountOnline(full);
-    expect(document.querySelector('#right [data-action]')).toBeNull();
+    // only the settings gear stays, so a spirit can still turn the effects down
+    expect(Array.from(document.querySelectorAll('#right [data-action]')).map(b => b.getAttribute('data-action'))).toEqual(['openSettings']);
     expect(document.querySelector('#right')!.textContent).toContain('관전');
   });
 
@@ -151,16 +162,16 @@ describe('online mountUi', () => {
     expect(document.querySelectorAll('#left [data-action="watch"]')).toHaveLength(0);
   });
 
-  test('the menu holds the reduce-effects switch and pressing it flips the scene setting', () => {
+  test('the settings window holds the reduce-effects switch and pressing it flips the scene setting', () => {
     const { scene } = mountOnline();
     const fx = Object.assign(scene, { reduceEffects: false, setReduceEffects(on: boolean) { this.reduceEffects = on; } });
-    press(document.querySelector('#top [data-action="openMenu"]'));
-    const toggle = () => document.querySelector<HTMLButtonElement>('#modal [data-action="toggleFx"]')!;
-    expect(toggle().getAttribute('aria-pressed')).toBe('false');
-    press(toggle());
+    press(document.querySelector('#right [data-action="openSettings"]'));
+    const on = () => document.querySelector<HTMLButtonElement>('#modal [data-action="setFx"][data-arg="on"]')!;
+    expect(on().getAttribute('aria-pressed')).toBe('false');
+    press(on());
     expect(fx.reduceEffects).toBe(true);
-    expect(toggle().getAttribute('aria-pressed')).toBe('true');
-    expect(toggle().textContent).toContain('켬');
+    expect(on().getAttribute('aria-pressed')).toBe('true');
+    expect(on().textContent).toBe('켬');
   });
 
   test('20-round online dex: a material link jumps to its entry, opens its tree, and the back button returns', () => {

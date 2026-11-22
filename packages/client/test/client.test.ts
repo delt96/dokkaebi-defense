@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { GRADE_COLOR, STORAGE_BOX, cellCorner, cellPx, computeZoom, laneToStage, stageToCell } from '../src/layout';
 import { createGame, createLane, laneOf, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
-import { GameDriver, nextSpeed, ticksToRun } from '../src/driver';
+import { GameDriver, ticksToRun } from '../src/driver';
 
 describe('client helpers', () => {
   test('zoom: integer from 2x, a 1.5 step below', () => {
@@ -114,5 +114,4 @@ test('solo speed runs two or three steps per real step and cycles 1, 2, 3', () =
   driver.speed = 3;
   driver.update(100);
   expect(state.tick).toBe(12);
-  expect([1, 2, 3].map(nextSpeed)).toEqual([2, 3, 1]);
 });

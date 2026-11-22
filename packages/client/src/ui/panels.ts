@@ -5,10 +5,11 @@ import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY } from './storage';
 import { roleText } from './dex-roles';
+import { SETTINGS_BUTTON } from './settings';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `quests`: the 60-round quest box, laid at the
- * bottom above the dex button. `helper`: the combine helper switch, and beside it `speed` (solo game speed), dim, under them. */
-export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; quests?: string; helper?: boolean; speed?: number }
+ * bottom above the dex button; the settings gear sits under both. */
+export interface RightOpts { online?: boolean; notices?: string[]; market?: boolean; quests?: string }
 
 export function renderRight(state: GameState, opts: RightOpts = {}): void {
   const m = rightModel(state);
@@ -24,7 +25,7 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     ${opts.market === undefined ? '' : `<button data-action="toggleMarket" class="market-btn" aria-pressed="${opts.market}">장터 (B)</button>`}
     ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}
     <div class="right-foot">${opts.quests ?? ''}<button class="dex-open" data-action="openDex">도감 (D)</button>
-    <div class="foot-row">${opts.helper === undefined ? '' : `<button data-action="toggleHelper" class="speed-btn" aria-pressed="${opts.helper}">도우미 ${opts.helper ? '켬' : '끔'}</button>`}${opts.speed === undefined ? '' : `<button data-action="speed" class="speed-btn" aria-pressed="${opts.speed > 1}">배속 ${opts.speed}×</button>`}</div></div>`);
+    <div class="foot-row">${SETTINGS_BUTTON}</div></div>`);
 }
 
 function recipeHtml(state: GameState, option: CombineOption, unitId: number | null, short: boolean): string {

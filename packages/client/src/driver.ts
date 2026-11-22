@@ -7,12 +7,8 @@ export function ticksToRun(elapsedMs: number, carryMs: number, tickMs = 50, maxT
   return { ticks, carryMs: total - ticks * tickMs };
 }
 
-/** Solo game speeds; the small button at the bottom of the right panel steps through them. */
+/** Solo game speeds, picked in the settings window. */
 export const SPEEDS = [1, 2, 3] as const;
-export function nextSpeed(speed: number): number {
-  const i = SPEEDS.indexOf(speed as 1 | 2 | 3);
-  return SPEEDS[(i + 1) % SPEEDS.length]!;
-}
 
 interface QueuedCommand {
   command: Command;

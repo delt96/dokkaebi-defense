@@ -7,6 +7,7 @@ import { GameDriver } from '../src/driver';
 import { mountUi } from '../src/ui/mount';
 import { combineOptions, hudModel, helperModel, upgradeRows, unitCard, dexEntries } from '../src/ui/models';
 import { renderRight } from '../src/ui/panels';
+import { settingsHtml } from '../src/ui/settings';
 
 const data = loadGameData();
 
@@ -263,9 +264,10 @@ describe('final review fixes: right panel and reject notices', () => {
       expect(panel.innerHTML).toContain('1등급 77% · 2등급 20% · 3등급 3%');
       expect(panel.innerHTML).not.toContain('보너스까지');
       expect(panel.innerHTML).not.toContain('보관 중');
+      // the old dim 도우미 and 배속 buttons gave way to one gear that opens the settings
       expect(panel.innerHTML).not.toContain('data-action="speed"');
-      renderRight(s, { speed: 2 });
-      expect(panel.innerHTML).toContain('<button data-action="speed" class="speed-btn" aria-pressed="true">배속 2×</button>');
+      expect(panel.innerHTML).not.toContain('data-action="toggleHelper"');
+      expect(panel.innerHTML).toMatch(/<button class="settings-open" data-action="openSettings" aria-label="설정"[^>]*>/);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -423,5 +425,26 @@ describe('dex hotkey', () => {
     const { panels } = mountTestUi(createGame(data, 1));
     expect(panels.get('right')!.innerHTML).toContain('도감 (D)');
     expect(panels.get('bottom')!.innerHTML).toContain('D 도감');
+  });
+});
+
+describe('settings window', () => {
+  const rows = (html: string) => Array.from(html.matchAll(/<div class="settings-row"[^>]*><span>([^<]+)<\/span>/g)).map(m => m[1]);
+  const pressed = (html: string) => Array.from(html.matchAll(/data-action="(\w+)" data-arg="(\w+)" aria-pressed="true"/g)).map(m => `${m[1]}:${m[2]}`);
+
+  test('solo: helper, speed and reduce-effects rows show the current choice', () => {
+    const html = settingsHtml({ helper: false, speed: 1, reducedFx: false });
+    expect(html).toContain('설정');
+    expect(rows(html)).toEqual(['조합 도우미', '배속', '효과 줄이기']);
+    expect(pressed(html)).toEqual(['setHelper:off', 'speed:1', 'setFx:off']);
+    expect(html).toContain('data-action="closeModal"');
+    expect(pressed(settingsHtml({ helper: true, speed: 3, reducedFx: true }))).toEqual(['setHelper:on', 'speed:3', 'setFx:on']);
+    expect(Array.from(html.matchAll(/data-action="speed" data-arg="\d"[^>]*>([^<]+)</g)).map(m => m[1])).toEqual(['1×', '2×', '3×']);
+  });
+
+  test('online: no speed row', () => {
+    const html = settingsHtml({ helper: true, reducedFx: false });
+    expect(rows(html)).toEqual(['조합 도우미', '효과 줄이기']);
+    expect(html).not.toContain('data-action="speed"');
   });
 });

@@ -130,16 +130,13 @@ describe('J list and the quest box', () => {
     expect(modal().textContent).toContain('도감');
   });
 
-  test('the 도우미 switch sits beside the speed button and shows or hides the left list', () => {
-    const sw = () => document.querySelector<HTMLElement>('#right .foot-row [data-action="toggleHelper"]')!;
-    expect(sw().textContent).toBe('도우미 끔');
-    expect(sw().nextElementSibling?.getAttribute('data-action')).toBe('speed');
-    expect(document.querySelector('#left [data-action="toggleHelper"]')).toBeNull();
-    expect(document.querySelector('#left .helper li')).toBeNull();
-    press(sw());
-    expect(sw().textContent).toBe('도우미 켬');
-    expect(sw().getAttribute('aria-pressed')).toBe('true');
-    expect(document.querySelector('#left .helper li')).not.toBeNull();
+  test('the gear sits under the box and D at the bottom right; the old 도우미 and 배속 buttons are gone', () => {
+    const foot = document.querySelector('#right .right-foot')!;
+    const gear = foot.querySelector<HTMLElement>('[data-action="openSettings"]')!;
+    expect(gear.getAttribute('aria-label')).toBe('설정');
+    expect(foot.querySelector('.quest-box')!.compareDocumentPosition(gear) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(foot.querySelector('.dex-open')!.compareDocumentPosition(gear) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.querySelector('[data-action="toggleHelper"], [data-action="speed"], [data-action="toggleFx"]')).toBeNull();
   });
 
   test('a chip under the lane opens the list on its row', () => {

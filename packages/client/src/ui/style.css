@@ -80,15 +80,22 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .helper li { display: flex; align-items: center; gap: 3px; padding: 2px 0; }
 .helper li button { margin-left: auto; min-height: 18px; }
 .helper .empty { color: var(--ink-dim); }
-.fx-toggle { font-size: 9px; color: var(--ink-dim); }
-.fx-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 3px; }
 
 #right { padding: 6px; display: flex; flex-direction: column; gap: 4px; }
 #right .right-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
-#right .foot-row { display: flex; justify-content: flex-end; gap: 2px; }
-#right .speed-btn { min-height: 0; padding: 0 4px; font-size: 8px; color: var(--ink-dim); background: transparent; border-color: transparent; opacity: 0.6; }
-#right .speed-btn:hover, #right .speed-btn[aria-pressed="true"] { opacity: 1; border-color: var(--panel-edge); }
+#right .foot-row { display: flex; justify-content: flex-end; }
+#right .settings-open { display: grid; place-items: center; width: 18px; min-height: 18px; padding: 0; color: var(--ink-dim); background: transparent; border-color: transparent; }
+#right .settings-open:hover { color: var(--accent); }
+#right .settings-open svg { display: block; }
+/* the settings window opens just above the gear */
+#modal .modal.settings-pop, body.online #modal .modal.settings-pop { left: auto; right: 4px; top: auto; bottom: 52px; transform: none; width: 168px; max-height: none; padding: 6px 8px; font-size: 11px; }
+body.online #modal .modal.settings-pop { bottom: 68px; }
+#modal .settings-pop .modal-head, body.online #modal .settings-pop .modal-head { position: static; padding: 0; margin-bottom: 4px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 0; border-top: 1px solid var(--panel-edge); }
+.settings-choices { display: flex; gap: 2px; }
+.settings-choices button { min-width: 26px; min-height: 20px; padding: 0 4px; color: var(--ink-dim); }
+.settings-choices button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: #3a2a1a; }
 .res { display: flex; justify-content: space-between; }
 .res span { color: var(--accent); }
 
