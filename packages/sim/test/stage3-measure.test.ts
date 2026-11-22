@@ -46,3 +46,38 @@ test('a first grade six in only one arm counts in the all-start R61 comparison',
   const r = { seed: 7, seat: 4, draws: 18, jigeGrants: 2, jigeHeld: 0, jigeUses: 2, finished: false, grade6AtFinal: 0, firstGrade6Round: 59 };
   expect(jigePairs([r], [{ ...r, firstGrade6Round: null }])).toMatchObject({ firstPairs: 0, firstDelta: null, starts: 1, cappedDelta: -2 });
 });
+
+test('eager recruits at full HP, keeps muk for the exclusive partner and combines its recruit', async () => {
+  const { createGame } = await import('@dorandi/logic');
+  const { forceRound, placeUnitForTest, spawnEnemyForTest } = await import('@dorandi/logic/testing');
+  const { eagerTames, synergyBot } = await import('../src/stage3/econBot');
+  const s = createGame(data, 1);
+  forceRound(s, 10);
+  s.coins = 30;
+  s.buckwheat = 0;
+  const enemy = spawnEnemyForTest(s, 'jinegaksi', 0);
+  expect(eagerTames(s)).toEqual([{ type: 'tame', enemyId: enemy.id }]);
+  s.coins = 29;
+  expect(eagerTames(s)).toEqual([]);
+
+  forceRound(s, 11);
+  placeUnitForTest(s, 'jinegaksi', 0);
+  const bot = synergyBot(1, { market: true, quests: true, tame: true, jige: true, eager: true });
+  s.buckwheat = 2;
+  expect(bot.decide(s).some(c => c.type === 'buy')).toBe(false);
+  expect(bot.currentTarget()).toBe('baekbalbaneulgaksi');
+  placeUnitForTest(s, 'banjitgori', 1);
+  s.coins = 60;
+  expect(bot.decide(s)).toContainEqual({ type: 'combine', result: 'baekbalbaneulgaksi' });
+});
+
+test('max draws buys the entire available day before summons or combines', async () => {
+  const { createGame } = await import('@dorandi/logic');
+  const { forceRound } = await import('@dorandi/logic/testing');
+  const { synergyBot } = await import('../src/stage3/econBot');
+  const s = createGame(data, 1);
+  forceRound(s, 11);
+  s.buckwheat = 3;
+  const bot = synergyBot(1, { market: true, quests: true, tame: true, maxDraws: true });
+  expect(bot.decide(s)).toEqual(Array(3).fill({ type: 'buy', item: 'draw' }));
+});
