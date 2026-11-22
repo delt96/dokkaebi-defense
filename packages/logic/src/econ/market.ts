@@ -3,6 +3,7 @@ import { gradeValue } from '../data';
 import { nextFloat, nextInt } from '../rng';
 import { registerAfterCommands, registerCommand } from '../registry';
 import { receive } from '../units';
+import { unitValue } from './ledger';
 import { gambleView, type GambleView } from './gamble';
 
 type MarketDef = NonNullable<EconomyDef['market']>;
@@ -54,7 +55,7 @@ registerCommand('buy', (state, cmd, events) => {
   state.buckwheat -= m.draw.buckwheatCost;
   econ.market = { day: marketDay(state), draws: drawsToday(state) + 1 };
   events.push({ type: 'buy', item: 'draw', defId, spentBuckwheat: m.draw.buckwheatCost, jige });
-  receive(state, defId, events, gradeValue(grade));
+  receive(state, defId, events, unitValue(state.data, defId));
   return null;
 });
 

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { applyCommand, canonicalJson, createGame, loadGameData, marketView, replayMatch, roundStartTick, step, validateData, type Command, type GameEvent } from '../src';
+import { applyCommand, canonicalJson, createGame, createMatch, loadGameData, marketView, replayMatch, roundStartTick, step, stepMatch, validateData, type Command, type GameEvent } from '../src';
 import { unitValue } from '../src/econ/ledger';
 import { forceRound, placeUnitForTest, withoutMarketLock } from '../src/testing';
 import { nextFloat } from '../src/rng';
@@ -102,10 +102,30 @@ test('the old pinned data refuses both commands without changing the lane', () =
   const old = structuredClone(data);
   delete old.economy!.market!.gamble;
   const s = createGame(old, 51);
+  forceRound(s, 30);
+  s.econ!.marketOpen = true;
+  s.coins = 500;
   const before = canonicalJson(s);
   expect(applyCommand(s, bet, [])).toBe('badArgs');
   expect(applyCommand(s, small, [])).toBe('badArgs');
   expect(canonicalJson(s)).toBe(before);
+});
+
+test('payout and refund round down for odd prices', () => {
+  const d = structuredClone(data);
+  d.economy!.market!.gamble!.coins.stakes.push(11);
+  d.economy!.market!.gamble!.units.tables.small.price = 63;
+  const s = createGame(d, 51);
+  forceRound(s, 30);
+  s.econ!.marketOpen = true;
+  s.econ!.rng.gambleCoins = fixedRoll(.38, .58);
+  s.econ!.rng.gambleUnit = fixedRoll(0, .4);
+  s.coins = 100;
+  const events: GameEvent[] = [];
+  expect(applyCommand(s, { ...bet, stake: 11 }, events)).toBeNull();
+  expect(applyCommand(s, small, events)).toBeNull();
+  expect(events).toMatchObject([{ payout: 5 }, { refund: 12 }]);
+  expect(s.coins).toBe(43);
 });
 
 test('accepted gambles replay deterministically and change the recorded state', () => {
@@ -116,6 +136,11 @@ test('accepted gambles replay deterministically and change the recorded state', 
     ...Array.from({ length: 10 }, (_, i) => ({ seat: 1, seq: i + 1, cmd: { type: 'convertToken' as const } })),
     { seat: 1, seq: 11, cmd: small }, { seat: 1, seq: 12, cmd: bet },
   ];
+  const match = createMatch(d, 932, [1, 2]);
+  while (match.tick < tick) stepMatch(match, []);
+  const resolved = stepMatch(match, inputs);
+  expect(resolved.acks.slice(-2).map(a => a.ok)).toEqual([true, true]);
+  expect(match.lanes[2]!.econ!.gamble).toBeUndefined();
   const log = [{ tick, inputs }];
   const hashes = replayMatch(d, 932, [1, 2], log, 200);
   expect(replayMatch(d, 932, [1, 2], log, 200)).toEqual(hashes);
