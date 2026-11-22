@@ -135,7 +135,7 @@ describe('online mountUi', () => {
     expect(document.querySelector('#right')!.textContent).toContain('관전');
   });
 
-  test('the online card keeps three quick recipes and makes every recipe reachable in details', () => {
+  test('the online card lists all recipes with three hotkeys and opens details from the overflow line', () => {
     const full = fixtureFull();
     ['bujigaengi', 'sotlid', 'horong', 'buchae', 'jipsin'].forEach((defId, i) => {
       full.mine.units[i] = { id: 30 + i, defId };
@@ -143,14 +143,27 @@ describe('online mountUi', () => {
     const { room, scene } = mountOnline(full);
     scene.select(0);
     // online the left panel holds the six lanes, so the unit card stays under the board
-    expect(document.querySelectorAll('#bottom [data-action="combine"]')).toHaveLength(3);
+    const quick = Array.from(document.querySelectorAll('#bottom [data-action="combine"]'), btn => btn.textContent!.trim());
+    expect(quick).toHaveLength(4);
+    expect(quick.slice(0, 3).map(text => text.slice(0, 3))).toEqual(['[Z]', '[X]', '[C]']);
+    expect(quick[3]).not.toMatch(/^\[/);
     expect(document.querySelector('#left .unit-panel')).toBeNull();
-    press(document.querySelector('#bottom [data-action="unitDetails"]'));
+    press(document.querySelector('#bottom .recipe-more'));
     const options = document.querySelectorAll('#modal [data-action="combine"]');
     expect(options.length).toBeGreaterThan(3);
     press(options[3]!);
     expect(room.cmds('combine')[0]?.args).toMatchObject({ slot: 0, unitId: 30 });
     expect(document.querySelector('#modal .modal')).toBeNull();
+  });
+
+  test('inspecting a stored stack shows its info and sends nothing to the room', () => {
+    const full = fixtureFull();
+    full.mine.storage = [{ id: 30, defId: 'ki' }];
+    const { room } = mountOnline(full);
+    const before = room.sent.length;
+    press(document.querySelector('#storage [data-stack="ki"]'));
+    expect(document.querySelector('#bottom .storage-info')!.textContent).toContain('키 ×1');
+    expect(room.sent).toHaveLength(before);
   });
 
   test('a spirit round banner does not promise the survivor coin reward', () => {

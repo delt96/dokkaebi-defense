@@ -1,0 +1,97 @@
+// @vitest-environment happy-dom
+import { createGame, laneOf, loadGameData, step } from '@dorandi/logic';
+import { placeUnitForTest } from '@dorandi/logic/testing';
+import { expect, test, vi } from 'vitest';
+import { GameDriver } from '../src/driver';
+import { mountUi } from '../src/ui/mount';
+import { attackRangeText, combineOptions, pinnedTarget, unitSkillText } from '../src/ui/models';
+import { storageInfoModel } from '../src/ui/storage';
+import { key, press, STAGE_HTML } from './fixtures/net';
+
+const d3 = loadGameData('stage3');
+
+test('attack range uses the exact combat distance in reference tiles, ally auras use board cells', () => {
+  const data = structuredClone(d3);
+  data.balance.grid = { ...data.balance.grid, cols: 8, frame: { cols: 6, rows: 4 } };
+  const unit = data.units.find(u => u.skills.some(s => s.effects.some(e => e.kind === 'auraAttackSpeed')))!;
+  expect(laneOf({ data }).pitch).toBeLessThan(1);
+  expect(attackRangeText(unit.range)).toBe(`${unit.range}기준칸`);
+  expect(unitSkillText(data, unit)).toContain(`주변 ${data.balance.auraRadius}칸`);
+});
+
+test('all recipes sort by readiness then missing material count, with cost gaps and stored materials', () => {
+  const data = structuredClone(d3);
+  const ids = ['gamasot', 'hwaro', 'meongseok', 'jangdok', 'jipsin'];
+  data.recipes = [
+    { result: ids[3]!, materials: ['ki', 'sotlid', 'sotlid'] },
+    { result: ids[0]!, materials: ['ki', 'bujigaengi'], cost: { coins: 10 } },
+    { result: ids[2]!, materials: ['ki', 'bujigaengi'] },
+    { result: ids[1]!, materials: ['ki', 'ki'] },
+    { result: ids[4]!, materials: ['ki', 'sotlid'], cost: { coins: 20 } },
+  ];
+  const state = createGame(data, 1);
+  state.coins = 0;
+  placeUnitForTest(state, 'bujigaengi', 1);
+  step(state, [{ type: 'store', slot: 1 }]);
+  placeUnitForTest(state, 'ki', 0);
+  const list = combineOptions(state, 0);
+  expect(list.map(r => [r.result, r.key, r.missing.length])).toEqual([
+    [ids[2], 'Z', 0], [ids[0], null, 0], [ids[1], null, 1], [ids[4], null, 1], [ids[3], null, 2],
+  ]);
+  expect(list[3]!.short).toContain('20냥');
+  expect(list[4]!.missing).toEqual(['솥뚜껑', '솥뚜껑']);
+});
+
+test('storage info follows the selected stack and its count', () => {
+  const state = createGame(d3, 1);
+  placeUnitForTest(state, 'ki', 0);
+  placeUnitForTest(state, 'ki', 1);
+  step(state, [{ type: 'storeAll' }]);
+  expect(storageInfoModel(state, 'ki')).toMatchObject({ name: '키', count: 2, grade: 1, sellPrice: d3.balance.sellPrice[0] });
+  expect(storageInfoModel(state, 'sotlid')).toBeNull();
+});
+
+test('the pinned tree assigns inventory only once and prioritizes top-level materials', () => {
+  const state = createGame(d3, 1);
+  placeUnitForTest(state, 'sotlid', 0);
+  placeUnitForTest(state, 'ki', 1);
+  step(state, [{ type: 'store', slot: 1 }]);
+  const target = pinnedTarget(d3, 'jangdok', state.slots, state.storage);
+  expect(target?.location).toBe('missing');
+  expect(target?.children.map(n => [n.id, n.location])).toEqual([
+    ['gamasot', 'missing'], ['ki', 'storage'], ['sotlid', 'board'],
+  ]);
+  expect(target?.children[0]?.children[0]).toMatchObject({ id: 'sotlid', location: 'missing' });
+  placeUnitForTest(state, 'jangdok', 2);
+  expect(pinnedTarget(d3, 'jangdok', state.slots, state.storage)?.location).toBe('board');
+});
+
+test('pinning from details replaces the dex target, follows inventory, and survives Esc', () => {
+  document.body.innerHTML = STAGE_HTML;
+  const state = createGame(d3, 1);
+  const unit = placeUnitForTest(state, 'ki', 0);
+  const scene = { selectedId: unit.id, onSelect() {}, onEvents() {} };
+  const driver = new GameDriver(state);
+  const queue = vi.spyOn(driver, 'queue');
+  mountUi(driver, scene as never);
+  scene.selectedId = unit.id;
+  const overlay = document.getElementById('target-overlay')!;
+  key('KeyD');
+  press(document.querySelector('[data-dex-id="gamasot"] .pin-btn'));
+  key('Escape');
+  expect(overlay.textContent).toContain('가마솥');
+  key('Tab');
+  press(document.querySelector('#modal .pin-btn[data-arg="jangdok"]'));
+  key('Escape');
+  key('Escape');
+  expect(overlay.querySelector('.target-head')!.textContent).toContain('장독');
+  expect(overlay.querySelector('.target-board')!.textContent).toContain('진영');
+  step(state, [{ type: 'store', slot: 0 }]);
+  key('Escape');
+  expect(overlay.querySelector('.target-storage')!.textContent).toContain('보관함');
+  press(overlay.querySelector('[data-action="foldTarget"]'));
+  expect(overlay.querySelector('.target-scroll')).toBeNull();
+  press(overlay.querySelector('[data-action="clearTarget"]'));
+  expect(overlay.textContent).toBe('');
+  expect(queue).not.toHaveBeenCalled();
+});

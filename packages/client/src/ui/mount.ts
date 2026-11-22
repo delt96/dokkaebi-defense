@@ -19,12 +19,13 @@ import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
 import { renderAlert, renderHud } from './hud';
 import {
-  activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, nextUnitId, rejectText, selectedSlot, type DexNav, type Notice,
+  activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, nextUnitId, pinnedTarget, rejectText, selectedSlot, type DexNav, type Notice,
 } from './models';
 import { renderBottom, renderRight, unitDetailsHtml, unitPanelHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
 import { readHelpLine, settingsHtml, writeHelpLine } from './settings';
-import { STORE_ALL_KEY, storageHtml, wireStorage } from './storage';
+import { STORE_ALL_KEY, storageHtml, storageInfoHtml, storageInfoModel, wireStorage } from './storage';
+import { readTarget, targetHtml, writeTarget } from './target';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
   Digit1: 'physical', Digit2: 'magical', Digit3: 'polish', Digit4: 'slots',
@@ -49,12 +50,15 @@ const PRESS_MS = 120;
 
 /** Online screens also read the server view for the scoreboard and the two-line top bar. */
 export interface OnlineActions { support(): void; watch(seat: number): void; forfeit(): void }
-export interface MountOpts { online?: boolean; view?: () => ClientView | null; data?: GameData; actions?: OnlineActions }
+export interface MountOpts { online?: boolean; view?: () => ClientView | null; data?: GameData; actions?: OnlineActions; targetKey?: string }
 
 export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, opts: MountOpts = {}): { resetUi: () => void } {
   const online = opts.online === true;
   scene.selectedId = null;
   let displayedCard: ReturnType<typeof renderBottom> | null = null;
+  let inspectedStack: string | null = null;
+  let targetId = readTarget(opts.targetKey);
+  let targetFolded = false;
   let banner: Notice | null = null;
   // the dex keeps its filters, search and recent searches across openings (and, in localStorage, across visits)
   let dex: DexNav = { ...dexNavStart(), ...loadView() };
@@ -89,7 +93,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   driver.onGambleNotice?.(text => scene.showGambleNotice(text));
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
-  for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor']) {
+  for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
     if (document.getElementById(id)) continue;
     const node = document.createElement('div');
     node.id = id;
@@ -126,10 +130,19 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'storeAll': driver.queue({ type: 'storeAll' }); break;
       case 'retrieve': {
         const [defId = '', slot] = arg.split('@');
-        driver.queue(slot === undefined ? { type: 'retrieve', defId } : { type: 'retrieve', defId, slot: Number(slot) });
+        if (slot !== undefined) driver.queue({ type: 'retrieve', defId, slot: Number(slot) });
         break;
       }
       case 'sellStored': driver.queue({ type: 'sellStored', defId: arg }); break;
+      case 'closeStorageInfo': inspectedStack = null; break;
+      case 'pinTarget':
+        if (modal === 'dex') dex = { ...dex, ...typedNow() };
+        targetId = targetId === arg ? null : arg;
+        writeTarget(opts.targetKey, targetId);
+        targetFolded = false;
+        break;
+      case 'foldTarget': targetFolded = !targetFolded; break;
+      case 'clearTarget': targetId = null; writeTarget(opts.targetKey, null); break;
       case 'toggleMarket':
         econTab = econTab ? null : 'market';
         if (econTab) helperOpen = false;
@@ -271,11 +284,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (on && !driver.readOnly) driver.queue({ type: 'helperOpened' });
   }
 
-  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor']) onAction(el(id), act);
+  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) onAction(el(id), act);
   // the storage column belongs to the own living lane; it takes presses while no window is open
   const storageVisible = () => !driver.readOnly && driver.state.phase !== 'ended';
   const storageLive = () => storageVisible() && !driver.failed && modal === null;
-  wireStorage(el('storage'), el('stage'), () => laneOf(driver.state), (defId, slot) => act('retrieve', slot === undefined ? defId : `${defId}@${slot}`), storageLive);
+  wireStorage(el('storage'), el('stage'), () => laneOf(driver.state), (defId, slot) => act('retrieve', `${defId}@${slot}`), defId => {
+    inspectedStack = defId;
+    scene.selectedId = null;
+    render();
+  }, storageLive);
   // the scene says when a dragged board unit is over the column, and whether it may go in
   scene.onStorageHover = hover => {
     if (hover) el('storage').dataset.drop = hover;
@@ -295,6 +312,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   });
   scene.onSelect(slot => {
     if (modal || driver.failed || driver.state.phase === 'ended') return;
+    inspectedStack = null;
     scene.selectedId = slot === null ? null : driver.state.slots[slot]?.id ?? null;
     render();
   });
@@ -387,7 +405,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
     if (ev.code === 'Escape') {
       if (modal) act('closeModal', '');
-      else { scene.selectedId = null; render(); }
+      else { scene.selectedId = null; inspectedStack = null; render(); }
       return;
     }
     if (modal === 'upgrades') {
@@ -443,13 +461,21 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (modal === 'jige' && (!jigeList || jigeStale(jigeList))) { modal = null; jigeList = null; }
     const now = performance.now();
     const view = online && opts.data ? opts.view?.() ?? null : null;
+    const info = selected === null && storageVisible() ? storageInfoModel(s, inspectedStack) : null;
+    if (!info) inspectedStack = null;
+    const infoHtml = info ? storageInfoHtml(s, info) : '';
+    const target = targetId && pinnedTarget(
+      s.data, targetId, driver.readOnly && view ? view.mine.units : s.slots, driver.readOnly && view ? view.mine.storage : s.storage,
+    );
+    setHtml(el('target-overlay'), target && s.phase !== 'ended' ? targetHtml(target, targetFolded) : '');
+    el('stage').classList.toggle('has-target', !!el('target-overlay').firstChild);
     if (view && opts.data) {
       renderTop(view, opts.data);
       renderRows(view, opts.data, helperOpen ? helperPopHtml(s) : '');
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      renderHelper(s, helperOpen, s.phase === 'ended' ? '' : unitPanelHtml(s, selected, { compact: helperOpen, jige: held }));
+      renderHelper(s, helperOpen, s.phase === 'ended' ? '' : infoHtml || unitPanelHtml(s, selected, { compact: helperOpen, jige: held }));
     }
     // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
     // lane is full, so the line goes to the notices in the right column instead
@@ -474,13 +500,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (spiritCard) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), spiritCard);
+    } else if (online && info) {
+      displayedCard = { unitId: null, recipes: [] };
+      setHtml(el('bottom'), infoHtml);
     } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held);
     setHtml(el('storage'), storageVisible() ? storageHtml(s, held) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
     const dialogOpen = modal !== null || soloResult;
-    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor']) el(id).inert = dialogOpen;
+    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) el(id).inert = dialogOpen;
     // a redraw of the dex (a board change moves the tree marks) keeps its scroll position
     const dexShown = !soloResult && modal === 'dex';
     const listKey = `${dex.filter}
@@ -490,7 +519,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: helperOpen, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus, huntRows(econ()!, s)) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: helperOpen, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected, targetId) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus, huntRows(econ()!, s)) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
@@ -602,6 +631,10 @@ ${dex.mine.join()}`;
   render();
   function resetUi(): void {
     scene.selectedId = null;
+    inspectedStack = null;
+    targetId = null;
+    writeTarget(opts.targetKey, null);
+    targetFolded = false;
     helperOpen = false;
     banner = null;
     modal = null;

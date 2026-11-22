@@ -1,8 +1,9 @@
-import type { GameState } from '@dorandi/logic';
+import { unitDefFast, type GameState } from '@dorandi/logic';
 import type { Lane } from '@dorandi/logic';
 import { GRADE_COLOR, STAGE_W, stageToCell } from '../layout';
 import { esc } from './dom';
-import { storageStacks } from './models';
+import { storageStacks, unitSkillText } from './models';
+import { typeBadgeHtml } from './badge';
 
 /** Unit ids with a sprite file (glob keys only, nothing is imported); others get a grade-coloured disc. */
 const SPRITE_IDS: ReadonlySet<string> = new Set(
@@ -23,19 +24,37 @@ export function unitFaceHtml(defId: string, name: string, grade: number): string
   return `<span class="unit-face" style="--g:${GRADE_COLOR[grade]}">${iconHtml(defId, name, grade)}</span>`;
 }
 
+export function storageInfoModel(state: GameState, defId: string | null) {
+  if (defId === null) return null;
+  const stack = storageStacks(state).find(s => s.defId === defId);
+  if (!stack) return null;
+  const def = unitDefFast(state.data, stack.defId);
+  return { ...stack, skill: unitSkillText(state.data, def).split(' / ')[0] || '특수 능력 없음' };
+}
+
+export function storageInfoHtml(state: GameState, info: NonNullable<ReturnType<typeof storageInfoModel>>): string {
+  return `<div class="storage-info">
+    <div class="up-name">${unitFaceHtml(info.defId, info.name, info.grade)}<b>${esc(info.name)} ×${info.count}</b></div>
+    <div class="up-sub">${info.grade}등급 · ${typeBadgeHtml(state.data, info.defId)}</div>
+    <p class="up-skill" title="${esc(info.skill)}">${esc(info.skill)}</p>
+    <button data-action="sellStored" data-arg="${esc(info.defId)}">1개 판매 +${info.sellPrice}냥</button>
+    <button data-action="closeStorageInfo" aria-label="보관 정보 닫기">×</button>
+  </div>`;
+}
+
 /** The storage column: a 모두 보관 button and one stack per kind (sprite, grade colour, ×N, a small sell button). */
 /** `jige` is the 지게 held on a 60-round lane (each stack then gets its swap button), undefined elsewhere. */
 export function storageHtml(state: GameState, jige?: number): string {
   const stacks = storageStacks(state);
   const total = stacks.reduce((n, s) => n + s.count, 0);
   const list = stacks.map(s => `<div class="stack" style="--g:${GRADE_COLOR[s.grade]}">
-      <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(s.name)} ×${s.count} · 누르면 꺼내기, 끌어서 칸에 놓기"><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span></button>
+      <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(s.name)} ×${s.count} · 눌러서 정보, 끌어서 꺼내기"><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span></button>
       <button class="stack-sell" data-action="sellStored" data-arg="${esc(s.defId)}" title="${esc(s.name)} 1개 판매 +${s.sellPrice}냥" aria-label="${esc(s.name)} 1개 판매 +${s.sellPrice}냥">냥</button>${jige === undefined ? '' : `
       <button class="stack-swap" data-action="jigeOpen" data-arg="storage:${esc(s.defId)}" title="${esc(s.name)} 지게 바꾸기 · 보유 지게 ${jige}개" aria-label="${esc(s.name)} 지게 바꾸기"${jige < 1 ? ' disabled' : ''}>R</button>`}
     </div>`).join('');
   return `<div class="storage-head"><b>보관함</b>${total ? `<span>${total}</span>` : ''}</div>
     <button class="storage-all" data-action="storeAll" title="판 위의 1·2등급을 모두 보관 (${STORE_ALL_KEY})">1·2등급<br>모두 보관</button>
-    ${list ? `<div class="stacks${stacks.length > ROOMY_STACKS ? ' dense' : ''}">${list}</div>` : '<p class="storage-empty">1·2등급 유닛을 여기로 끌어 놓으세요</p>'}`;
+    ${list ? `<div class="storage-hint">눌러서 정보<br>끌어서 꺼내기</div><div class="stacks${stacks.length > ROOMY_STACKS ? ' dense' : ''}">${list}</div>` : '<p class="storage-empty">1·2등급 유닛을 여기로 끌어 놓으세요</p>'}`;
 }
 
 /** The board cell under a page point, or null outside the board (the stage is scaled to the window). */
@@ -48,11 +67,11 @@ export function cellAtPage(lane: Lane, stage: HTMLElement, clientX: number, clie
 const DRAG_PX = 4;
 
 /**
- * Press handling for the stacks: a press without movement takes one unit out to the best free slot, a drag drops it on
- * the board cell under the pointer. Keyboard clicks take one out like a press.
+ * A press or keyboard click inspects the stack. A drag drops one unit on the board cell under the pointer.
  */
 export function wireStorage(
-  box: HTMLElement, stage: HTMLElement, lane: () => Lane, take: (defId: string, slot?: number) => void, enabled: () => boolean,
+  box: HTMLElement, stage: HTMLElement, lane: () => Lane, take: (defId: string, slot: number) => void,
+  inspect: (defId: string) => void, enabled: () => boolean,
 ): void {
   let drag: { defId: string; x: number; y: number; ghost: HTMLElement | null; html: string } | null = null;
   const end = () => {
@@ -83,7 +102,7 @@ export function wireStorage(
     const { defId, ghost } = drag;
     end();
     if (!enabled()) return;
-    if (!ghost) { take(defId); return; }
+    if (!ghost) { inspect(defId); return; }
     const cell = cellAtPage(lane(), stage, ev.clientX, ev.clientY);
     if (cell !== null) take(defId, cell);
   }
@@ -101,6 +120,6 @@ export function wireStorage(
   // keyboard and assistive technology click without a pointer press
   box.addEventListener('click', ev => {
     const button = (ev.target as HTMLElement).closest<HTMLElement>('[data-stack]');
-    if (ev.detail === 0 && button && enabled()) take(button.dataset.stack!);
+    if (ev.detail === 0 && button && enabled()) inspect(button.dataset.stack!);
   });
 }

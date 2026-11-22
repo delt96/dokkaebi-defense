@@ -94,9 +94,14 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .up-stats { display: grid; font-variant-numeric: tabular-nums; }
 .up-skill { margin: 0; color: var(--ink-dim); line-height: 1.4; word-break: keep-all; }
 .up-skill.compact { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.unit-panel .combine-options { display: flex; flex-direction: column; gap: 2px; }
-.unit-panel .combine-options button { width: 100%; text-align: left; white-space: normal; line-height: 1.3; padding: 2px 4px; }
-.unit-panel .combine-missing { color: var(--ink-dim); line-height: 1.3; }
+.card-recipes { min-width: 0; }
+.card-recipes .combine-options { display: flex; flex-direction: column; overflow-y: auto; max-height: 72px; }
+.card-recipes .combine-options > * { display: block; flex: 0 0 18px; min-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; padding: 0 3px; line-height: 16px; }
+.card-recipes .combine-missing { color: var(--ink-dim); }
+.recipe-more { width: 100%; min-height: 16px; }
+.recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.pin-btn { flex: none; min-height: 15px; padding: 0 4px; }
+.pin-btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .up-jige { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
 .up-actions { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; }
 .up-actions button { flex: 1 0 auto; }
@@ -125,9 +130,10 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 #bottom .unit-info { display: grid; flex: none; line-height: 12px; }
 #bottom .unit-info > :last-child { color: #bfbbca; font-variant-numeric: tabular-nums; }
 #bottom .skill { min-width: 0; max-width: 115px; overflow: hidden; text-overflow: ellipsis; color: var(--ink-dim); }
-#bottom .combine-options { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; }
-#bottom .combine-options > *, #bottom [data-action="sell"] { flex-shrink: 0; }
-#bottom .combine-missing { color: var(--ink-dim); }
+#bottom .card-recipes { flex: 1; display: flex; align-items: center; gap: 2px; }
+#bottom .card-recipes .combine-options { flex: 1; min-width: 0; max-height: 36px; }
+#bottom .recipe-more, #bottom [data-action="sell"] { flex-shrink: 0; }
+#bottom .recipe-more { width: auto; }
 #bottom [data-action="sell"] { margin-left: auto; }
 #bottom .hint { color: var(--ink-dim); }
 
@@ -270,6 +276,8 @@ button.combine-blocked[disabled] { opacity: 0.85; border-style: dashed; color: v
 body.online #bottom [data-action="unitDetails"] { margin-left: auto; }
 body.online #bottom [data-action="sell"] { margin-left: 0; }
 body.online #bottom .card button { min-height: 28px; }
+body.online #bottom .card .card-recipes button { min-height: 18px; }
+body.online #bottom .card .recipe-more { margin: 0; }
 .watch-heading { color: var(--accent); font-size: 12px; }
 .watch-hint { margin: 2px 0; font-size: 11px; line-height: 1.55; word-break: keep-all; }
 #bottom .card.spirit { font-size: 12px; }
@@ -384,6 +392,27 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 /* Storage column left of the board (layout STORAGE_BOX). */
 #storage { position: absolute; left: 130px; top: 70px; width: 66px; height: 200px; z-index: 1; display: flex; flex-direction: column; gap: 2px; padding: 2px; background: #15101ecc; border: 1px dashed #3e3350; font-size: 9px; }
 #storage:empty { display: none; }
+.storage-hint { color: var(--ink-dim); font-size: 9px; line-height: 11px; text-align: center; }
+.storage-info { display: grid; justify-items: start; gap: 4px; padding: 4px; border: 1px solid var(--panel-edge); position: relative; min-width: 0; }
+.storage-info .up-skill { margin: 0; }
+.storage-info [data-action="closeStorageInfo"] { position: absolute; right: 3px; top: 3px; min-height: 16px; }
+#bottom .storage-info { height: 100%; display: flex; align-items: center; gap: 8px; border: 0; padding: 0 8px; }
+#bottom .storage-info .up-skill { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#bottom .storage-info [data-action="closeStorageInfo"] { position: static; }
+#target-overlay { position: absolute; left: 198px; top: 26px; width: 124px; z-index: 1; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 10px; }
+#target-overlay:empty { display: none; }
+.has-target #round-banner { left: 324px; width: 202px; }
+.target-head, .target-material { display: flex; align-items: center; justify-content: space-between; gap: 3px; }
+.target-head button { min-height: 16px; padding: 0 4px; }
+.target-head button:first-child { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.target-scroll { max-height: 52px; overflow: auto; padding: 2px 4px; line-height: 12px; }
+.target-scroll ul { list-style: none; margin: 0; padding: 0; }
+.target-scroll ul ul { border-left: 1px solid var(--panel-edge); padding-left: 4px; }
+.target-material b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: normal; }
+.target-material span { flex: none; }
+.target-board, .target-owned { color: #9fe0a8; }
+.target-storage { color: #9bd3ff; }
+.target-missing { color: #ffad97; }
 /* while a board unit is dragged the column lets the pointer through, so the lane keeps getting its moves */
 #storage.board-drag, #storage.board-drag * { pointer-events: none; }
 #storage.board-drag { opacity: 0.8; }

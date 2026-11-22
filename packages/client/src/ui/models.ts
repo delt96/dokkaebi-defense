@@ -30,7 +30,10 @@ function triggerText(t: Trigger): string {
  * `nameOf` turns a source id into a unit name for the "does not stack with" notes; `extended` is the stage 3 data's
  * extendedCombat, which spells out the radius of area slows (stage 1-2 text stays as it was).
  */
-export interface SkillCtx { interval: number; pulseSeconds: number; nameOf?: (id: string) => string; extended?: boolean }
+export interface SkillCtx { interval: number; pulseSeconds: number; nameOf?: (id: string) => string; extended?: boolean; auraRadius?: number }
+
+export const attackRangeText = (range: number): string => `${range}기준칸`;
+export const ATTACK_RANGE_HINT = '유닛 중심에서 적까지 직선거리입니다. 노란 길 표시가 닿는 범위입니다.';
 
 /** Who a status lands on (stage 3 `radius` / `area`); empty for the plain target. */
 function areaText(a: StatusArea): string {
@@ -88,8 +91,8 @@ function effectText(e: Effect, trigger: Trigger, ctx?: SkillCtx): string {
     case 'dot': return areaText(e) + dotText(e, trigger, ctx);
     case 'groundFire': return fireText(e);
     case 'onKillExplode': return `${e.requireExecute ? '처형으로 ' : ''}처치하면 주변 폭발 ${pct(e.mult)}`;
-    case 'auraAttackSpeed': return `주변 ${e.damageType ? `${typeName(e.damageType)} ` : ''}아군 공격 속도 +${pct(e.pct)}`;
-    case 'auraAttackPower': return `주변 ${e.damageType === 'all' ? '' : `${typeName(e.damageType)} `}아군 공격력 +${pct(e.pct)}${paren(sourceNote(e.source, ctx))}`;
+    case 'auraAttackSpeed': return `주변 ${ctx?.auraRadius === undefined ? '' : `${ctx.auraRadius}칸 `}${e.damageType ? `${typeName(e.damageType)} ` : ''}아군 공격 속도 +${pct(e.pct)}`;
+    case 'auraAttackPower': return `주변 ${ctx?.auraRadius === undefined ? '' : `${ctx.auraRadius}칸 `}${e.damageType === 'all' ? '' : `${typeName(e.damageType)} `}아군 공격력 +${pct(e.pct)}${paren(sourceNote(e.source, ctx))}`;
     case 'auraEnemyVuln': return `사거리 안 적이 받는 ${e.damageType ? typeName(e.damageType) : '피해'} +${pct(e.pct)}${paren(sourceNote(e.source, ctx))}`;
     case 'strike': return `대상에게 공격력 ${pct(e.mult)} 추가 피해`;
     case 'chain': return `${e.range}칸 안의 다음 적에게 차례로 ${pct(e.mult)} (최대 ${e.maxBounces}번)`;
@@ -107,7 +110,7 @@ export function skillText(skills: SkillDef[], ctx?: SkillCtx): string {
 const nameIn = (data: GameData) => (id: string): string => data.units.find(u => u.id === id)?.name ?? id;
 
 function ctxOf(data: GameData, def: UnitDef): SkillCtx {
-  return { interval: def.interval, pulseSeconds: data.balance.pulseSeconds, nameOf: nameIn(data), extended: data.balance.extendedCombat === true };
+  return { interval: def.interval, pulseSeconds: data.balance.pulseSeconds, nameOf: nameIn(data), extended: data.balance.extendedCombat === true, auraRadius: data.balance.auraRadius };
 }
 
 /** Stage 3 extra damage on every basic attack, shown as its own line (v5 6장 "도감 도움말"). */
@@ -196,13 +199,13 @@ export function combineNotes(data: GameData, result: string): CombineNotes | nul
 }
 
 /** Inherited lines read like the material's own effect: no source note, no re-applied dot note, stage 3 radii. */
-const INHERIT_CTX = (data: GameData): SkillCtx => ({ interval: Number.POSITIVE_INFINITY, pulseSeconds: data.balance.pulseSeconds, extended: true });
+const INHERIT_CTX = (data: GameData): SkillCtx => ({ interval: Number.POSITIVE_INFINITY, pulseSeconds: data.balance.pulseSeconds, extended: true, auraRadius: data.balance.auraRadius });
 
 /** The combine notes as card lines; empty for stage 1-2. */
 export function combineNoteLines(data: GameData, result: string): string[] {
   const n = combineNotes(data, result);
   if (!n) return [];
-  const lines = [`사거리 ${n.range}칸`];
+  const lines = [`사거리 ${attackRangeText(n.range)}`];
   if (n.inherited.length) lines.push(`이어받는 지원 효과: ${n.inherited.join(' / ')}`);
   if (n.lostAuras.length) lines.push(`조합하면 사라지는 오라: ${n.lostAuras.join(' / ')}`);
   if (n.lostControls.length) lines.push(`조합하면 사라지는 제어: ${n.lostControls.join(', ')}`);
@@ -333,27 +336,28 @@ export function helperModel(state: GameState): HelperItem[] {
 
 const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
 
-/** `cost` is only set on recipes with a cost (stage 3 grades 5 and 6); `short` when every material is there but not the cost. */
+/** `short` describes any currency shortfall. */
 export interface CombineOption { result: string; name: string; grade: number; missing: string[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
 
 export function combineOptions(state: GameState, slot: number): CombineOption[] {
-  let ready = 0;
-  const recipes = recipesUsing(state, slot);
-  const readyFirst = [...recipes.filter(r => !r.missing.length), ...recipes.filter(r => r.missing.length)];
-  return readyFirst.map(({ result, missing }) => {
+  const options = recipesUsing(state, slot).map(({ result, missing }): CombineOption => {
     const { name, grade } = unitDefFast(state.data, result);
     const recipe = state.data.recipes.find(r => r.result === result);
     const cost = costText(recipe);
-    const short = cost && missing.length === 0 ? costShortText(state, recipe) : null;
+    const short = costShortText(state, recipe);
     return {
       result, name, grade,
       missing: missing.map(id => unitDefFast(state.data, id).name),
-      // a recipe that cannot be paid gets no hotkey, so Z/X/C always mean "combine now"
-      key: missing.length === 0 && !short ? COMBINE_KEYS[ready++] ?? null : null,
+      key: null,
       ...(cost ? { cost } : {}),
       ...(short ? { short } : {}),
     };
   });
+  const ready = (option: CombineOption) => !option.missing.length && !option.short;
+  options.sort((a, b) => Number(ready(b)) - Number(ready(a)) || a.missing.length - b.missing.length);
+  let nextKey = 0;
+  for (const option of options) if (ready(option)) option.key = COMBINE_KEYS[nextKey++] ?? null;
+  return options;
 }
 
 const UPGRADE_TEXT: Record<UpgradeId, (p: number, n: number) => string> = {
@@ -488,35 +492,74 @@ const TREE_DEPTH = 8;
  * only, the higher nodes first (owning a grade 4 material saves its whole branch), left to right within a level.
  */
 export function recipeTree(data: GameData, id: string, board: readonly string[] = []): RecipeNode[] | null {
+  const tree = materialTree(data, id);
+  if (!tree) return null;
+  const reserve = materialPool(board);
+  markMaterials(tree.children, node => reserve(node.id));
+  return tree.children;
+}
+
+function materialTree(data: GameData, id: string): RecipeNode | null {
   const recipeOf = (unit: string) => data.recipes.find(r => r.result === unit);
-  const root = recipeOf(id);
-  if (!root) return null;
-  const pool = new Map<string, number>();
-  for (const unit of board) pool.set(unit, (pool.get(unit) ?? 0) + 1);
+  if (!recipeOf(id)) return null;
   const build = (unit: string, depth: number, path: string): RecipeNode => {
     const def = unitDefFast(data, unit);
     const recipe = recipeOf(unit);
     return {
       id: unit, name: def.name, grade: def.grade, hidden: def.hidden === true, cost: costText(recipe), path, mark: 'missing',
-      children: recipe && depth < TREE_DEPTH ? recipe.materials.map((m, i) => build(m, depth + 1, `${path}.${i}`)) : [],
+      children: recipe && depth < TREE_DEPTH ? recipe.materials.map((m, i) => build(m, depth + 1, path ? `${path}.${i}` : String(i))) : [],
     };
   };
-  const top = root.materials.map((m, i) => build(m, 1, String(i)));
+  return build(id, 0, '');
+}
+
+function materialPool(ids: readonly string[]): (id: string) => boolean {
+  const pool = new Map<string, number>();
+  for (const id of ids) pool.set(id, (pool.get(id) ?? 0) + 1);
+  return id => {
+    const count = pool.get(id) ?? 0;
+    if (!count) return false;
+    pool.set(id, count - 1);
+    return true;
+  };
+}
+
+function markMaterials(top: RecipeNode[], reserve: (node: RecipeNode) => boolean): void {
   const cover = (node: RecipeNode) => { node.mark = 'covered'; node.children.forEach(cover); };
   let level = top;
   while (level.length) {
     const next: RecipeNode[] = [];
     for (const node of level) {
-      const left = pool.get(node.id) ?? 0;
-      if (left > 0) {
-        pool.set(node.id, left - 1);
+      if (reserve(node)) {
         node.mark = 'have';
         node.children.forEach(cover);
       } else next.push(...node.children);
     }
     level = next;
   }
-  return top;
+}
+
+type MaterialLocation = 'board' | 'storage' | 'missing';
+export interface TargetNode { id: string; name: string; location: MaterialLocation; children: TargetNode[] }
+
+export function pinnedTarget(
+  data: GameData, id: string, board: readonly ({ defId: string } | null)[], storage: readonly { defId: string }[] = [],
+): TargetNode | null {
+  const tree = materialTree(data, id);
+  if (!tree) return null;
+  const fromBoard = materialPool(board.flatMap(unit => unit ? [unit.defId] : []));
+  const fromStorage = materialPool(storage.map(unit => unit.defId));
+  const locations = new Map<RecipeNode, MaterialLocation>();
+  markMaterials([tree], node => {
+    const location = fromBoard(node.id) ? 'board' : fromStorage(node.id) ? 'storage' : 'missing';
+    locations.set(node, location);
+    return location !== 'missing';
+  });
+  const display = (node: RecipeNode): TargetNode => ({
+    id: node.id, name: node.name, location: locations.get(node) ?? 'missing',
+    children: node.children.filter(child => child.mark !== 'covered').map(display),
+  });
+  return display(tree);
 }
 
 /** Def ids of the units a combine can use: the board's, then the stored ones. */

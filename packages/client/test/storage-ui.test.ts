@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { buildFull, createGame, createMatch, loadGameData, step, type GameState } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
@@ -135,7 +135,7 @@ describe('storage on the page', () => {
   const pointer = (target: EventTarget, type: string, x = 0, y = 0) =>
     target.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: y }));
 
-  test('모두 보관, a press on a stack takes one out, the coin button sells one', () => {
+  test('pointer and keyboard clicks show stack info without queuing a command, then info can sell one', () => {
     const { driver, s } = mount();
     placeUnitForTest(s, 'ki', 0);
     placeUnitForTest(s, 'ki', 1);
@@ -147,17 +147,20 @@ describe('storage on the page', () => {
     // the page redraws on the next frame; Esc draws it now
     keydown(window, { code: 'Escape' });
     const take = box().querySelector<HTMLElement>('[data-stack="ki"]')!;
+    const queue = vi.spyOn(driver, 'queue');
     expect(box().querySelector('.stack-n')!.textContent).toBe('×2');
     pointer(take, 'pointerdown', 10, 10);
     pointer(window, 'pointerup', 11, 10);
+    take.click();
+    driver.update(50);
+    expect(queue).not.toHaveBeenCalled();
+    expect(s.storage!.map(u => u.defId)).toEqual(['ki', 'ki']);
+    expect(s.slots.filter(u => u?.defId === 'ki')).toHaveLength(0);
+    expect(document.querySelector('.storage-info')!.textContent).toContain('키 ×2');
+    const coins = s.coins;
+    document.querySelector<HTMLElement>('.storage-info [data-action="sellStored"]')!.click();
     driver.update(50);
     expect(s.storage!.map(u => u.defId)).toEqual(['ki']);
-    expect(s.slots.filter(u => u?.defId === 'ki')).toHaveLength(1);
-    const coins = s.coins;
-    keydown(window, { code: 'Escape' });
-    box().querySelector<HTMLElement>('[data-action="sellStored"]')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
-    driver.update(50);
-    expect(s.storage).toEqual([]);
     expect(s.coins).toBe(coins + d1.balance.sellPrice[0]!);
   });
 

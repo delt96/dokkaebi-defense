@@ -45,6 +45,7 @@ export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: 
 
   mountUi(driver, scene, {}, {
     online: true, view: () => net.view, data,
+    targetKey: `dorandi.target:${net.roomId}:${net.view?.me.seat}`,
     actions: {
       support: () => { if (net.view) net.send({ type: 'support', target: net.view.watching }); },
       watch: seat => net.watch(seat),

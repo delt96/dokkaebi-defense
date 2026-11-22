@@ -1,10 +1,11 @@
 import { jigeCandidates, type GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
+import { ATTACK_RANGE_HINT, attackRangeText, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, unitFaceHtml } from './storage';
 import { roleText } from './dex-roles';
+import { pinButton } from './target';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `quests`: the 60-round quest box, laid at the
  * bottom above the dex button; the settings gear sits under both. */
@@ -30,8 +31,9 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
 function recipeHtml(state: GameState, option: CombineOption, unitId: number | null, short: boolean): string {
   const badge = typeBadgeHtml(state.data, option.result, short);
   if (option.missing.length) {
-    const cost = option.cost ? ` · 비용 ${esc(option.cost)}` : '';
-    return `<span class="combine-missing">${esc(option.name)} ${badge} (모자람: ${option.missing.map(esc).join(', ')}${cost})</span>`;
+    const currency = option.short ?? (option.cost ? `비용 ${option.cost}` : '');
+    const missing = `${option.missing.join(', ')} 부족${currency ? ` · ${currency}` : ''}`;
+    return `<span class="combine-missing" title="${esc(`${option.name} · ${missing}`)}">${esc(option.name)} ${badge} · ${esc(missing)}</span>`;
   }
   // every material is there but not the cost: the button stays, disabled, and says what is missing
   if (option.short) {
@@ -44,9 +46,9 @@ function recipeHtml(state: GameState, option: CombineOption, unitId: number | nu
 const notesHtml = (lines: string[]): string => (lines.length ? `<ul class="card-notes">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '');
 
 /** A stat cell of the 상세 window; `bonus` is the upgrade/aura part as a fraction, shown only when there is one. */
-function statHtml(label: string, value: string, bonus = 0, bonusLabel = ''): string {
+function statHtml(label: string, value: string, bonus = 0, bonusLabel = '', hint = ''): string {
   const extra = bonus > 0 ? ` <span class="ud-bonus" title="강화·오라 포함">${bonusLabel}+${Math.round(bonus * 100)}%</span>` : '';
-  return `<div class="ud-stat"><dt>${label}</dt><dd>${value}${extra}</dd></div>`;
+  return `<div class="ud-stat"${hint ? ` title="${esc(hint)}"` : ''}><dt>${label}</dt><dd>${value}${extra}</dd></div>`;
 }
 
 const sectionHtml = (title: string, body: string): string => `<section class="ud-sec"><h3>${title}</h3>${body}</section>`;
@@ -55,17 +57,17 @@ const sectionHtml = (title: string, body: string): string => `<section class="ud
  * The 상세 window: a fixed head (grade dot, name, grade, type badge, close) over a body that scrolls on its own —
  * stats, then 능력 (one line per effect), 메모 (stage 3 notes) and 조합.
  */
-export function unitDetailsHtml(state: GameState, selected: number): string {
+export function unitDetailsHtml(state: GameState, selected: number, target: string | null = null): string {
   const card = unitCard(state, selected)!;
   const unit = state.slots[selected]!;
   const options = combineOptions(state, selected).map(option => {
     const notes = combineNoteLines(state.data, option.result);
-    return notes.length ? `<div class="recipe">${recipeHtml(state, option, unit.id, false)}${notesHtml(notes)}</div>` : recipeHtml(state, option, unit.id, false);
+    return `<div class="recipe"><div class="recipe-head">${recipeHtml(state, option, unit.id, false)}${pinButton(option.result, target)}</div>${notesHtml(notes)}</div>`;
   });
   const head = `<div class="modal-head ud-head">${unitFaceHtml(unit.defId, card.name, card.grade)}<b class="ud-name">${esc(card.name)}</b>
     <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
     <button class="ud-close" data-action="closeModal">Tab·Esc 닫기</button></div>`;
-  const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', `${card.range}칸`)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>`;
+  const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', attackRangeText(card.range), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>`;
   const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
   const lines = card.skillText ? card.skillText.split(' / ') : [];
   const skill = lines.length ? `<ul class="ud-lines">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="ud-empty">특수 능력 없음</p>';
@@ -92,9 +94,12 @@ export function cardRecipes(state: GameState, selected: number | null): { unitId
   };
 }
 
-/** Online, and solo on the 60-round data (its card has 상세), the card lists only what can be pressed now or is short of its cost. */
-function quickRecipes(state: GameState, recipes: CombineOption[], online: boolean): CombineOption[] {
-  return online || state.data.balance.extendedCombat ? recipes.filter(option => option.key !== null || option.short) : recipes;
+function compactRecipes(state: GameState, recipes: CombineOption[], unitId: number | null, visible: number): string {
+  if (!recipes.length) return '';
+  const rows = recipes.map(option => recipeHtml(state, option, unitId, true)).join('');
+  const more = recipes.length - visible;
+  return `<div class="card-recipes"><div class="combine-options" data-scroll-key="${unitId}" tabindex="0" aria-label="다음 조합">${rows}</div>
+    ${more > 0 ? `<button class="recipe-more" data-action="unitDetails">+${more}개 더</button>` : ''}</div>`;
 }
 
 function jigeHtml(state: GameState, selected: number, unitId: number | null, jige: number | undefined): string {
@@ -115,11 +120,11 @@ export function renderBottom(state: GameState, selected: number | null, online =
     return pick;
   }
   const { unitId, recipes } = pick;
-  const options = quickRecipes(state, recipes, true).map(option => recipeHtml(state, option, unitId, true)).join('');
+  const options = compactRecipes(state, recipes, unitId, 2);
   setHtml(el('bottom'), `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
         <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</span>
-        <span>공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${card.range}칸</span></span>
-        ${options ? `<div class="combine-options">${options}</div>` : ''}
+        <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${attackRangeText(card.range)}</span></span>
+        ${options}
         <button data-action="unitDetails">상세(Tab)</button>
         ${jigeHtml(state, selected!, unitId, jige)}
         <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`);
@@ -134,15 +139,15 @@ export function unitPanelHtml(state: GameState, selected: number | null, opts: {
   const card = selected === null ? null : unitCard(state, selected);
   if (!card) return '<div class="unit-panel empty">유닛을 누르면 여기에 정보가 나옵니다</div>';
   const { unitId, recipes } = cardRecipes(state, selected);
-  const options = quickRecipes(state, recipes, false).map(option => recipeHtml(state, option, unitId, true)).join('');
+  const options = compactRecipes(state, recipes, unitId, 4);
   const details = state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세(Tab)</button>' : '';
   const jige = jigeHtml(state, selected!, unitId, opts.jige);
   return `<div class="unit-panel${opts.compact ? ' compact' : ''}">
     <div class="up-name">${unitFaceHtml(state.slots[selected!]!.defId, card.name, card.grade)}<b>${esc(card.name)}</b></div>
     <div class="up-sub">${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</div>
-    <div class="up-stats"><span>공격 ${card.attack} · ${card.interval}초마다</span><span>사거리 ${card.range}칸</span></div>
+    <div class="up-stats"><span>공격 ${card.attack} · ${card.interval}초마다</span><span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(card.range)}</span></div>
     <p class="up-skill${opts.compact ? ' compact' : ''}" title="${esc(card.skillText)}">${esc(card.skillText)}</p>
-    ${options ? `<div class="combine-options">${options}</div>` : ''}
+    ${options}
     ${jige ? `<div class="up-jige">${jige}</div>` : ''}
     <div class="up-actions">${details}<button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div></div>`;
 }

@@ -281,7 +281,12 @@ export class LaneScene extends Phaser.Scene {
       if (!view) return;
       const cell = view === this.dragging ? canvasToCell(this.lane, view.x, view.y) : slot;
       if (cell !== null && this.state.open[cell]) {
-        this.drawCoverage(cell, unitDefFast(this.state.data, unit.defId).range, alpha);
+        const range = unitDefFast(this.state.data, unit.defId).range;
+        if (id === this.selectedId) {
+          const center = laneToCanvas(this.lane.cells[cell]!);
+          this.coverage.lineStyle(1, 0xffe08a, 0.32).strokeCircle(center.x, center.y, range * CELL);
+        }
+        this.drawCoverage(cell, range, alpha);
       }
       if (id === this.selectedId) {
         const half = cellPx(this.lane) / 2 - 1;

@@ -122,7 +122,7 @@ test('the card and physical keys combine at the selected slot while the helper u
   const card = panels.get('left')!;
   expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}">[Z] 가마솥 <span class="type-badge`);
   expect(card.innerHTML).toContain('화로 <span class="type-badge');
-  expect(card.innerHTML).toContain('(모자람: 호롱)');
+  expect(card.innerHTML).toContain('호롱 부족');
   expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
   click('left', `gamasot@${chosen.id}`);
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
@@ -236,7 +236,7 @@ test('ready recipes precede missing materials on the card', () => {
   select(0);
   const html = panels.get('left')!.innerHTML;
   expect(html).toContain('[Z] 풀무');
-  expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('combine-missing">절구'));
+  expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('class="combine-missing"'));
 });
 
 import { activeNotice, nextUnitId, selectedSlot, rightModel, rejectText } from '../src/ui/models';

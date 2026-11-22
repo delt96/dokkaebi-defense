@@ -1,16 +1,17 @@
 import type { GameData, GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { MINE_KEYS, MINE_LABEL, branchKey, dexEntries, dexShows, recipeTree, roleList, summonOddsText, treeSize, type DexStep, type RecipeNode } from './models';
+import { ATTACK_RANGE_HINT, MINE_KEYS, MINE_LABEL, attackRangeText, branchKey, dexEntries, dexShows, recipeTree, roleList, summonOddsText, treeSize, type DexStep, type RecipeNode } from './models';
 import { esc } from './dom';
 import { ROLE_LABEL, ROLE_ORDER, roleText } from './dex-roles';
 import { withRo } from './josa';
+import { pinButton } from './target';
 
 /**
  * Material links and trees: `back` is the link history (its last step names the back button), `open` the entries whose
  * material tree is shown, `board` the def ids on the player's board that the tree marks with ✓, `unfold` the branches
  * under a ✓ material that are unfolded (branchKey; the rest stay folded).
  */
-export interface DexExtra { recent?: readonly string[]; back?: readonly DexStep[]; open?: readonly string[]; board?: readonly string[]; unfold?: readonly string[]; /** 상세검색 is open */ adv?: boolean; /** the game, for the 내 판 기준 chips */ state?: GameState }
+export interface DexExtra { recent?: readonly string[]; back?: readonly DexStep[]; open?: readonly string[]; board?: readonly string[]; unfold?: readonly string[]; /** 상세검색 is open */ adv?: boolean; /** the game, for the 내 판 기준 chips */ state?: GameState; target?: string | null }
 
 export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, extra: DexExtra = {}, more: { kind?: string; role?: string; skill?: string; mine?: readonly string[] } = {}): string {
   const entries = dexEntries(data);
@@ -37,8 +38,8 @@ export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, e
     // one row per unit: an open tree sits right under the recipe line (where it was opened), then the skill line
     return `
     <tr data-dex-id="${esc(d.id)}"><td><span class="dot" style="background:${GRADE_COLOR[d.grade]}"></span>${d.grade}</td>
-    <td><div class="dex-name">${esc(d.name)}</div>${d.roles.length ? `<div class="dex-roles">${d.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
-    <div class="dex-skill">${d.typeText} · 사거리 ${d.range}칸${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>`;
+    <td><div class="dex-name">${esc(d.name)}</div>${d.roles.length ? `<div class="dex-roles">${d.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${d.recipeIds.length ? pinButton(d.id, extra.target ?? null) : ''}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
+    <div class="dex-skill">${d.typeText} · <span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(d.range)}</span>${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>`;
   }).join('');
   const grades = [...new Set(entries.map(d => d.grade))].sort((a, b) => a - b);
   const filters = ['all', ...grades.map(String), 'hidden'].map(key => {

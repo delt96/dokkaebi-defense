@@ -14,11 +14,11 @@ describe('stage 3 skill text', () => {
   test('splash radius cycle, inherited supports and their source notes (천년 상모)', () => {
     expect(text('cheonnyeonsangmo')).toBe(
       '대상에게 공격력 45% 추가 피해, 주변 0.5→1→1.5→2칸을 번갈아 공격력 65%, 받는 마딜 +15% 3초 (망건의 효과와 겹치지 않음)'
-      + ' / 오라: 주변 마딜 아군 공격력 +13% (갓의 효과와 겹치지 않음)',
+      + ' / 오라: 주변 1.5칸 마딜 아군 공격력 +13% (갓의 효과와 겹치지 않음)',
     );
     expect(combineNoteLines(d3, 'cheonnyeonsangmo')).toEqual([
-      '사거리 2.5칸',
-      '이어받는 지원 효과: 망건의 받는 마딜 +15% 3초 / 갓의 주변 마딜 아군 공격력 +13%',
+      '사거리 2.5기준칸',
+      '이어받는 지원 효과: 망건의 받는 마딜 +15% 3초 / 갓의 주변 1.5칸 마딜 아군 공격력 +13%',
       '조합하면 사라지는 제어: 스턴 (가위)',
     ]);
   });
@@ -41,18 +41,18 @@ describe('stage 3 skill text', () => {
     expect(text('kkeul')).toBe('4번째 공격마다 뒤따르는 2.5칸 관통 120%, 대상 말고 맞은 적에게 둔화 28% 2초');
     expect(text('jinegaksi')).toContain('맞은 적 모두 받는 물딜 +16% 3초');
     expect(text('cheonnyeonjing')).toContain('받는 물딜 +4% 4초 (최대 5중첩, 모루의 효과와 겹치지 않음)');
-    expect(text('mulle')).toBe('3번째 공격마다 한 번 더 공격 / 오라: 주변 물딜 아군 공격 속도 +12%');
+    expect(text('mulle')).toBe('3번째 공격마다 한 번 더 공격 / 오라: 주변 1.5칸 물딜 아군 공격 속도 +12%');
     expect(text('buk')).toContain('오라: 사거리 안 적이 받는 물딜 +15%');
   });
 
   test('combine cards: auras that vanish, supports carried on, controls lost', () => {
-    expect(combineNotes(d3, 'daljip')!.lostAuras).toEqual(['청사초롱의 주변 아군 공격 속도 +10%']);
-    expect(combineNotes(d3, 'gat')!.lostAuras).toEqual(['인두의 주변 마딜 아군 공격 속도 +15%']);
+    expect(combineNotes(d3, 'daljip')!.lostAuras).toEqual(['청사초롱의 주변 1.5칸 아군 공격 속도 +10%']);
+    expect(combineNotes(d3, 'gat')!.lostAuras).toEqual(['인두의 주변 1.5칸 마딜 아군 공격 속도 +15%']);
     expect(combineNotes(d3, 'jejuyeonggam')).toMatchObject({
       inherited: ['북의 사거리 안 적이 받는 물딜 +15%'], lostAuras: [], lostControls: ['스턴 (북)', '밀어내기 (바가지)'],
     });
     const dex = dexEntries(d3).find(e => e.id === 'daljip')!;
-    expect(dex.notes).toContain('조합하면 사라지는 오라: 청사초롱의 주변 아군 공격 속도 +10%');
+    expect(dex.notes).toContain('조합하면 사라지는 오라: 청사초롱의 주변 1.5칸 아군 공격 속도 +10%');
     expect(dex.notes).toContain('오라는 종류마다 한 번만, 합쳐서 공격 속도 +50%·공격력 +40%까지');
   });
 
@@ -78,10 +78,10 @@ describe('combine cost', () => {
     const top = () => combineOptions(s, 7).find(o => o.result === 'top')!;
     expect(top()).toMatchObject({ missing: [], key: null, cost: '메밀묵 1개', short: '메밀묵 1개 모자람' });
     expect(helperModel(s)).toContainEqual({ recipe: 'top', name: '톱', grade: 5, cost: '메밀묵 1개', short: '메밀묵 1개 모자람' });
-    // a recipe still missing materials only says what it costs
+    // a recipe can be short of materials and currency at the same time
     const heobeok = combineOptions(s, 0).find(o => o.result === 'jejuheobeok')!;
     expect(heobeok).toMatchObject({ missing: ['옹기가마'], cost: '메밀묵 1개', key: null });
-    expect(heobeok.short).toBeUndefined();
+    expect(heobeok.short).toBe('메밀묵 1개 모자람');
     s.buckwheat = 1;
     expect(top()).toEqual({ result: 'top', name: '톱', grade: 5, missing: [], key: 'Z', cost: '메밀묵 1개' });
     expect(helperModel(s)).toContainEqual({ recipe: 'top', name: '톱', grade: 5, cost: '메밀묵 1개' });
@@ -117,7 +117,7 @@ describe('sprites', () => {
 
 describe('review fixes: aura for all, lockouts, cooldowns, slow radii, tamed units', () => {
   test('an aura for every damage type reads without a type; lockout and cooldown are shown', () => {
-    expect(text('bihyeongrang')).toContain('오라: 주변 아군 공격력 +10%');
+    expect(text('bihyeongrang')).toContain('오라: 주변 1.5칸 아군 공격력 +10%');
     expect(text('bihyeongrang')).toContain('이웃의 기본 공격 8번마다 (발동 뒤 2초 쉼) ');
     expect(text('duduri')).toContain('약화된 적이 쓰러지면 주변 1.5칸 폭발 80% (1.1초에 한 번)');
   });
