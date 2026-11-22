@@ -1,3 +1,4 @@
+import { gameAudio } from '../audio/engine';
 import { NetClient, knownDataVersions, stageOfVersion, type NetEvent } from '../net/NetClient';
 import { connectCreate, connectJoin, devCreateOptions, type RoomLike } from '../net/room';
 import { clearSession, lastName, loadSession } from '../net/session';
@@ -41,6 +42,7 @@ export function startOnline(opts: { roomId?: string }): void {
   let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
   const showEntry = (error?: string, name?: string): void => {
+    if (error) gameAudio.play('error');
     screen = 'entry';
     net = null;
     renderEntry(root, {
@@ -100,6 +102,8 @@ export function startOnline(opts: { roomId?: string }): void {
    * on this page (a second battle would double every key handler), so a new room is a fresh page load.
    */
   const showMessage = (text: string, newRoomLink = false): void => {
+    gameAudio.musicMode(null);
+    gameAudio.play('error');
     stopped = true;
     band.textContent = '';
     root.replaceChildren();
@@ -172,6 +176,7 @@ export function startOnline(opts: { roomId?: string }): void {
         if (e.msg.kind === 'replaced') { showMessage(TEXT.replaced); break; }
         // a second "start" answers notInLobby; once the match runs it is not worth a message
         if (e.msg.kind === 'roomError' && e.msg.reason === 'notReady' && screen === 'lobby') flashNotice(TEXT.notReady);
+        if (e.msg.kind === 'roomError') gameAudio.play('error');
         break;
       case 'left':
         if (screen === 'lobby' || screen === 'connecting') showEntry(TEXT.connectFail);

@@ -7,7 +7,9 @@ import { rightNotices } from '../online/models';
 import { renderRows, renderTop } from '../online/panels';
 import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
-import { playSfx, primeGambleSfx } from '../sfx';
+import { gameAudio } from '../audio/engine';
+import { wireAudioSettings } from '../audio/settings-ui';
+import { playGamblePress, playGambleResult } from '../sfx';
 import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
@@ -81,7 +83,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
 
   function gamble(cmd: GambleCommand): void {
     if (!econTab || !econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
-    primeGambleSfx();
+    playGamblePress(cmd.type);
     reveal = startReveal(performance.now());
     driver.queue(cmd);
   }
@@ -89,6 +91,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   driver.onGambleNotice?.(text => scene.showGambleNotice(text));
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
+  const refuse = (text: string) => { gameAudio.play('error'); say(text); };
   for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor']) {
     if (document.getElementById(id)) continue;
     const node = document.createElement('div');
@@ -144,7 +147,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const t = e ? tameModel(e, driver.state) : null;
         if (!t) break;
         // the hotkey on a chance that is not ready says what is missing instead of sending a doomed command
-        if (!t.ready) { say(t.label); break; }
+        if (!t.ready) { refuse(t.label); break; }
         driver.queue({ type: 'tame', enemyId: t.enemyId });
         break;
       }
@@ -202,7 +205,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const index = zone === 'board' ? selectedSlot(s, Number(ref)) ?? -1 : (s.storage ?? []).findIndex(u => u.defId === ref);
         const unit = (zone === 'board' ? s.slots : s.storage ?? [])[index];
         if (!e || !unit || (zone !== 'board' && zone !== 'storage')) break;
-        if (e.jige < 1) { say(rejectText('noJige') ?? ''); break; }
+        if (e.jige < 1) { refuse(rejectText('noJige') ?? ''); break; }
         jigeList = {
           source: { zone, index, unitId: unit.id }, defId: unit.defId, cost: unit.cost ?? null,
           seat: driver.laneSeat, epoch: driver.laneEpoch, name: '', type: null,
@@ -219,7 +222,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         jigeList = null;
         if (!list) break;
         // the list belongs to one unit on one lane snapshot: anything else changed and the pick is not sent
-        if (jigeStale(list)) { say('유닛이 바뀌어 지게 바꾸기를 취소했습니다'); break; }
+        if (jigeStale(list)) { refuse('유닛이 바뀌어 지게 바꾸기를 취소했습니다'); break; }
         driver.queue({ type: 'jigeSwap', source: { ...list.source }, result: arg });
         break;
       }
@@ -325,6 +328,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (!driver.readOnly && (event.type === 'gambleCoins' || event.type === 'gambleUnit')) {
         const now = performance.now();
         reveal = advanceReveal(reveal, now, driver.state.data, event);
+        gameAudio.play('dice');
         drew = true;
       }
       if (!NOTE_TYPES.has(event.type) || driver.readOnly) continue;
@@ -348,10 +352,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const grade = unitDefFast(driver.state.data, e.defId).grade;
         if (!best || grade > best.grade) best = { id: e.defId, grade };
       }
-      if (e.type === 'summon') playSfx(e.grade >= 3 ? 'summon3' : e.grade === 2 ? 'summon2' : 'summon1');
-      if (e.type === 'combine') playSfx('combine');
-      if (e.type === 'kill') playSfx('kill');
-      if (e.type === 'ended') playSfx(e.result.outcome === 'clear' ? 'clear' : 'defeat');
     }
     hooks.onEvents?.(events);
   });
@@ -376,6 +376,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     setHtml(el('modal').querySelector<HTMLElement>('.jige-rows')!, jigeRowsHtml(driver.state.data, jigeList));
   });
   window.addEventListener('keydown', ev => {
+    if (modal === 'settings' && ev.code === 'Escape' && !ev.isComposing) {
+      ev.preventDefault();
+      act('closeModal', '');
+      return;
+    }
     if (modal === 'dex' && ev.code === 'Escape' && !ev.isComposing && (ev.target as HTMLElement)?.closest?.('.dex-search, .dex-skillsearch')) {
       ev.preventDefault();
       act('closeModal', '');
@@ -498,6 +503,8 @@ ${dex.mine.join()}`;
     if (modal === 'quests' && questFocus && modal !== shownModal) {
       el('modal').querySelector<HTMLElement>(`.quest-row[data-quest="${questFocus}"]`)?.scrollIntoView?.({ block: 'nearest' });
     }
+    if (modal === 'settings' && !soloResult) wireAudioSettings(el('modal'));
+    if (shownModal === 'settings' && (modal !== 'settings' || soloResult)) gameAudio.previewTrack();
     shownModal = modal;
     dexListKey = dexShown ? listKey : '';
     hooks.onRender?.();
@@ -559,7 +566,8 @@ ${dex.mine.join()}`;
     if (prior?.phase === 'rolling' && reveal?.phase === 'result' && display) {
       const id = reveal.event.type === 'gambleUnit' ? reveal.event.unitId : undefined;
       scene.showGambleResult(reveal.tier, display.announcement, id);
-      playSfx(reveal.tier === 'big' ? 'gambleBig' : reveal.tier === 'small' ? 'gambleSmall' : 'gambleLose', scene.reduceEffects);
+      const grade = reveal.event.type === 'gambleUnit' && reveal.event.defId ? unitDefFast(s.data, reveal.event.defId).grade : undefined;
+      playGambleResult(reveal.tier, grade);
     }
     if (e && econTab) setHtml(el('econ-panel'), econPanelHtml(marketModel(e, s), display));
     return 0;

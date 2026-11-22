@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { createGame, isDifficulty, loadGameData } from '@dorandi/logic';
+import { bindBattleAudio } from './audio/battle';
 import { GameDriver } from './driver';
 import { LaneScene, LANE_CANVAS } from './LaneScene';
 import { stagePlacement } from './layout';
@@ -14,10 +15,12 @@ export function startSolo(): void {
   const difficulty = isDifficulty(pick) ? pick : undefined;
   const newSeed = () => (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
   const driver = new GameDriver(createGame(data, newSeed(), difficulty));
+  const resetAudio = bindBattleAudio(driver);
   const scene = new LaneScene(driver);
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
+    audio: { noAudio: true },
     parent: 'lane',
     width: LANE_CANVAS.width,
     height: LANE_CANVAS.height,
@@ -40,6 +43,7 @@ export function startSolo(): void {
 
   function restart(): void {
     driver.reset(createGame(data, newSeed(), difficulty));
+    resetAudio();
     scene.reset();
     ui.resetUi();
   }

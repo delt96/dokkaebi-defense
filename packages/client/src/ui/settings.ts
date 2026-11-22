@@ -1,3 +1,4 @@
+import { audioSettingsHtml } from '../audio/settings-ui';
 import { SPEEDS } from '../driver';
 
 /** A small gear: eight teeth from a thick dashed ring around a hollow hub. */
@@ -36,5 +37,6 @@ const onOff = (action: string, on: boolean): string => choiceHtml(action, 'on', 
 export function settingsHtml(opts: SettingsOpts): string {
   const speed = opts.speed === undefined ? '' : rowHtml('speed', '배속', SPEEDS.map(n => choiceHtml('speed', String(n), `${n}×`, opts.speed === n)).join(''));
   return `<div class="modal settings-pop" role="dialog" aria-label="설정"><div class="modal-head">설정 <button data-action="closeModal">닫기</button></div>
-    ${rowHtml('helper', '조합 도우미', onOff('setHelper', opts.helper))}${speed}${rowHtml('fx', '효과 줄이기', onOff('setFx', opts.reducedFx))}${rowHtml('help', '도움말', onOff('setHelp', opts.help))}</div>`;
+    ${rowHtml('helper', '조합 도우미', onOff('setHelper', opts.helper))}${speed}${rowHtml('fx', '효과 줄이기', onOff('setFx', opts.reducedFx))}${rowHtml('help', '도움말', onOff('setHelp', opts.help))}
+    ${audioSettingsHtml()}</div>`;
 }
