@@ -36,12 +36,15 @@ describe('parseClientCommand', () => {
     expect(parseClientCommand({ seq: 2, type: 'buy', args: { item: 'gold' } })!.cmd).toEqual({ type: 'invalid' });
     expect(parseClientCommand({ seq: 5, type: 'tame', args: { enemyId: 1.5 } })!.cmd).toEqual({ type: 'invalid' });
     expect(parseClientCommand({ seq: 6, type: 'tame', args: { enemyId: 12 } })!.cmd).toEqual({ type: 'tame', enemyId: 12 });
-    expect(parseClientCommand({ seq: 8, type: 'missionEnter' })!.cmd).toEqual({ type: 'missionEnter' });
+    expect(parseClientCommand({ seq: 8, type: 'hunt', args: { enemy: 'ev_soebap' } })!.cmd).toEqual({ type: 'hunt', enemy: 'ev_soebap' });
+    expect(parseClientCommand({ seq: 9, type: 'missionEnter' })!.cmd).toEqual({ type: 'invalid' });
     const bad = [
       { type: 'buy' }, { type: 'buy', args: { item: 'draw', n: 2 } },
       { type: 'storyTarget', args: {} }, { type: 'storyTarget', args: { id: '' } }, { type: 'storyTarget', args: { id: 'x'.repeat(33) } },
       { type: 'storyTarget', args: { id: 'a', unitIds: [1, 2, 3, 4] } }, { type: 'storyTarget', args: { id: 'a', unitIds: [1.5] } },
       { type: 'storyTarget', args: { id: 3 } }, { type: 'storyDecline', args: { x: 1 } }, { type: 'missionEnter', args: { x: 1 } },
+      { type: 'hunt' }, { type: 'hunt', args: {} }, { type: 'hunt', args: { enemy: 3 } }, { type: 'hunt', args: { enemy: '' } },
+      { type: 'hunt', args: { enemy: 'x'.repeat(33) } }, { type: 'hunt', args: { enemy: 'ev_soebap', level: 2 } },
       { type: 'tame', args: {} },
     ];
     for (const raw of bad) expect(parseClientCommand({ seq: 1, ...raw })).toEqual({ seq: 1, cmd: { type: 'invalid' } });
@@ -49,7 +52,7 @@ describe('parseClientCommand', () => {
   test('toWire round-trips every new command through parseClientCommand', () => {
     const cmds: Parameters<typeof toWire>[0][] = [
       { type: 'buy', item: 'draw' },
-      { type: 'missionEnter' },
+      { type: 'hunt', enemy: 'ev_oenun' },
       { type: 'tame', enemyId: -3 },
     ];
     for (const cmd of cmds) expect(parseClientCommand({ seq: 1, ...toWire(cmd) })!.cmd).toEqual(cmd);

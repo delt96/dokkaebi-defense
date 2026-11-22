@@ -27,78 +27,23 @@ function toLastTick(s: GameState): GameEvent[] {
   return step(s, []).events;
 }
 
-describe('personal mission', () => {
-  test('mission entry: 20 coins inside the first 5 s of round 12 brings a 3000-hp beast', () => {
-    const s = lane(12);
-    s.tick = s.roundStartTick + 99;
-    const r = step(s, [{ type: 'missionEnter' }]);
-    expect(r.rejected).toEqual([]);
-    expect(s.coins).toBe(80);
-    expect(beastOf(s)!.hp).toBe(3000);
-    expect(s.econ!.mission).toMatchObject({ phase: 'active', beastId: beastOf(s)!.id, beastDown: false });
-    expect(step(s, [{ type: 'missionEnter' }]).rejected[0]!.reason).toBe('missionClosed');
-
-    const late = lane(12);
-    late.tick = late.roundStartTick + 100;
-    expect(step(late, [{ type: 'missionEnter' }]).rejected[0]!.reason).toBe('missionClosed');
-    expect(late.coins).toBe(100);
-
-    const poor = lane(12, 19);
-    expect(step(poor, [{ type: 'missionEnter' }]).rejected[0]!.reason).toBe('noCoins');
-    expect(step(lane(11), [{ type: 'missionEnter' }]).rejected[0]!.reason).toBe('missionClosed');
-  });
-
-  test('mission pays 30 coins and 1 buckwheat when 20 normal kills and the beast fall by round end', () => {
-    const s = lane(12);
-    step(s, [{ type: 'missionEnter' }]);
-    const coins0 = s.coins;
-    beastOf(s)!.hp = 0;
-    step(s, []);
-    expect(s.coins).toBe(coins0);
-    expect(s.econ!.mission.beastDown).toBe(true);
-    killNormals(s, 20);
-    expect(s.econ!.roundKills).toBe(20);
-    const before = s.coins;
-    const ev = toLastTick(s);
-    expect(s.coins).toBe(before + 30);
-    expect(s.buckwheat).toBe(1);
-    expect(rewards(ev)).toEqual([{ type: 'questReward', quest: 'mission', coins: 30, buckwheat: 1, tokens: 0 }]);
-    expect(s.econ!.mission.phase).toBe('won');
-  });
-
-  test('19 kills or a living beast at round end pays nothing; the beast flees and is not in round 13', () => {
-    const s = lane(12);
-    step(s, [{ type: 'missionEnter' }]);
-    killNormals(s, 25);
-    const id = beastOf(s)!.id;
-    const before = s.coins;
-    const ev = toLastTick(s);
-    expect(s.coins).toBe(before);
-    expect(s.econ!.mission.phase).toBe('lost');
-    expect(ev).toContainEqual({ type: 'flee', enemyId: id });
-    expect(beastOf(s)).toBeUndefined();
-    const n = countNormalEnemies(s);
-    step(s, []);
-    expect(s.round).toBe(13);
-    expect(beastOf(s)).toBeUndefined();
-    expect(countNormalEnemies(s)).toBeGreaterThanOrEqual(n);
-    expect(s.econ!.events).toEqual([]);
-
-    const t = lane(12);
-    step(t, [{ type: 'missionEnter' }]);
-    beastOf(t)!.hp = 0;
-    killNormals(t, 19);
-    const c = t.coins;
-    expect(rewards(toLastTick(t))).toEqual([]);
-    expect([t.coins, t.buckwheat, t.econ!.mission.phase]).toEqual([c, 0, 'lost']);
-  });
-
+describe('kill counts', () => {
   test('event kills and boss kills do not count toward roundKills', () => {
     const s = lane(12);
-    step(s, [{ type: 'missionEnter' }]);
+    expect(step(s, [{ type: 'hunt', enemy: 'ev_soebap' }]).rejected).toEqual([]);
     beastOf(s)!.hp = 0;
     spawnEnemyForTest(s, 'jinegaksi', 3).hp = 0;
     step(s, []);
+    expect(s.econ!.roundKills).toBe(0);
+  });
+
+  test('normal kills count toward roundKills and reset at the next round', () => {
+    const s = lane(12);
+    killNormals(s, 3);
+    expect(s.econ!.roundKills).toBe(3);
+    toLastTick(s);
+    step(s, []);
+    expect(s.round).toBe(13);
     expect(s.econ!.roundKills).toBe(0);
   });
 });
@@ -200,38 +145,6 @@ test('former story nights leave no request state', () => {
 
 describe('quest outcomes stay on the lane', () => {
   const rec = (s: GameState, id: string) => (s.econ!.questResults as Record<string, unknown>)[id];
-
-  test('mission: missed entry, timed out and won keep their last counts after the round changes', () => {
-    const missed = lane(12, 100);
-    toLastTick(missed);
-    expect(rec(missed, 'mission')).toMatchObject({ outcome: 'missedEntry', reward: { coins: 0, buckwheat: 0, tokens: 0 } });
-    const early = lane(12, 100);
-    early.tick = early.roundStartTick + 99;
-    expect(step(early, [{ type: 'missionEnter' }]).rejected).toEqual([]);
-
-    const late = lane(12, 100);
-    late.tick = late.roundStartTick + 100;
-    expect(step(late, [{ type: 'missionEnter' }]).rejected[0]!.reason).toBe('missionClosed');
-
-    const lost = lane(12, 100);
-    step(lost, [{ type: 'missionEnter' }]);
-    expect(rec(lost, 'mission')).toMatchObject({ outcome: 'active' });
-    killNormals(lost, 5);
-    toLastTick(lost);
-    expect(rec(lost, 'mission')).toMatchObject({ outcome: 'timedOut', progress: { kills: 5, beastDown: false } });
-
-    const won = lane(12, 100);
-    step(won, [{ type: 'missionEnter' }]);
-    killNormals(won, 20);
-    beastOf(won)!.hp = 0;
-    step(won, []);
-    toLastTick(won);
-    expect(rec(won, 'mission')).toEqual({ outcome: 'won', reward: { coins: 30, buckwheat: 1, tokens: 0 }, progress: { kills: 20, beastDown: true } });
-    step(won, []);
-    expect(won.round).toBe(13);
-    expect(won.econ!.roundKills).toBe(0);
-    expect(rec(won, 'mission')).toMatchObject({ outcome: 'won', progress: { kills: 20 } });
-  });
 
   test('collection: checks survive a sale, swaps never check a box, round 29 closes it', () => {
     const s = lane(21, 100);

@@ -16,6 +16,7 @@ import './econ/market';
 import './econ/jige';
 import './econ/quests';
 import './econ/tame';
+import './econ/hunts';
 
 export { laneOf } from './lane';
 export { registerAfterCommands, registerCommand, registerPhase } from './registry';

@@ -104,7 +104,7 @@ describe('economy ledger', () => {
   test('economyVariant drops only the switched-off sections; stripEconomy removes economy', () => {
     const base = loadGameData('stage3');
     const d = economyVariant(base, { market: false, team: false });
-    expect(d.economy!.market).toBeUndefined(); expect(d.economy!.team).toBeUndefined(); expect(d.economy!.mission).toBeDefined();
+    expect(d.economy!.market).toBeUndefined(); expect(d.economy!.team).toBeUndefined(); expect(d.economy!.hunts).toBeDefined();
     expect(base.economy!.market).toBeDefined();
     expect(stripEconomy(loadGameData('stage3')).economy).toBeUndefined();
     expect('econ' in createGame(stripEconomy(loadGameData('stage3')), 1)).toBe(false);
@@ -124,7 +124,7 @@ describe('economy ledger', () => {
     const before = { ...currentStats(s)! };
     dealDamage(s, beast, 100, 'x', []);
     expect(currentStats(s)).toEqual(before);
-    for (const id of ['ev_soebap', 'ev_ssireum', 'ev_shadow']) expect(d3.enemies.find(e => e.id === id)!.event).toBe(true);
+    for (const id of ['ev_soebap', 'ev_oenun', 'ev_yagwang', 'ev_ssireum', 'ev_shadow']) expect(d3.enemies.find(e => e.id === id)!.event).toBe(true);
   });
 
   test('an event kill pays no per-kill coin and does not count as a round kill', () => {

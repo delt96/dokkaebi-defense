@@ -9,7 +9,8 @@ const docs = ['stage3-economy-draft.md', 'content-draft-116-v5.md']
   .map(f => [f, readFileSync(new URL(`../../../docs/design/${f}`, import.meta.url), 'utf8')] as const);
 
 // the spec's budget path: normal, six seats all alive, 29 kills a normal round, every boss and 역신 down, no taming,
-// five 불 changed and four grade-1 units sold every ten rounds, the mission/collection/team won, ssireum at 1/6
+// five 불 changed and four grade-1 units sold every ten rounds, the collection/team won, ssireum at 1/6.
+// 격파 pay depends on how far each seat levels its targets, so it sits outside this table (like the shadow's coins).
 const KILLS = 29;
 const CONVERT = 5;
 const SELL = 4;
@@ -34,10 +35,8 @@ function windowRow(w: readonly [number, number], i: number) {
   const coins = normals * KILLS * b.coins.perKill + 10 * b.coins.roundEnd + bosses * b.coins.boss
     + gates * (d3.coop!.killReward.coins + d3.coop!.topDamageBonus / SEATS)
     + CONVERT * b.tokens.toCoins + SELL * b.sellPrice[0]!
-    + (within(eco.mission!.round, w) ? eco.mission!.reward.coins : 0)
     + (within(eco.collection!.toRound, w) ? eco.collection!.coins : 0);
   const muk = bosses * b.bossBuckwheat + gates * d3.coop!.killReward.buckwheat
-    + (within(eco.mission!.round, w) ? eco.mission!.reward.buckwheat : 0)
     + (within(eco.ssireum!.round, w) ? eco.ssireum!.buckwheat / SEATS : 0);
   const tokens = (i === 0 ? b.tokens.start : 0) + 10 * b.difficulties!.normal.tokensPerRound + (within(eco.team!.toRound, w) ? eco.team!.tokens : 0);
   return { coins, muk, tokens, start: i === 0 ? eco.startingBuckwheat : 0 };
@@ -47,20 +46,20 @@ describe('six market days reconcile with the personal budget', () => {
   const m = eco.market!;
   const rows = WINDOWS.map(windowRow);
 
-  test('18 draws cost 18묵 and 0냥; 묵 earnings by window are 3, 4, 2, 3⅙, 2, 3', () => {
+  test('18 draws cost 18묵 and 0냥; 묵 earnings by window are 3, 3, 2, 3⅙, 2, 3', () => {
     const days = b.rounds / m.dayRounds;
     expect([days * m.draw.perDay, days * m.draw.perDay * m.draw.buckwheatCost]).toEqual([18, 18]);
-    expect(rows.map(r => fmt(r.muk))).toEqual(['3', '4', '2', '3⅙', '2', '3']);
+    expect(rows.map(r => fmt(r.muk))).toEqual(['3', '3', '2', '3⅙', '2', '3']);
     let total = 0;
     const cumulative = rows.map(r => fmt((total += r.start + r.muk)));
-    expect(cumulative).toEqual(['4', '8', '10', '13⅙', '15⅙', '18⅙']);
+    expect(cumulative).toEqual(['4', '7', '9', '12⅙', '14⅙', '17⅙']);
     // the R60 boss pays its 묵 after the last combat starts
-    expect(fmt(total - b.bossBuckwheat)).toBe('16⅙');
+    expect(fmt(total - b.bossBuckwheat)).toBe('15⅙');
   });
 
-  test('3,512.7냥 and 185 불 over the game, with the decile flows in both references', () => {
-    expect(rows.map(r => fmt(r.coins))).toEqual(['582.7', '612.7', '586', '582.7', '566', '582.7']);
-    expect(fmt(rows.reduce((s, r) => s + r.coins, 0))).toBe('3,512.7');
+  test('3,482.7냥 and 185 불 over the game, with the decile flows in both references', () => {
+    expect(rows.map(r => fmt(r.coins))).toEqual(['582.7', '582.7', '586', '582.7', '566', '582.7']);
+    expect(fmt(rows.reduce((s, r) => s + r.coins, 0))).toBe('3,482.7');
     // 불 3 a round since the economy pass (the spec's table had 2: 24/20/21/20/20/20, 125)
     expect(rows.map(r => r.tokens)).toEqual([34, 30, 31, 30, 30, 30]);
     expect(rows.reduce((s, r) => s + r.tokens, 0)).toBe(185);
@@ -86,30 +85,30 @@ describe('six market days reconcile with the personal budget', () => {
     expect(Math.round((summons * perSummon + 18 * draw + drops - 24) * 10) / 10).toBe(261.6);
   });
 
-  test('four grade-6 example: 4/8/4묵, 3,385냥 spent and 127.7냥 left', () => {
+  test('four grade-6 example: 4/8/4묵, 3,365냥 spent and 117.7냥 left', () => {
     const upgrades = 3125;
-    const spend = upgrades + eco.mission!.fee + 4 * 60;
-    expect(spend).toBe(3385);
-    expect(fmt(rows.reduce((s, r) => s + r.coins, 0) - spend)).toBe('127.7');
+    const spend = upgrades + 4 * 60;
+    expect(spend).toBe(3365);
+    expect(fmt(rows.reduce((s, r) => s + r.coins, 0) - spend)).toBe('117.7');
     expect([4, 4 * 2, 4].reduce((s, x) => s + x, 0)).toBe(16);
-    for (const [name, text] of docs) expect(text, name).toContain('3,385');
+    for (const [name, text] of docs) expect(text, name).toContain('3,365');
   });
 
-  test('R10/R20 recruits: 2 paid attempts, 4묵 and 120냥 of kill income forgone, 12묵 before R60 for three draws', () => {
+  test('R10/R20 recruits: 2 paid attempts, 4묵 and 120냥 of kill income forgone, 11묵 before R60 for two draws', () => {
     const t = eco.tame!.targets;
     const cost = (enemy: string) => t.find(x => x.enemy === enemy)!.cost;
     const attempts = [cost('jinegaksi'), cost('gangcheori')];
     expect([attempts.reduce((s, c) => s + (c.buckwheat ?? 0), 0), attempts.reduce((s, c) => s + (c.coins ?? 0), 0)]).toEqual([2, 105]);
-    const preR60NonWinner = 18 + 1 / SEATS - b.bossBuckwheat - eco.ssireum!.buckwheat / SEATS;
+    const preR60NonWinner = 17 + 1 / SEATS - b.bossBuckwheat - eco.ssireum!.buckwheat / SEATS;
     const supply = preR60NonWinner - 2 * b.bossBuckwheat;
-    expect(supply).toBeCloseTo(12, 9);
+    expect(supply).toBeCloseTo(11, 9);
     const spend = 2 + 2 * 2 + 3;
-    expect(supply - spend).toBeCloseTo(3, 9);
+    expect(supply - spend).toBeCloseTo(2, 9);
   });
 
   test('no former request or delivery route is left in the references', () => {
     for (const [name, text] of docs) {
-      for (const stale of ['설화 의뢰', '의뢰 거절', '묵장수', '배달 버튼', 'storyTarget', 'transferOffer']) {
+      for (const stale of ['설화 의뢰', '의뢰 거절', '묵장수', '배달 버튼', 'storyTarget', 'transferOffer', '쇠밥 한 끼', 'R12 입장', '미션 입장']) {
         expect(text.includes(stale), `${name}: ${stale}`).toBe(false);
       }
     }

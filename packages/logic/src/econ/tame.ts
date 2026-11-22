@@ -6,6 +6,7 @@ import { addUnit, chooseSlot, unitDefFast } from '../units';
 import { takeToken } from './ledger';
 import { setQuest } from './results';
 import { openMarketAfterBoss } from './market';
+import { huntTamed } from './hunts';
 
 function tameTarget(state: GameState, enemyId: number): { def: TameTargetDef; enemyIndex: number } | null {
   const tame = state.data.economy?.tame;
@@ -75,7 +76,7 @@ registerCommand('tame', (state, cmd, events) => {
   if (kind === 'shadow') setQuest(state, 'shadow', 'tamed', { grown: econ.events[rec]!.grown, tamedDefId: def.unit });
   if (kind === 'ssireum') setQuest(state, 'ssireum', 'tamed', { ...econ.questResults.ssireum?.progress, tamedDefId: def.unit });
   if (rec >= 0) econ.events.splice(rec, 1);
-  if (econ.mission.beastId === enemy.id) econ.mission.beastDown = true;
+  huntTamed(state, enemy.id);
   if (enemy.boss) openMarketAfterBoss(state, enemy.round);
   const unitDef = unitDefFast(state.data, def.unit);
   const slot = chooseSlot(state, unitDef)!;

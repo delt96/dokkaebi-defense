@@ -90,14 +90,14 @@ export interface GameData {
 
 export interface JigeSource { zone: 'board' | 'storage'; index: number; unitId: number }
 export type EconItem = 'draw';
-export type GeneralQuestId = 'mission' | 'collection' | 'team' | 'ssireum';
-export type EconSection = 'market' | 'drops' | GeneralQuestId | 'shadow' | 'tame';
+export type GeneralQuestId = 'collection' | 'team' | 'ssireum';
+export type EconSection = 'market' | 'drops' | GeneralQuestId | 'shadow' | 'tame' | 'hunts';
 export type QuestId = GeneralQuestId | 'shadow';
 /** How a quest stands for one seat; 'active' until it settles. */
 export type QuestOutcome = 'active' | 'won' | 'missedEntry' | 'timedOut' | 'otherSeat' | 'fled' | 'capped' | 'eliminated' | 'tamed';
 /** The last counts of a quest, frozen when it settles (only the fields of its kind are set). */
 export interface QuestProgress {
-  kills?: number; beastDown?: boolean; done?: string[];
+  done?: string[];
   remaining?: number; survivors?: number; streak?: number;
   winnerSeat?: number; grown?: boolean; tamedDefId?: string;
 }
@@ -105,6 +105,20 @@ export interface QuestRecord { outcome: QuestOutcome; reward: { coins: number; b
 export interface TameTargetDef {
   enemy: string; unit: string; cost: { buckwheat?: number; coins?: number; tokens?: number };
   needs?: 'slowed' | { vulnSource: string; stacks: number };
+}
+/**
+ * A repeatable 격파 target: summoned into the caller's own lane from `fromRound`, it must die within the time limit.
+ * Level n has round(hp × hpGrowth^(n-1)) HP and pays reward.buckwheat 묵 plus reward.coins + coinsPerLevel × (n-1) 냥.
+ */
+export interface HuntTargetDef {
+  enemy: string; fromRound: number; hp: number; fee: number;
+  reward: { buckwheat: number; coins: number; coinsPerLevel: number };
+}
+export interface HuntsDef { seconds: number; cooldownSeconds: number; hpGrowth: number; targets: HuntTargetDef[] }
+/** One seat's record of one 격파 target: the next level, the living summon and when a new summon opens. */
+export interface HuntSeat {
+  level: number; enemyId: number | null; deadlineTick: number; readyTick: number;
+  last: 'won' | 'fled' | 'tamed' | null;
 }
 export interface EconomyDef {
   startingBuckwheat: number;
@@ -116,11 +130,11 @@ export interface EconomyDef {
     draw: { buckwheatCost: number; perDay: number; weights: number[] };
   };
   drops?: { round: number; grade: number }[];
-  mission?: { round: number; entrySeconds: number; fee: number; enemy: string; kills: number; reward: { coins: number; buckwheat: number } };
   collection?: { fromRound: number; toRound: number; items: string[]; coins: number };
   team?: { fromRound: number; toRound: number; perSurvivor: number; nights: number; tokens: number };
   ssireum?: { round: number; enemy: string; seconds: number; buckwheat: number };
   shadow?: { round: number; enemy: string; growSeconds: number; grownHp: number; coins: number; grownCoins: number };
+  hunts?: HuntsDef;
   /** hpBands: ascending inclusive upper bounds of remaining HP / max HP, the last one 1. */
   tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[] };
 }
@@ -133,9 +147,10 @@ export interface EconState {
   /** False until the boss named by market.openAfterBossRound is killed or tamed; missing (older snapshots) means open. */
   marketOpen?: boolean;
   jige: number;
-  mission: { phase: 'idle' | 'active' | 'won' | 'lost'; beastId: number | null; beastDown: boolean };
   collection: { done: string[]; paid: boolean };
-  events: { id: number; kind: 'beast' | 'ssireum' | 'shadow'; spawnTick: number; grown: boolean }[];
+  events: { id: number; kind: 'ssireum' | 'shadow'; spawnTick: number; grown: boolean }[];
+  /** 격파 targets by enemy id; missing (older snapshots) or a missing entry means never summoned (level 1, ready). */
+  hunts?: Record<string, HuntSeat>;
   tamed: string[];
   /** Targets that refused a recruit: the tick a new attempt opens. */
   tameReady: { enemyId: number; tick: number }[];
@@ -187,18 +202,20 @@ export type Command =
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' }
   | { type: 'jigeSwap'; source: JigeSource; result: string }
   | { type: 'buy'; item: EconItem }
-  | { type: 'missionEnter' } | { type: 'tame'; enemyId: number }
+  | { type: 'hunt'; enemy: string } | { type: 'tame'; enemyId: number }
   | { type: 'store'; slot: number; unitId?: number } | { type: 'storeAll' }
   | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string };
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
-  | 'marketClosed' | 'marketLocked' | 'soldOut' | 'missionClosed' | 'noTarget' | 'tameCondition'
+  | 'marketClosed' | 'marketLocked' | 'soldOut' | 'huntClosed' | 'huntOut' | 'noTarget' | 'tameCondition'
   | 'cooldown' | 'noJige'
   | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 
 export type GameEvent =
-  | { type: 'roundStart'; round: number } | { type: 'spawn'; enemyId: number; defId: string }
+  | { type: 'roundStart'; round: number }
+  /** `hp` only when the spawn does not use the data's HP for the round (a 격파 target's level). */
+  | { type: 'spawn'; enemyId: number; defId: string; hp?: number }
   | { type: 'summon'; unitId: number; defId: string; grade: number; slot: number }
   | { type: 'combine'; replacedUnitId: number; unitId: number; defId: string; slot: number }
   | { type: 'attack'; unitId: number; enemyId: number }
@@ -211,5 +228,7 @@ export type GameEvent =
   | { type: 'tame'; enemyId: number; defId: string; unitId: number; slot: number }
   /** One paid attempt: the odds shown before the roll, what was spent, and whether it worked. */
   | { type: 'tameTry'; enemyId: number; defId: string; chance: number; success: boolean; buckwheat: number; coins: number; tokens: number }
-  | { type: 'grow'; enemyId: number; hp: number } | { type: 'flee'; enemyId: number };
+  | { type: 'grow'; enemyId: number; hp: number } | { type: 'flee'; enemyId: number }
+  /** A 격파 target of `level` died in time (paid) or ran out of time (nothing). */
+  | { type: 'hunt'; enemy: string; level: number; outcome: 'won' | 'fled'; coins: number; buckwheat: number };
 export interface StepResult { events: GameEvent[]; rejected: { command: Command; reason: RejectReason }[] }

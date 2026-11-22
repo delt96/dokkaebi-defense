@@ -2,6 +2,7 @@ import type { EconState, GameState, RejectReason, TameTargetDef } from '../types
 import { marketView, type MarketView } from './market';
 import { tameChance, tameCheck, tameReadyTick } from './tame';
 import { toTicks } from '../flow';
+import { huntCheck, huntCoins, huntHp, huntSeat } from './hunts';
 
 export type EconMarketView = MarketView;
 
@@ -14,13 +15,24 @@ export interface EconTameView {
   chance: number; readyTick: number; deadlineTick: number; why: RejectReason | null;
 }
 
+/**
+ * One 격파 target for this seat: the terms of its next summon (level, HP, fee, pay), the living summon with its
+ * deadline, when a new summon opens and huntCheck's answer now. `best` is the highest level killed (0: none yet).
+ */
+export interface EconHuntView {
+  enemy: string; fromRound: number; level: number; best: number; hp: number; fee: number;
+  reward: { coins: number; buckwheat: number };
+  enemyId: number | null; deadlineTick: number; readyTick: number; last: 'won' | 'fled' | 'tamed' | null;
+  why: RejectReason | null;
+}
+
 /** Lane economy as the screen needs it. Holds no rng state; ticks are absolute so the value only changes on real changes. */
 export interface EconView {
   market: EconMarketView | null;
   jige: number;
   roundKills: number;
   questTokens: number;
-  mission: EconState['mission'] | null;
+  hunts: EconHuntView[];
   collection: EconState['collection'] | null;
   events: EconState['events'];
   tame: EconTameView[];
@@ -29,6 +41,8 @@ export interface EconView {
 }
 
 function deadlineOf(state: GameState, enemyId: number): number {
+  const hunt = Object.values(state.econ?.hunts ?? {}).find(h => h.enemyId === enemyId);
+  if (hunt) return hunt.deadlineTick;
   const rec = state.econ?.events.find(r => r.id === enemyId);
   const ss = state.data.economy?.ssireum;
   return rec?.kind === 'ssireum' && ss ? rec.spawnTick + toTicks(ss.seconds) : state.roundEndTick;
@@ -51,6 +65,21 @@ function tamePart(state: GameState): EconTameView[] {
   return out;
 }
 
+function huntsPart(state: GameState): EconHuntView[] {
+  const hunts = state.data.economy?.hunts;
+  if (!hunts) return [];
+  return hunts.targets.map(def => {
+    const seat = huntSeat(state, def.enemy);
+    return {
+      enemy: def.enemy, fromRound: def.fromRound, level: seat.level, best: seat.level - 1,
+      hp: huntHp(state, def, seat.level), fee: def.fee,
+      reward: { coins: huntCoins(def, seat.level), buckwheat: def.reward.buckwheat },
+      enemyId: seat.enemyId, deadlineTick: seat.deadlineTick, readyTick: seat.readyTick, last: seat.last,
+      why: huntCheck(state, def.enemy),
+    };
+  });
+}
+
 /** The lane's economy for the screen, or null without an economy (stage 1-2). */
 export function econView(state: GameState): EconView | null {
   const econ = state.econ;
@@ -61,7 +90,7 @@ export function econView(state: GameState): EconView | null {
     jige: econ.jige,
     roundKills: econ.roundKills,
     questTokens: econ.questTokens,
-    mission: eco.mission ? { ...econ.mission } : null,
+    hunts: huntsPart(state),
     collection: eco.collection ? { done: [...econ.collection.done], paid: econ.collection.paid } : null,
     events: econ.events.map(e => ({ ...e })),
     tame: tamePart(state),

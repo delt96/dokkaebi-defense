@@ -198,10 +198,10 @@ describe('paid attempts', () => {
     }
   });
 
-  test('beast: 4 stacks refused, 5 stacks accepted; a recruit counts as down and pays only on full completion', () => {
+  test('beast: 4 stacks refused, 5 stacks accepted; a recruited 격파 target closes without pay or level', () => {
     const s = lane(12);
     s.coins = 200;
-    step(s, [{ type: 'missionEnter' }]);
+    expect(step(s, [{ type: 'hunt', enemy: 'ev_soebap' }]).rejected).toEqual([]);
     const beast = s.enemies.find(e => e.defId === 'ev_soebap')!;
     beast.vulns['moru'] = { pct: 0.04, damageType: 'physical', ticks: 60, stacks: 4 };
     s.buckwheat = 2;
@@ -212,7 +212,7 @@ describe('paid attempts', () => {
     expect(r.rejected).toEqual([]);
     expect(tries(r.events)[0]).toMatchObject({ success: true, buckwheat: 2, coins: 65 });
     expect(s.buckwheat).toBe(0);
-    expect(s.econ!.mission.beastDown).toBe(true);
+    expect(s.econ!.hunts!['ev_soebap']).toMatchObject({ level: 1, enemyId: null, last: 'tamed' });
     expect(s.econ!.events.some(e => e.id === beast.id)).toBe(false);
     expect(s.slots.some(u => u?.defId === 'bulgasari')).toBe(true);
   });

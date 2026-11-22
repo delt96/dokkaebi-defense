@@ -36,9 +36,10 @@ export function startRound(state: GameState, round: number, events: GameEvent[])
   if (state.econ) econRoundStart(state, events);
 }
 
-export function spawnEnemy(state: GameState, defId: string, round: number, events: GameEvent[]): Enemy {
+/** `hpOverride` replaces the data's HP for the round (event enemies whose HP grows with their level, such as 격파 targets) and rides on the spawn event. */
+export function spawnEnemy(state: GameState, defId: string, round: number, events: GameEvent[], hpOverride?: number): Enemy {
   const def = enemyDef(state.data, defId);
-  const hp = enemyHp(def, round, state.data.balance);
+  const hp = hpOverride ?? enemyHp(def, round, state.data.balance);
   const e: Enemy = {
     id: state.nextId++, defId, hp, maxHp: hp, d: 0, boss: def.boss, round,
     stunTicks: 0, slow: null, vulns: {}, dots: {}, fireHit: {},
@@ -48,7 +49,7 @@ export function spawnEnemy(state: GameState, defId: string, round: number, event
     const st = currentStats(state);
     if (st) st.hpSpawned += hp;
   }
-  events.push({ type: 'spawn', enemyId: e.id, defId });
+  events.push(hpOverride === undefined ? { type: 'spawn', enemyId: e.id, defId } : { type: 'spawn', enemyId: e.id, defId, hp });
   return e;
 }
 

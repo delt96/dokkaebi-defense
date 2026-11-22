@@ -51,13 +51,40 @@ describe('stage 3 economy commands through the room', () => {
     expect('offers' in match.econ!).toBe(false);
   });
 
+  test('a 격파 summon is checked by the room: bad args, closed round, then accepted into the own lane, then out', () => {
+    const hunts = d3.economy!.hunts!;
+    const [first, , third] = hunts.targets;
+    const r = room60(first!.fromRound);
+    const match = r.core.match!;
+    match.lanes[1]!.coins = 100;
+    send(r.core, 'a', 1, 'hunt', { enemy: first!.enemy, level: 9 });
+    send(r.core, 'a', 2, 'hunt', {});
+    send(r.core, 'a', 3, 'hunt', { enemy: third!.enemy });
+    send(r.core, 'a', 4, 'hunt', { enemy: 'japgwi' });
+    send(r.core, 'a', 5, 'hunt', { enemy: first!.enemy });
+    send(r.core, 'a', 6, 'hunt', { enemy: first!.enemy });
+    tickOnce(r.core, r.deps);
+    const mine = r.links[0]!.last('mine');
+    expect(mine.acks.map((a: { ok: boolean; reason?: string }) => a.reason ?? 'ok')).toEqual(['badArgs', 'badArgs', 'huntClosed', 'noTarget', 'ok', 'huntOut']);
+    expect(mine.coins).toBe(100 - first!.fee);
+    expect(match.lanes[1]!.enemies.filter(e => e.defId === first!.enemy).length).toBe(1);
+    expect(match.lanes[2]!.enemies.some(e => e.defId === first!.enemy)).toBe(false);
+    expect(mine.econ.hunts[0]).toMatchObject({ enemy: first!.enemy, level: 1, why: 'huntOut' });
+    // the other seat cannot afford it and is told so
+    match.lanes[2]!.coins = 0;
+    send(r.core, 'b', 1, 'hunt', { enemy: first!.enemy });
+    tickOnce(r.core, r.deps);
+    expect(r.links[1]!.last('mine').acks).toEqual([{ seat: 2, seq: 1, tick: expect.any(Number), ok: false, reason: 'noCoins' }]);
+  });
+
   test('a 20-round room refuses the economy commands without a crash', () => {
     const r = started(['가', '나']);
     send(r.core, 'a', 1, 'buy', { item: 'draw' });
     send(r.core, 'a', 2, 'transferAccept', { offerId: 1, slot: 0 });
+    send(r.core, 'a', 3, 'hunt', { enemy: 'ev_soebap' });
     tickOnce(r.core, r.deps);
     const acks = r.links[0]!.last('mine').acks.map((a: { reason?: string }) => a.reason);
-    expect(acks).toEqual(['marketClosed', 'badArgs']);
+    expect(acks).toEqual(['marketClosed', 'badArgs', 'noTarget']);
     expect('econ' in r.links[0]!.last('mine')).toBe(false);
   });
 });

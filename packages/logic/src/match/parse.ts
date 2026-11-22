@@ -20,7 +20,7 @@ const hasAll = (args: Args, keys: readonly string[]): boolean => keys.every(k =>
 
 type Parser = (args: Args, slotCount: number) => MatchCommand | null;
 
-const noArgs = (type: 'summon' | 'convertToken' | 'helperOpened' | 'forfeit' | 'missionEnter' | 'storeAll'): Parser =>
+const noArgs = (type: 'summon' | 'convertToken' | 'helperOpened' | 'forfeit' | 'storeAll'): Parser =>
   args => (Object.keys(args).length === 0 ? { type } : null);
 
 const PARSERS: Record<string, Parser> = {
@@ -28,7 +28,6 @@ const PARSERS: Record<string, Parser> = {
   convertToken: noArgs('convertToken'),
   helperOpened: noArgs('helperOpened'),
   forfeit: noArgs('forfeit'),
-  missionEnter: noArgs('missionEnter'),
   storeAll: noArgs('storeAll'),
   store: (args, slotCount) => {
     const keys = ['slot', 'unitId'];
@@ -60,6 +59,11 @@ const PARSERS: Record<string, Parser> = {
     const keys = ['item'];
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
     return typeof args.item === 'string' && ECON_ITEMS.has(args.item) ? { type: 'buy', item: args.item as EconItem } : null;
+  },
+  hunt: args => {
+    const keys = ['enemy'];
+    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
+    return isUnitId(args.enemy) ? { type: 'hunt', enemy: args.enemy } : null;
   },
   tame: args => {
     const keys = ['enemyId'];
@@ -157,6 +161,8 @@ export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand
       return { type: 'buy', args: { item: cmd.item } };
     case 'tame':
       return { type: 'tame', args: { enemyId: cmd.enemyId } };
+    case 'hunt':
+      return { type: 'hunt', args: { enemy: cmd.enemy } };
     default:
       return { type: cmd.type };
   }

@@ -16,7 +16,6 @@ export function createEcon(seed: number, economy: EconomyDef): EconState {
     market: { day: 0, draws: 0 },
     marketOpen: economy.market?.openAfterBossRound === undefined,
     jige: 0,
-    mission: { phase: 'idle', beastId: null, beastDown: false },
     collection: { done: [], paid: false },
     events: [],
     tamed: [],

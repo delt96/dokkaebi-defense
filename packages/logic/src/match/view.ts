@@ -168,7 +168,7 @@ function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {
   switch (e.type) {
     case 'spawn': {
       const def = enemyDefFast(match.data, e.defId);
-      const hp = enemyHp(def, match.round, match.data.balance);
+      const hp = e.hp ?? enemyHp(def, match.round, match.data.balance);
       // the enemy moved once on the tick it appeared
       return { t: 'spawn', id: e.enemyId, defId: e.defId, hp, maxHp: hp, boss: def.boss, d: def.speed / TICKS_PER_SECOND, speed: def.speed };
     }
@@ -180,7 +180,7 @@ function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {
     case 'combine': return { t: 'combine', unitId: e.unitId, defId: e.defId, slot: e.slot };
     case 'flee': return { t: 'flee', id: e.enemyId };
     case 'grow': return { t: 'grow', id: e.enemyId, hp: e.hp };
-    case 'buy': case 'jigeSwap': case 'questReward': case 'tame': case 'tameTry':
+    case 'buy': case 'jigeSwap': case 'questReward': case 'tame': case 'tameTry': case 'hunt':
       return { t: 'note', ev: structuredClone(e) };
     default: return null;
   }

@@ -9,11 +9,12 @@ export {
 } from './econ/ledger';
 export { jigeCandidates, swapJige } from './econ/jige';
 export { buyCheck, marketDay, marketView, placePendingDrops, type MarketView } from './econ/market';
-export { econView, type EconMarketView, type EconTameView, type EconView } from './econ/view';
+export { econView, type EconHuntView, type EconMarketView, type EconTameView, type EconView } from './econ/view';
 export { spawnEventEnemy, type EventKind } from './econ/events';
 export { onCollectionCombine } from './econ/quests';
 export { pickResultSlot } from './combine';
 export { tameCheck, tameChance, tameReadyTick } from './econ/tame';
+export { huntCheck, huntCoins, huntDef, huntHp, huntSeat } from './econ/hunts';
 export { createGame, step, laneOf, applyCommand, runAfterCommandHooks, runCombat } from './game';
 export {
   spawnDue, payRoundEnd, trackLimit, startRound, spawnEnemy, moveEnemies, finishGame,

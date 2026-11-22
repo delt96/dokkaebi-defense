@@ -8,6 +8,7 @@ import { countNormalEnemies, currentStats } from '../stats';
 import { roundStartTick } from './schedule';
 import { gateFailed } from './yeoksin';
 import { closeQuestsOnElimination } from '../econ/results';
+import { huntsClear } from '../econ/hunts';
 
 const coopOf = (match: MatchState): CoopDef => match.data.coop!;
 
@@ -69,9 +70,7 @@ function clearLane(lane: GameState): void {
   if (lane.econ) {
     lane.econ.pendingDrops = [];
     lane.econ.events = [];
-    if (lane.econ.mission.phase === 'active') {
-      lane.econ.mission = { phase: 'lost', beastId: null, beastDown: false };
-    }
+    huntsClear(lane);
   }
   lane.upgrades = { physical: 0, magical: 0, polish: 0, slots: 0 };
   lane.tokens = 0;

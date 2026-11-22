@@ -128,20 +128,22 @@ describe('stage 3 match schedule', () => {
     expect(m.yeoksinKills).toBe(3);
   });
 
-  test('forfeiting closes the active mission and clears event records from the personal snapshot', () => {
+  test('forfeiting removes a living 격파 summon and clears event records from the personal snapshot', () => {
     const m = createMatch(d3, 1, [1, 2]);
-    const round = d3.economy!.mission!.round;
-    jumpToTick(m, rst(round));
+    const target = d3.economy!.hunts!.targets[0]!;
+    jumpToTick(m, rst(target.fromRound));
     stepMatch(m, []);
-    m.lanes[1]!.coins = d3.economy!.mission!.fee;
-    const enter = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'missionEnter' } }]);
+    m.lanes[1]!.coins = target.fee;
+    const enter = stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'hunt', enemy: target.enemy } }]);
     expect(enter.acks[0]?.ok).toBe(true);
     const snapshot = () => buildFull(m, 1, { watching: 2, names: {}, key: 'k', n: 0 }).mine.econ;
-    expect(snapshot()).toMatchObject({ mission: { phase: 'active' }, events: [{ kind: 'beast' }] });
+    expect(snapshot()!.hunts[0]).toMatchObject({ enemy: target.enemy, why: 'huntOut' });
+    expect(snapshot()!.hunts[0]!.enemyId).not.toBe(null);
 
     stepMatch(m, [{ seat: 1, seq: 2, cmd: { type: 'forfeit' } }]);
     stepMatch(m, [{ seat: 1, seq: 0, cmd: { type: 'reconnect' } }]);
-    expect(snapshot()).toMatchObject({ mission: { phase: 'lost', beastId: null, beastDown: false }, events: [] });
+    expect(snapshot()).toMatchObject({ events: [] });
+    expect(snapshot()!.hunts[0]).toMatchObject({ enemyId: null, level: 1 });
   });
 
 });
@@ -276,10 +278,11 @@ describe('quest outcomes in a match', () => {
 
   test('an elimination closes the active quests of that seat', () => {
     const m = createMatch(d3, 2, [1, 2]);
-    jumpToTick(m, rst(12) + 1);
-    m.lanes[1]!.coins = 100;
-    stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'missionEnter' } }]);
+    jumpToTick(m, rst(21) + 1);
+    stepMatch(m, []);
+    expect(rec(m, 1, 'collection')).toBeUndefined();
+    m.lanes[1]!.econ!.questResults.collection = { outcome: 'active', reward: { coins: 0, buckwheat: 0, tokens: 0 }, progress: { done: ['gamasot'] } };
     stepMatch(m, [{ seat: 1, seq: 2, cmd: { type: 'forfeit' } }]);
-    expect(rec(m, 1, 'mission')).toMatchObject({ outcome: 'eliminated' });
+    expect(rec(m, 1, 'collection')).toMatchObject({ outcome: 'eliminated', progress: { done: ['gamasot'] } });
   });
 });
