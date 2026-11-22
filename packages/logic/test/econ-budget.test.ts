@@ -58,11 +58,12 @@ describe('six market days reconcile with the personal budget', () => {
     expect(fmt(total - b.bossBuckwheat)).toBe('16⅙');
   });
 
-  test('3,512.7냥 and 125 불 over the game, with the decile flows in both references', () => {
+  test('3,512.7냥 and 185 불 over the game, with the decile flows in both references', () => {
     expect(rows.map(r => fmt(r.coins))).toEqual(['582.7', '612.7', '586', '582.7', '566', '582.7']);
     expect(fmt(rows.reduce((s, r) => s + r.coins, 0))).toBe('3,512.7');
-    expect(rows.map(r => r.tokens)).toEqual([24, 20, 21, 20, 20, 20]);
-    expect(rows.reduce((s, r) => s + r.tokens, 0)).toBe(125);
+    // 불 3 a round since the economy pass (the spec's table had 2: 24/20/21/20/20/20, 125)
+    expect(rows.map(r => r.tokens)).toEqual([34, 30, 31, 30, 30, 30]);
+    expect(rows.reduce((s, r) => s + r.tokens, 0)).toBe(185);
     let total = 0;
     for (const [name, text] of docs) {
       total = 0;
@@ -75,13 +76,14 @@ describe('six market days reconcile with the personal budget', () => {
     }
   });
 
-  test('ordinary unit inflow and material value: 115 units and 177.6 after sales', () => {
-    const summons = 124 - 30;
+  test('ordinary unit inflow and material value: 175 units and 261.6 after sales', () => {
+    // every 불 but the team one (reserved) and the 30 changed into coins is a summon
+    const summons = rows.reduce((s, r) => s + r.tokens, 0) - eco.team!.tokens - CONVERT * WINDOWS.length;
     const perSummon = [1, 2, 4].reduce((s, v, i) => s + v * b.summonOdds[i]!, 0);
     const draw = 4 * (m.draw.weights[0]! / 3) + 2 * (m.draw.weights[1]! / 3);
     const drops = eco.drops!.reduce((s, d) => s + 2 ** (d.grade - 1), 0);
-    expect(summons + 18 + eco.drops!.length).toBe(115);
-    expect(Math.round((summons * perSummon + 18 * draw + drops - 24) * 10) / 10).toBe(177.6);
+    expect(summons + 18 + eco.drops!.length).toBe(175);
+    expect(Math.round((summons * perSummon + 18 * draw + drops - 24) * 10) / 10).toBe(261.6);
   });
 
   test('four grade-6 example: 4/8/4묵, 3,385냥 spent and 127.7냥 left', () => {

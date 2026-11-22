@@ -1,6 +1,6 @@
 import { createMatch, laneSeed, roundStartTick, stepMatch, tameCheck, type GameData, type GameState } from '@dorandi/logic';
 import type { Bot } from '../bots';
-import { BOT_TAME_HP, synergyBot } from './econBot';
+import { synergyBot } from './econBot';
 import { EconDriver } from './econDriver';
 import { configData, type EconConfig } from './econRun';
 import { median } from './report';
@@ -9,6 +9,8 @@ const SEATS = [1, 2, 3, 4, 5, 6];
 const R10 = 10;
 const R20 = 20;
 const RESERVE = 30;
+/** The probe tries in the best band, as the measurement bots do. */
+export const PROBE_HP = 0.15;
 
 /** One seat of a paired R10 run: the treatment tried T on its 지네각시 (and whether it took), both arms' R10-20 combat ticks. */
 export interface R10Pair {
@@ -19,7 +21,7 @@ export interface R10Pair {
 
 /**
  * Wraps a bot so it keeps 30냥 back during round 10 until its decision, and (treatment only) pays one T on its
- * 지네각시 once that is at or under BOT_TAME_HP, with 0묵 allowed. Later T is off in both arms (the config has tame off).
+ * 지네각시 once that is at or under PROBE_HP, with 0묵 allowed. Later T is off in both arms (bot policy).
  */
 function r10Bot(inner: Bot, treat: boolean, onTry: () => void): Bot {
   let decided = false;
@@ -31,7 +33,7 @@ function r10Bot(inner: Bot, treat: boolean, onTry: () => void): Bot {
       const cmds = inner.decide(state);
       state.coins += RESERVE;
       const boss = state.enemies.find(e => e.defId === 'jinegaksi' && e.hp > 0);
-      if (boss && boss.hp <= boss.maxHp * BOT_TAME_HP) {
+      if (boss && boss.hp <= boss.maxHp * PROBE_HP) {
         decided = true;
         if (treat && tameCheck(state, boss.id) === null) { onTry(); return [...cmds, { type: 'tame', enemyId: boss.id }]; }
       }
@@ -41,7 +43,8 @@ function r10Bot(inner: Bot, treat: boolean, onTry: () => void): Bot {
 }
 
 function arm(data: GameData, seed: number, treat: boolean) {
-  const c: EconConfig = { name: 'r10', bot: 'synergy', noDefeat: false, market: true, quests: 2, tame: false, useJige: true };
+  // taming stays in the rules (the treatment needs its target); the bots' own T policy is off in both arms
+  const c: EconConfig = { name: 'r10', bot: 'synergy', noDefeat: false, market: true, quests: 2, tame: true, useJige: true };
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS);
   const tried = new Set<number>();
