@@ -1,0 +1,12 @@
+# Render Blueprint: one free web service serves the client build and the Colyseus server from the same origin.
+services:
+  - type: web
+    name: dokkaebi-defense
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build -w @dorandi/client
+    startCommand: npm run start -w @dorandi/server
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
