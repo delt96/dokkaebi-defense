@@ -7,7 +7,7 @@ import { GameDriver } from '../src/driver';
 import { LaneScene } from '../src/LaneScene';
 import { FX_DEPTH } from '../src/fx/FxLayer';
 
-vi.mock('phaser', () => ({ default: { Scene: class {} } }));
+vi.mock('phaser', () => ({ default: { Scene: class {}, Loader: { File: class {} } } }));
 
 function setupScene() {
   const state = createGame(loadGameData(), 1);

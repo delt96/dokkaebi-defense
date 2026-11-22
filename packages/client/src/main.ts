@@ -1,9 +1,19 @@
 import { startOnline } from './online/app';
 import { startSolo } from './solo';
+import { warmArt } from './art';
 
 const path = location.pathname.replace(/\/+$/, '');
 const room = /^\/room\/([^/]+)$/.exec(path);
 
 if (path === '/solo') startSolo();
-else if (room) startOnline({ roomId: decodeURIComponent(room[1]!) });
-else startOnline({});
+else {
+  startOnline({
+    roomId: room ? decodeURIComponent(room[1]!) : undefined,
+    onSolo: href => {
+      history.pushState(null, '', href);
+      window.addEventListener('popstate', () => location.reload(), { once: true });
+      startSolo();
+    },
+  });
+  warmArt();
+}

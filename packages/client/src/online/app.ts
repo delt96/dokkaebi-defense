@@ -32,7 +32,7 @@ function errorCode(err: unknown): number {
   return typeof code === 'number' ? code : 0;
 }
 
-export function startOnline(opts: { roomId?: string }): void {
+export function startOnline(opts: { roomId?: string; onSolo?(href: string): void }): void {
   const root = document.getElementById('screen');
   if (!root) throw new Error('missing #screen');
   let screen: Screen = 'entry';
@@ -48,6 +48,11 @@ export function startOnline(opts: { roomId?: string }): void {
       name: name ?? lastName() ?? '',
       error,
       onSubmit: submit,
+      onSolo: opts.onSolo ? href => {
+        root.replaceChildren();
+        band.remove();
+        opts.onSolo?.(href);
+      } : undefined,
     });
   };
 

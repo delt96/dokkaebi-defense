@@ -43,4 +43,15 @@ describe('entry and lobby', () => {
     expect(enter({ keyCode: 229 })).toBe(true);
     expect(enter({})).toBe(false);
   });
+
+  test('the normal solo link can reuse this page, while a modified click keeps link navigation', () => {
+    const root = document.createElement('div');
+    const routes: string[] = [];
+    renderEntry(root, { onSubmit: () => Promise.resolve(), onSolo: href => routes.push(href) });
+    const link = root.querySelector('.entry-link')!;
+    const click = (ctrlKey: boolean) => link.dispatchEvent(new MouseEvent('click', { ctrlKey, cancelable: true }));
+    expect(click(true)).toBe(true);
+    expect(click(false)).toBe(false);
+    expect(routes).toEqual([expect.stringContaining('/solo?rounds=60&difficulty=normal')]);
+  });
 });

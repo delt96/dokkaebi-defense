@@ -6,16 +6,34 @@ import { selectedSlot } from './ui/models';
 import type { Driver } from './driver';
 import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
-import { FX_KEYS, textureKey } from './fx/atlas';
+import { FX_FILES, SPRITE_IDS, loadArt, spriteFile } from './art';
 import { spriteKey, tameArt } from './sprites';
 import { FX_FLAGS, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, writeReduceFx, type FxCmd } from './fx/plan';
 
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
 const hex = (c: string) => Number.parseInt(c.slice(1), 16);
-/** Ids that have a sprite file (glob keys only, nothing is imported); stage 2 units without art use the drawn fallback. */
-const SPRITE_IDS: ReadonlySet<string> = new Set(
-  Object.keys(import.meta.glob('../public/sprites/*.png')).map(p => p.slice(p.lastIndexOf('/') + 1, -'.png'.length)),
-);
+/** Register lobby-warmed assets through Phaser's loader before the board is created. */
+class LaneArtFile extends Phaser.Loader.File {
+  private art?: Awaited<ReturnType<typeof loadArt>>;
+
+  constructor(loader: Phaser.Loader.LoaderPlugin, private readonly file: Parameters<typeof loadArt>[0]) {
+    super(loader, { type: 'laneArt', key: file.key, url: file.image });
+  }
+
+  override load(): void {
+    void loadArt(this.file).then(
+      art => { this.art = art; this.loader?.nextFile(this, true); },
+      () => { this.loader?.nextFile(this, false); },
+    );
+  }
+
+  override addToCache(): void {
+    if (!this.art) return;
+    const { image, atlas } = this.art;
+    if (atlas) this.loader.textureManager.addAtlas(this.key, image, atlas);
+    else this.loader.textureManager.addImage(this.key, image);
+  }
+}
 
 type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; gradeColor: number; combineMarker: Phaser.GameObjects.Arc };
 type EnemyContainer = Phaser.GameObjects.Container & {
@@ -94,12 +112,8 @@ export class LaneScene extends Phaser.Scene {
 
   preload(): void {
     const data = this.driver.state.data;
-    // absolute path: the online page lives at /room/<id>, where a relative path would miss
-    for (const def of [...data.units, ...data.enemies]) {
-      if (SPRITE_IDS.has(def.id)) this.load.image(def.id, `${import.meta.env.BASE_URL}sprites/${def.id}.png`);
-    }
-    // pixelfx effect sheets baked by scripts/bake-fx.mjs
-    for (const key of FX_KEYS) this.load.atlas(textureKey(key), `${import.meta.env.BASE_URL}fx/${key}.png`, `${import.meta.env.BASE_URL}fx/${key}.json`);
+    const sprites = [...data.units, ...data.enemies].filter(def => SPRITE_IDS.has(def.id)).map(def => spriteFile(def.id));
+    this.load.addFile([...sprites, ...FX_FILES].map(file => new LaneArtFile(this.load, file)));
   }
 
   private warned = new Set<string>();

@@ -4,11 +4,7 @@ import { GRADE_COLOR, STAGE_W, stageToCell } from '../layout';
 import { esc } from './dom';
 import { storageStacks, unitSkillText } from './models';
 import { typeBadgeHtml } from './badge';
-
-/** Unit ids with a sprite file (glob keys only, nothing is imported); others get a grade-coloured disc. */
-const SPRITE_IDS: ReadonlySet<string> = new Set(
-  Object.keys(import.meta.glob('../../public/sprites/*.png')).map(p => p.slice(p.lastIndexOf('/') + 1, -'.png'.length)),
-);
+import { SPRITE_IDS } from '../art';
 
 /** Two big columns hold this many stacks; more switch to three small ones. */
 const ROOMY_STACKS = 12;

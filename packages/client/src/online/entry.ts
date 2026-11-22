@@ -6,6 +6,7 @@ export interface EntryOptions {
   roomId?: string;
   name?: string;
   error?: string;
+  onSolo?(href: string): void;
   /** `difficulty`: the pick on the start screen; a new room starts with it (joining keeps the host's). */
   onSubmit(name: string, difficulty: Difficulty): Promise<void>;
 }
@@ -91,6 +92,11 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   // solo is the 60-round game; the 20-round data stays reachable only through an old /solo link
   const solo = el('div', 'entry-solo');
   const link = el('a', 'entry-link', TEXT.solo);
+  link.addEventListener('click', ev => {
+    if (!opts.onSolo || ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    ev.preventDefault();
+    opts.onSolo(link.href);
+  });
   function drawSolo(): void {
     const row = el('div', 'entry-difficulty');
     row.append(el('span', 'entry-difficulty-label', TEXT.modeLabel), difficultyPicker(difficulty, d => { difficulty = d; drawSolo(); }));
