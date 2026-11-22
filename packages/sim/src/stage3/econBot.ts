@@ -93,10 +93,6 @@ export function jigeCommands(state: GameState, target: string | null): Command[]
 /** The share of max HP at or under which the measurement bots pay for an attempt (the best band). */
 export const BOT_TAME_HP = 0.15;
 
-/**
- * One paid attempt per decision while fewer than two hidden units are tamed, the target is at or under BOT_TAME_HP
- * and the cost leaves the target's needs intact.
- */
 /** Put the strongest out-of-range attacker in reach without displacing a stronger attacker. */
 export function focusMoves(state: GameState, anvil: boolean): Command[] {
   const enemy = state.enemies.find(e => anvil ? e.defId === state.data.economy?.mission?.enemy : e.boss || isShared(state.data,e));
@@ -125,10 +121,14 @@ export function focusMoves(state: GameState, anvil: boolean): Command[] {
 
 export function eagerTames(state: GameState): Command[] {
   const targets = state.data.economy?.tame?.targets;
-  if (!targets || ![10,12,20,32,43].includes(state.round)) return [];
+  if (!targets) return [];
   return state.enemies.filter(e => targets.some(t => t.enemy === e.defId) && tameCheck(state, e.id) === null).map(e => ({ type: 'tame', enemyId: e.id }));
 }
 
+/**
+ * One paid attempt per decision while fewer than two hidden units are tamed, the target is at or under BOT_TAME_HP
+ * and the cost leaves the target's needs intact.
+ */
 export function tameCommands(state: GameState, target: string | null): Command[] {
   const econ = state.econ;
   const tame = state.data.economy?.tame;
