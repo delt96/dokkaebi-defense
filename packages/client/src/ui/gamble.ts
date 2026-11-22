@@ -110,8 +110,11 @@ export function revealDisplay(reveal: Reveal | null, now: number, data: GameData
 
 export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null): string {
   const busy = !!reveal && reveal.phase !== 'result';
+  const buttons = [...model.coins.buttons, ...model.units.buttons];
+  const allBlocked = buttons.every(b => b.blocked);
+  const shared = allBlocked && buttons.every(b => b.blocked === buttons[0]?.blocked) ? buttons[0]?.blocked : null;
   const group = ({ count, buttons }: GroupModel) => {
-    const reasons = [...new Set(buttons.flatMap(b => b.blocked ? [b.blocked] : []))];
+    const reasons = shared ? [] : [...new Set(buttons.flatMap(b => b.blocked ? [b.blocked] : []))];
     return `<div class="gamble-group"><b class="gamble-count">${esc(count)}</b>
       <div class="gamble-buttons">${buttons.map(b => {
         const title = esc(b.blocked ? `${b.blocked} · ${b.odds}` : b.odds);
@@ -121,8 +124,9 @@ export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null): st
   const face = reveal?.unit ? unitFaceHtml(reveal.unit.id, reveal.unit.name, reveal.unit.grade)
     : reveal?.coin ? '<span class="coin" aria-hidden="true">◇</span>' : '';
   const effect = reveal?.motion ? (reveal.tier === 'big' ? ' flash pop' : reveal.tier === 'small' ? ' pop' : '') : '';
-  return `<section class="shop gamble-shop"><h3>도박</h3>${group(model.coins)}${group(model.units)}
-    <div class="gamble-reveal ${reveal?.phase ?? ''} ${reveal?.tier ?? ''}${effect}"${reveal?.phase === 'result' ? ' role="status"' : ''}>
+  const result = allBlocked && !reveal ? '' : `<div class="gamble-reveal ${reveal?.phase ?? ''} ${reveal?.tier ?? ''}${effect}"${reveal?.phase === 'result' ? ' role="status"' : ''}>
       ${reveal ? `${face}<div><b>${esc(reveal.label)}</b>${reveal.detail ? `<small>${esc(reveal.detail)}</small>` : ''}</div>` : ''}
-    </div></section>`;
+    </div>`;
+  return `<section class="shop gamble-shop"><h3>도박</h3>${group(model.coins)}${group(model.units)}
+    ${shared ? `<span class="gamble-why">${esc(shared)}</span>` : ''}${result}</section>`;
 }

@@ -49,7 +49,7 @@ export function marketModel(econ: EconMine, state: GameState, receipt: DrawRecei
     until: m.day > 0 ? `${m.endRound}라운드까지` : '장날은 1라운드부터',
     title: `헌 살림 보따리 · 메밀묵 ${m.draw.buckwheatCost}`,
     odds, left: `${m.draw.left}회 남음`,
-    jigeLine: `유닛을 뽑으면 ${pct(m.jigeChance)} 확률로 지게도 얻습니다.`,
+    jigeLine: `지게 추가 확률 ${pct(m.jigeChance)}`,
     held: `보유 지게 ${econ.jige}개`,
     blocked,
     hint: why === 'noSlot' ? '1·2등급은 G로 보관해 자리를 비울 수 있습니다' : null,
