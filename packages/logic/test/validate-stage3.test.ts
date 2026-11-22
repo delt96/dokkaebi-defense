@@ -64,3 +64,27 @@ test('invalid market settings fail validation', () => {
   }, 'stage3');
   expect(validateData(invalid).errors).toEqual(expect.arrayContaining(['invalid startingBuckwheat', 'invalid market price or limit', 'invalid jige chance']));
 });
+
+describe('exclusive recipe checks', () => {
+  const d3 = loadGameData('stage3');
+  const errs = (edit: (d: ReturnType<typeof loadGameData>) => void) => {
+    const d = structuredClone(d3);
+    edit(d);
+    return validateData(d).errors;
+  };
+  const tame = (d: ReturnType<typeof loadGameData>, result: string) => d.recipes.find(r => r.result === result)!;
+
+  test('wrong material, fee, grade, hidden flag, unregistered recruit, reuse and ordinary recipes with hidden units are refused', () => {
+    expect(errs(() => {})).toEqual([]);
+    expect(errs(d => { tame(d, 'baekbalbaneulgaksi').materials = ['jinegaksi', 'meok']; }).length).toBeGreaterThan(0);
+    expect(errs(d => { tame(d, 'baekbalbaneulgaksi').materials = ['jinegaksi', 'banjitgori', 'top']; }).length).toBeGreaterThan(0);
+    expect(errs(d => { tame(d, 'baekbalbaneulgaksi').cost = { buckwheat: 1, coins: 50 }; }).length).toBeGreaterThan(0);
+    expect(errs(d => { d.units.find(u => u.id === 'baekbalbaneulgaksi')!.grade = 5; }).length).toBeGreaterThan(0);
+    expect(errs(d => { delete d.units.find(u => u.id === 'baekbalbaneulgaksi')!.hidden; }).length).toBeGreaterThan(0);
+    expect(errs(d => { d.economy!.tame!.targets = d.economy!.tame!.targets.filter(t => t.unit !== 'jinegaksi'); }).length).toBeGreaterThan(0);
+    expect(errs(d => { tame(d, 'sonakheobeokjigi').materials = ['jinegaksi', 'jejuheobeok']; }).length).toBeGreaterThan(0);
+    expect(errs(d => { d.recipes.push({ ...tame(d, 'baekbalbaneulgaksi') }); }).length).toBeGreaterThan(0);
+    expect(errs(d => { delete tame(d, 'baekbalbaneulgaksi').kind; }).length).toBeGreaterThan(0);
+    expect(errs(d => { d.recipes.find(r => r.kind !== 'tame' && d.units.find(u => u.id === r.result)!.grade === 6)!.materials[0] = 'jinegaksi'; }).length).toBeGreaterThan(0);
+  });
+});

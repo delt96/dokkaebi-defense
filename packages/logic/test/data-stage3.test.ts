@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { buildGameData, dataSources, enemyDef, enemyHp, loadGameData, recipeDemand, unitDef } from '../src/index';
 import { readV5 } from './v5-table';
+import { familyMedian, roleDps } from './role-power';
 
 const d3 = loadGameData('stage3');
 const v5 = readV5();
@@ -66,22 +67,22 @@ describe('stage 3 data, grades 1-4', () => {
 });
 
 describe('stage 3 data, grades 5-6 and hidden', () => {
-  test('full v5 counts: 116 normal + 5 hidden, 108 recipes, physical 65', () => {
+  test('full v5 counts: 116 normal + 5 recruits, 108 ordinary recipes, physical 65', () => {
     expect([5, 6].map(g => normal(g).length)).toEqual([26, 30]);
     expect(d3.units.filter(u => !u.hidden).length).toBe(116);
-    expect(d3.units.filter(u => u.hidden).map(u => u.id).sort()).toEqual(['bulgasari', 'eoduksini', 'gangcheori', 'jinegaksi', 'ssireumdokkaebi']);
+    expect(d3.units.filter(u => u.hidden && u.grade === 4).map(u => u.id).sort()).toEqual(['bulgasari', 'eoduksini', 'gangcheori', 'jinegaksi', 'ssireumdokkaebi']);
     expect(d3.units.filter(u => !u.hidden && u.damageType === 'physical').length).toBe(65);
     expect([5, 6].map(g => normal(g).filter(u => u.damageType === 'physical').length)).toEqual([15, 15]);
-    expect(d3.recipes.length).toBe(108);
+    expect(d3.recipes.filter(r => r.kind !== 'tame').length).toBe(108);
   });
 
   test('every v5 row matches stats, name, recipe and cost', () => {
-    expect(v5.units.length).toBe(121);
+    expect(v5.units.length).toBe(126);
     for (const v of v5.units) {
       expect(unitDef(d3, v.id)).toMatchObject({ name: v.name, grade: v.grade, damageType: v.damageType, range: v.range, interval: v.interval, factor: v.factor });
       expect([v.id, unitDef(d3, v.id).hidden === true]).toEqual([v.id, v.hidden]);
       const recipe = d3.recipes.find(r => r.result === v.id);
-      if (v.hidden || v.grade === 1) { expect(recipe).toBeUndefined(); continue; }
+      if ((v.hidden && v.grade === 4) || v.grade === 1) { expect(recipe).toBeUndefined(); continue; }
       const want = v5.recipes.find(r => r.result === v.id)!;
       expect([v.id, sorted(recipe!.materials)]).toEqual([v.id, sorted(want.materials)]);
       const cost = v.grade === 5 ? { buckwheat: 1 } : v.grade === 6 ? { buckwheat: 1, coins: 60 } : undefined;
@@ -97,8 +98,9 @@ describe('stage 3 data, grades 5-6 and hidden', () => {
       gireumbyeong: 1, bujipge: 2, jaetmulsiru: 1, bagaji: 3, but: 4, jipsingol: 1, che: 1,
       yeonjabangga: 1, moru: 4, onggigama: 6, daljip: 1, dwiju: 2, meok: 4, geumulbaneul: 5, indupan: 2, tteongme: 2, gawi: 5, indu: 3, byeoru: 1,
       soemangchi: 5, chaeban: 4, mulle: 3, ja: 7, sokuri: 2, yagyeon: 1, golmu: 3, jumadeung: 1, maetdol: 2, jige: 3,
-      top: 4, kkeul: 7, banjitgori: 2, dongwe: 2, gat: 1, manggeon: 1, eomang: 1, geumulchu: 2, beoseon: 1, ssatba: 1, jejuheobeok: 3, jipbae: 3,
-      janggu: 2, kkwaenggwari: 2, buk: 1, hahoetal: 1, yeopjeonkkureomi: 2, dokki: 3, jojokdeung: 2, tewak: 1, maksabal: 4, yaktanggi: 2,
+      // the exclusive recipes add one use each to top, banjitgori, ssatba, jejuheobeok and jojokdeung
+      top: 5, kkeul: 7, banjitgori: 3, dongwe: 2, gat: 1, manggeon: 1, eomang: 1, geumulchu: 2, beoseon: 1, ssatba: 2, jejuheobeok: 4, jipbae: 3,
+      janggu: 2, kkwaenggwari: 2, buk: 1, hahoetal: 1, yeopjeonkkureomi: 2, dokki: 3, jojokdeung: 3, tewak: 1, maksabal: 4, yaktanggi: 2,
       tteoksiru: 4, yeotpan: 2, gireumteul: 1, sil: 5 };
     for (const [id, n] of Object.entries(T)) expect([id, recipeDemand(d3, id)]).toEqual([id, n]);
   });
@@ -173,5 +175,42 @@ describe('stage 3 balance stands on its own', () => {
     const s3 = buildGameData('stage3', src);
     expect(s3.balance).toEqual(d3.balance);
     expect(s3.coop).toEqual(d3.coop);
+  });
+});
+
+describe('exclusive recipes of the recruits', () => {
+  const TABLE: [string, string, 'physical' | 'magical', string, string, 'group' | 'single', number][] = [
+    ['baekbalbaneulgaksi', '백발바늘각시', 'physical', 'jinegaksi', 'banjitgori', 'group', 1.3],
+    ['sonakheobeokjigi', '소낙허벅지기', 'magical', 'gangcheori', 'jejuheobeok', 'group', 1.3],
+    ['topnisoemeokbo', '톱니쇠먹보', 'physical', 'bulgasari', 'top', 'single', 1.35],
+    ['satbadolgaejangsa', '샅바돌개장사', 'physical', 'ssireumdokkaebi', 'ssatba', 'group', 1.25],
+    ['geumeumdeungjigi', '그믐등지기', 'magical', 'eoduksini', 'jojokdeung', 'group', 1.35],
+  ];
+
+  test('names, families and exact pairs; 116 normal + 5 recruits + 5 upper hidden, 108 + 5 recipes', () => {
+    expect(d3.units.filter(u => !u.hidden).length).toBe(116);
+    expect(d3.units.filter(u => u.hidden && u.grade === 4).length).toBe(5);
+    expect(d3.units.filter(u => u.hidden && u.grade === 6).map(u => u.id).sort()).toEqual(TABLE.map(t => t[0]).sort());
+    expect(d3.recipes.filter(r => r.kind !== 'tame').length).toBe(108);
+    expect(d3.recipes.filter(r => r.kind === 'tame').length).toBe(5);
+    for (const [id, name, type, recruit, partner] of TABLE) {
+      expect(unitDef(d3, id)).toMatchObject({ name, grade: 6, hidden: true, damageType: type });
+      const r = d3.recipes.find(x => x.result === id)!;
+      expect([id, sorted(r.materials), r.cost, r.kind]).toEqual([id, sorted([recruit, partner]), { buckwheat: 1, coins: 60 }, 'tame']);
+      expect(unitDef(d3, partner)).toMatchObject({ grade: 5 });
+      expect(unitDef(d3, partner).hidden).toBeFalsy();
+    }
+  });
+
+  test('each partner is used in one more recipe than the v5 table and at most 7', () => {
+    const before: Record<string, number> = { banjitgori: 2, jejuheobeok: 3, top: 4, ssatba: 1, jojokdeung: 2 };
+    for (const [p, n] of Object.entries(before)) expect([p, recipeDemand(d3, p)]).toEqual([p, n + 1]);
+  });
+
+  test('skill-inclusive damage on its role is the target above the same-family normal grade 6 median (±5%p)', () => {
+    for (const [id, , , , , role, target] of TABLE) {
+      const ratio = roleDps(d3, id, role, 100000) / familyMedian(d3, id, 6, role, 100000);
+      expect([id, Math.abs(ratio - target) <= 0.05], `${id} ${ratio.toFixed(3)}`).toEqual([id, true]);
+    }
   });
 });

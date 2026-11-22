@@ -64,12 +64,35 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
   const enemyIds = new Set(data.enemies.map(e => e.id));
   const sameMaterials = new Map<string, string>();
 
+  const recruits = new Set(data.economy?.tame?.targets.map(t => t.unit) ?? []);
+  const results = new Set<string>();
+  const usedRecruits = new Set<string>();
   for (const r of data.recipes) {
     const result = byId.get(r.result);
     if (!result) { errors.push(`recipe result ${r.result} is not a unit`); continue; }
+    if (results.has(r.result)) errors.push(`unit ${r.result} has two recipes`);
+    results.add(r.result);
     const missing = r.materials.filter(m => !byId.has(m));
     for (const m of missing) errors.push(`recipe ${r.result} uses unknown unit ${m}`);
     if (missing.length) continue;
+    const key = [...r.materials].sort().join('+');
+    const prev = sameMaterials.get(key);
+    if (prev !== undefined) errors.push(`recipes ${prev} and ${r.result} have the same materials`);
+    else sameMaterials.set(key, r.result);
+    if (r.kind === 'tame') {
+      // one tamed recruit and one normal grade 5 into a hidden grade 6, at the grade 6 fee
+      const recruit = r.materials.filter(m => recruits.has(m) && byId.get(m)!.hidden && byId.get(m)!.grade === 4);
+      const partner = r.materials.filter(m => !byId.get(m)!.hidden && byId.get(m)!.grade === 5);
+      if (!data.economy?.tame) errors.push(`exclusive recipe ${r.result} without taming`);
+      if (r.materials.length !== 2 || recruit.length !== 1 || partner.length !== 1) errors.push(`exclusive recipe ${r.result} needs one recruit and one normal grade 5`);
+      if (!result.hidden || result.grade !== 6) errors.push(`exclusive recipe ${r.result} must make a hidden grade 6`);
+      if (costKey(r.cost) !== costKey(COSTS[6])) errors.push(`exclusive recipe ${r.result} cost ${costKey(r.cost)} != ${costKey(COSTS[6])}`);
+      for (const m of recruit) {
+        if (usedRecruits.has(m)) errors.push(`recruit ${m} is in two exclusive recipes`);
+        usedRecruits.add(m);
+      }
+      continue;
+    }
     for (const id of [r.result, ...new Set(r.materials)]) if (byId.get(id)!.hidden) errors.push(`hidden unit ${id} is in recipe ${r.result}`);
     if (result.grade <= 5 && recipeValue(data, r) !== gradeValue(result.grade)) {
       errors.push(`recipe ${r.result} value ${recipeValue(data, r)} != ${gradeValue(result.grade)}`);
@@ -89,10 +112,12 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
       const fives = r.materials.filter(m => byId.get(m)!.grade === 5);
       for (const m of new Set(fives)) if (fives.filter(x => x === m).length > 1) errors.push(`recipe ${r.result} uses grade-5 ${m} twice`);
     }
-    const key = [...r.materials].sort().join('+');
-    const prev = sameMaterials.get(key);
-    if (prev !== undefined) errors.push(`recipes ${prev} and ${r.result} have the same materials`);
-    else sameMaterials.set(key, r.result);
+  }
+  if (data.recipes.some(r => r.kind === 'tame')) {
+    for (const id of recruits) if (!usedRecruits.has(id)) errors.push(`recruit ${id} has no exclusive recipe`);
+    for (const u of data.units) {
+      if (u.hidden && u.grade === 6 && !data.recipes.some(r => r.result === u.id && r.kind === 'tame')) errors.push(`hidden ${u.id} has no exclusive recipe`);
+    }
   }
 
   const reachable = new Set(data.units.filter(u => u.grade === 1 && !u.hidden).map(u => u.id));

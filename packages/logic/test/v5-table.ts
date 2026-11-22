@@ -20,6 +20,8 @@ export function readV5(): { units: V5Unit[]; recipes: V5Recipe[] } {
     if (g) { grade = Number(g[1]); hidden = false; continue; }
     // the tamed recruits are grade 4 hidden units
     if (/^## 5\. 히든 유닛/.test(line)) { grade = 4; hidden = true; continue; }
+    // the exclusive recipe results: grade 6 hidden units with a recipe
+    if (/^### 상위 히든/.test(line)) { grade = 6; hidden = true; continue; }
     if (/^#{2,3} /.test(line)) { grade = 0; hidden = false; continue; }
     if (!grade || !line.startsWith('|')) continue;
     const cols = cells(line);
@@ -39,8 +41,8 @@ export function readV5(): { units: V5Unit[]; recipes: V5Recipe[] } {
   const byName = new Map(units.map(u => [u.name, u.id]));
   const recipes: V5Recipe[] = [];
   for (const { cols, hidden: h } of rows) {
-    if (h) continue;
     const mat = cols[7]!;
+    if (h && !mat.includes(' + ')) continue;
     if (mat === '소환 전용') continue;
     const r: V5Recipe = { result: cols[0]!, materials: [], buckwheat: 0, coins: 0 };
     for (const raw of mat.split(' + ')) {

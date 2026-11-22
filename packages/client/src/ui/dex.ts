@@ -26,7 +26,8 @@ export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, e
   const nameOf = new Map(entries.map(d => [d.id, d.name]));
   const open = new Set(extra.open ?? []);
   const rows = visible.map(d => {
-    const recipe = d.recipeIds.length ? d.recipeIds.map(id => link(id, nameOf.get(id) ?? id, d.id)).join(' + ') : d.hidden ? '길들이기' : '소환';
+    const makes = d.makesIds.length ? `<div class="dex-makes">이 유닛으로 만드는 조합: ${d.makesIds.map(id => link(id, nameOf.get(id) ?? id, d.id)).join(', ')}</div>` : '';
+    const recipe = d.recipeIds.length ? d.recipeIds.map(id => link(id, nameOf.get(id) ?? id, d.id)).join(' + ') : d.hidden ? `길들이기로 획득${makes}` : '소환';
     const notes = d.notes.length ? `<ul class="card-notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
     const isOpen = open.has(d.id);
     const toggle = d.recipeIds.length

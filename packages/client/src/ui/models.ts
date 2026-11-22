@@ -410,6 +410,8 @@ export interface DexEntry {
   search: string;
   /** the unit's own damage type and the roles read from its skills (dex-roles) */
   kind: DamageType; roles: RoleTag[];
+  /** a tamed recruit: the exclusive recipes it goes into */
+  makesIds: string[];
 }
 
 /** Words people search by that the skill text spells another way. */
@@ -429,6 +431,7 @@ export function dexEntries(data: GameData): DexEntry[] {
       id: u.id, name: u.name, grade: u.grade, hidden: u.hidden === true,
       recipe: (recipe?.materials ?? []).map(name), recipeIds: [...(recipe?.materials ?? [])],
       kind: u.damageType, roles: unitRoles(u),
+      makesIds: u.hidden ? data.recipes.filter(r => r.kind === 'tame' && r.materials.includes(u.id)).map(r => r.result) : [],
       typeText: typeName(u.damageType), range: u.range, skillText: unitSkillText(data, u), cost: costText(recipe),
       search: skillSearchText(unitSkillText(data, u), unitRoles(u)),
       // the combine card's first line (lines and range) is already in the row

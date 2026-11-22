@@ -95,3 +95,42 @@ describe('combine', () => {
     expect(recipesUsing(s, 2)).toEqual([]);
   });
 });
+
+describe('exclusive recipes combine like any grade 6', () => {
+  const d3 = loadGameData('stage3');
+  const PAIRS = d3.recipes.filter(r => r.kind === 'tame');
+
+  test('both materials and 묵 1 + 60냥 make one hidden grade 6, even on a full board', () => {
+    expect(PAIRS.length).toBe(5);
+    for (const r of PAIRS) {
+      const s = createGame(d3, 1);
+      s.open = s.open.map(() => true);
+      const [a, b] = r.materials as [string, string];
+      const ua = placeUnitForTest(s, a, 0);
+      ua.cost = 0;
+      placeUnitForTest(s, b, 1);
+      for (let i = 2; i < s.slots.length; i++) placeUnitForTest(s, 'jipsin', i);
+      s.buckwheat = 1; s.coins = 60;
+      const r1 = step(s, [{ type: 'combine', result: r.result, slot: 0 }]);
+      expect([r.result, r1.rejected]).toEqual([r.result, []]);
+      expect([s.buckwheat, s.coins]).toEqual([0, 0]);
+      expect(s.slots.filter(u => u?.defId === r.result)).toHaveLength(1);
+      expect(s.slots.some(u => u?.defId === a || u?.defId === b)).toBe(false);
+      const made = s.slots.find(u => u?.defId === r.result)!;
+      expect(d3.units.find(u => u.id === made.defId)).toMatchObject({ grade: 6, hidden: true });
+      // the duplicate submit finds no materials
+      expect(step(s, [{ type: 'combine', result: r.result }]).rejected.map(x => x.reason)).toEqual(['missingMaterials']);
+    }
+  });
+
+  test('a missing recruit, a missing partner or a short fee is refused', () => {
+    const r = PAIRS[0]!;
+    const [a, b] = r.materials as [string, string];
+    for (const [have, bw, coins, reason] of [[[a], 1, 60, 'missingMaterials'], [[b], 1, 60, 'missingMaterials'], [[a, b], 1, 59, 'noCoins'], [[a, b], 0, 60, 'noBuckwheat']] as const) {
+      const s = createGame(d3, 1);
+      have.forEach((id, i) => placeUnitForTest(s, id, i));
+      s.buckwheat = bw; s.coins = coins;
+      expect(step(s, [{ type: 'combine', result: r.result }]).rejected.map(x => x.reason)).toEqual([reason]);
+    }
+  });
+});

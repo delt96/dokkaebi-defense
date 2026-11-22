@@ -34,7 +34,8 @@ export interface UnitDef {
   id: string; name: string; grade: number; damageType: DamageType; range: number; interval: number; factor: number; skills: SkillDef[];
   hidden?: boolean; onBasicHit?: { targetPct: number; splashPct: number };
 }
-export interface RecipeDef { result: string; materials: string[]; cost?: { buckwheat?: number; coins?: number } }
+/** kind 'tame': a stage 3 exclusive recipe, one tamed recruit (grade 4 hidden) and one normal grade 5 into a hidden grade 6. */
+export interface RecipeDef { result: string; materials: string[]; cost?: { buckwheat?: number; coins?: number }; kind?: 'tame' }
 export interface BossControlDef { windowTicks: number; stunTicks: number; pushDistance: number; maxStoppedShare: number }
 export interface BossControlLog {
   alive: number; stopped: number; stunLog: number[]; pushLog: [number, number][];

@@ -74,5 +74,10 @@
   { "result": "cheonnyeonjokja", "materials": ["sil", "banjitgori", "but"], "cost": {"buckwheat": 1, "coins": 60} },
   { "result": "cheonnyeondot", "materials": ["jipbae", "sil", "baneul"], "cost": {"buckwheat": 1, "coins": 60} },
   { "result": "cheonnyeonbyeongpung", "materials": ["top", "sil", "but"], "cost": {"buckwheat": 1, "coins": 60} },
-  { "result": "cheonnyeonsangmo", "materials": ["gat", "manggeon", "gawi"], "cost": {"buckwheat": 1, "coins": 60} }
+  { "result": "cheonnyeonsangmo", "materials": ["gat", "manggeon", "gawi"], "cost": {"buckwheat": 1, "coins": 60} },
+  { "result": "baekbalbaneulgaksi", "materials": ["jinegaksi", "banjitgori"], "cost": {"buckwheat": 1, "coins": 60}, "kind": "tame" },
+  { "result": "sonakheobeokjigi", "materials": ["gangcheori", "jejuheobeok"], "cost": {"buckwheat": 1, "coins": 60}, "kind": "tame" },
+  { "result": "topnisoemeokbo", "materials": ["bulgasari", "top"], "cost": {"buckwheat": 1, "coins": 60}, "kind": "tame" },
+  { "result": "satbadolgaejangsa", "materials": ["ssireumdokkaebi", "ssatba"], "cost": {"buckwheat": 1, "coins": 60}, "kind": "tame" },
+  { "result": "geumeumdeungjigi", "materials": ["eoduksini", "jojokdeung"], "cost": {"buckwheat": 1, "coins": 60}, "kind": "tame" }
 ]

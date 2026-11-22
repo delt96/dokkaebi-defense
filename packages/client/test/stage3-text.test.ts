@@ -131,12 +131,19 @@ describe('review fixes: aura for all, lockouts, cooldowns, slow radii, tamed uni
     for (const u of old) expect(unitSkillText(d2, u)).toMatch(/주변 둔화/);
   });
 
-  test('the dex says 길들이기 for the five hidden units and 소환 for grade 1', () => {
+  test('the dex says 길들이기로 획득 for the five recruits, links each to its recipe and back, and 소환 for grade 1', () => {
     const entries = dexEntries(d3);
-    expect(entries.filter(e => e.hidden).map(e => e.id).sort()).toEqual(['bulgasari', 'eoduksini', 'gangcheori', 'jinegaksi', 'ssireumdokkaebi']);
+    expect(entries.filter(e => e.hidden && e.grade === 4).map(e => e.id).sort()).toEqual(['bulgasari', 'eoduksini', 'gangcheori', 'jinegaksi', 'ssireumdokkaebi']);
     expect(dexEntries(loadGameData('stage2')).some(e => e.hidden)).toBe(false);
     const row = (html: string, name: string) => html.split('<tr').find(r => r.includes(`<div class="dex-name">${name}</div>`)) ?? '';
-    expect(row(dexHtml(d3), '강철이')).toContain('<td>길들이기');
+    const recruit = row(dexHtml(d3), '강철이');
+    expect(recruit).toContain('<td>길들이기로 획득');
+    expect(recruit).toContain('이 유닛으로 만드는 조합');
+    expect(recruit).toContain('data-arg="sonakheobeokjigi@gangcheori"');
+    const result = row(dexHtml(d3), '소낙허벅지기');
+    expect(result).toContain('data-arg="gangcheori@sonakheobeokjigi"');
+    expect(result).toContain('data-arg="jejuheobeok@sonakheobeokjigi"');
+    expect(result).toContain('메밀묵 1개 · 엽전 60냥');
     expect(row(dexHtml(d3), '짚신')).toContain('<td>소환');
   });
 });
@@ -147,7 +154,8 @@ test('dex filters retain the selected grade, hidden units and story actions', ()
   expect(highest).not.toContain('data-action="storyTarget"');
   expect(highest).not.toContain('>5</td>');
   const hidden = dexHtml(d3, 'hidden');
-  expect(hidden.match(/>길들이기/g)).toHaveLength(d3.units.filter(u => u.hidden).length);
+  expect(hidden.match(/>길들이기로 획득/g)).toHaveLength(d3.units.filter(u => u.hidden && u.grade === 4).length);
+  expect(hidden).toContain('>백발바늘각시</div>');
   expect(hidden).not.toContain('data-action="storyTarget"');
   expect(dexHtml(d3)).toContain(`<span>${d3.units.length}종</span>`);
   for (const stage of ['stage1', 'stage2'] as const) {

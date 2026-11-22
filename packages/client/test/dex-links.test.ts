@@ -37,7 +37,7 @@ describe('recipe tree', () => {
       for (const u of data.units) {
         const tree = recipeTree(data, u.id);
         expect(tree === null).toBe(!data.recipes.some(r => r.result === u.id));
-        if (u.hidden) expect(tree).toBeNull();
+        if (u.hidden && u.grade === 4) expect(tree).toBeNull();
       }
     }
     expect(d3.units.some(u => u.hidden)).toBe(true);
@@ -258,4 +258,19 @@ describe('dex links in the mounted ui', () => {
     press(box().querySelector('[data-action="dexFold"][data-arg="bihyeongrang:1"]'));
     expect(box().querySelector('li.covered')).toBeNull();
   });
+});
+
+test('an exclusive recipe shows in Q once both materials are on the board, and the dex walks recruit → result → recruit', async () => {
+  const { helperModel } = await import('../src/ui/models');
+  const s = createGame(d3, 1);
+  placeUnitForTest(s, 'jinegaksi', 0);
+  expect(helperModel(s).some(i => i.recipe === 'baekbalbaneulgaksi')).toBe(false);
+  placeUnitForTest(s, 'banjitgori', 1);
+  expect(helperModel(s).find(i => i.recipe === 'baekbalbaneulgaksi')).toMatchObject({ name: '백발바늘각시' });
+  let nav = dexNavStart();
+  nav = dexGo(d3, nav, 'baekbalbaneulgaksi', 'jinegaksi');
+  expect(nav.focus).toBe('baekbalbaneulgaksi');
+  nav = dexGo(d3, nav, 'jinegaksi', 'baekbalbaneulgaksi');
+  expect(nav.focus).toBe('jinegaksi');
+  expect(dexBack(nav).focus).toBe('baekbalbaneulgaksi');
 });
