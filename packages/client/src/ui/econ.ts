@@ -45,7 +45,7 @@ export function marketModel(econ: EconMine, state: GameState, receipt: DrawRecei
   const blocked = why === 'noBuckwheat' ? `메밀묵 ${m.draw.buckwheatCost - state.buckwheat}개 부족` : why ? BUY_BLOCK[why] ?? '뽑을 수 없음' : null;
   const unit = receipt ? data.units.find(u => u.id === receipt.defId) : undefined;
   return {
-    ...(m.gamble && { gamble: gambleModel(m.gamble, state.coins) }),
+    ...(m.gamble && { gamble: gambleModel(m.gamble, state.coins, state.buckwheat) }),
     until: m.day > 0 ? `${m.endRound}라운드까지` : '장날은 1라운드부터',
     title: `헌 살림 보따리 · 메밀묵 ${m.draw.buckwheatCost}`,
     odds, left: `${m.draw.left}회 남음`,

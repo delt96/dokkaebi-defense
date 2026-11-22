@@ -33,11 +33,12 @@ export class EconDriver {
     for (const seat of m.ring) {
       if (m.seats[seat]!.alive) {
         const lane = m.lanes[seat]!;
-        const commands = this.bots.get(seat)!.decide(lane);
+        const bot = this.bots.get(seat)!;
+        const commands = bot.decide(lane);
         for (const cmd of commands) push(seat, cmd);
         // Recheck on the next decision after purchases, combos and board changes settle.
         if (this.gamble && commands.every(cmd => cmd.type === 'move')) {
-          const cmd = surplusGamble(lane);
+          const cmd = surplusGamble(lane, bot.currentTarget?.() ?? null);
           if (cmd) push(seat, cmd);
         }
       } else {

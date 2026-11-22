@@ -29,7 +29,7 @@ export function gambleCheck(state: GameState, cmd: GambleCommand): RejectReason 
   if (state.round < table!.fromRound) return 'gambleRound';
   if (count.units >= g.units.perRound) return 'gambleLimit';
   if (!state.slots.some((u, i) => !u && state.open[i])) return 'noSlot';
-  return state.coins < table!.price ? 'noCoins' : null;
+  return state.buckwheat < table!.buckwheatCost ? 'noBuckwheat' : null;
 }
 
 function draw<T>(outcomes: GambleOdds<T>[], roll: number): T {
@@ -64,15 +64,15 @@ registerCommand('gambleUnit', (state, cmd, events) => {
   if (cmd.type !== 'gambleUnit') return 'unknown';
   const why = gambleCheck(state, cmd);
   if (why) return why;
-  const g = config(state)!.units;
-  const { price, outcomes } = g.tables[cmd.table];
+  const table = config(state)!.units.tables[cmd.table];
   const count = state.econ!.gamble = attempts(state);
   count.units++;
   const rng = gambleRng(state, cmd.type);
-  const result = draw(outcomes, nextFloat(rng));
-  const refund = result === 0 ? Math.floor(price * g.refund) : 0;
-  state.coins += refund - price;
-  const receipt = { type: cmd.type, table: cmd.table, price, refund };
+  const result = draw(table.outcomes, nextFloat(rng));
+  const consolation = result === 0 ? table.consolation : 0;
+  state.buckwheat -= table.buckwheatCost;
+  state.coins += consolation;
+  const receipt = { type: cmd.type, table: cmd.table, buckwheatCost: table.buckwheatCost, consolation };
   if (result === 0) {
     events.push({ ...receipt, result });
   } else {
@@ -98,7 +98,7 @@ interface QuotaView { left: number; limit: number }
 type TableView = GambleDef['units']['tables'][GambleTable] & { why: RejectReason | null };
 export interface GambleView {
   coins: QuotaView & { outcomes: GambleDef['coins']['outcomes']; stakes: { price: number; why: RejectReason | null }[] };
-  units: QuotaView & { refund: number; tables: Record<GambleTable, TableView> };
+  units: QuotaView & { tables: Record<GambleTable, TableView> };
 }
 
 export function gambleView(state: GameState): GambleView | undefined {
@@ -112,7 +112,7 @@ export function gambleView(state: GameState): GambleView | undefined {
       stakes: g.coins.stakes.map(price => ({ price, why: gambleCheck(state, { type: 'gambleCoins', stake: price }) })),
     },
     units: {
-      left: g.units.perRound - count.units, limit: g.units.perRound, refund: g.units.refund,
+      left: g.units.perRound - count.units, limit: g.units.perRound,
       tables: { small: table('small'), big: table('big') },
     },
   };

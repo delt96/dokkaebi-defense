@@ -34,7 +34,11 @@ export interface EconRow {
   mukBlocked: boolean;
   /** 격파: kills, time-outs, the highest level killed and the 묵 they paid. */
   huntKills: number; huntFled: number; huntBest: number; huntMuk: number;
-  coinBet?: number; coinPayout?: number; unitBet?: number; unitRefund?: number;
+  /** Each kill as enemy:level, joined with '+'. */
+  huntWins?: string;
+  coinBet?: number; coinPayout?: number; unitMuk?: number; unitConsolation?: number;
+  /** Archived CSV columns for the old coin-priced unit tables. */
+  unitBet?: number; unitRefund?: number;
   gambleMiss?: number; gamble3?: number; gamble4?: number; gamble5?: number; gamble6?: number; gambleHidden?: number;
   smallPlays?: number; bigPlays?: number;
   sold: number; missingAtEnd: string; yeoksinKills: number;
@@ -122,8 +126,8 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
       draws: 0, questWins: '', tames: 0, jigeGrants: 0, jigeUses: 0, jigeHeld: 0, tameTries: 0,
       muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false,
-      huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
-      ...(c.gamble && { coinBet: 0, coinPayout: 0, unitBet: 0, unitRefund: 0,
+      huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, huntWins: '', sold: 0, missingAtEnd: '', yeoksinKills: 0,
+      ...(c.gamble && { coinBet: 0, coinPayout: 0, unitMuk: 0, unitConsolation: 0,
         gambleMiss: 0, gamble3: 0, gamble4: 0, gamble5: 0, gamble6: 0, gambleHidden: 0, smallPlays: 0, bigPlays: 0 }),
       boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
     });
@@ -177,8 +181,8 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
           row.coinBet = (row.coinBet ?? 0) + e.stake;
           row.coinPayout = (row.coinPayout ?? 0) + e.payout;
         } else if (e.type === 'gambleUnit') {
-          row.unitBet = (row.unitBet ?? 0) + e.price;
-          row.unitRefund = (row.unitRefund ?? 0) + e.refund;
+          row.unitMuk = (row.unitMuk ?? 0) + e.buckwheatCost;
+          row.unitConsolation = (row.unitConsolation ?? 0) + e.consolation;
           const plays = e.table === 'small' ? 'smallPlays' : 'bigPlays';
           row[plays] = (row[plays] ?? 0) + 1;
           const hit = e.result === 0 ? 'gambleMiss' : e.result === 'hidden' ? 'gambleHidden' : `gamble${e.result}` as const;
@@ -192,7 +196,13 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
         else if (e.type === 'tameTry') row.tameTries++;
         else if (e.type === 'tame') row.tames++;
         else if (e.type === 'questReward') wins.get(s)!.add(e.quest);
-        else if (e.type === 'hunt' && e.outcome === 'won') { row.huntKills++; row.huntMuk += e.buckwheat; row.huntBest = Math.max(row.huntBest, e.level); }
+        else if (e.type === 'hunt' && e.outcome === 'won') {
+          row.huntKills++;
+          row.huntMuk += e.buckwheat;
+          row.huntBest = Math.max(row.huntBest, e.level);
+          const win = `${e.enemy}:${e.level}`;
+          row.huntWins = row.huntWins ? `${row.huntWins}+${win}` : win;
+        }
         else if (e.type === 'hunt') row.huntFled++;
         else if ((e.type === 'combine' || e.type === 'summon') && row.firstGrade6Round === null && isNormal6(lane, e.defId)) {
           row.firstGrade6Round = match.round;
@@ -313,12 +323,15 @@ export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data
     }
   }
   if (rows.some(r => r.coinBet !== undefined)) {
-    out.push('', '| 설정 | 돈 도박 베팅 / 지급 | 유닛 도박 베팅 / 환급 | 작은 판 / 큰 판 | 꽝 / 3 / 4 / 5 / 6 / 숨은 유닛 |',
+    out.push('', '| 설정 | 돈 도박 베팅 / 지급 (냥) | 유닛 도박 지출 / 꽝 위로금 | 작은 판 / 큰 판 | 꽝 / 3 / 4 / 5 / 6 / 숨은 유닛 |',
       '| --- | ---: | ---: | ---: | ---: |');
     for (const name of configs) {
       const rs = rows.filter(r => r.config === name);
       const sum = (...keys: (keyof EconRow)[]) => keys.map(k => rs.reduce((n, r) => n + Number(r[k] ?? 0), 0)).join(' / ');
-      out.push(`| ${name} | ${sum('coinBet', 'coinPayout')} | ${sum('unitBet', 'unitRefund')} | ${sum('smallPlays', 'bigPlays')} | ${sum('gambleMiss', 'gamble3', 'gamble4', 'gamble5', 'gamble6', 'gambleHidden')} |`);
+      const unitFlow = rs.some(r => r.unitBet !== undefined)
+        ? `${sum('unitBet', 'unitRefund')}냥 (환급)`
+        : `${sum('unitMuk')}묵 / ${sum('unitConsolation')}냥`;
+      out.push(`| ${name} | ${sum('coinBet', 'coinPayout')} | ${unitFlow} | ${sum('smallPlays', 'bigPlays')} | ${sum('gambleMiss', 'gamble3', 'gamble4', 'gamble5', 'gamble6', 'gambleHidden')} |`);
     }
   }
   if (yeoksin.length && data?.coop) {
@@ -346,7 +359,8 @@ export const STANDARD_CONFIGS: EconConfig[] = ECON_BOTS.flatMap(bot => [
 ]);
 
 const NUMBER_COLS = new Set([
-  'coinBet', 'coinPayout', 'unitBet', 'unitRefund', 'gambleMiss', 'gamble3', 'gamble4', 'gamble5', 'gamble6', 'gambleHidden', 'smallPlays', 'bigPlays',
+  'coinBet', 'coinPayout', 'unitMuk', 'unitConsolation', 'unitBet', 'unitRefund',
+  'gambleMiss', 'gamble3', 'gamble4', 'gamble5', 'gamble6', 'gambleHidden', 'smallPlays', 'bigPlays',
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 
   'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'jigeGrants', 'jigeUses', 'jigeHeld', 'tameTries',
   'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60', 'huntKills', 'huntFled', 'huntBest', 'huntMuk', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
