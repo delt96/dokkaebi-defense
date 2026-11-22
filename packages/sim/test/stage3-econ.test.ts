@@ -244,3 +244,22 @@ describe('economy measurement additions', () => {
     expect(parseEconCsv(toCsvRows(r.rows))).toEqual(r.rows);
   }, 120_000);
 });
+
+describe('R10 paired tame probe summary', () => {
+  test('median cut at and above 10%, with failed, unattempted and incomplete pairs counted apart', async () => {
+    const { r10Summary } = await import('../src/stage3/r10probe');
+    const pair = (over: Partial<import('../src/stage3/r10probe').R10Pair>) => ({
+      seed: 1, seat: 1, attempted: true, recruited: true, survivedTreatment: true, survivedControl: true,
+      liveTicksTreatment: 900, liveTicksControl: 1000, ...over,
+    });
+    const at = r10Summary([pair({}), pair({ liveTicksTreatment: 950 }), pair({ liveTicksTreatment: 850 })]);
+    expect(at.medianCut).toBeCloseTo(0.1, 9);
+    expect(at.pass).toBe(true);
+    const above = r10Summary([pair({ liveTicksTreatment: 880 }), pair({ liveTicksTreatment: 890 }), pair({ liveTicksTreatment: 870 })]);
+    expect(above.medianCut).toBeCloseTo(0.12, 9);
+    expect(above.pass).toBe(false);
+    const mixed = r10Summary([pair({}), pair({ recruited: false }), pair({ attempted: false, recruited: false }), pair({ survivedControl: false })]);
+    expect([mixed.recruited, mixed.failed, mixed.unattempted, mixed.incomplete, mixed.pairs]).toEqual([2, 1, 1, 1, 1]);
+    expect(r10Summary([pair({ recruited: false })])).toMatchObject({ pairs: 0, medianCut: null, pass: null });
+  });
+});

@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { r10Markdown, r10PairRun, r10Summary, type R10Pair } from './r10probe';
 import { join } from 'node:path';
 import { loadGameData, stripEconomy, type GameData } from '@dorandi/logic';
 import { normalBot } from '../bots';
@@ -14,11 +15,30 @@ import {
 
 type Arg = (name: string, fallback: string) => string;
 
+/**
+ * A copy of the data with `path=value` overrides (comma separated, numbers only), e.g.
+ * `--set balance.bossBuckwheat=3,balance.tokens.start=6`: for trying a balance lever without editing the JSON.
+ */
+export function withSets(data: GameData, sets: string): GameData {
+  if (!sets) return data;
+  const d = structuredClone(data);
+  for (const item of sets.split(',')) {
+    const [path, raw] = item.split('=');
+    const keys = path!.split('.');
+    let node = d as unknown as Record<string, unknown>;
+    for (const k of keys.slice(0, -1)) node = node[k] as Record<string, unknown>;
+    const last = keys[keys.length - 1]!;
+    if (typeof node[last] !== 'number' || !Number.isFinite(Number(raw))) throw new Error(`--set ${item}: not a number field`);
+    node[last] = Number(raw);
+  }
+  return d;
+}
+
 export function stage3Cli(arg: Arg): void {
   const check = arg('check', 'all');
   const seeds = Number(arg('seeds', '3'));
   const out = arg('out', 'sim-out/stage3');
-  const data = loadGameData('stage3');
+  const data = withSets(loadGameData('stage3'), arg('set', ''));
   mkdirSync(out, { recursive: true });
   const t0 = Date.now();
   const elapsed = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
@@ -54,6 +74,14 @@ export function stage3Cli(arg: Arg): void {
     console.log(grade6Markdown(rows) + '\n');
   }
   if (check === 'grade6') econGrade6(arg, data, out, elapsed);
+  if (check === 'r10probe') {
+    const seeds = Number(arg('seeds', '20'));
+    const rows: R10Pair[] = [];
+    for (let seed = 1; seed <= seeds; seed++) rows.push(...r10PairRun(data, seed));
+    writeFileSync(join(out, 'r10probe.csv'), toCsvRows(rows));
+    console.log(`## R10 paired tame probe (seeds ${seeds}, ${elapsed()}, ${join(out, 'r10probe.csv')})\n`);
+    console.log(r10Markdown(r10Summary(rows)) + '\n');
+  }
 }
 
 const onOff = (v: string) => v === 'on';
