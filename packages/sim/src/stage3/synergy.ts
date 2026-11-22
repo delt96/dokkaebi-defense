@@ -171,6 +171,15 @@ export function debuffProbe(data: GameData, seed: number): DebuffPair[] {
         const state = createGame(d, seed);
         startRound(state, round, []);
         for (let i = 0; i < d.balance.tokens.start; i++) applyCommand(state, { type: 'summon' }, []);
+        // Keep the opening rolls identical, then sell incidental sources in both arms.
+        // This leaves the designated support as the sole source of matching vulnerability.
+        state.slots.forEach((u, slot) => {
+          if (!u) return;
+          const addsVulnerability = unitDefFast(d, u.defId).skills.some(s => s.effects.some(e =>
+            (e.kind === 'vuln' && (e.damageType === family || e.damageType === 'all')) ||
+            (e.kind === 'auraEnemyVuln' && (!e.damageType || e.damageType === family))));
+          if (addsVulnerability) applyCommand(state, { type: 'sell', slot }, []);
+        });
         const rng = createRng(seed);
         const grades = round === 20 ? [4,4,4,5,5] : [4,4,5,5,6,6,6];
         const ids = grades.map(g => {

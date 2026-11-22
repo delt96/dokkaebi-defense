@@ -137,10 +137,11 @@ function econGrade6(arg: Arg, data: GameData, out: string, elapsed: () => string
   const yeoksin: (number | null)[][] = [];
   const reportOnly = onOff(arg('report','off'));
   if (!configs.length) throw new Error('No matching economy config');
-  if (onOff(arg('debuff','on'))) {
+  const probeMode = arg('debuff', 'on');
+  if (probeMode === 'on' || probeMode === 'refresh') {
     const file = join(out,'debuff.csv');
     const pairs: DebuffPair[] = [];
-    if (!reportOnly) {
+    if (!reportOnly || probeMode === 'refresh') {
       for (let seed = 1; seed <= Number(arg('seeds','20')); seed++) pairs.push(...debuffProbe(data,seed));
       writeFileSync(file,toCsvRows(pairs));
     } else if (existsSync(file)) {
