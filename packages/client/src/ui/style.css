@@ -86,7 +86,8 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 
 #right { padding: 6px; display: flex; flex-direction: column; gap: 4px; }
 #right .right-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; }
-#right .speed-btn { align-self: flex-end; min-height: 0; padding: 0 4px; font-size: 8px; color: var(--ink-dim); background: transparent; border-color: transparent; opacity: 0.6; }
+#right .foot-row { display: flex; justify-content: flex-end; gap: 2px; }
+#right .speed-btn { min-height: 0; padding: 0 4px; font-size: 8px; color: var(--ink-dim); background: transparent; border-color: transparent; opacity: 0.6; }
 #right .speed-btn:hover, #right .speed-btn[aria-pressed="true"] { opacity: 1; border-color: var(--panel-edge); }
 .res { display: flex; justify-content: space-between; }
 .res span { color: var(--accent); }

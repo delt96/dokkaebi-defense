@@ -1,4 +1,5 @@
 import stageHtml from '../index.html?raw';
+import { resultHtml } from '../src/ui/result';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createGame, loadGameData, step } from '@dorandi/logic';
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
@@ -72,7 +73,7 @@ test('result model', () => {
   expect(m.series.length).toBe(s.stats.length);
 });
 
-function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void) {
+function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void, onHome?: () => void) {
   const driver = new GameDriver(s);
   const queue = vi.spyOn(driver, 'queue');
   const events = new EventTarget();
@@ -101,7 +102,7 @@ function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void) {
     },
   });
 
-  const ui = mountUi(driver, scene as never, { onRestart });
+  const ui = mountUi(driver, scene as never, { onRestart, onHome });
   return { driver, queue, press, click, panels, select, scene, ui };
 }
 
@@ -322,6 +323,21 @@ test('the crash banner offers an in-game restart', () => {
   expect(errorMarkup).toContain('data-action="restart"');
   click('error', '', 'restart');
   expect(restart).toHaveBeenCalledOnce();
+});
+
+test('the solo result offers 다시 하기 and a way back to the first screen', () => {
+  const restart = vi.fn();
+  const home = vi.fn();
+  const s = createGame(data, 1);
+  const { click } = mountTestUi(s, restart, home);
+  s.phase = 'ended';
+  s.result = { outcome: 'defeat', reason: 'limit', round: 3 };
+  const html = resultHtml(s, null);
+  expect(html).toContain('data-action="restart"');
+  expect(html).toContain('<button class="big" data-action="home">처음 화면으로</button>');
+  click('modal', '', 'home');
+  expect(home).toHaveBeenCalledOnce();
+  expect(restart).not.toHaveBeenCalled();
 });
 
 describe('upgrade window keys', () => {

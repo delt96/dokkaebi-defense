@@ -130,6 +130,18 @@ describe('J list and the quest box', () => {
     expect(modal().textContent).toContain('도감');
   });
 
+  test('the 도우미 switch sits beside the speed button and shows or hides the left list', () => {
+    const sw = () => document.querySelector<HTMLElement>('#right .foot-row [data-action="toggleHelper"]')!;
+    expect(sw().textContent).toBe('도우미 끔');
+    expect(sw().nextElementSibling?.getAttribute('data-action')).toBe('speed');
+    expect(document.querySelector('#left [data-action="toggleHelper"]')).toBeNull();
+    expect(document.querySelector('#left .helper li')).toBeNull();
+    press(sw());
+    expect(sw().textContent).toBe('도우미 켬');
+    expect(sw().getAttribute('aria-pressed')).toBe('true');
+    expect(document.querySelector('#left .helper li')).not.toBeNull();
+  });
+
   test('a chip under the lane opens the list on its row', () => {
     const chip = document.querySelector<HTMLElement>('#econ-bottom [data-action="openQuests"][data-arg="collection"]')!;
     expect(chip).not.toBeNull();
@@ -151,3 +163,4 @@ describe('J list and the quest box', () => {
 
 // a server view is only needed for the cooperative rows
 void (null as unknown as ClientView);
+

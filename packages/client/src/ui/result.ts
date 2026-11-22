@@ -45,6 +45,6 @@ export function resultHtml(state: GameState, bestUnitId: string | null): string 
     ${graph(m.series, state.data.balance.limit)}
     <p>마지막 ${m.lastEnemies}마리 · 가장 많았을 때 ${m.maxEnemies}마리</p>
     <p>최고 유닛: ${best} · ${esc(m.helperText)}</p>
-    <button class="big" data-action="restart">다시 하기</button>
+    <div class="screen-actions"><button class="big" data-action="restart">다시 하기</button><button class="big" data-action="home">처음 화면으로</button></div>
   </div>`;
 }

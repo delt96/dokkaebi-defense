@@ -33,7 +33,7 @@ const NOTICE_MS = 1500;
 const NOTE_MS = 2500;
 const NOTE_TYPES: ReadonlySet<string> = new Set(['buy', 'jigeSwap', 'questReward', 'tame', 'tameTry']);
 
-export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void }
+export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void; onHome?: () => void }
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
@@ -81,7 +81,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   }
 
   const act = (action: string, arg: string) => {
-    if (driver.failed && action !== 'restart') return;
+    if (driver.failed && action !== 'restart' && action !== 'home') return;
     if (driver.readOnly && GAME_ACTIONS.has(action)) return;
     const previousModal = modal;
     switch (action) {
@@ -219,6 +219,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       case 'toggleFx': scene.setReduceEffects(!scene.reduceEffects); break;
       case 'restart': hooks.onRestart?.(); break;
+      case 'home': hooks.onHome?.(); break;
     }
     if (action.startsWith('dex')) dexRemember();
     render();
@@ -421,6 +422,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         ...(driver.speed !== undefined ? { speed: driver.speed } : {}),
         ...(s.data.economy?.market ? { market: econTab !== null } : {}),
         quests: questBox(view !== null),
+        helper: helperOpen,
       });
     }
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');

@@ -44,7 +44,7 @@ export function startSolo(): void {
     ui.resetUi();
   }
 
-  const ui = mountUi(driver, scene, { onRestart: restart });
+  const ui = mountUi(driver, scene, { onRestart: restart, onHome: () => location.assign('/') });
 
   if (import.meta.env.DEV) Object.assign(window, { __driver: driver, __scene: scene });
 }
