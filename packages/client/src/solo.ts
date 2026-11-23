@@ -4,6 +4,7 @@ import { bindBattleAudio } from './audio/battle';
 import { GameDriver } from './driver';
 import { LaneScene, LANE_CANVAS } from './LaneScene';
 import { stagePlacement } from './layout';
+import { sendSoloLog, soloLogBody } from './soloLog';
 import { soloStage } from './online/entry';
 import { mountUi } from './ui/mount';
 import './ui/style.css';
@@ -14,7 +15,9 @@ export function startSolo(): void {
   const pick = new URLSearchParams(location.search).get('difficulty');
   const difficulty = isDifficulty(pick) ? pick : undefined;
   const newSeed = () => (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
-  const driver = new GameDriver(createGame(data, newSeed(), difficulty));
+  let seed = newSeed();
+  const driver = new GameDriver(createGame(data, seed, difficulty));
+  driver.onFinished(state => void sendSoloLog(soloLogBody(state, seed, difficulty, rules, driver.record)));
   const resetAudio = bindBattleAudio(driver);
   const scene = new LaneScene(driver);
 
@@ -42,7 +45,8 @@ export function startSolo(): void {
   fit();
 
   function restart(): void {
-    driver.reset(createGame(data, newSeed(), difficulty));
+    seed = newSeed();
+    driver.reset(createGame(data, seed, difficulty));
     resetAudio();
     scene.reset();
     ui.resetUi();
