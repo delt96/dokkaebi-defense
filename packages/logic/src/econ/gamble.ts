@@ -6,7 +6,7 @@ import { addUnit, chooseSlot } from '../units';
 import { unitValue } from './ledger';
 
 function config(state: GameState): GambleDef | undefined {
-  if (state.data.balance.rounds === 60 && state.econ) return state.data.economy?.market?.gamble;
+  if (state.econ) return state.data.economy?.market?.gamble;
 }
 
 function attempts(state: GameState) {

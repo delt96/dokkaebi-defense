@@ -310,6 +310,6 @@ describe('validation', () => {
     expect(bad(d => { d.balance.resistByRound = { fromRound: 20, toRound: 60, top: 0.4, cap: 0.4 }; })).toContain('resistByRound cap is below a base resist');
     expect(bad(d => { d.balance.zoneSlow = { pctFactor: 0 }; })).toContain('invalid zoneSlow');
     expect(bad(d => { d.balance.zoneSlow = { pctFactor: 1.5 }; })).toContain('invalid zoneSlow');
-    expect(bad(d => { d.balance.resistByRound = { fromRound: 20, toRound: 60, top: 0.4, cap: 0.8 }; d.balance.rounds = 20; })).toContain('resistByRound requires 60 rounds');
+    expect(bad(d => { d.balance.resistByRound = { fromRound: 20, toRound: 60, top: 0.4, cap: 0.8 }; d.balance.rounds = 20; })).toContain('resistByRound toRound is past the last round');
   });
 });

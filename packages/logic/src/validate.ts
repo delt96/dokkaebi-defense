@@ -16,7 +16,7 @@ const validOdds = (rows: unknown): rows is { result: unknown; chance: number }[]
 
 export function validateData(data: GameData): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
-  if (data.balance.rounds === 60) {
+  if (data.economy !== undefined || data.balance.difficulties !== undefined) {
     if (data.balance.defaultDifficulty !== 'normal') errors.push('invalid defaultDifficulty');
     for (const d of DIFFICULTIES) {
       const grant = data.balance.difficulties?.[d]?.tokensPerRound;
@@ -29,7 +29,7 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     if (!Number.isInteger(fromRound) || fromRound < 1 || !Number.isInteger(toRound) || toRound <= fromRound
       || !(Number.isFinite(top) && top >= 0 && top < 1) || !(Number.isFinite(cap) && cap > 0 && cap < 1)) errors.push('invalid resistByRound');
     else if (data.enemies.some(e => !e.event && (e.resist.physical > cap || e.resist.magical > cap))) errors.push('resistByRound cap is below a base resist');
-    if (data.balance.rounds !== 60) errors.push('resistByRound requires 60 rounds');
+    if (toRound > data.balance.rounds) errors.push('resistByRound toRound is past the last round');
   }
   const slow = data.balance.zoneSlow;
   if (slow !== undefined && !(Number.isFinite(slow?.pctFactor) && slow.pctFactor > 0 && slow.pctFactor <= 1)) errors.push('invalid zoneSlow');
@@ -46,7 +46,6 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
   if (gamble !== undefined) {
     const coins = gamble?.coins;
     const units = gamble?.units;
-    if (data.balance.rounds !== 60) errors.push('gamble requires 60 rounds');
     if (!coins || !Array.isArray(coins.stakes) || !coins.stakes.length || !coins.stakes.every(positiveInt)
       || new Set(coins.stakes).size !== coins.stakes.length || !positiveInt(coins.perRound)
       || !positiveInt(coins.bigMultiplier) || !validOdds(coins.outcomes)

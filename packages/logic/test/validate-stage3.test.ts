@@ -17,6 +17,14 @@ const BASE2 = { errors: [], warnings: ['grade 1 sotlid is used only in physical 
 describe('stage 3 validator rules', () => {
   test('stage 3 data has no errors', () => expect(validateData(loadGameData('stage3')).errors).toEqual([]));
 
+  test('stage 3 rules validate at any round count', () => {
+    const d = structuredClone(loadGameData('stage3'));
+    d.balance.rounds = 70;
+    d.balance.resistByRound = { ...d.balance.resistByRound!, toRound: 70 };
+    d.waves.push(...Array.from({ length: 10 }, (_, i) => ({ ...d.waves[50 + i]!, round: 61 + i })));
+    expect(validateData(d).errors).toEqual([]);
+  });
+
   test('stage 1 and 2 results unchanged', () => {
     expect(validateData(loadGameData())).toEqual(BASE1);
     expect(validateData(loadGameData('stage2'))).toEqual(BASE2);
