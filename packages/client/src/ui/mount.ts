@@ -1,5 +1,5 @@
 import {
-  laneOf, unitDefFast, type ClientView, type EconMine, type EconNote, type GameData, type GameEvent, type GambleCommand, type QuestId, type UpgradeId,
+  laneOf, unitDefFast, type ClientView, type EconMine, type EconNote, type GameData, type GameEvent, type GameState, type GambleCommand, type QuestId, type UpgradeId,
 } from '@dorandi/logic';
 import { SPEEDS, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
@@ -20,6 +20,7 @@ import { advanceReveal, heldCoins, revealDisplay, startReveal, type Reveal } fro
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
 import { renderAlert, renderHud } from './hud';
+import { PressConfirm } from './confirm';
 import {
   activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, nextUnitId, pinnedTarget, rejectText, selectedSlot, type DexNav, type Notice,
 } from './models';
@@ -34,6 +35,7 @@ const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
 };
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
+const CONFIRM_SELL_GRADE = 3;
 /** Economy notices stay a little longer than a refusal. */
 const NOTE_MS = 2500;
 const NOTE_TYPES: ReadonlySet<string> = new Set(['jigeSwap', 'questReward', 'tame', 'tameTry', 'hunt']);
@@ -84,6 +86,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let econTab: 'market' | null = null;
   let reveal: Reveal | null = null;
   let revealEpoch = driver.laneEpoch;
+  // S on grade 3+ and T take a second press within 2 seconds
+  const confirm = new PressConfirm();
+  const sellArmed = (s: GameState, slot: number | null) => slot !== null && !!s.slots[slot] && confirm.armed(`sell:${s.slots[slot]!.id}`, performance.now());
 
   function gamble(cmd: GambleCommand): void {
     if (!econTab || !econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
@@ -126,7 +131,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       }
       case 'sell': {
         const slot = selectedSlot(driver.state, Number(arg));
-        if (slot !== null) driver.queue({ type: 'sell', slot });
+        if (slot === null) break;
+        // grade 3 and up asks for a second press; grades 1-2 still sell at once
+        const unit = driver.state.slots[slot]!;
+        if (unitDefFast(driver.state.data, unit.defId).grade >= CONFIRM_SELL_GRADE && !confirm.press(`sell:${unit.id}`, performance.now())) break;
+        driver.queue({ type: 'sell', slot });
         break;
       }
       case 'upgrade': driver.queue({ type: 'upgrade', id: arg as UpgradeId }); break;
@@ -161,6 +170,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         if (!t) break;
         // the hotkey on a chance that is not ready says what is missing instead of sending a doomed command
         if (!t.ready) { refuse(t.label); break; }
+        if (!confirm.press(`tame:${t.enemyId}`, performance.now())) break;
         driver.queue({ type: 'tame', enemyId: t.enemyId });
         break;
       }
@@ -481,7 +491,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      renderHelper(s, helperOpen, s.phase === 'ended' ? '' : infoHtml || unitPanelHtml(s, selected, { compact: helperOpen, jige: held }));
+      renderHelper(s, helperOpen, s.phase === 'ended' ? '' : infoHtml || unitPanelHtml(s, selected, { compact: helperOpen, jige: held, sellArmed: sellArmed(s, selected) }));
     }
     // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
     // lane is full, so the line goes to the notices in the right column instead
@@ -510,7 +520,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else if (online && info) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), infoHtml);
-    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held);
+    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected));
     setHtml(el('storage'), storageVisible() ? storageHtml(s, held) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
@@ -617,7 +627,7 @@ ${dex.mine.join()}`;
   function placeTame(tame: TameModel | null): void {
     shownTame = tame;
     const box = el('tame-anchor');
-    setHtml(box, tameButtonHtml(tame));
+    setHtml(box, tameButtonHtml(tame, !!tame && confirm.armed(`tame:${tame.enemyId}`, performance.now())));
     moveTame();
   }
   function moveTame(): void {
@@ -652,6 +662,7 @@ ${dex.mine.join()}`;
     notice = null;
     econTab = null;
     reveal = null;
+    confirm.clear();
     render();
   }
   return { resetUi };

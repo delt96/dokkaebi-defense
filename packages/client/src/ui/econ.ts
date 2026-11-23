@@ -78,6 +78,8 @@ export function jigeListHtml(data: GameData, list: JigeList, held: number): stri
  * The T button under a target's health bar. Ready: price and odds at the current HP. Not ready: what is missing, in
  * the order the server checks it (extra condition, wait after a failure, a free cell, then every short currency).
  */
+const TAME_READY = 'T 우리 편으로';
+
 export interface TameModel { enemyId: number; hp: string; label: string; ready: boolean }
 
 export function tameModel(econ: EconMine, state: GameState): TameModel | null {
@@ -91,7 +93,7 @@ export function tameModel(econ: EconMine, state: GameState): TameModel | null {
   const c = t.cost;
   if (t.why === null) {
     const price = [c.buckwheat ? `묵 ${c.buckwheat}` : '', c.coins ? `${c.coins}냥` : '', c.tokens ? `불 ${c.tokens}` : ''].filter(Boolean);
-    return { enemyId: t.enemyId, hp, ready: true, label: ['T 우리 편으로', ...price, `성공 ${pct(t.chance)}`].join(' · ') };
+    return { enemyId: t.enemyId, hp, ready: true, label: [TAME_READY, ...price, `성공 ${pct(t.chance)}`].join(' · ') };
   }
   let label: string;
   if (t.why === 'tameCondition') {
@@ -441,9 +443,10 @@ export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay 
 }
 
 /** The T button under the target's health bar (placed by mount from the scene's bar anchor). */
-export function tameButtonHtml(tame: TameModel | null): string {
+export function tameButtonHtml(tame: TameModel | null, armed = false): string {
   if (!tame) return '';
-  return `<span class="tame-hp">${esc(tame.hp)}</span>${button('tame', String(tame.enemyId), tame.label, !tame.ready)}`;
+  const label = armed && tame.ready ? tame.label.replace(TAME_READY, 'T 한 번 더') : tame.label;
+  return `<span class="tame-hp">${esc(tame.hp)}</span>${button('tame', String(tame.enemyId), label, !tame.ready)}`;
 }
 
 export function econBottomHtml(chips: Chip[]): string {

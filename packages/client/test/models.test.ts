@@ -459,3 +459,25 @@ describe('settings window', () => {
     expect(html).not.toContain('data-action="speed"');
   });
 });
+
+test('S sells grades 1-2 at once; grade 3 and up asks for a second press within 2 seconds', () => {
+  const s = createGame(data, 1);
+  placeUnitForTest(s, 'sotlid', 0);
+  const high = placeUnitForTest(s, 'daljip', 3);
+  const { select, press, panels, queue } = mountTestUi(s);
+  select(0);
+  press('KeyS');
+  expect(queue).toHaveBeenLastCalledWith({ type: 'sell', slot: 0 });
+  queue.mockClear();
+  select(3);
+  press('KeyS');
+  expect(queue).not.toHaveBeenCalled();
+  expect(panels.get('left')!.innerHTML).toContain(`data-arg="${high.id}" class="armed">한 번 더 누르면 판매 +`);
+  press('KeyS');
+  expect(queue).toHaveBeenCalledExactlyOnceWith({ type: 'sell', slot: 3 });
+  queue.mockClear();
+  press('KeyS');
+  vi.advanceTimersByTime(2001);
+  press('KeyS');
+  expect(queue).not.toHaveBeenCalled();
+});

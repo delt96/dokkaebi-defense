@@ -626,3 +626,4 @@ body.online #right:has(.hunt-wait) .notices { min-height: 0; overflow: auto; }
 .dex-more > summary::after { content: ' ▾'; }
 .dex-more[open] > summary::after { content: ' ▴'; }
 .dex-legend { padding: 1px 0 2px; color: var(--ink-dim); font-size: 8px; line-height: 1.3; word-break: keep-all; }
+button[data-action="sell"].armed { color: #ffb396; border-color: var(--danger); background: #3a1f22; }

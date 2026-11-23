@@ -238,8 +238,14 @@ describe('T under the health bar', () => {
     const queued: unknown[] = [];
     const queue = driver.queue.bind(driver);
     vi.spyOn(driver, 'queue').mockImplementation(cmd => { queued.push(cmd); queue(cmd); });
+    // a tame spends coins on a chance: the first press only asks for a second one
+    press(box.querySelector('[data-action="tame"]'));
+    expect(queued).toEqual([]);
+    expect(box.textContent).toContain('T 한 번 더 · 30냥 · 성공 10%');
     press(box.querySelector('[data-action="tame"]'));
     expect(queued).toEqual([{ type: 'tame', enemyId: boss.id }]);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT', bubbles: true }));
+    expect(queued).toHaveLength(1);
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT', bubbles: true }));
     expect(queued).toEqual([{ type: 'tame', enemyId: boss.id }, { type: 'tame', enemyId: boss.id }]);
     // the target gone: the button goes too

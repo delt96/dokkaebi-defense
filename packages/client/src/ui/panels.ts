@@ -112,6 +112,11 @@ function compactRecipes(state: GameState, recipes: CombineOption[], unitId: numb
     ${more > 0 ? `<button class="recipe-more" data-action="unitDetails">+${more}개 더</button>` : ''}</div>`;
 }
 
+/** `armed`: a grade 3+ unit after the first S, waiting for the second. */
+function sellButton(unitId: number | null, price: number, armed: boolean): string {
+  return `<button data-action="sell" data-arg="${unitId}"${armed ? ' class="armed"' : ''}>${armed ? `한 번 더 누르면 판매 +${price}냥` : `판매(S) +${price}냥`}</button>`;
+}
+
 function jigeHtml(state: GameState, selected: number, unitId: number | null, jige: number | undefined): string {
   return jige !== undefined && unitId !== null && jigeCandidates(state.data, state.slots[selected]!.defId).length > 0
     ? `<span class="jige-held">보유 지게 ${jige}개</span><button data-action="jigeOpen" data-arg="board:${unitId}"${jige < 1 ? ' disabled' : ''}>R 지게 바꾸기</button>` : '';
@@ -121,7 +126,7 @@ function jigeHtml(state: GameState, selected: number, unitId: number | null, jig
  * Online: the selected unit's one-line card under the board, or the help line (null hotkeys = 도움말 off).
  * Solo shows the card in the left panel (unitPanelHtml) and only the help line here.
  */
-export function renderBottom(state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number) {
+export function renderBottom(state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number, sellArmed = false) {
   const pick = cardRecipes(state, selected);
   const card = online && selected !== null ? unitCard(state, selected) : null;
   const help = hotkeys === null ? '' : helpLineHtml(hotkeys);
@@ -137,7 +142,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
         ${options}
         <button data-action="unitDetails">상세(Tab)</button>
         ${jigeHtml(state, selected!, unitId, jige)}
-        <button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div>`);
+        ${sellButton(unitId, card.sellPrice, sellArmed)}</div>`);
   return pick;
 }
 
@@ -145,7 +150,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
  * Solo: the selected unit's card for the left panel. Alone it shows the whole skill text; `compact` (the helper list
  * sits above it) cuts the skill to two lines. With nothing selected it says how to fill it.
  */
-export function unitPanelHtml(state: GameState, selected: number | null, opts: { compact?: boolean; jige?: number } = {}): string {
+export function unitPanelHtml(state: GameState, selected: number | null, opts: { compact?: boolean; jige?: number; sellArmed?: boolean } = {}): string {
   const card = selected === null ? null : unitCard(state, selected);
   if (!card) return '<div class="unit-panel empty">유닛을 누르면 여기에 정보가 나옵니다</div>';
   const { unitId, recipes } = cardRecipes(state, selected);
@@ -159,7 +164,7 @@ export function unitPanelHtml(state: GameState, selected: number | null, opts: {
     <p class="up-skill${opts.compact ? ' compact' : ''}" title="${esc(card.skillText)}">${esc(card.skillText)}</p>
     ${options}
     ${jige ? `<div class="up-jige">${jige}</div>` : ''}
-    <div class="up-actions">${details}<button data-action="sell" data-arg="${unitId}">판매(S) +${card.sellPrice}냥</button></div></div>`;
+    <div class="up-actions">${details}${sellButton(unitId, card.sellPrice, opts.sellArmed === true)}</div></div>`;
 }
 
 export function upgradesHtml(state: GameState): string {
