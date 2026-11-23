@@ -22,14 +22,12 @@ const put = (s: GameState, id: string, rec: Partial<QuestRecord>) => {
 const row = (rows: ReturnType<typeof questRows>, id: string) => rows.find(r => r.id === id)!;
 
 describe('questRows', () => {
-  test('prep lists every quest as upcoming; solo marks the cooperative ones', () => {
+  test('prep lists every quest as upcoming; solo leaves out the cooperative ones', () => {
     const s = lane(0);
-    const rows = questRows(econOf(s), s, false);
-    expect(rows.map(r => [r.id, r.group])).toEqual([
+    expect(questRows(econOf(s), s, true).map(r => [r.id, r.group])).toEqual([
       ['collection', '곧 열림'], ['team', '곧 열림'], ['ssireum', '곧 열림'], ['shadow', '곧 열림'],
     ]);
-    expect(row(rows, 'team').outcome).toBe('협동 전용');
-    expect(row(rows, 'ssireum').outcome).toBe('협동 전용');
+    expect(questRows(econOf(s), s, false).map(r => r.id)).toEqual(['collection', 'shadow']);
     expect(row(questRows(econOf(s), s, true), 'team').outcome).toBe('');
   });
 

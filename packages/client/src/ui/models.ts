@@ -344,19 +344,38 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
  * `cost` is set on recipes with a cost (stage 3 grades 5 and 6), `short` when every material is there but the cost is not,
  * `stored` when some materials would come out of storage (how many).
  */
-export interface HelperItem { recipe: string; name: string; grade: number; cost?: string; short?: string; stored?: number }
+export interface HelperItem { recipe: string; name: string; grade: number; materials: Material[]; cost?: string; short?: string; stored?: number }
+
+/** A recipe material as the chips draw it; `have` is false for the copies the board and storage cannot cover. */
+export interface Material { id: string; name: string; grade: number; have: boolean }
+
+/** `missingIds` is what missingMaterials returns: the last copies of a material are the missing ones. */
+export function materialsOf(state: GameState, result: string, missingIds: readonly string[]): Material[] {
+  const recipe = state.data.recipes.find(r => r.result === result);
+  if (!recipe) return [];
+  const seen = new Map<string, number>();
+  return recipe.materials.map(id => {
+    const k = seen.get(id) ?? 0;
+    seen.set(id, k + 1);
+    const total = recipe.materials.filter(m => m === id).length;
+    const lacking = missingIds.filter(m => m === id).length;
+    const { name, grade } = unitDefFast(state.data, id);
+    return { id, name, grade, have: k < total - lacking };
+  });
+}
 
 /** Recipes that can be made now (in table order); stage 3 also lists those that only lack the cost, marked `short`. */
 export function helperModel(state: GameState): HelperItem[] {
   const out: HelperItem[] = [];
   for (const recipe of state.data.recipes) {
-    if (missingMaterials(state, recipe.result).length) continue;
+    const missing = missingMaterials(state, recipe.result);
+    if (missing.length) continue;
     const cost = costText(recipe);
     const short = cost ? costShortText(state, recipe) : null;
     const def = unitDefFast(state.data, recipe.result);
     const stored = storedMaterials(state, recipe.result);
     out.push({
-      recipe: recipe.result, name: def.name, grade: def.grade, ...(cost ? { cost } : {}), ...(short ? { short } : {}), ...(stored ? { stored } : {}),
+      recipe: recipe.result, name: def.name, grade: def.grade, materials: materialsOf(state, recipe.result, missing), ...(cost ? { cost } : {}), ...(short ? { short } : {}), ...(stored ? { stored } : {}),
     });
   }
   return out;
@@ -365,7 +384,7 @@ export function helperModel(state: GameState): HelperItem[] {
 const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
 
 /** `short` describes any currency shortfall. */
-export interface CombineOption { result: string; name: string; grade: number; missing: string[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
+export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
 
 function optionsFor(state: GameState, recipes: { result: string; missing: string[] }[]): CombineOption[] {
   return recipes.map(({ result, missing }): CombineOption => {
@@ -376,6 +395,7 @@ function optionsFor(state: GameState, recipes: { result: string; missing: string
     return {
       result, name, grade,
       missing: missing.map(id => unitDefFast(state.data, id).name),
+      materials: materialsOf(state, result, missing),
       key: null,
       ...(cost ? { cost } : {}),
       ...(short ? { short } : {}),

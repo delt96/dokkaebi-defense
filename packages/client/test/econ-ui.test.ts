@@ -167,7 +167,7 @@ describe('market hotkey', () => {
     keydown(window, { code: 'KeyB' });
     expect(panel()).toBe('');
     expect(document.querySelector('[data-action="toggleMarket"]')).toBeNull();
-    expect(document.getElementById('bottom')!.textContent).toBe('유닛을 눌러 선택하고 끌어서 옮기세요. · W 다음 유닛 · Tab 상세 · Space 소환 · E 강화 · D 도감 · G 1·2등급 보관 · Esc 선택 해제');
+    expect(document.getElementById('bottom')!.textContent).toBe('유닛을 눌러 선택하고 끌어서 옮기세요. · W 다음 유닛 · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · P 멈춤');
   });
 
   test('B opens and closes the market; the help line names it', () => {
@@ -238,8 +238,14 @@ describe('T under the health bar', () => {
     const queued: unknown[] = [];
     const queue = driver.queue.bind(driver);
     vi.spyOn(driver, 'queue').mockImplementation(cmd => { queued.push(cmd); queue(cmd); });
+    // a tame spends coins on a chance: the first press only asks for a second one
+    press(box.querySelector('[data-action="tame"]'));
+    expect(queued).toEqual([]);
+    expect(box.textContent).toContain('T 한 번 더 · 30냥 · 성공 10%');
     press(box.querySelector('[data-action="tame"]'));
     expect(queued).toEqual([{ type: 'tame', enemyId: boss.id }]);
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT', bubbles: true }));
+    expect(queued).toHaveLength(1);
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT', bubbles: true }));
     expect(queued).toEqual([{ type: 'tame', enemyId: boss.id }, { type: 'tame', enemyId: boss.id }]);
     // the target gone: the button goes too

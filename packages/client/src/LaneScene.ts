@@ -35,6 +35,8 @@ class LaneArtFile extends Phaser.Loader.File {
   }
 }
 
+const COMBINE_MARKER_RADIUS = 3;
+
 type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; gradeColor: number; combineMarker: Phaser.GameObjects.Arc };
 type EnemyContainer = Phaser.GameObjects.Container & {
   defId?: string; shared?: boolean; bar?: Phaser.GameObjects.Container; hp?: Phaser.GameObjects.Rectangle;
@@ -325,7 +327,7 @@ export class LaneScene extends Phaser.Scene {
       view.add(this.add.text(0, 0, def.name.slice(0, 1), { fontSize: '11px', color: '#10101a', fontFamily: 'sans-serif' }).setOrigin(0.5));
     }
     // the top-right corner, across from the grade dot at the top-left
-    view.combineMarker = this.add.circle(12 * k, -12 * k, 2, 0xffd65c).setStrokeStyle(1, 0x10101a);
+    view.combineMarker = this.add.circle(11 * k, -11 * k, COMBINE_MARKER_RADIUS, 0xffd65c).setStrokeStyle(1, 0x10101a);
     view.add(view.combineMarker);
     view.setSize(cellPx(this.lane), cellPx(this.lane)).setInteractive({ draggable: true, useHandCursor: true }).setDepth(3);
     view.on('pointerover', () => { this.hoveredId = unitId; });
@@ -425,6 +427,12 @@ export class LaneScene extends Phaser.Scene {
       this.auraKey = auraKey;
       this.buffed = auraBuffedSlots(this.state);
     }
+  }
+
+  /** The ready-to-combine dot breathes so it reads against busy sprites; reduced effects keep it still. */
+  private pulseCombineMarkers(now: number): void {
+    const alpha = this.reduceFx ? 1 : 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(now / 220));
+    for (const view of this.units.values()) view.combineMarker.alpha = alpha;
   }
 
   private updateCombineMarkers(): void {
@@ -718,6 +726,7 @@ export class LaneScene extends Phaser.Scene {
     const key = this.state.open.map(o => (o ? 1 : 0)).join('');
     if (key !== this.openKey) this.drawBoard();
     this.placeUnits();
+    this.pulseCombineMarkers(this.time.now);
     this.placeEnemies();
     this.drawFires();
     this.drawSelection();

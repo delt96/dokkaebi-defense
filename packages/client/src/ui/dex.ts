@@ -2,9 +2,11 @@ import type { GameData, GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import { ATTACK_RANGE_HINT, MINE_KEYS, MINE_LABEL, attackRangeText, branchKey, dexEntries, dexShows, recipeTree, roleList, summonOddsText, treeSize, type DexStep, type RecipeNode } from './models';
 import { esc } from './dom';
-import { ROLE_LABEL, ROLE_ORDER, roleText } from './dex-roles';
+import { ROLE_LABEL, ROLE_LEGEND, ROLE_ORDER, roleText } from './dex-roles';
 import { withRo } from './josa';
 import { pinButton } from './target';
+import { iconHtml, unitFaceHtml } from './storage';
+import { materialChipHtml } from './chips';
 
 /**
  * Material links and trees: `back` is the link history (its last step names the back button), `open` the entries whose
@@ -25,11 +27,18 @@ export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, e
   const picked = new Set(roleList(role));
   const narrowed = (browsable && (filter !== 'all' || query !== '')) || kind !== 'all' || role !== 'all' || skill !== '' || mine.length > 0;
   const nameOf = new Map(entries.map(d => [d.id, d.name]));
+  const gradeOf = new Map(entries.map(d => [d.id, d.grade]));
   const open = new Set(extra.open ?? []);
   const rows = visible.map(d => {
     const makes = d.makesIds.length ? `<div class="dex-makes">이 유닛으로 만드는 조합: ${d.makesIds.map(id => link(id, nameOf.get(id) ?? id, d.id)).join(', ')}</div>` : '';
-    const recipe = d.recipeIds.length ? d.recipeIds.map(id => link(id, nameOf.get(id) ?? id, d.id)).join(' + ') : d.hidden ? `길들이기로 획득${makes}` : '소환';
+    const chips = d.recipeIds.map(id => materialChipHtml({ id, name: nameOf.get(id) ?? id, grade: gradeOf.get(id) ?? 1 }, `${id}@${d.id}`)).join('');
+    const recipe = d.recipeIds.length ? `<span class="mat-chips dex-mats">${chips}</span>` : d.hidden ? `길들이기로 획득${makes}` : '소환';
     const notes = d.notes.length ? `<ul class="card-notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
+    // only the first skill line shows; the rest and the notes open under 더보기
+    const [firstSkill = '', ...moreSkills] = d.skillText ? d.skillText.split(' / ') : [];
+    const more = moreSkills.length || notes
+      ? `<details class="dex-more"><summary>더보기</summary>${moreSkills.length ? `<div class="dex-skill">${esc(moreSkills.join(' / '))}</div>` : ''}${notes}</details>`
+      : '';
     const isOpen = open.has(d.id);
     const toggle = d.recipeIds.length
       ? ` <button class="dex-tree-toggle" data-action="dexTree" data-arg="${esc(d.id)}" aria-expanded="${isOpen}">${isOpen ? '재료 접기 ▴' : '재료 펼치기 ▾'}</button>`
@@ -38,8 +47,8 @@ export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, e
     // one row per unit: an open tree sits right under the recipe line (where it was opened), then the skill line
     return `
     <tr data-dex-id="${esc(d.id)}"><td><span class="dot" style="background:${GRADE_COLOR[d.grade]}"></span>${d.grade}</td>
-    <td><div class="dex-name">${esc(d.name)}</div>${d.roles.length ? `<div class="dex-roles">${d.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${d.recipeIds.length ? pinButton(d.id, extra.target ?? null) : ''}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
-    <div class="dex-skill">${d.typeText} · <span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(data, d.range)}</span>${d.skillText ? ` · ${esc(d.skillText)}` : ''}</div>${notes}</td></tr>`;
+    <td>${unitFaceHtml(d.id, d.name, d.grade)}<div class="dex-name">${esc(d.name)}</div>${d.roles.length ? `<div class="dex-roles">${d.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : ''}</td><td>${recipe}${d.cost ? ` <span class="combine-cost">+ ${esc(d.cost)}</span>` : ''}${toggle}${d.recipeIds.length ? pinButton(d.id, extra.target ?? null) : ''}${tree ? treeBox(d.id, tree, new Set(extra.unfold ?? [])) : ''}
+    <div class="dex-skill">${d.typeText} · <span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(data, d.range)}</span>${firstSkill ? ` · ${esc(firstSkill)}` : ''}</div>${more}</td></tr>`;
   }).join('');
   const grades = [...new Set(entries.map(d => d.grade))].sort((a, b) => a - b);
   const filters = ['all', ...grades.map(String), 'hidden'].map(key => {
@@ -56,7 +65,7 @@ export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, e
   const advBar = `<div class="dex-advbar"><button data-action="dexAdv" aria-expanded="${adv}">상세검색 ${adv ? '▾' : '▸'}${advOn ? ` (${advOn})` : ''}</button>${adv ? '<span class="dex-mode">역할 모두 포함</span>' : ''}</div>`;
   const advPanel = adv ? `<div class="dex-adv"><form class="dex-skillsearch"><input type="search" name="skill" aria-label="기술로 찾기" placeholder="기술로 찾기 (기절, 폭발, 불길…)" value="${esc(skill)}"><button>찾기</button></form>${
     extra.state ? `<div class="dex-chips" role="group" aria-label="내 판 기준"><span class="dex-filter-label">내 판</span>${MINE_KEYS.map(k => `<button data-action="dexMine" data-arg="${k}" aria-pressed="${mine.includes(k)}">${MINE_LABEL[k]}</button>`).join('')}</div>` : ''}</div>` : '';
-  const summary = `<div class="dex-summary"><span>${visible.length}종</span>${narrowed ? '<button data-action="dexReset">필터 초기화</button>' : ''}</div>`;
+  const summary = `<div class="dex-summary"><span>${visible.length}종</span>${narrowed ? '<button data-action="dexReset">필터 초기화</button>' : ''}</div><div class="dex-legend">${ROLE_LEGEND}</div>`;
   const last = extra.back?.[extra.back.length - 1];
   const backName = last ? nameOf.get(last.id) : undefined;
   const back = backName ? `<button class="dex-back" data-action="dexBack">← ${esc(withRo(backName))}</button>` : '';
@@ -81,13 +90,13 @@ function link(id: string, name: string, from: string): string {
 }
 
 const MARK: Record<RecipeNode['mark'], string> = {
-  have: '<span class="mark have" title="보드에 있음">✓</span>',
-  missing: '<span class="mark missing" title="보드에 없음">✗</span>',
-  covered: '<span class="mark covered" title="윗재료가 보드에 있어 필요 없음">·</span>',
+  have: '<span class="mark have" title="보드·보관함에 있음">✓</span>',
+  missing: '<span class="mark missing" title="보드·보관함에 없음">✗</span>',
+  covered: '<span class="mark covered" title="윗재료가 있어 필요 없음">·</span>',
 };
 
 function treeBox(from: string, nodes: RecipeNode[], unfold: ReadonlySet<string>): string {
-  return `<div class="dex-tree-box"><div class="dex-tree-legend">✓ 보드에 있음 · ✗ 없음 · ▸ 하위 재료 펼치기</div>${treeList(from, nodes, unfold)}</div>`;
+  return `<div class="dex-tree-box"><div class="dex-tree-legend">✓ 보드·보관함에 있음 · ✗ 없음 · ▸ 하위 재료 펼치기</div>${treeList(from, nodes, unfold)}</div>`;
 }
 
 /** A ✓ material's own materials are not needed: they stay folded behind "▸ 하위 N개" until unfolded. */
@@ -99,6 +108,6 @@ function treeList(from: string, nodes: RecipeNode[], unfold: ReadonlySet<string>
     const fold = foldable
       ? `<button class="dex-fold" data-action="dexFold" data-arg="${esc(key)}" aria-expanded="${shown}">${shown ? '▾' : '▸'} 하위 ${treeSize(n)}개</button>`
       : '';
-    return `<li class="${n.mark}"><div class="node">${MARK[n.mark]}<span class="dot" style="background:${GRADE_COLOR[n.grade]}"></span>${link(n.id, n.name, from)}${n.cost ? `<span class="combine-cost">+ ${esc(n.cost)}</span>` : ''}${fold}</div>${shown ? treeList(from, n.children, unfold) : ''}</li>`;
+    return `<li class="${n.mark}"><div class="node">${MARK[n.mark]}<span class="mat-face" style="--g:${GRADE_COLOR[n.grade]}">${iconHtml(n.id, n.name, n.grade)}</span>${link(n.id, n.name, from)}${n.cost ? `<span class="combine-cost">+ ${esc(n.cost)}</span>` : ''}${fold}</div>${shown ? treeList(from, n.children, unfold) : ''}</li>`;
   }).join('')}</ul>`;
 }

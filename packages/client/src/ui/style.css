@@ -69,6 +69,8 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .hud .enemies { margin-left: auto; }
 .gauge { display: inline-block; width: 60px; height: 6px; background: #2a2232; border: 1px solid #4a3e5a; }
 .gauge i { display: block; height: 100%; background: linear-gradient(90deg, #8a6a4a, var(--danger)); }
+.hud .gauge-text { margin-left: -8px; color: #bfbbca; white-space: nowrap; }
+.hud .gauge-text.bad { color: #ff9482; }
 #alert { position: absolute; inset: 0; pointer-events: none; }
 #alert.on { box-shadow: inset 0 0 24px 4px rgba(255, 59, 47, 0.6); }
 .hud .notice { color: var(--danger); }
@@ -95,9 +97,32 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .up-skill { margin: 0; color: var(--ink-dim); line-height: 1.4; word-break: keep-all; }
 .up-skill.compact { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-recipes { min-width: 0; }
-.card-recipes .combine-options { display: flex; flex-direction: column; overflow-y: auto; max-height: 72px; }
-.card-recipes .combine-options > * { display: block; flex: 0 0 18px; min-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; padding: 0 3px; line-height: 16px; }
+.card-recipes .combine-options { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; max-height: 92px; scrollbar-width: thin; }
+.card-recipes .combine-options > * { flex: none; }
 .card-recipes .combine-missing { color: var(--ink-dim); }
+/* a recipe: key, result face, name and badge, then its material chips with names under them */
+.recipe-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; min-height: 0; padding: 2px 3px; text-align: left; }
+span.recipe-row { border: 1px dashed #3d3349; border-radius: 2px; }
+.recipe-top { display: flex; align-items: center; gap: 2px; max-width: 100%; min-height: 14px; line-height: 14px; white-space: nowrap; overflow: hidden; }
+.recipe-top b { font-weight: normal; overflow: hidden; text-overflow: ellipsis; }
+.recipe-top .unit-face { width: 14px; height: 14px; border-radius: 2px; }
+.recipe-top .unit-face img { width: 12px; height: 12px; }
+.recipe-top .unit-face .stack-disc { width: 10px; height: 10px; font-size: 7px; }
+.mat-chips { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1px 3px; max-width: 100%; }
+.mat-chip { display: inline-flex; flex-direction: column; align-items: center; min-width: 16px; max-width: 34px; }
+button.mat-chip { min-height: 0; padding: 0; background: transparent; border: 0; }
+button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accent); }
+.mat-face { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border: 1px solid var(--g); border-radius: 2px; background: rgba(0, 0, 0, .25); }
+.mat-face img { width: 12px; height: 12px; image-rendering: pixelated; }
+.mat-face .stack-disc { width: 10px; height: 10px; font-size: 7px; }
+.mat-chip small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; line-height: 9px; color: #bfbbca; }
+.mat-chip.lack .mat-face { border-style: dashed; border-color: #ff6b6b; }
+.mat-chip.lack .mat-face img, .mat-chip.lack .mat-face .stack-disc { opacity: .5; }
+.mat-chip.lack small { color: var(--ink-dim); }
+.mat-mark { position: absolute; right: -4px; bottom: -4px; font-style: normal; font-size: 8px; line-height: 8px; font-weight: bold; text-shadow: 0 0 2px #000; }
+.mat-chip.have .mat-mark { color: #9fe0a8; }
+.mat-chip.lack .mat-mark { color: #ff9482; }
+.mat-cost { align-self: center; font-size: 8px; color: var(--accent); white-space: nowrap; }
 .recipe-more { width: 100%; min-height: 16px; }
 .recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .pin-btn { flex: none; min-height: 15px; padding: 0 4px; }
@@ -132,6 +157,9 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 #bottom .skill { min-width: 0; max-width: 115px; overflow: hidden; text-overflow: ellipsis; color: var(--ink-dim); }
 #bottom .card-recipes { flex: 1; display: flex; align-items: center; gap: 2px; }
 #bottom .card-recipes .combine-options { flex: 1; min-width: 0; max-height: 36px; }
+#bottom .card-recipes .combine-options { gap: 0; }
+#bottom .card-recipes .recipe-row { flex: 0 0 18px; display: block; padding: 0 3px; border: 0; }
+#bottom .recipe-top { line-height: 16px; min-height: 16px; }
 #bottom .recipe-more, #bottom [data-action="sell"] { flex-shrink: 0; }
 #bottom .recipe-more { width: auto; }
 #bottom [data-action="sell"] { margin-left: auto; }
@@ -200,8 +228,8 @@ body.online #bottom { top: 316px; height: 44px; }
 button.big.pressed { transform: translateY(1px) scale(0.97); background: #5a3e22; }
 
 /* Online top bar: two 12px lines (spec 7). */
-body.online #top { border: 0; box-shadow: inset 0 -1px var(--panel-edge); padding: 0 70px 0 8px; display: flex; flex-direction: column; }
-body.online #top .line { height: 12px; line-height: 12px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+body.online #top { border: 0; box-shadow: inset 0 -1px var(--panel-edge); padding: 1px 70px 0 8px; display: flex; flex-direction: column; }
+body.online #top .line { height: 11px; line-height: 11px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 body.online #top .line:first-child { color: var(--accent); font-weight: bold; }
 body.online #top .line.second { color: var(--ink); }
 body.online #top .line.turn { color: #ffb396; }
@@ -269,8 +297,9 @@ body.online #right .notices { border-left: 2px solid var(--accent); padding: 4px
 .combine-cost { color: #c9b98a; }
 .combine-short { color: #ffab99; }
 button.combine-blocked[disabled] { opacity: 0.85; border-style: dashed; color: var(--ink-dim); }
-.helper li:has(small) { flex-wrap: wrap; white-space: nowrap; row-gap: 0; }
-.helper li small { flex-basis: 100%; padding-left: 9px; font-size: 9px; line-height: 1.2; white-space: normal; }
+.helper li { flex-wrap: wrap; row-gap: 1px; }
+.helper li:has(> small) { white-space: nowrap; row-gap: 0; }
+.helper li > small { flex-basis: 100%; padding-left: 9px; font-size: 9px; line-height: 1.2; white-space: normal; }
 .dex td { vertical-align: top; padding-block: 3px; }
 .dex th, .dex td:nth-child(-n + 2) { white-space: nowrap; }
 .card-notes + .recipe-list { margin-top: 6px; }
@@ -424,7 +453,7 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .storage-head { display: flex; justify-content: space-between; height: 11px; line-height: 11px; padding: 0 1px; color: var(--ink-dim); }
 .storage-head span { color: var(--accent); font-variant-numeric: tabular-nums; }
 #storage .storage-all { flex: none; min-height: 0; height: 22px; padding: 0 2px; font-size: 8px; line-height: 9px; white-space: normal; word-break: keep-all; }
-.stacks { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 28px; gap: 2px 2px; padding-top: 2px; overflow-y: auto; scrollbar-width: none; }
+.stacks { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 28px; gap: 2px 2px; padding-top: 2px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #6a5a7a transparent; }
 .stacks.dense { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 23px; gap: 1px; }
 .stack { position: relative; min-width: 0; }
 #storage .stack-take { width: 100%; height: 100%; min-height: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: #1d1626; border: 1px solid var(--g); border-radius: 2px; cursor: grab; touch-action: none; }
@@ -488,7 +517,7 @@ body.online #modal .dex-browser .modal-head { position: static; padding: 0; }
 .dex-side .dex-adv { gap: 3px; }
 .dex-side .dex-skillsearch, .dex-side .dex-search { width: 100%; }
 .dex-side .dex-advbar { flex-wrap: wrap; row-gap: 1px; }
-.dex-side { width: 36%; }
+.dex-side { width: 30%; }
 .dex-browser .dex td { padding-block: 2px; }
 .dex-browser .dex .dex-skill { line-height: 1.3; }
 .dex-browser .dex .card-notes { display: flex; flex-wrap: wrap; gap: 0 8px; margin: 1px 0 0; padding: 0; list-style: none; font-size: 9px; line-height: 1.3; color: var(--ink-dim); }
@@ -523,6 +552,7 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 
 /* R 지게 바꾸기 */
 .jige-held { color: var(--accent); align-self: center; white-space: nowrap; }
+.jige-note { flex-basis: 100%; color: var(--ink-dim); font-size: 8px; line-height: 1.2; word-break: keep-all; }
 #storage .stack-swap { position: absolute; top: -2px; right: -2px; width: 11px; height: 11px; min-height: 0; padding: 0; border-radius: 50%; font-size: 6px; line-height: 9px; text-align: center; color: #10233a; background: #7fb2e5; border: 1px solid #2a5a8a; opacity: 0.85; }
 #storage .stack-swap:hover:not([disabled]) { opacity: 1; border-color: #e0f0ff; }
 #storage .stack-swap[disabled] { opacity: 0.35; }
@@ -539,7 +569,7 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 /* T 길들이기: under the target's health bar (mount moves it every frame); over the lane's top without a bar */
 #tame-anchor { position: absolute; left: 132px; top: 26px; z-index: 2; display: flex; gap: 3px; align-items: center; font-size: 9px; white-space: nowrap; }
 #tame-anchor:empty { display: none; }
-#tame-anchor.floating { transform: translateX(-50%); }
+#tame-anchor.floating { transform: translate(-50%, 2px); padding: 1px 2px; background: #10101acc; border-radius: 2px; }
 #tame-anchor button { min-height: 14px; padding: 0 3px; font-size: 9px; line-height: 12px; }
 #tame-anchor .tame-hp { color: var(--ink-dim); text-shadow: 0 0 2px #000; }
 
@@ -582,3 +612,24 @@ body.online #right:has(.hunt-wait) .notices { min-height: 0; overflow: auto; }
 .quest-row-line { color: #c9c0d6; }
 .quest-row-reward { color: var(--accent); }
 #econ-bottom .q-title { padding: 0; border: 0; background: none; font-weight: bold; color: inherit; text-decoration: underline dotted; }
+
+/* recipe chips in the helper and the dex */
+.helper-name { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.helper-name .unit-face { width: 14px; height: 14px; border-radius: 2px; }
+.helper-name .unit-face img { width: 12px; height: 12px; }
+.helper li > .mat-chips { flex-basis: 100%; padding-left: 16px; }
+.dex td > .unit-face { float: left; margin: 0 3px 0 0; }
+.dex-mats { display: inline-flex; vertical-align: top; }
+.dex-tree .node .mat-face { width: 12px; height: 12px; }
+.dex-tree .node .mat-face img { width: 10px; height: 10px; }
+.dex-tree .node .mat-face .stack-disc { width: 8px; height: 8px; font-size: 6px; }
+.dex-more { margin-top: 1px; color: var(--ink-dim); }
+.dex-more > summary { display: inline-block; cursor: pointer; font-size: 9px; color: #bfbbca; list-style: none; }
+.dex-more > summary::-webkit-details-marker { display: none; }
+.dex-more > summary::after { content: ' ▾'; }
+.dex-more[open] > summary::after { content: ' ▴'; }
+.dex-legend { padding: 1px 0 2px; color: var(--ink-dim); font-size: 8px; line-height: 1.3; word-break: keep-all; }
+button[data-action="sell"].armed { color: #ffb396; border-color: var(--danger); background: #3a1f22; }
+/* the lobby, waiting room and team result are laid out in real pixels; big windows scale them up a step at a time */
+@media (min-width: 1280px) and (min-height: 720px) { #screen > * { zoom: 1.25; } }
+@media (min-width: 1920px) and (min-height: 1080px) { #screen > * { zoom: 1.5; } }

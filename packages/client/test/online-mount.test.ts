@@ -56,13 +56,15 @@ describe('online mountUi', () => {
   });
 
   test('the menu opens the 40-unit dex; Q shows the helper and only then sends helperOpened (checkpoint 17-19, finding 3)', () => {
-    const { room } = mountOnline();
+    const { room, driver } = mountOnline();
     press(document.querySelector('#top [data-action="openMenu"]'));
     const modal = document.getElementById('modal')!;
     // the helper and reduce-effects switches moved to the settings window
     expect(modal.querySelector('[data-action="toggleHelper"], [data-action="toggleFx"], [data-action="setHelper"]')).toBeNull();
     press(modal.querySelector('[data-action="openDex"]'));
     expect(modal.querySelectorAll('table.dex tbody tr')).toHaveLength(40);
+    // online time is shared: the dex never pauses it
+    expect(driver.paused).toBe(false);
     key('Escape');
     expect(modal.textContent).toBe('');
     key('KeyQ');

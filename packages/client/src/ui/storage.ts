@@ -10,7 +10,7 @@ import { SPRITE_IDS } from '../art';
 const ROOMY_STACKS = 12;
 export const STORE_ALL_KEY = 'G';
 
-function iconHtml(defId: string, name: string, grade: number): string {
+export function iconHtml(defId: string, name: string, grade: number): string {
   if (SPRITE_IDS.has(defId)) return `<img src="${import.meta.env.BASE_URL}sprites/${esc(defId)}.png" alt="" draggable="false">`;
   return `<span class="stack-disc" style="background:${GRADE_COLOR[grade]}">${esc(name.slice(0, 1))}</span>`;
 }
@@ -34,7 +34,7 @@ export function storageInfoModel(state: GameState, defId: string | null) {
 export function storageInfoHtml(state: GameState, info: NonNullable<ReturnType<typeof storageInfoModel>>): string {
   return `<div class="storage-info">
     <div class="up-name">${unitFaceHtml(info.defId, info.name, info.grade)}<b>${esc(info.name)} ×${info.count}</b></div>
-    <div class="up-sub">${info.grade}등급 · ${typeBadgeHtml(state.data, info.defId)}</div>
+    <div class="up-sub">${info.grade}등급 · ${typeBadgeHtml(state.data, info.defId, true)}</div>
     <p class="up-skill" title="${esc(info.skill)}">${esc(info.skill)}</p>
     ${info.combines.map(o => `<button class="storage-combine" data-action="combine" data-arg="${esc(o.result)}" title="${esc(`${o.name} 조합${o.cost ? ` · ${o.cost}` : ''}`)}">${esc(o.name)} 조합</button>`).join('')}
     <button data-action="sellStored" data-arg="${esc(info.defId)}">1개 판매 +${info.sellPrice}냥</button>

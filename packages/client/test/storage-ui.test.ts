@@ -11,6 +11,9 @@ import { mountUi } from '../src/ui/mount';
 import { storageHtml } from '../src/ui/storage';
 import { STAGE_HTML } from './fixtures/net';
 
+// the material chips are tested in recipe-chips.test.ts
+const noMats = <T extends { materials: unknown }>({ materials: _m, ...rest }: T) => rest;
+
 const d1 = loadGameData();
 const d2 = loadGameData('stage2');
 
@@ -37,9 +40,9 @@ describe('storage view models', () => {
     const s = lane();
     placeUnitForTest(s, 'sotlid', 4);
     placeUnitForTest(s, 'bujigaengi', 2);
-    expect(helperModel(s)).toEqual([{ recipe: 'gamasot', name: '가마솥', grade: 2 }]);
+    expect(helperModel(s).map(noMats)).toEqual([{ recipe: 'gamasot', name: '가마솥', grade: 2 }]);
     step(s, [{ type: 'store', slot: 2 }]);
-    expect(helperModel(s)).toEqual([{ recipe: 'gamasot', name: '가마솥', grade: 2, stored: 1 }]);
+    expect(helperModel(s).map(noMats)).toEqual([{ recipe: 'gamasot', name: '가마솥', grade: 2, stored: 1 }]);
     expect(boardUnits(s)).toEqual(['sotlid', 'bujigaengi']);
     const tree = recipeTree(d1, 'jangdok', boardUnits(s))!;
     expect(tree.map(n => [n.id, n.mark])).toEqual([['gamasot', 'missing'], ['ki', 'missing'], ['sotlid', 'have']]);

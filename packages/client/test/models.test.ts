@@ -24,7 +24,7 @@ describe('ui models', () => {
     const s = createGame(data, 1);
     s.slots[0] = { id: 1, defId: 'sotlid', cooldown: 0, attackCount: 0, periodic: [] };
     s.slots[1] = { id: 2, defId: 'bujigaengi', cooldown: 0, attackCount: 0, periodic: [] };
-    expect(helperModel(s)).toEqual([{ recipe: 'gamasot', name: '가마솥', grade: 2 }]);
+    expect(helperModel(s).map(noMats)).toEqual([{ recipe: 'gamasot', name: '가마솥', grade: 2 }]);
     expect(unitCard(s, 0)).toMatchObject({ name: '솥뚜껑', grade: 1, typeText: '물딜', skillText: '20% 스턴 0.5초', usedIn: ['가마솥', '장독'], sellPrice: 5 });
     expect(unitCard(s, 5)).toBeNull();
   });
@@ -41,7 +41,7 @@ describe('ui models', () => {
     placeUnitForTest(s, 'jipsin', 1);
     placeUnitForTest(s, 'bujigaengi', 3);
 
-    expect(combineOptions(s, 3)).toEqual([
+    expect(combineOptions(s, 3).map(noMats)).toEqual([
       { result: 'gamasot', name: '가마솥', grade: 2, missing: [], key: 'Z' },
       { result: 'hwaetbul', name: '횃불', grade: 2, missing: [], key: 'X' },
       { result: 'meongseok', name: '멍석', grade: 2, missing: [], key: 'C' },
@@ -74,6 +74,8 @@ test('result model', () => {
   expect(m).toMatchObject({ title: '탈락', reasonText: '고개 보스를 놓쳤습니다', roundReached: 10, bestUnit: { name: '가마솥', grade: 2 }, helperText: '도우미 3회' });
   expect(m.series.length).toBe(s.stats.length);
 });
+
+const textOf = (html: string) => html.replace(/<[^>]+>/g, '');
 
 function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void, onHome?: () => void) {
   const driver = new GameDriver(s);
@@ -120,9 +122,10 @@ test('the card and physical keys combine at the selected slot while the helper u
   const { driver, queue, press, click, panels, select, scene } = mountTestUi(s);
   select(3);
   const card = panels.get('left')!;
-  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}">[Z] 가마솥 <span class="type-badge`);
-  expect(card.innerHTML).toContain('화로 <span class="type-badge');
-  expect(card.innerHTML).toContain('호롱 부족');
+  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}" class="recipe-row">`);
+  expect(textOf(card.innerHTML)).toMatch(/\[Z\] 가마솥 [물마]/);
+  expect(card.innerHTML).toContain('<b>화로</b> <span class="type-badge');
+  expect(card.innerHTML).toContain('class="mat-chip lack" title="호롱 없음"');
   expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
   click('left', `gamasot@${chosen.id}`);
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
@@ -158,7 +161,7 @@ test('Z uses the recipe shown on the card until it refreshes', () => {
   press('KeyQ');
   click('left', 'gamasot');
   driver.update(50);
-  expect(panels.get('left')!.innerHTML).toContain('[Z] 가마솥');
+  expect(textOf(panels.get('left')!.innerHTML)).toContain('[Z] 가마솥');
   press('KeyZ');
   driver.update(50);
   expect(s.slots[1]?.defId).toBe('bujigaengi');
@@ -189,9 +192,11 @@ test('modal keys preserve resources and keyboard activation closes the dialog', 
   click('left', '', 'openDex');
   for (const key of ['KeyZ', 'Space', 'Digit1', 'KeyP', 'KeyQ']) press(key);
   expect(queue).not.toHaveBeenCalled();
-  expect(driver.paused).toBe(false);
+  // solo the open dex stops the clock; P is ignored behind it
+  expect(driver.paused).toBe(true);
   click('modal', '', 'closeModal', true);
   expect(panels.get('modal')!.innerHTML).toBe('');
+  expect(driver.paused).toBe(false);
   press('KeyZ');
   expect(queue).toHaveBeenCalledTimes(1);
 });
@@ -235,11 +240,14 @@ test('ready recipes precede missing materials on the card', () => {
   const { select, panels } = mountTestUi(s);
   select(0);
   const html = panels.get('left')!.innerHTML;
-  expect(html).toContain('[Z] 풀무');
-  expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('class="combine-missing"'));
+  expect(textOf(html)).toContain('[Z] 풀무');
+  expect(html.indexOf('<b>풀무</b>')).toBeLessThan(html.indexOf('class="recipe-row combine-missing"'));
 });
 
 import { activeNotice, nextUnitId, selectedSlot, rightModel, rejectText } from '../src/ui/models';
+
+// the material chips are tested in recipe-chips.test.ts
+const noMats = <T extends { materials: unknown }>({ materials: _m, ...rest }: T) => rest;
 
 describe('final review fixes: right panel and reject notices', () => {
   const unit = (id: number) => ({ id, defId: 'sotlid', cooldown: 0, attackCount: 0, periodic: [] });
@@ -452,4 +460,42 @@ describe('settings window', () => {
     expect(rows(html)).toEqual(['조합 도우미', '효과 줄이기', '도움말']);
     expect(html).not.toContain('data-action="speed"');
   });
+});
+
+test('S sells grades 1-2 at once; grade 3 and up asks for a second press within 2 seconds', () => {
+  const s = createGame(data, 1);
+  placeUnitForTest(s, 'sotlid', 0);
+  const high = placeUnitForTest(s, 'daljip', 3);
+  const { select, press, panels, queue } = mountTestUi(s);
+  select(0);
+  press('KeyS');
+  expect(queue).toHaveBeenLastCalledWith({ type: 'sell', slot: 0 });
+  queue.mockClear();
+  select(3);
+  press('KeyS');
+  expect(queue).not.toHaveBeenCalled();
+  expect(panels.get('left')!.innerHTML).toContain(`data-arg="${high.id}" class="armed">한 번 더 누르면 판매 +`);
+  press('KeyS');
+  expect(queue).toHaveBeenCalledExactlyOnceWith({ type: 'sell', slot: 3 });
+  queue.mockClear();
+  press('KeyS');
+  vi.advanceTimersByTime(2001);
+  press('KeyS');
+  expect(queue).not.toHaveBeenCalled();
+});
+
+test('a P pause outlives opening and closing the dex; the other windows never pause', () => {
+  const s = createGame(data, 1);
+  const { driver, press, click } = mountTestUi(s);
+  click('left', '', 'openUpgrades');
+  expect(driver.paused).toBe(false);
+  click('modal', '', 'closeModal', true);
+  press('KeyP');
+  expect(driver.paused).toBe(true);
+  press('KeyD');
+  expect(driver.paused).toBe(true);
+  press('KeyD');
+  expect(driver.paused).toBe(true);
+  press('KeyP');
+  expect(driver.paused).toBe(false);
 });
