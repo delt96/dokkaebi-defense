@@ -10,7 +10,7 @@ import { SPRITE_IDS } from '../art';
 const ROOMY_STACKS = 12;
 export const STORE_ALL_KEY = 'G';
 
-function iconHtml(defId: string, name: string, grade: number): string {
+export function iconHtml(defId: string, name: string, grade: number): string {
   if (SPRITE_IDS.has(defId)) return `<img src="${import.meta.env.BASE_URL}sprites/${esc(defId)}.png" alt="" draggable="false">`;
   return `<span class="stack-disc" style="background:${GRADE_COLOR[grade]}">${esc(name.slice(0, 1))}</span>`;
 }

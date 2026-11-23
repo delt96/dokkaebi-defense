@@ -7,6 +7,9 @@ import { spriteKey, tameArt } from '../src/sprites';
 import { dexHtml } from '../src/ui/dex';
 import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel, unitCard, unitNotes, unitSkillText, upgradeRows } from '../src/ui/models';
 
+// the material chips are tested in recipe-chips.test.ts
+const noMats = <T extends { materials: unknown }>({ materials: _m, ...rest }: T) => rest;
+
 const d3 = loadGameData('stage3');
 const text = (id: string) => unitSkillText(d3, unitDefFast(d3, id));
 
@@ -77,14 +80,14 @@ describe('combine cost', () => {
     const s = createGame(d3, 1); s.buckwheat = 0; placeUnitForTest(s, 'meok', 7); placeUnitForTest(s, 'jige', 0);
     const top = () => combineOptions(s, 7).find(o => o.result === 'top')!;
     expect(top()).toMatchObject({ missing: [], key: null, cost: '메밀묵 1개', short: '메밀묵 1개 모자람' });
-    expect(helperModel(s)).toContainEqual({ recipe: 'top', name: '톱', grade: 5, cost: '메밀묵 1개', short: '메밀묵 1개 모자람' });
+    expect(helperModel(s).map(noMats)).toContainEqual({ recipe: 'top', name: '톱', grade: 5, cost: '메밀묵 1개', short: '메밀묵 1개 모자람' });
     // a recipe can be short of materials and currency at the same time
     const heobeok = combineOptions(s, 0).find(o => o.result === 'jejuheobeok')!;
     expect(heobeok).toMatchObject({ missing: ['옹기가마'], cost: '메밀묵 1개', key: null });
     expect(heobeok.short).toBe('메밀묵 1개 모자람');
     s.buckwheat = 1;
-    expect(top()).toEqual({ result: 'top', name: '톱', grade: 5, missing: [], key: 'Z', cost: '메밀묵 1개' });
-    expect(helperModel(s)).toContainEqual({ recipe: 'top', name: '톱', grade: 5, cost: '메밀묵 1개' });
+    expect(noMats(top())).toEqual({ result: 'top', name: '톱', grade: 5, missing: [], key: 'Z', cost: '메밀묵 1개' });
+    expect(helperModel(s).map(noMats)).toContainEqual({ recipe: 'top', name: '톱', grade: 5, cost: '메밀묵 1개' });
   });
 
   test('grade 6 needs coins too', () => {

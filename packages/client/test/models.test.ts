@@ -24,7 +24,7 @@ describe('ui models', () => {
     const s = createGame(data, 1);
     s.slots[0] = { id: 1, defId: 'sotlid', cooldown: 0, attackCount: 0, periodic: [] };
     s.slots[1] = { id: 2, defId: 'bujigaengi', cooldown: 0, attackCount: 0, periodic: [] };
-    expect(helperModel(s)).toEqual([{ recipe: 'gamasot', name: '가마솥', grade: 2 }]);
+    expect(helperModel(s).map(noMats)).toEqual([{ recipe: 'gamasot', name: '가마솥', grade: 2 }]);
     expect(unitCard(s, 0)).toMatchObject({ name: '솥뚜껑', grade: 1, typeText: '물딜', skillText: '20% 스턴 0.5초', usedIn: ['가마솥', '장독'], sellPrice: 5 });
     expect(unitCard(s, 5)).toBeNull();
   });
@@ -41,7 +41,7 @@ describe('ui models', () => {
     placeUnitForTest(s, 'jipsin', 1);
     placeUnitForTest(s, 'bujigaengi', 3);
 
-    expect(combineOptions(s, 3)).toEqual([
+    expect(combineOptions(s, 3).map(noMats)).toEqual([
       { result: 'gamasot', name: '가마솥', grade: 2, missing: [], key: 'Z' },
       { result: 'hwaetbul', name: '횃불', grade: 2, missing: [], key: 'X' },
       { result: 'meongseok', name: '멍석', grade: 2, missing: [], key: 'C' },
@@ -240,6 +240,9 @@ test('ready recipes precede missing materials on the card', () => {
 });
 
 import { activeNotice, nextUnitId, selectedSlot, rightModel, rejectText } from '../src/ui/models';
+
+// the material chips are tested in recipe-chips.test.ts
+const noMats = <T extends { materials: unknown }>({ materials: _m, ...rest }: T) => rest;
 
 describe('final review fixes: right panel and reject notices', () => {
   const unit = (id: number) => ({ id, defId: 'sotlid', cooldown: 0, attackCount: 0, periodic: [] });
