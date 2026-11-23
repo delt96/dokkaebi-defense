@@ -72,6 +72,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // the list the dex scroll position belongs to: a new filter or search starts at the top
   let dexListKey = '';
   let helperOpen = false;
+  // solo: P pauses until P again; the open dex pauses on top of that without touching the P state
+  let userPaused = false;
   // the hotkey line under the board (도움말 in the settings window)
   let helpLine = readHelpLine();
   let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | 'jige' | 'quests' | 'settings' | null = null;
@@ -451,7 +453,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     else if (ev.code === 'KeyB' && driver.state.data.economy?.market) act('toggleMarket', '');
     else if (ev.code === 'KeyT' && driver.state.data.economy?.tame) act('tame', '');
     else if (ev.code === 'KeyR' && driver.state.data.economy?.market && card?.unitId != null) act('jigeOpen', `board:${card.unitId}`);
-    else if (ev.code === 'KeyP' && !online) { driver.paused = !driver.paused; render(); }
+    else if (ev.code === 'KeyP' && !online) { userPaused = !userPaused; render(); }
     else if (ev.code === 'Tab') {
       ev.preventDefault();
       if (card?.unitId != null) act('unitDetails', '');
@@ -470,6 +472,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
 
   function render(): void {
     const s = driver.state;
+    // commands wait for ticks, so only the dex (which sends none) stops the clock
+    if (!online) driver.paused = userPaused || (modal === 'dex' && s.phase !== 'ended');
     const selected = selectedSlot(s, scene.selectedId);
     if (selected === null) scene.selectedId = null;
     const held = s.data.economy?.market ? econ()?.jige : undefined;
@@ -663,6 +667,7 @@ ${dex.mine.join()}`;
     econTab = null;
     reveal = null;
     confirm.clear();
+    userPaused = false;
     render();
   }
   return { resetUi };

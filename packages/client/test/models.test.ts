@@ -192,9 +192,11 @@ test('modal keys preserve resources and keyboard activation closes the dialog', 
   click('left', '', 'openDex');
   for (const key of ['KeyZ', 'Space', 'Digit1', 'KeyP', 'KeyQ']) press(key);
   expect(queue).not.toHaveBeenCalled();
-  expect(driver.paused).toBe(false);
+  // solo the open dex stops the clock; P is ignored behind it
+  expect(driver.paused).toBe(true);
   click('modal', '', 'closeModal', true);
   expect(panels.get('modal')!.innerHTML).toBe('');
+  expect(driver.paused).toBe(false);
   press('KeyZ');
   expect(queue).toHaveBeenCalledTimes(1);
 });
@@ -480,4 +482,20 @@ test('S sells grades 1-2 at once; grade 3 and up asks for a second press within 
   vi.advanceTimersByTime(2001);
   press('KeyS');
   expect(queue).not.toHaveBeenCalled();
+});
+
+test('a P pause outlives opening and closing the dex; the other windows never pause', () => {
+  const s = createGame(data, 1);
+  const { driver, press, click } = mountTestUi(s);
+  click('left', '', 'openUpgrades');
+  expect(driver.paused).toBe(false);
+  click('modal', '', 'closeModal', true);
+  press('KeyP');
+  expect(driver.paused).toBe(true);
+  press('KeyD');
+  expect(driver.paused).toBe(true);
+  press('KeyD');
+  expect(driver.paused).toBe(true);
+  press('KeyP');
+  expect(driver.paused).toBe(false);
 });
