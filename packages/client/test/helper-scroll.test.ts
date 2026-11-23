@@ -24,7 +24,7 @@ describe('combine helper list', () => {
     const rows = document.querySelectorAll('#left ul.helper li');
     expect(rows).toHaveLength(helperModel(s).length);
     expect(document.querySelector('#left .combine-stored')).toBeNull();
-    expect(document.querySelector('#left ul.helper li small')).toBeNull();
+    expect(document.querySelector('#left ul.helper li > small')).toBeNull();
     expect(document.querySelector('#left button[data-action="combine"]')).not.toBeNull();
   });
 

@@ -295,8 +295,9 @@ body.online #right .notices { border-left: 2px solid var(--accent); padding: 4px
 .combine-cost { color: #c9b98a; }
 .combine-short { color: #ffab99; }
 button.combine-blocked[disabled] { opacity: 0.85; border-style: dashed; color: var(--ink-dim); }
-.helper li:has(small) { flex-wrap: wrap; white-space: nowrap; row-gap: 0; }
-.helper li small { flex-basis: 100%; padding-left: 9px; font-size: 9px; line-height: 1.2; white-space: normal; }
+.helper li { flex-wrap: wrap; row-gap: 1px; }
+.helper li:has(> small) { white-space: nowrap; row-gap: 0; }
+.helper li > small { flex-basis: 100%; padding-left: 9px; font-size: 9px; line-height: 1.2; white-space: normal; }
 .dex td { vertical-align: top; padding-block: 3px; }
 .dex th, .dex td:nth-child(-n + 2) { white-space: nowrap; }
 .card-notes + .recipe-list { margin-top: 6px; }
@@ -514,7 +515,7 @@ body.online #modal .dex-browser .modal-head { position: static; padding: 0; }
 .dex-side .dex-adv { gap: 3px; }
 .dex-side .dex-skillsearch, .dex-side .dex-search { width: 100%; }
 .dex-side .dex-advbar { flex-wrap: wrap; row-gap: 1px; }
-.dex-side { width: 36%; }
+.dex-side { width: 30%; }
 .dex-browser .dex td { padding-block: 2px; }
 .dex-browser .dex .dex-skill { line-height: 1.3; }
 .dex-browser .dex .card-notes { display: flex; flex-wrap: wrap; gap: 0 8px; margin: 1px 0 0; padding: 0; list-style: none; font-size: 9px; line-height: 1.3; color: var(--ink-dim); }
@@ -608,3 +609,20 @@ body.online #right:has(.hunt-wait) .notices { min-height: 0; overflow: auto; }
 .quest-row-line { color: #c9c0d6; }
 .quest-row-reward { color: var(--accent); }
 #econ-bottom .q-title { padding: 0; border: 0; background: none; font-weight: bold; color: inherit; text-decoration: underline dotted; }
+
+/* recipe chips in the helper and the dex */
+.helper-name { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.helper-name .unit-face { width: 14px; height: 14px; border-radius: 2px; }
+.helper-name .unit-face img { width: 12px; height: 12px; }
+.helper li > .mat-chips { flex-basis: 100%; padding-left: 16px; }
+.dex td > .unit-face { float: left; margin: 0 3px 0 0; }
+.dex-mats { display: inline-flex; vertical-align: top; }
+.dex-tree .node .mat-face { width: 12px; height: 12px; }
+.dex-tree .node .mat-face img { width: 10px; height: 10px; }
+.dex-tree .node .mat-face .stack-disc { width: 8px; height: 8px; font-size: 6px; }
+.dex-more { margin-top: 1px; color: var(--ink-dim); }
+.dex-more > summary { display: inline-block; cursor: pointer; font-size: 9px; color: #bfbbca; list-style: none; }
+.dex-more > summary::-webkit-details-marker { display: none; }
+.dex-more > summary::after { content: ' ▾'; }
+.dex-more[open] > summary::after { content: ' ▴'; }
+.dex-legend { padding: 1px 0 2px; color: var(--ink-dim); font-size: 8px; line-height: 1.3; word-break: keep-all; }

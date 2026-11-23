@@ -6,6 +6,8 @@ export interface RoleTag { role: Role; /** the 깎 amount in percent (the strong
 
 export const ROLE_ORDER: readonly Role[] = ['physVuln', 'magVuln', 'slow', 'stun', 'area', 'aura'];
 export const ROLE_LABEL: Record<Role, string> = { physVuln: '물깎', magVuln: '마깎', slow: '둔화', stun: '기절', area: '광역', aura: '오라' };
+/** The one-line legend over the dex list. */
+export const ROLE_LEGEND = '물깎·마깎 = 잡귀가 받는 물리·마법 피해 늘림 · 둔화 = 느리게 · 기절 = 잠깐 멈춤 · 광역 = 여럿을 함께 · 오라 = 주변에 효과';
 
 const AREA_KINDS: ReadonlySet<string> = new Set(['splash', 'allInRange', 'chain', 'pierce', 'groundFire', 'onKillExplode', 'onVulnKillExplode']);
 const AURA_KINDS: ReadonlySet<string> = new Set(['auraAttackPower', 'auraAttackSpeed', 'auraEnemyVuln']);

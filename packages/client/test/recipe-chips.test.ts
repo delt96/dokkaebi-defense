@@ -5,6 +5,8 @@ import { placeUnitForTest } from '@dorandi/logic/testing';
 import { combineOptions, helperModel } from '../src/ui/models';
 import { materialChipHtml, materialChipsHtml } from '../src/ui/chips';
 import { renderBottom, unitDetailsHtml, unitPanelHtml } from '../src/ui/panels';
+import { renderHelper } from '../src/ui/helper';
+import { dexHtml } from '../src/ui/dex';
 
 const data = loadGameData();
 
@@ -98,5 +100,31 @@ describe('recipe rows', () => {
     expect(bottom.querySelector('.recipe-row .unit-face')).not.toBeNull();
     expect(bottom.querySelector('.mat-chips')).toBeNull();
     expect(bottom.textContent).toContain('부족');
+  });
+});
+
+describe('helper and dex chips', () => {
+  test('the helper shows the result face and the material chips of each recipe', () => {
+    const s = createGame(data, 1);
+    placeUnitForTest(s, 'sotlid', 0);
+    placeUnitForTest(s, 'bujigaengi', 1);
+    document.body.innerHTML = '<div id="left"></div>';
+    renderHelper(s, true);
+    const li = document.querySelector('#left ul.helper li')!;
+    expect(li.querySelector('.helper-name .unit-face img')!.getAttribute('src')).toContain('sprites/gamasot.png');
+    expect(li.querySelectorAll('.mat-chips .mat-chip.have')).toHaveLength(2);
+  });
+
+  test('a dex row shows its face, links its materials as chips and folds the rest of its skill under 더보기', () => {
+    const d3 = loadGameData('stage3');
+    const box = document.createElement('div');
+    box.innerHTML = dexHtml(d3);
+    const row = box.querySelector('tr[data-dex-id="gamasot"]')!;
+    expect(row.querySelector('td > .unit-face')).not.toBeNull();
+    expect(Array.from(row.querySelectorAll('.dex-mats .mat-chip'), c => c.getAttribute('data-arg'))).toEqual(
+      d3.recipes.find(r => r.result === 'gamasot')!.materials.map(id => `${id}@gamasot`));
+    const many = Array.from(box.querySelectorAll('tr[data-dex-id]')).find(r => r.querySelector('.dex-more'));
+    expect(many).toBeDefined();
+    expect(box.querySelector('.dex-legend')!.textContent).toContain('물깎');
   });
 });

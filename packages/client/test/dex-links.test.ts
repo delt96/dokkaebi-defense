@@ -150,7 +150,7 @@ describe('dex link navigation', () => {
 describe('dex html', () => {
   test('material names link to their entries; only recipe units get the tree toggle', () => {
     const html = dexHtml(d3, '6');
-    expect(html).toContain('data-action="dexGo" data-arg="top@bihyeongrang">톱</button>');
+    expect(html).toMatch(/<button class="mat-chip dex-link" data-action="dexGo" data-arg="top@bihyeongrang" title="톱">.*?<small>톱<\/small><\/button>/);
     const rows = html.split('<tr data-dex-id=').slice(1);
     for (const row of rows) {
       const id = row.slice(1, row.indexOf('"', 1));
@@ -182,7 +182,7 @@ describe('dex html', () => {
     expect(folded).not.toContain('<li class="covered">');
     // the missing 톱 branch shows down to grade 1
     expect(folded).toContain('data-arg="jige@bihyeongrang">지게</button>');
-    expect(folded).toContain('✓ 보드에 있음 · ✗ 없음 · ▸ 하위 재료 펼치기');
+    expect(folded).toContain('✓ 보드·보관함에 있음 · ✗ 없음 · ▸ 하위 재료 펼치기');
     const open = dexHtml(d3, '6', '', 1, { open: ['bihyeongrang'], board: ['kkeul'], unfold: ['bihyeongrang:1'] });
     expect(open).toContain(`aria-expanded="true">▾ 하위 ${n}개</button>`);
     expect(open.match(/<li class="covered">/g)).toHaveLength(n);
