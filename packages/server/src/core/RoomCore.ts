@@ -240,7 +240,7 @@ export class RoomCore {
       const hostToken = this.deps.random128();
       // The new lobby outlives an early empty spell: everyone who presses within this room's hold is sent there.
       const keepOpenMs = this.match!.data.coop!.resultSeconds * 1000 - (this.deps.now() - this.resultAt);
-      // a 20-round room asks exactly as before; a 60-round one carries its stage over
+      // a 20-round room asks exactly as before; a 70-round one carries its stage over
       const roomId = this.deps.createRematchRoom(this.stage === 'stage2' ? { hostToken, keepOpenMs } : { hostToken, keepOpenMs, stage: this.stage, difficulty: this.difficulty });
       this.rematch = { hostSeat: seat, hostToken, roomId };
       // A failed create lets the next press try again.
@@ -422,9 +422,9 @@ export class RoomCore {
     deps.log?.(`[게임 시작] ${this.playLabel()}`);
   }
 
-  /** "4명 · 60라운드 보통" for the log lines. */
+  /** "4명 · 70라운드 보통" for the log lines. */
   private playLabel(): string {
-    const mode = this.stage === 'stage3' ? `60라운드 ${DIFFICULTY_TEXT[this.difficulty ?? 'normal']}` : '20라운드';
+    const mode = this.stage === 'stage3' ? `${this.match!.data.balance.rounds}라운드 ${DIFFICULTY_TEXT[this.difficulty ?? 'normal']}` : '20라운드';
     return `${this.match!.ring.length}명 · ${mode}`;
   }
 

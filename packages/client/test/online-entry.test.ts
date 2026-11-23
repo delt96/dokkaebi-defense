@@ -52,6 +52,6 @@ describe('entry and lobby', () => {
     const click = (ctrlKey: boolean) => link.dispatchEvent(new MouseEvent('click', { ctrlKey, cancelable: true }));
     expect(click(true)).toBe(true);
     expect(click(false)).toBe(false);
-    expect(routes).toEqual([expect.stringContaining('/solo?rounds=60&difficulty=normal')]);
+    expect(routes).toEqual([expect.stringContaining('/solo?rounds=70&difficulty=normal')]);
   });
 });

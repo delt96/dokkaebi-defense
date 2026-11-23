@@ -52,7 +52,7 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
   });
   box.append(copy);
 
-  // new rooms are 60 rounds and the host picks the difficulty; a 20-round room from an old client only says so
+  // new rooms are 70 rounds and the host picks the difficulty; a 20-round room from an old client only says so
   const modes = el('div', 'lobby-modes');
   modes.setAttribute('role', 'group');
   modes.setAttribute('aria-label', TEXT.modeLabel);

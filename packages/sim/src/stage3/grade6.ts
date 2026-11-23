@@ -12,8 +12,8 @@ const DECIDE_EVERY = 10;
 const MAX_TICKS = 400_000;
 
 /**
- * Plays the 60-round stage 3 game with `bot` deciding every 10 ticks. With `noDefeat` the enemy limit is
- * lifted and a lane boss still alive at its round end is removed without reward, so every run reaches round 60.
+ * Plays the 70-round stage 3 game with `bot` deciding every 10 ticks. With `noDefeat` the enemy limit is
+ * lifted and a lane boss still alive at its round end is removed without reward, so every run reaches the last round.
  */
 export function grade6Run(data: GameData, seed: number, bot: Bot, opts: { noDefeat: boolean }): Grade6Row {
   const d = opts.noDefeat ? structuredClone(data) : data;

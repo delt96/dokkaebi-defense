@@ -105,7 +105,7 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     screen = 'battle';
     // an empty #screen is hidden, which uncovers the stage underneath
     root.replaceChildren();
-    // the snapshot's data version says which rules the room plays (20 or 60 rounds)
+    // the snapshot's data version says which rules the room plays (20 or 70 rounds)
     startBattle(n, loadGameData(stageOfVersion(n.view?.dataVersion ?? '') ?? 'stage2'), goRematch);
   };
 

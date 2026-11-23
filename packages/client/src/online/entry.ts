@@ -13,12 +13,13 @@ export interface EntryOptions {
   onSubmit(name: string, difficulty: Difficulty): Promise<void>;
 }
 
-/** Query that opens the solo page on the 60-round data. */
-export const SOLO_LONG_QUERY = 'rounds=60';
+/** Query that opens the solo page on the 70-round data. */
+export const SOLO_LONG_QUERY = 'rounds=70';
 
-/** Solo rule data from the page query: the 60-round game on `?rounds=60`, else the old 20-round solo game. */
+/** Solo rule data from the page query: the 70-round game on `?rounds=70` (or an older `?rounds=60` link), else the old 20-round solo game. */
 export function soloStage(search: string): 'stage1' | 'stage3' {
-  return new URLSearchParams(search).get('rounds') === '60' ? 'stage3' : 'stage1';
+  const rounds = new URLSearchParams(search).get('rounds');
+  return rounds === '70' || rounds === '60' ? 'stage3' : 'stage1';
 }
 
 /** True when a key event came from a text field, so game hotkeys must ignore it. */
@@ -92,7 +93,7 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   });
 
   box.append(form);
-  // solo is the 60-round game; the 20-round data stays reachable only through an old /solo link
+  // solo is the 70-round game; the 20-round data stays reachable only through an old /solo link
   const solo = el('div', 'entry-solo');
   const link = el('a', 'entry-link', TEXT.solo);
   link.addEventListener('click', ev => {

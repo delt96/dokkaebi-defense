@@ -72,20 +72,21 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     expect(kinds).toEqual(['view', 'versionMismatch']);
   });
 
-  test('solo: the entry page shows only the 60-round difficulty buttons; ?rounds=60 still picks the data', () => {
+  test('solo: the entry page shows only the 70-round difficulty buttons; old ?rounds=60 links still pick the data', () => {
     expect(soloStage('')).toBe('stage1');
     expect(soloStage('?rounds=20')).toBe('stage1');
     expect(soloStage('?rounds=60')).toBe('stage3');
+    expect(soloStage('?rounds=70')).toBe('stage3');
     const root = document.createElement('div');
     renderEntry(root, { onSubmit: async () => {} });
     expect(root.querySelector('[data-rounds], .lobby-mode')).toBeNull();
     expect(root.textContent).not.toContain('시험판');
     expect(root.querySelector('[data-difficulty="normal"]')?.getAttribute('aria-pressed')).toBe('true');
-    expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo?rounds=60&difficulty=normal');
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo?rounds=70&difficulty=normal');
     expect(root.querySelector('a')?.textContent).toBe('혼자 하기');
     root.querySelector<HTMLButtonElement>('[data-difficulty="hard"]')!.click();
     expect(root.querySelector('[data-difficulty="hard"]')?.getAttribute('aria-pressed')).toBe('true');
-    expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo?rounds=60&difficulty=hard');
+    expect(root.querySelector('a')?.getAttribute('href')).toBe('/solo?rounds=70&difficulty=hard');
   });
 
   test('the start screen labels its difficulty row, and 방 만들기 uses the pick too', async () => {

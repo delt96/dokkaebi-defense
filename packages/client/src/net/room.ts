@@ -50,7 +50,7 @@ export function devCreateOptions(search: string, dev: boolean): { devJumpTick?: 
 
 type CreateExtra = { devJumpTick?: number; difficulty?: Difficulty };
 
-/** Room options for a new room: always the 60-round game (the server still takes 20-round rooms from old clients). */
+/** Room options for a new room: always the 70-round game (the server still takes 20-round rooms from old clients). */
 export function roomCreateOptions(name: string, extra: CreateExtra = {}): { name: string; stage: 'stage3' } & CreateExtra {
   return { name, stage: 'stage3', ...extra };
 }

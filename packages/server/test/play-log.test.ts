@@ -13,12 +13,12 @@ describe('play log lines for the host dashboard', () => {
     for (const id of ['a', 'b']) core.message(id, 'ready', { ready: true, stage: 'stage3', difficulty: 'hard' });
     core.message('a', 'start', {});
     const r = { core, deps };
-    expect(log).toHaveBeenLastCalledWith('[게임 시작] 2명 · 60라운드 어려움');
+    expect(log).toHaveBeenLastCalledWith('[게임 시작] 2명 · 70라운드 어려움');
     send(r.core, 'a', 1, 'forfeit');
     send(r.core, 'b', 1, 'forfeit');
     ticks(r, 3);
     const end = log.mock.calls.map(c => c[0] as string).find(l => l.startsWith('[게임 끝]'));
-    expect(end).toMatch(/^\[게임 끝\] 2명 · 60라운드 어려움 · 전멸 · \d+라운드 · \d+분$/);
+    expect(end).toMatch(/^\[게임 끝\] 2명 · 70라운드 어려움 · 전멸 · \d+라운드 · \d+분$/);
     expect(log.mock.calls.flat().join('\n')).not.toMatch(/하나|두리/);
   });
 

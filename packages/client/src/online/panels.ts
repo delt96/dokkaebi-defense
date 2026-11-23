@@ -5,7 +5,7 @@ import { spiritModel } from './spirit';
 import { SETTINGS_BUTTON } from '../ui/settings';
 
 /** Left panel: a 28px title and six 44px rows, one per seat. */
-/** `quests` is the folded J line of the 60-round rules, kept in the title bar. */
+/** `quests` is the folded J line of the 70-round rules, kept in the title bar. */
 export function renderRows(view: ClientView, data: GameData, overlay = ''): void {
   const spirit = spiritModel(view) !== null;
   const turn = myTurnText(view, data);

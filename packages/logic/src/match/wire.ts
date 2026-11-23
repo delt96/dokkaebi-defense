@@ -55,7 +55,7 @@ export interface LaneBatch { tick: number; events: LaneEvent[] }
 export interface LaneMsg { n: number; seat: number; batches: LaneBatch[] }
 export type MineMsg = MineView;
 export interface ResultMsg { result: MatchResult }
-/** Rule data a room plays: 'stage2' is the 20-round game, 'stage3' the 60-round trial. */
+/** Rule data a room plays: 'stage2' is the 20-round game, 'stage3' the 70-round trial. */
 export type MatchStage = 'stage2' | 'stage3';
 export const MATCH_STAGES: readonly MatchStage[] = ['stage2', 'stage3'];
 /** `stage` is left out by older servers; a missing value means 'stage2'. */

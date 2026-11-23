@@ -42,7 +42,7 @@ function legacyStage3Version(): string {
   return previousVersion;
 }
 
-/** Every version this build can play (20 and 60 rounds); a room on any of them is joined with the matching data. */
+/** Every version this build can play (20 and 70 rounds); a room on any of them is joined with the matching data. */
 export function knownDataVersions(): string[] {
   return [...MATCH_STAGES.map(matchDataVersion), legacyStage3Version()];
 }
@@ -110,7 +110,7 @@ export class NetClient {
   }
   setDifficulty(difficulty: Difficulty): void { this.room.send('difficulty', { difficulty }); }
   start(): void { this.room.send('start', {}); }
-  /** Host in the lobby: play 20 rounds ('stage2') or the 60-round trial ('stage3'). */
+  /** Host in the lobby: play 20 rounds ('stage2') or the 70-round trial ('stage3'). */
   setStage(stage: MatchStage): void { this.room.send('stage', { stage }); }
   watch(seat: number): void { this.room.send('watch', { seat }); }
   rematch(): void { this.room.send('rematch', {}); }
