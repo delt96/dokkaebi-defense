@@ -17,6 +17,7 @@ export { pickResultSlot } from './combine';
 export { tameCheck, tameChance, tameReadyTick } from './econ/tame';
 export { huntCheck, huntCoins, huntDef, huntHp, huntSeat } from './econ/hunts';
 export { createGame, step, laneOf, applyCommand, runAfterCommandHooks, runCombat } from './game';
+export { replayGame, type SoloLogEntry } from './replayGame';
 export {
   spawnDue, payRoundEnd, trackLimit, startRound, spawnEnemy, moveEnemies, finishGame,
   enemySpeed, waveOf, toTicks, TICKS_PER_SECOND, enemyDefFast,

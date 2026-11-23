@@ -1,4 +1,4 @@
-import { econView, step, type Command, type EconMine, type GameEvent, type GameState, type StepResult } from '@dorandi/logic';
+import { econView, step, type Command, type EconMine, type GameEvent, type GameState, type SoloLogEntry, type StepResult } from '@dorandi/logic';
 
 export function ticksToRun(elapsedMs: number, carryMs: number, tickMs = 50, maxTicks = 40): { ticks: number; carryMs: number } {
   const total = elapsedMs + carryMs;
@@ -72,6 +72,10 @@ export class GameDriver implements Driver {
     const previous = this.previousDistances.get(id) ?? distance;
     return previous + (distance - previous) * this.carry / this.state.data.balance.tickMs;
   }
+  /** Every tick's commands as passed to `step`, for the play log. */
+  record: SoloLogEntry[] = [];
+  private finishedListener?: (state: GameState) => void;
+  private finishedSent = false;
   private pending: QueuedCommand[] = [];
   private listeners: Listener[] = [];
   private accepted?: (type: Command['type']) => void;
@@ -87,6 +91,12 @@ export class GameDriver implements Driver {
     this.previousDistances.clear();
     this.carry = 0;
     this.pending = [];
+    this.record = [];
+    this.finishedSent = false;
+  }
+
+  onFinished(cb: (state: GameState) => void): void {
+    this.finishedListener = cb;
   }
 
   queue(cmd: Command): void {
@@ -130,9 +140,14 @@ export class GameDriver implements Driver {
       const cmds = this.takeCommands();
       this.previousDistances.clear();
       for (const enemy of this.state.enemies) this.previousDistances.set(enemy.id, enemy.d);
+      if (cmds.length) this.record.push({ tick: this.state.tick, commands: structuredClone(cmds) });
       const r = step(this.state, cmds);
       for (const cmd of cmds) if (!r.rejected.some(({ command }) => command === cmd)) this.accepted?.(cmd.type);
       if (r.events.length || r.rejected.length) for (const l of this.listeners) l(r.events, r.rejected);
+      if (this.state.phase === 'ended' && !this.finishedSent) {
+        this.finishedSent = true;
+        this.finishedListener?.(this.state);
+      }
     }
   }
 }
