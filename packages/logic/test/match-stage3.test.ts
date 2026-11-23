@@ -30,7 +30,7 @@ describe('stage 3 match schedule', () => {
     expect(m.econ).toMatchObject({ team: { streak: 0, paid: false }, ssireumSeat: null });
     expect('offers' in m.econ!).toBe(false);
     expect(d3.coop!.yeoksin.map(y => [y.stage, y.startRound, y.deadlineRound, y.baseHp, y.startIndex])).toEqual([
-      [1, 6, 9, 8000, 0], [2, 15, 19, 30000, 1], [3, 35, 39, 109000, 2], [4, 55, 59, 210000, 3], [5, 65, 69, 330000, 4],
+      [1, 6, 9, 6800, 0], [2, 15, 19, 25500, 1], [3, 35, 39, 92650, 2], [4, 55, 59, 178500, 3], [5, 65, 69, 185000, 4],
     ]);
   });
 
@@ -52,11 +52,11 @@ describe('stage 3 match schedule', () => {
     expect(allBossesKilled(m, 2)).toBe(true);
   });
 
-  test('third yeoksin spawns at round 35 with 163500 hp for six starters at ring index 2; missing it fails the gate at the end of 39', () => {
+  test('third yeoksin spawns at round 35 with 138975 hp for six starters at ring index 2; missing it fails the gate at the end of 39', () => {
     const m = createMatch(d3, 1, SIX);
     jumpToTick(m, rst(35));
     const r = stepMatch(m, []);
-    expect(r.events).toContainEqual({ type: 'yeoksinSpawn', stage: 3, maxHp: 163500 });
+    expect(r.events).toContainEqual({ type: 'yeoksinSpawn', stage: 3, maxHp: 138975 });
     expect(r.events.find(e => e.type === 'yeoksinEnter')).toMatchObject({ stage: 3, seat: 3 });
 
     const g = createMatch(d3, 1, SIX);
@@ -66,11 +66,11 @@ describe('stage 3 match schedule', () => {
     expect(g.result?.outcome).toBe('gate');
   });
 
-  test('fifth yeoksin spawns at round 65 with 363000 hp for two starters at ring index 4 % 2 = seat 1', () => {
+  test('fifth yeoksin spawns at round 65 with 203500 hp for two starters at ring index 4 % 2 = seat 1', () => {
     const m = createMatch(d3, 1, [1, 2]);
     jumpToTick(m, rst(65));
     const r = stepMatch(m, []);
-    expect(r.events).toContainEqual({ type: 'yeoksinSpawn', stage: 5, maxHp: 363000 });
+    expect(r.events).toContainEqual({ type: 'yeoksinSpawn', stage: 5, maxHp: 203500 });
     expect(r.events.find(e => e.type === 'yeoksinEnter')).toMatchObject({ stage: 5, seat: 1 });
     expect(m.yeoksin?.stage).toBe(5);
   });

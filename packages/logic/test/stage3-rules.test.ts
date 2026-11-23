@@ -63,12 +63,12 @@ describe('stage 3 board rules', () => {
 });
 
 describe('stage 3 runs 70 rounds', () => {
-  test('normal enemies grow 8% a round from round 65; bosses and events keep their hp', () => {
+  test('normal enemies gain 40% hp a round from round 65; bosses and events keep their hp', () => {
     const b = d3.balance; const japgwi = enemyDef(d3, 'japgwi');
     const plain = (r: number, m = 1) => Math.round((b.hp.base + b.hp.coef * r ** b.hp.exp) * japgwi.hpMult * m);
     expect(enemyHp(japgwi, 64, b)).toBe(plain(64));
-    expect(enemyHp(japgwi, 65, b)).toBe(plain(65, 1.08));
-    expect(enemyHp(japgwi, 70, b)).toBe(plain(70, 1.48));
+    expect(enemyHp(japgwi, 65, b)).toBe(plain(65, 1 + 0.4 * 1));
+    expect(enemyHp(japgwi, 70, b)).toBe(plain(70, 1 + 0.4 * 6));
     expect(enemyHp(enemyDef(d3, 'jinegaksi7'), 70, b)).toBe(enemyDef(d3, 'jinegaksi7').hp);
     const event = d3.enemies.find(e => e.event && e.hp !== undefined)!;
     expect(enemyHp(event, 70, b)).toBe(event.hp);
@@ -76,7 +76,7 @@ describe('stage 3 runs 70 rounds', () => {
 
   test('the match runs 70 rounds and ends on the round 70 boss', () => {
     expect(roundStartTick(d3, 1)).toBe(toTicks(15));
-    expect(roundStartTick(d3, 71) - roundStartTick(d3, 1)).toBe(toTicks(63 * 34 + 7 * 70));
+    expect(roundStartTick(d3, 71) - roundStartTick(d3, 1)).toBe(toTicks(63 * 34 + 7 * 75));
     expect(d3.waves.find(w => w.round === 70)).toEqual({ round: 70, type: 'boss', boss: 'jinegaksi7' });
   });
 });

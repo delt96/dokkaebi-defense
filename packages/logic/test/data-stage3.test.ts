@@ -122,9 +122,9 @@ describe('stage 3 data, grades 5-6 and hidden', () => {
 describe('stage 3 balance stands on its own', () => {
   test('pins every resolved balance and coop value', () => {
     expect(d3.balance).toEqual({
-      tickMs: 50, prepSeconds: 15, roundSeconds: 34, bossRoundSeconds: 70,
+      tickMs: 50, prepSeconds: 15, roundSeconds: 34, bossRoundSeconds: 75,
       spawnCount: 30, spawnIntervalSeconds: 0.8, rounds: 70,
-      hp: { base: 75, coef: 16, exp: 1.5, late: { fromRound: 65, perRound: 0.08 } },
+      hp: { base: 63.75, coef: 13.6, exp: 1.5, late: { fromRound: 65, perRound: 0.4 } },
       gradeDps: { base: 10, mult: 2.6 },
       defaultDifficulty: 'normal',
       difficulties: { easy: { tokensPerRound: 4 }, normal: { tokensPerRound: 3 }, hard: { tokensPerRound: 2 } },
@@ -147,11 +147,11 @@ describe('stage 3 balance stands on its own', () => {
     });
     expect(d3.coop).toEqual({
       yeoksin: [
-        { stage: 1, enemy: 'yeoksin1', startRound: 6, deadlineRound: 9, baseHp: 8000, startIndex: 0 },
-        { stage: 2, enemy: 'yeoksin2', startRound: 15, deadlineRound: 19, baseHp: 30000, startIndex: 1 },
-        { stage: 3, enemy: 'yeoksin3', startRound: 35, deadlineRound: 39, baseHp: 109000, startIndex: 2 },
-        { stage: 4, enemy: 'yeoksin4', startRound: 55, deadlineRound: 59, baseHp: 210000, startIndex: 3 },
-        { stage: 5, enemy: 'yeoksin5', startRound: 65, deadlineRound: 69, baseHp: 330000, startIndex: 4 },
+        { stage: 1, enemy: 'yeoksin1', startRound: 6, deadlineRound: 9, baseHp: 6800, startIndex: 0 },
+        { stage: 2, enemy: 'yeoksin2', startRound: 15, deadlineRound: 19, baseHp: 25500, startIndex: 1 },
+        { stage: 3, enemy: 'yeoksin3', startRound: 35, deadlineRound: 39, baseHp: 92650, startIndex: 2 },
+        { stage: 4, enemy: 'yeoksin4', startRound: 55, deadlineRound: 59, baseHp: 178500, startIndex: 3 },
+        { stage: 5, enemy: 'yeoksin5', startRound: 65, deadlineRound: 69, baseHp: 185000, startIndex: 4 },
       ],
       hpPerExtraPlayer: 0.1, staySeconds: 12,
       killReward: { coins: 15, buckwheat: 1 }, topDamageBonus: 10,
@@ -159,7 +159,7 @@ describe('stage 3 balance stands on its own', () => {
       disconnectSeconds: 180, bossPauseCapSeconds: 180, danger: 48,
       maxCommandsPerTick: 20, resultSeconds: 120,
     });
-    expect([1, 10, 30, 60].map(r => enemyHp(enemyDef(d3, 'japgwi'), r, d3.balance))).toEqual([91, 581, 2704, 7511]);
+    expect([1, 10, 30, 60].map(r => enemyHp(enemyDef(d3, 'japgwi'), r, d3.balance))).toEqual([77, 494, 2298, 6384]);
   });
 
   test('retuning stage 1 or stage 2 balance and coop leaves stage 3 unchanged', () => {

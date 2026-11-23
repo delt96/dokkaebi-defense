@@ -1,7 +1,7 @@
 {
-  "tickMs": 50, "prepSeconds": 15, "roundSeconds": 34, "bossRoundSeconds": 70,
+  "tickMs": 50, "prepSeconds": 15, "roundSeconds": 34, "bossRoundSeconds": 75,
   "spawnCount": 30, "spawnIntervalSeconds": 0.8, "rounds": 70,
-  "hp": { "base": 75, "coef": 16, "exp": 1.5, "late": { "fromRound": 65, "perRound": 0.08 } },
+  "hp": { "base": 63.75, "coef": 13.6, "exp": 1.5, "late": { "fromRound": 65, "perRound": 0.4 } },
   "gradeDps": { "base": 10, "mult": 2.6 },
   "tokens": { "start": 4, "perRound": 3, "toCoins": 25 },
   "defaultDifficulty": "normal",
