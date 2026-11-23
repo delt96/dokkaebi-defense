@@ -128,6 +128,8 @@ export interface SpreadSearchOptions {
   seed: number; iterations?: number;
   ban?: { result: string; material: string }[];
   keep?: Set<string>;
+  /** When given, only these swaps are tried: result -> material -> replacements. */
+  allow?: Record<string, Record<string, string[]>>;
 }
 
 interface Slot { recipe: number; pos: number; options: string[] }
@@ -151,10 +153,14 @@ export function searchSpread(data: GameData, editable: Set<string>, opts: Spread
     r.materials.forEach((m, pos) => {
       if (locked.has(m)) return;
       const u = units.get(m)!;
-      const options = pool.get(`${u.grade}:${u.damageType}`)!.filter(o => o === m || !banned.has(`${r.result}|${o}`));
+      const allowed = opts.allow ? opts.allow[r.result]?.[m] : undefined;
+      if (opts.allow && !allowed) return;
+      const options = pool.get(`${u.grade}:${u.damageType}`)!
+        .filter(o => o === m || (!banned.has(`${r.result}|${o}`) && (!allowed || allowed.includes(o))));
       if (options.length > 1) slots.push({ recipe: i, pos, options });
     });
   });
+  if (!slots.length) return [];
   const slotsOf = (id: string) => slots.filter(s => mats[s.recipe]![s.pos] === id);
 
   const demand = new Map<string, number>();

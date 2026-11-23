@@ -117,3 +117,12 @@ test('searchSpread meets every target', () => {
   expect(bound).toBeGreaterThan(0);
   expect(swaps.length).toBeGreaterThanOrEqual(bound);
 }, 120_000);
+
+test('searchSpread with an allow list only makes listed swaps', () => {
+  const allow = { bihyeongrang: { kkeul: ['hahoetal', 'eomang'] }, gildal: { kkeul: ['beoseon'] }, jejuyeonggam: { buk: ['ssatba'] } };
+  const swaps = searchSpread(d3, editable, { seed: 1, allow });
+  expect(swaps.length).toBeGreaterThan(0);
+  for (const s of swaps) expect((allow as Record<string, Record<string, string[]>>)[s.result]?.[s.from]).toContain(s.to);
+  expect(swaps.some(s => s.result === 'jejuyeonggam')).toBe(false);
+  expect(swapProblems(d3, editable, swaps)).toEqual([]);
+});

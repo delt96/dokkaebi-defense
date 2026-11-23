@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dataSources, loadGameData, type GameData } from '@dorandi/logic';
 import { combineGainAll } from '../src/stage3/combineGain';
@@ -26,6 +26,8 @@ const ban = arg('ban', '').split(',').filter(Boolean).map(s => { const [result, 
 const keep = new Set(arg('keep', '').split(',').filter(Boolean));
 const combine = arg('combine', 'on') !== 'off';
 const iterations = Number(arg('iterations', '200000'));
+const allowFile = arg('allow', '');
+const allow = allowFile ? JSON.parse(readFileSync(allowFile, 'utf8')) as Record<string, Record<string, string[]>> : undefined;
 
 function distribution(d: GameData): string {
   const demand = spreadDemand(d);
@@ -44,7 +46,7 @@ function distribution(d: GameData): string {
 }
 
 function solution(seed: number): string {
-  const swaps = searchSpread(data, editable, { seed, iterations, ban, keep });
+  const swaps = searchSpread(data, editable, { seed, iterations, ban, keep, allow });
   const after = applySwaps(data, swaps);
   const before = spreadDemand(data);
   const now = spreadDemand(after);
@@ -74,15 +76,25 @@ function solution(seed: number): string {
   }
 
   if (combine) {
-    const fails = combineGainAll(after, { seeds: 3, results }).filter(r => !r.pass);
-    lines.push('', '### 조합 손익 (바뀐 조합, 3시드)', '');
-    lines.push(fails.length ? fails.map(r => `- 실패: ${name(r.result)} ${r.scenario} A ${r.aMean.toFixed(2)} / B ${r.bMean.toFixed(2)}`).join('\n') : '실패 없음');
+    const seeds = Number(arg('combine-seeds', '3'));
+    const base = combineGainAll(data, { seeds, results });
+    const rows = combineGainAll(after, { seeds, results });
+    lines.push('', `### 조합 손익 (바뀐 조합, ${seeds}시드, 남은 적 수 A 재료 유지 / B 조합 뒤)`, '');
+    lines.push('| 결과 | 시나리오 | 기준 A / B | 후보 A / B | 판정 |', '|---|---|---|---|---|');
+    rows.forEach((r, i) => {
+      const b = base[i]!;
+      if (b.pass && r.pass) return;
+      const verdict = r.pass ? '좋아짐' : b.pass ? '새 실패' : '둘 다 실패';
+      lines.push(`| ${name(r.result)} | ${r.scenario} | ${b.aMean.toFixed(2)} / ${b.bMean.toFixed(2)} | ${r.aMean.toFixed(2)} / ${r.bMean.toFixed(2)} | ${verdict} |`);
+    });
+    const count = (xs: { pass: boolean }[]) => xs.filter(x => !x.pass).length;
+    lines.push('', `실패 행: 기준 ${count(base)} → 후보 ${count(rows)} (전체 ${rows.length}행)`);
   }
   return lines.join('\n') + '\n';
 }
 
 const out = arg('out', 'sim-out/spread');
 mkdirSync(out, { recursive: true });
-const doc = ['# 조합 재료 교체 후보', '', `ban: ${arg('ban', '') || '없음'} / keep: ${[...keep].join(',') || '없음'}`, '', ...seedList(arg('seeds', '1')).map(solution)].join('\n');
+const doc = ['# 조합 재료 교체 후보', '', `ban: ${arg('ban', '') || '없음'} / keep: ${[...keep].join(',') || '없음'} / allow: ${allowFile || '없음'}`, '', ...seedList(arg('seeds', '1')).map(solution)].join('\n');
 writeFileSync(join(out, 'candidates.md'), doc);
 console.log(doc);
