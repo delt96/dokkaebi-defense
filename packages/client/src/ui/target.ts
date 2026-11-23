@@ -15,7 +15,7 @@ export function writeTarget(key: string | undefined, target: string | null): voi
 
 export function pinButton(id: string, target: string | null): string {
   const pinned = id === target;
-  return `<button class="pin-btn" data-action="pinTarget" data-arg="${esc(id)}" aria-pressed="${pinned}">${pinned ? '고정 해제' : '고정'}</button>`;
+  return `<button class="pin-btn" data-action="pinTarget" data-arg="${esc(id)}" aria-pressed="${pinned}">${pinned ? '목표 해제' : '목표로'}</button>`;
 }
 
 const LOCATION = { board: '✓ 진영', storage: '✓ 보관함', missing: '없음' } as const;

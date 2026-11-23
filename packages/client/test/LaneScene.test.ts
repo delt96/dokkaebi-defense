@@ -74,7 +74,7 @@ test('drop moves the dragged unit after a pending swap', () => {
 test('combine markers appear for every eligible copy and clear when a material is consumed', () => {
   const { state, driver, scene, circle, tweens } = setupScene();
   const markers = () => circle.mock.calls.flatMap(([, , radius], i) =>
-    radius === 2 ? [circle.mock.results[i]!.value.setVisible] : [],
+    radius === 3 ? [circle.mock.results[i]!.value.setVisible] : [],
   );
 
   placeUnitForTest(state, 'sotlid', 0);

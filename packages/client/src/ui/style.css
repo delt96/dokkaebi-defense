@@ -69,6 +69,8 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .hud .enemies { margin-left: auto; }
 .gauge { display: inline-block; width: 60px; height: 6px; background: #2a2232; border: 1px solid #4a3e5a; }
 .gauge i { display: block; height: 100%; background: linear-gradient(90deg, #8a6a4a, var(--danger)); }
+.hud .gauge-text { margin-left: -8px; color: #bfbbca; white-space: nowrap; }
+.hud .gauge-text.bad { color: #ff9482; }
 #alert { position: absolute; inset: 0; pointer-events: none; }
 #alert.on { box-shadow: inset 0 0 24px 4px rgba(255, 59, 47, 0.6); }
 .hud .notice { color: var(--danger); }
@@ -550,6 +552,7 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 
 /* R 지게 바꾸기 */
 .jige-held { color: var(--accent); align-self: center; white-space: nowrap; }
+.jige-note { flex-basis: 100%; color: var(--ink-dim); font-size: 8px; line-height: 1.2; word-break: keep-all; }
 #storage .stack-swap { position: absolute; top: -2px; right: -2px; width: 11px; height: 11px; min-height: 0; padding: 0; border-radius: 50%; font-size: 6px; line-height: 9px; text-align: center; color: #10233a; background: #7fb2e5; border: 1px solid #2a5a8a; opacity: 0.85; }
 #storage .stack-swap:hover:not([disabled]) { opacity: 1; border-color: #e0f0ff; }
 #storage .stack-swap[disabled] { opacity: 0.35; }
