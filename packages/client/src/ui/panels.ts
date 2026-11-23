@@ -4,6 +4,7 @@ import { ATTACK_RANGE_HINT, attackRangeText, combineNoteLines, combineOptions, r
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, unitFaceHtml } from './storage';
+import { materialChipsHtml } from './chips';
 import { roleText } from './dex-roles';
 import { pinButton } from './target';
 
@@ -28,19 +29,28 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     </div>`);
 }
 
-function recipeHtml(state: GameState, option: CombineOption, unitId: number | null, short: boolean): string {
+/**
+ * One recipe. With `chips` it takes two lines: the key, result face, name and badge, then the material chips (the grade
+ * 5-6 cost at their end). Without (the 44px online card) it stays one line, naming what is missing in words.
+ */
+function recipeHtml(state: GameState, option: CombineOption, unitId: number | null, short: boolean, chips = true): string {
   const badge = typeBadgeHtml(state.data, option.result, short);
+  const face = unitFaceHtml(option.result, option.name, option.grade);
+  const key = option.key ? `[${option.key}] ` : '';
+  const head = (extra: string) => `<span class="recipe-top">${key}${face}<b>${esc(option.name)}</b> ${badge}${extra}</span>`;
+  const mats = chips ? materialChipsHtml(option.materials, option.cost) : '';
   if (option.missing.length) {
     const currency = option.short ?? (option.cost ? `비용 ${option.cost}` : '');
     const missing = `${option.missing.join(', ')} 부족${currency ? ` · ${currency}` : ''}`;
-    return `<span class="combine-missing" title="${esc(`${option.name} · ${missing}`)}">${esc(option.name)} ${badge} · ${esc(missing)}</span>`;
+    const extra = chips ? (option.short ? ` · <span class="combine-short">${esc(option.short)}</span>` : '') : ` · ${esc(missing)}`;
+    return `<span class="recipe-row combine-missing" title="${esc(`${option.name} · ${missing}`)}">${head(extra)}${mats}</span>`;
   }
   // every material is there but not the cost: the button stays, disabled, and says what is missing
   if (option.short) {
-    return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="combine-blocked" disabled title="${esc(option.short)}">${esc(option.name)} ${badge} · <span class="combine-short">${esc(option.short)}</span></button>`;
+    return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="recipe-row combine-blocked" disabled title="${esc(option.short)}">${head(` · <span class="combine-short">${esc(option.short)}</span>`)}${mats}</button>`;
   }
-  const cost = option.cost ? ` · <span class="combine-cost">${esc(option.cost)}</span>` : '';
-  return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}"${option.cost ? ` title="비용 ${esc(option.cost)}"` : ''}>${option.key ? `[${option.key}] ` : ''}${esc(option.name)} ${badge}${cost}</button>`;
+  const cost = option.cost && !chips ? ` · <span class="combine-cost">${esc(option.cost)}</span>` : '';
+  return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="recipe-row"${option.cost ? ` title="비용 ${esc(option.cost)}"` : ''}>${head(cost)}${mats}</button>`;
 }
 
 const notesHtml = (lines: string[]): string => (lines.length ? `<ul class="card-notes">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '');
@@ -94,9 +104,9 @@ export function cardRecipes(state: GameState, selected: number | null): { unitId
   };
 }
 
-function compactRecipes(state: GameState, recipes: CombineOption[], unitId: number | null, visible: number): string {
+function compactRecipes(state: GameState, recipes: CombineOption[], unitId: number | null, visible: number, chips: boolean): string {
   if (!recipes.length) return '';
-  const rows = recipes.map(option => recipeHtml(state, option, unitId, true)).join('');
+  const rows = recipes.map(option => recipeHtml(state, option, unitId, true, chips)).join('');
   const more = recipes.length - visible;
   return `<div class="card-recipes"><div class="combine-options" data-scroll-key="${unitId}" tabindex="0" aria-label="다음 조합">${rows}</div>
     ${more > 0 ? `<button class="recipe-more" data-action="unitDetails">+${more}개 더</button>` : ''}</div>`;
@@ -120,7 +130,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
     return pick;
   }
   const { unitId, recipes } = pick;
-  const options = compactRecipes(state, recipes, unitId, 2);
+  const options = compactRecipes(state, recipes, unitId, 2, false);
   setHtml(el('bottom'), `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
         <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId)}</span>
         <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${attackRangeText(state.data, card.range)}</span></span>
@@ -139,7 +149,7 @@ export function unitPanelHtml(state: GameState, selected: number | null, opts: {
   const card = selected === null ? null : unitCard(state, selected);
   if (!card) return '<div class="unit-panel empty">유닛을 누르면 여기에 정보가 나옵니다</div>';
   const { unitId, recipes } = cardRecipes(state, selected);
-  const options = compactRecipes(state, recipes, unitId, 4);
+  const options = compactRecipes(state, recipes, unitId, 2, true);
   const details = state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세(Tab)</button>' : '';
   const jige = jigeHtml(state, selected!, unitId, opts.jige);
   return `<div class="unit-panel${opts.compact ? ' compact' : ''}">

@@ -75,6 +75,8 @@ test('result model', () => {
   expect(m.series.length).toBe(s.stats.length);
 });
 
+const textOf = (html: string) => html.replace(/<[^>]+>/g, '');
+
 function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void, onHome?: () => void) {
   const driver = new GameDriver(s);
   const queue = vi.spyOn(driver, 'queue');
@@ -120,9 +122,10 @@ test('the card and physical keys combine at the selected slot while the helper u
   const { driver, queue, press, click, panels, select, scene } = mountTestUi(s);
   select(3);
   const card = panels.get('left')!;
-  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}">[Z] 가마솥 <span class="type-badge`);
-  expect(card.innerHTML).toContain('화로 <span class="type-badge');
-  expect(card.innerHTML).toContain('호롱 부족');
+  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}" class="recipe-row">`);
+  expect(textOf(card.innerHTML)).toMatch(/\[Z\] 가마솥 [물마]/);
+  expect(card.innerHTML).toContain('<b>화로</b> <span class="type-badge');
+  expect(card.innerHTML).toContain('class="mat-chip lack" title="호롱 없음"');
   expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
   click('left', `gamasot@${chosen.id}`);
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
@@ -158,7 +161,7 @@ test('Z uses the recipe shown on the card until it refreshes', () => {
   press('KeyQ');
   click('left', 'gamasot');
   driver.update(50);
-  expect(panels.get('left')!.innerHTML).toContain('[Z] 가마솥');
+  expect(textOf(panels.get('left')!.innerHTML)).toContain('[Z] 가마솥');
   press('KeyZ');
   driver.update(50);
   expect(s.slots[1]?.defId).toBe('bujigaengi');
@@ -235,8 +238,8 @@ test('ready recipes precede missing materials on the card', () => {
   const { select, panels } = mountTestUi(s);
   select(0);
   const html = panels.get('left')!.innerHTML;
-  expect(html).toContain('[Z] 풀무');
-  expect(html.indexOf('[Z] 풀무')).toBeLessThan(html.indexOf('class="combine-missing"'));
+  expect(textOf(html)).toContain('[Z] 풀무');
+  expect(html.indexOf('<b>풀무</b>')).toBeLessThan(html.indexOf('class="recipe-row combine-missing"'));
 });
 
 import { activeNotice, nextUnitId, selectedSlot, rightModel, rejectText } from '../src/ui/models';

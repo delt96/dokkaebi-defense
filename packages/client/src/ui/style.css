@@ -95,9 +95,32 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .up-skill { margin: 0; color: var(--ink-dim); line-height: 1.4; word-break: keep-all; }
 .up-skill.compact { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-recipes { min-width: 0; }
-.card-recipes .combine-options { display: flex; flex-direction: column; overflow-y: auto; max-height: 72px; }
-.card-recipes .combine-options > * { display: block; flex: 0 0 18px; min-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; padding: 0 3px; line-height: 16px; }
+.card-recipes .combine-options { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; max-height: 92px; scrollbar-width: thin; }
+.card-recipes .combine-options > * { flex: none; }
 .card-recipes .combine-missing { color: var(--ink-dim); }
+/* a recipe: key, result face, name and badge, then its material chips with names under them */
+.recipe-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; min-height: 0; padding: 2px 3px; text-align: left; }
+span.recipe-row { border: 1px dashed #3d3349; border-radius: 2px; }
+.recipe-top { display: flex; align-items: center; gap: 2px; max-width: 100%; min-height: 14px; line-height: 14px; white-space: nowrap; overflow: hidden; }
+.recipe-top b { font-weight: normal; overflow: hidden; text-overflow: ellipsis; }
+.recipe-top .unit-face { width: 14px; height: 14px; border-radius: 2px; }
+.recipe-top .unit-face img { width: 12px; height: 12px; }
+.recipe-top .unit-face .stack-disc { width: 10px; height: 10px; font-size: 7px; }
+.mat-chips { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1px 3px; max-width: 100%; }
+.mat-chip { display: inline-flex; flex-direction: column; align-items: center; min-width: 16px; max-width: 34px; }
+button.mat-chip { min-height: 0; padding: 0; background: transparent; border: 0; }
+button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accent); }
+.mat-face { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border: 1px solid var(--g); border-radius: 2px; background: rgba(0, 0, 0, .25); }
+.mat-face img { width: 12px; height: 12px; image-rendering: pixelated; }
+.mat-face .stack-disc { width: 10px; height: 10px; font-size: 7px; }
+.mat-chip small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; line-height: 9px; color: #bfbbca; }
+.mat-chip.lack .mat-face { border-style: dashed; border-color: #ff6b6b; }
+.mat-chip.lack .mat-face img, .mat-chip.lack .mat-face .stack-disc { opacity: .5; }
+.mat-chip.lack small { color: var(--ink-dim); }
+.mat-mark { position: absolute; right: -4px; bottom: -4px; font-style: normal; font-size: 8px; line-height: 8px; font-weight: bold; text-shadow: 0 0 2px #000; }
+.mat-chip.have .mat-mark { color: #9fe0a8; }
+.mat-chip.lack .mat-mark { color: #ff9482; }
+.mat-cost { align-self: center; font-size: 8px; color: var(--accent); white-space: nowrap; }
 .recipe-more { width: 100%; min-height: 16px; }
 .recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .pin-btn { flex: none; min-height: 15px; padding: 0 4px; }
@@ -132,6 +155,9 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 #bottom .skill { min-width: 0; max-width: 115px; overflow: hidden; text-overflow: ellipsis; color: var(--ink-dim); }
 #bottom .card-recipes { flex: 1; display: flex; align-items: center; gap: 2px; }
 #bottom .card-recipes .combine-options { flex: 1; min-width: 0; max-height: 36px; }
+#bottom .card-recipes .combine-options { gap: 0; }
+#bottom .card-recipes .recipe-row { flex: 0 0 18px; display: block; padding: 0 3px; border: 0; }
+#bottom .recipe-top { line-height: 16px; min-height: 16px; }
 #bottom .recipe-more, #bottom [data-action="sell"] { flex-shrink: 0; }
 #bottom .recipe-more { width: auto; }
 #bottom [data-action="sell"] { margin-left: auto; }

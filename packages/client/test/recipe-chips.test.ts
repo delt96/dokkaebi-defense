@@ -1,8 +1,10 @@
+// @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
 import { createGame, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { combineOptions, helperModel } from '../src/ui/models';
 import { materialChipHtml, materialChipsHtml } from '../src/ui/chips';
+import { renderBottom, unitDetailsHtml, unitPanelHtml } from '../src/ui/panels';
 
 const data = loadGameData();
 
@@ -60,5 +62,41 @@ describe('material chips', () => {
     const html = materialChipsHtml([{ id: 'sotlid', name: '솥뚜껑', grade: 1, have: true }], '메밀묵 1개');
     expect(html).toMatch(/^<span class="mat-chips">/);
     expect(html).toContain('<span class="mat-cost">+ 메밀묵 1개</span>');
+  });
+});
+
+describe('recipe rows', () => {
+  const board = () => {
+    const s = createGame(data, 1);
+    placeUnitForTest(s, 'sotlid', 0);
+    placeUnitForTest(s, 'bujigaengi', 1);
+    return s;
+  };
+  const dom = (html: string) => {
+    const box = document.createElement('div');
+    box.innerHTML = html;
+    return box;
+  };
+
+  test('the solo card shows each recipe on two lines: result face, then material chips', () => {
+    const box = dom(unitPanelHtml(board(), 1));
+    const row = box.querySelector('.combine-options > button.recipe-row[data-action="combine"]')!;
+    expect(row.querySelector('.recipe-top .unit-face img')!.getAttribute('src')).toContain('sprites/gamasot.png');
+    expect(Array.from(row.querySelectorAll('.mat-chips .mat-chip.have small'), n => n.textContent)).toEqual(['솥뚜껑', '부지깽이']);
+    expect(box.querySelector('.combine-missing .mat-chip.lack')).not.toBeNull();
+  });
+
+  test('the 상세 window uses the same two-line rows', () => {
+    const box = dom(unitDetailsHtml(board(), 1));
+    expect(box.querySelectorAll('.recipe-list .recipe-row .mat-chips').length).toBeGreaterThan(0);
+  });
+
+  test('the online bottom card keeps one line: the result face and missing names in words, no chips', () => {
+    document.body.innerHTML = '<div id="bottom"></div>';
+    renderBottom(board(), 1, true);
+    const bottom = document.getElementById('bottom')!;
+    expect(bottom.querySelector('.recipe-row .unit-face')).not.toBeNull();
+    expect(bottom.querySelector('.mat-chips')).toBeNull();
+    expect(bottom.textContent).toContain('부족');
   });
 });
