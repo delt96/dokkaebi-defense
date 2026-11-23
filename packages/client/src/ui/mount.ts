@@ -7,6 +7,7 @@ import { rightNotices } from '../online/models';
 import { renderRows, renderTop } from '../online/panels';
 import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
+import { cellCorner, cellPx, CENTER_X, CENTER_Y } from '../layout';
 import { gameAudio } from '../audio/engine';
 import { wireAudioSettings } from '../audio/settings-ui';
 import { playGamblePress, playGambleResult } from '../sfx';
@@ -14,9 +15,12 @@ import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, tameButtonHtml, marketModel, noteText, questChips, tameModel,
-  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type JigeList,
+  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type JigeList, type MarketModel,
 } from './econ';
-import { advanceReveal, heldCoins, revealDisplay, startReveal, type Reveal } from './gamble';
+import {
+  advanceReveal, gambleHistoryHtml, gambleInfoHtml, gambleRevealHtml, heldCoins, recordGamble,
+  revealDisplay, revealResultAt, startReveal, type GambleHistoryEntry, type Reveal,
+} from './gamble';
 import { el, onAction, setHtml } from './dom';
 import { helperPopHtml, renderHelper } from './helper';
 import { renderAlert, renderHud } from './hud';
@@ -91,6 +95,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // S on grade 3+ and T take a second press within 2 seconds
   const confirm = new PressConfirm();
   const sellArmed = (s: GameState, slot: number | null) => slot !== null && !!s.slots[slot] && confirm.armed(`sell:${s.slots[slot]!.id}`, performance.now());
+  let marketItem: string | null = null;
+  let shownMarket: MarketModel | null = null;
+  let gambleHistory: GambleHistoryEntry[] = [];
+  let pendingGambles: { receipt: GambleHistoryEntry; visibleAt: number }[] = [];
+  let marketCell: HTMLElement | null = null;
 
   function gamble(cmd: GambleCommand): void {
     if (!econTab || !econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
@@ -108,6 +117,47 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const node = document.createElement('div');
     node.id = id;
     el('stage').append(node);
+  }
+  const drawer = el('econ-panel');
+
+  function inspectMarket(event: Event): void {
+    const item = (event.target as Element).closest<HTMLElement>('[data-market-item]')?.dataset.marketItem;
+    if (!item || item === marketItem) return;
+    marketItem = item;
+    renderMarketInfo();
+  }
+  drawer.addEventListener('pointerover', event => { if (event.pointerType !== 'touch') inspectMarket(event); });
+  drawer.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch' && !(event.target as Element).closest('.gamble-buy')) inspectMarket(event);
+  });
+  drawer.addEventListener('focusin', inspectMarket);
+  drawer.addEventListener('click', event => {
+    if (!(event.target as Element).closest('.gamble-buy')) inspectMarket(event);
+  });
+
+  function renderMarketInfo(): void {
+    const info = drawer.querySelector<HTMLElement>('#gamble-info');
+    if (info && shownMarket?.gamble) setHtml(info, gambleInfoHtml(shownMarket.gamble, marketItem, shownMarket.jige));
+  }
+
+  function markMarketCell(id: number): void {
+    if (driver.readOnly) return;
+    const s = driver.state;
+    const slot = selectedSlot(s, id);
+    if (slot === null) return;
+    const lane = laneOf(s);
+    const pos = cellCorner(lane, slot);
+    const mark = document.createElement('div');
+    mark.className = 'gamble-cell-mark';
+    mark.classList.toggle('still', !!scene.reduceEffects);
+    mark.setAttribute('aria-hidden', 'true');
+    mark.style.left = `${CENTER_X + pos.x}px`;
+    mark.style.top = `${CENTER_Y + pos.y}px`;
+    mark.style.width = mark.style.height = `${cellPx(lane)}px`;
+    marketCell?.remove();
+    marketCell = mark;
+    el('stage').append(mark);
+    setTimeout(() => { mark.remove(); if (marketCell === mark) marketCell = null; }, 850);
   }
 
   const act = (action: string, arg: string) => {
@@ -160,9 +210,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'toggleMarket':
         econTab = econTab ? null : 'market';
         if (econTab) helperOpen = false;
+        else marketCell?.remove();
         break;
       case 'econTab': econTab = 'market'; helperOpen = false; break;
       case 'econClose': econTab = null; break;
+      case 'marketCell': markMarketCell(Number(arg)); break;
       case 'gambleCoins': gamble({ type: 'gambleCoins', stake: Number(arg) }); break;
       case 'gambleUnit': if (arg === 'small' || arg === 'big' || arg === 'coin') gamble({ type: 'gambleUnit', table: arg }); break;
       case 'hunt': if (arg) driver.queue({ type: 'hunt', enemy: arg }); break;
@@ -271,6 +323,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     }
     if (action.startsWith('dex')) dexRemember();
     render();
+    if (action === 'toggleMarket' || action === 'econClose') {
+      const selector = '[data-action="toggleMarket"]';
+      (drawer.firstElementChild ? drawer : el('right')).querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+    }
     if (action === 'dexRole' || action === 'dexMine' || action === 'dexAdv') {
       el('modal').querySelector<HTMLButtonElement>(`[data-action="${action}"]${action === 'dexAdv' ? '' : `[data-arg="${arg}"]`}`)?.focus();
     }
@@ -359,6 +415,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (!driver.readOnly && (event.type === 'gambleCoins' || event.type === 'gambleUnit')) {
         const now = performance.now();
         reveal = advanceReveal(reveal, now, driver.state.data, event);
+        if (reveal?.phase === 'rolling') {
+          pendingGambles.push({ receipt: { event, round: driver.state.round }, visibleAt: revealResultAt(reveal) });
+        }
         gameAudio.play('dice');
         drew = true;
       }
@@ -443,7 +502,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     // Tab opens the selected unit's 상세 and closes it again
     if (ev.code === 'Tab' && modal === 'unitDetails') { ev.preventDefault(); act('closeModal', ''); return; }
     if (modal || driver.state.phase === 'ended') return;
-    if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button')) return;
+    if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button, .gamble-option[tabindex]')) return;
     const card = displayedCard;
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (ev.code === 'KeyE') act('openUpgrades', '');
@@ -531,6 +590,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const soloResult = !online && s.phase === 'ended';
     const dialogOpen = modal !== null || soloResult;
     for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) el(id).inert = dialogOpen;
+    el('right').inert = dialogOpen || drawer.firstElementChild !== null;
     // a redraw of the dex (a board change moves the tree marks) keeps its scroll position
     const dexShown = !soloResult && modal === 'dex';
     const listKey = `${dex.filter}
@@ -589,7 +649,7 @@ ${dex.mine.join()}`;
   }
 
   /**
-   * Stage 3 economy: the B panel over the left column, prompts over the top of the lane, the tracker under it.
+   * Stage 3 economy: the B drawer beside the board, prompts over the top of the lane, the tracker under it.
    * Returns how many prompt rows sit over the top of the lane.
    */
   function renderEcon(view: ClientView | null, selected: number | null): number {
@@ -599,12 +659,17 @@ ${dex.mine.join()}`;
     setHtml(el('econ-top'), '');
     placeTame(tame);
     setHtml(el('econ-bottom'), e ? econBottomHtml(questChips(e, s, view)) : '');
-    if (!e || !econTab) setHtml(el('econ-panel'), '');
     if (driver.readOnly || revealEpoch !== driver.laneEpoch) {
       reveal = null;
       revealEpoch = driver.laneEpoch;
+      marketCell?.remove();
     }
     const now = performance.now();
+    // Keep all five finished rows in view while the next purchase is still rolling.
+    for (const entry of pendingGambles) {
+      if (entry.visibleAt <= now) gambleHistory = recordGamble(gambleHistory, entry.receipt);
+    }
+    pendingGambles = pendingGambles.filter(entry => entry.visibleAt > now);
     const prior = reveal;
     reveal = advanceReveal(reveal, now, s.data);
     const display = revealDisplay(reveal, now, s.data, scene.reduceEffects);
@@ -614,7 +679,23 @@ ${dex.mine.join()}`;
       const grade = reveal.event.type === 'gambleUnit' && reveal.event.defId ? unitDefFast(s.data, reveal.event.defId).grade : undefined;
       playGambleResult(reveal.tier, grade);
     }
-    if (e && econTab) setHtml(el('econ-panel'), econPanelHtml(marketModel(e, s), display));
+    shownMarket = e && econTab ? marketModel(e, s) : null;
+    const active = document.activeElement as HTMLElement | null;
+    const focus = active && drawer.contains(active) ? active.dataset.marketFocus : undefined;
+    setHtml(drawer, shownMarket ? econPanelHtml(shownMarket, display, driver.readOnly) : '');
+    const wallet = drawer.querySelector('.gamble-wallet');
+    const balance = `엽전 ${s.coins - heldCoins(reveal)}냥 · 묵 ${s.buckwheat}개`;
+    if (wallet && wallet.textContent !== balance) wallet.textContent = balance;
+    renderMarketInfo();
+    const result = drawer.querySelector<HTMLElement>('.gamble-result');
+    const history = drawer.querySelector<HTMLElement>('.gamble-history');
+    if (result) setHtml(result, gambleRevealHtml(display));
+    if (history) setHtml(history, gambleHistoryHtml(gambleHistory, s));
+    if (focus && !drawer.contains(active)) {
+      const next = drawer.querySelector<HTMLElement>(`[data-market-focus="${focus}"]:not(:disabled)`)
+        ?? drawer.querySelector<HTMLElement>('[data-market-focus="close"]');
+      next?.focus({ preventScroll: true });
+    }
     return 0;
   }
 
@@ -668,6 +749,10 @@ ${dex.mine.join()}`;
     reveal = null;
     confirm.clear();
     userPaused = false;
+    marketItem = null;
+    gambleHistory = [];
+    pendingGambles = [];
+    marketCell?.remove();
     render();
   }
   return { resetUi };

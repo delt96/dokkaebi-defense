@@ -140,6 +140,22 @@ describe('NetDriver', () => {
     expect(drv.laneSeat).toBe(2);
     expect(drv.laneEpoch).toBeGreaterThan(epoch);
   });
+
+  test('a market receipt survives stale combat animation batches and is delivered once', () => {
+    const { net, room, data, view } = fixtureNet();
+    const drv = new NetDriver(net, data);
+    const delivered: GameEvent[] = [];
+    drv.onEvents(e => delivered.push(...e));
+    const event = { type: 'gambleCoins', stake: 10, multiplier: 2, payout: 20 } as const;
+    const tick = view.clock.tick + 1;
+    room.emit('tick', { ...tickFrom(view), clock: { ...view.clock, tick: tick + 20 } });
+    room.emit('lane', { n: view.n + 1, seat: 1, batches: [
+      { tick, events: [{ t: 'attack', unitId: 1, id: 1 }, { t: 'note', ev: event }] },
+    ] });
+    drv.update(16);
+    drv.update(16);
+    expect(delivered).toEqual([event]);
+  });
   test('queue(move) predicts at once and is read-only while watching another lane', () => {
     const { net, data } = fixtureNet();
     const drv = new NetDriver(net, data); drv.update(16);

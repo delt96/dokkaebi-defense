@@ -41,7 +41,7 @@ describe('B market', () => {
     const s = lane(30, 0);
     s.buckwheat = 1;
     const p = panel(s, { jige: 2 });
-    for (const text of ['보따리 · 묵 1', '큰 보따리 · 묵 2', '보따리 남은 횟수 2/2', '3%', '보유 지게 2개', '메밀묵 1개 부족']) {
+    for (const text of ['보따리', '묵 1개', '큰 보따리', '묵 2개', '남은 횟수 2/2', '라운드마다 충전', '메밀묵 1개 부족']) {
       expect(p.textContent, text).toContain(text);
     }
     expect(p.textContent).not.toMatch(/헌 살림|라운드까지/);
@@ -149,6 +149,7 @@ describe('market hotkey', () => {
     onFrame?: () => void;
     onSelect(): void {}
     onEvents(): void {}
+    showGambleResult(): void {}
   }
   beforeEach(() => { document.body.innerHTML = STAGE_HTML; });
   afterEach(() => { vi.restoreAllMocks(); });
@@ -188,9 +189,48 @@ describe('market hotkey', () => {
     keydown(window, { code: 'KeyB' });
     press(document.querySelector('#econ-panel [data-action="gambleUnit"][data-arg="small"]'));
     driver.update(50);
-    expect(panel()).toContain('보따리 남은 횟수 1/2');
+    expect(panel()).toContain('남은 횟수 1/2');
     expect(driver.state.buckwheat).toBe(0);
     expect(panel()).toContain('메밀묵 1개 부족');
+  });
+
+  test('touch opens details on the card, then the first touch on the price draws and records its result', () => {
+    let now = performance.now();
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const driver = new GameDriver(lane(30, 31));
+    const scene = new FakeScene();
+    mountUi(driver, scene as never);
+    keydown(window, { code: 'KeyB' });
+    const tap = (selector: string) => document.querySelector(selector)!.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, pointerType: 'touch', button: 0,
+    }));
+    tap('[data-market-focus="info-coin"]');
+    expect(document.getElementById('gamble-info')!.textContent).toContain('1등급 75%');
+    driver.update(50);
+    expect(driver.state.coins).toBe(31);
+    tap('[data-market-focus="buy-coin"]');
+    driver.update(50);
+    expect(driver.state.coins).toBe(1);
+    expect(document.querySelector('.gamble-history .unit-face')).toBeNull();
+    now += 900;
+    scene.onFrame?.();
+    const location = document.querySelector('[data-action="marketCell"]');
+    expect(location).not.toBeNull();
+    press(location);
+    expect(document.querySelector('.gamble-cell-mark')).not.toBeNull();
+    keydown(window, { code: 'KeyB' });
+    keydown(window, { code: 'KeyB' });
+    expect(document.querySelector('.gamble-history .unit-face')).not.toBeNull();
+  });
+
+  test('keyboard focus on a blocked stake shows details and leaves Tab free to move', () => {
+    mountUi(new GameDriver(lane(30, 31)), new FakeScene() as never);
+    keydown(window, { code: 'KeyB' });
+    const stake = document.querySelector<HTMLElement>('[data-market-item="100"][tabindex]')!;
+    stake.focus();
+    expect(document.getElementById('gamble-info')!.textContent).toContain('200냥');
+    expect(keydown(stake, { code: 'Tab' })).toBe(true);
+    expect(keydown(stake, { code: 'Tab', shiftKey: true })).toBe(true);
   });
 
   test('B does nothing while typing in a text box or during IME composition', () => {
