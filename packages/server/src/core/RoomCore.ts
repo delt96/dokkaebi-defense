@@ -1,12 +1,14 @@
+import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {
   buildFull, buildTick, createMatch, gambleTier, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
   isDifficulty, type Difficulty, MATCH_STAGES, type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchStage, type MatchState, type NoticeMsg,
   type MatchResult, type RecordedMatch, type ResultMsg,
 } from '@dorandi/logic';
+import { playLogLines } from '../playLog';
 
 // Resolve once at process start so an existing room keeps its release identity.
-const rulesRevision = process.env.DORANDI_RULES_REVISION ?? execFileSync('git', ['rev-parse', 'HEAD'], {
+export const rulesRevision = process.env.DORANDI_RULES_REVISION ?? execFileSync('git', ['rev-parse', 'HEAD'], {
   encoding: 'utf8', cwd: new URL('.', import.meta.url),
 }).trim();
 if (!/^[0-9a-f]{40}$/.test(rulesRevision)) throw new Error('빌드 버전을 확인해 주세요.');
@@ -335,6 +337,7 @@ export class RoomCore {
       for (const { link } of this.links.values()) link.send('result', msg);
       const minutes = Math.round(match.result.tick * TICK_MS / 60_000);
       this.deps.log?.(`[게임 끝] ${this.playLabel()} · ${OUTCOME_TEXT[match.result.outcome]} · ${match.result.round}라운드 · ${minutes}분`);
+      this.logRecord(minutes);
     }
   }
 
@@ -420,6 +423,23 @@ export class RoomCore {
     this.lastTickAt = deps.now();
     for (const { link, seat } of this.links.values()) this.sendFull(link, seat);
     deps.log?.(`[게임 시작] ${this.playLabel()}`);
+  }
+
+  /** The replayable record and a summary for balance analysis; rounds skipped in a dev practice room are not real play. */
+  private logRecord(minutes: number): void {
+    const match = this.match!;
+    const log = this.deps.log;
+    if (!log || !match.result || this.options.devJumpTick !== undefined) return;
+    const ids = (units: readonly ({ defId: string } | null)[] | undefined) => (units ?? []).flatMap(u => (u ? [u.defId] : []));
+    const summary = {
+      mode: 'online', stage: this.stage, difficulty: this.difficulty, players: match.ring.length,
+      outcome: match.result.outcome, round: match.result.round, minutes, dataVersion: match.dataVersion, rulesRevision,
+      seats: match.result.seats.map(s => ({
+        seat: s.seat, outcome: s.outcome, round: s.round,
+        board: ids(match.lanes[s.seat]?.slots), storage: ids(match.lanes[s.seat]?.storage),
+      })),
+    };
+    for (const line of playLogLines(randomUUID(), summary, this.recording())) log(line);
   }
 
   /** "4명 · 70라운드 보통" for the log lines. */
