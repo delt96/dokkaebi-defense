@@ -4,7 +4,7 @@ import {
 import { esc } from './dom';
 import { unitSkillText } from './models';
 import { withJosa } from './josa';
-import { gambleHtml, gambleModel, type GambleModel, type RevealDisplay } from './gamble';
+import { gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
 
 // Stage 3 economy on screen: the market panel (B), the T button under a target's health bar and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
@@ -18,7 +18,7 @@ const secondsOf = (data: GameData, ticks: number): number => Math.max(0, Math.ce
 // ---------- market ----------
 
 export interface MarketModel {
-  jigeLine: string; held: string; gamble?: GambleModel;
+  jige: GambleJige; gamble?: GambleModel;
 }
 
 export function marketModel(econ: EconMine, state: GameState): MarketModel | null {
@@ -26,8 +26,7 @@ export function marketModel(econ: EconMine, state: GameState): MarketModel | nul
   if (!m) return null;
   return {
     ...(m.gamble && { gamble: gambleModel(m.gamble, state.coins, state.buckwheat) }),
-    jigeLine: `지게 추가 확률 ${pct(m.jigeChance)}`,
-    held: `보유 지게 ${econ.jige}개`,
+    jige: { chance: m.jigeChance, held: econ.jige, maxGrade: state.data.economy?.market?.maxSwapGrade ?? 4 },
   };
 }
 
@@ -430,14 +429,16 @@ export function noteText(ev: EconNote, data: GameData): string | null {
 const button = (action: string, arg: string, label: string, disabled = false, cls = '') =>
   `<button data-action="${action}" data-arg="${esc(arg)}"${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
 
-/** The B panel over the left column. */
-export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay | null = null): string {
-  const head = `<div class="econ-head"><b>장터 (B)</b>${button('toggleMarket', '', 'B 닫기', false, 'econ-close')}</div>`;
-  if (!market) return `<div class="econ-panel">${head}<div class="econ-body"></div></div>`;
-  const line = (t: string, cls = 'shop-line') => `<div class="${cls}">${esc(t)}</div>`;
-  const body = `${market.gamble ? gambleHtml(market.gamble, reveal) : ''}
-    ${line(market.jigeLine)}${line(market.held, 'shop-line shop-held')}`;
-  return `<div class="econ-panel">${head}<div class="econ-body">${body}</div></div>`;
+/** The B drawer leaves the board and both unit-card positions visible. */
+export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay | null = null, readOnly = false): string {
+  const head = `<div class="econ-head"><b>장터</b><span class="gamble-wallet"></span>
+    ${market?.gamble ? '<span class="gamble-refill" aria-label="매 라운드 횟수가 다시 차요">라운드마다 충전</span>' : ''}
+    <button type="button" data-action="toggleMarket" data-market-focus="close" class="econ-close" aria-label="장터 닫기 (B)">닫기 B</button></div>`;
+  const body = market?.gamble ? `<div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
+    <div class="gamble-info" id="gamble-info" aria-live="polite"></div>
+    <div class="gamble-result"></div><section class="gamble-history" aria-label="최근 장터 결과"></section>`
+    : market ? `<div>보유 지게 ${market.jige.held}개</div>` : '';
+  return `<section class="econ-panel" aria-label="장터">${head}<div class="econ-body">${body}</div></section>`;
 }
 
 /** The T button under the target's health bar (placed by mount from the scene's bar anchor). */

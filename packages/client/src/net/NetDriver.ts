@@ -190,16 +190,20 @@ export class NetDriver implements Driver {
     const before = this.state.slots.map(u => u?.id ?? null);
     const beforeMine = this.boardBeforeMine;
     this.refresh();
+    const receipts: GameEvent[] = [];
     for (const batch of batches) {
       const events: GameEvent[] = [];
       for (const ev of batch.events) {
         const out = toGameEvent(ev, beforeMine && beforeMine.tick === batch.tick ? beforeMine.ids : before);
-        if (out) events.push(out);
+        // A confirmed purchase can still go in the journal after the combat animation window passes.
+        if (out?.type === 'gambleCoins' || out?.type === 'gambleUnit') receipts.push(out);
+        else if (out) events.push(out);
       }
       if (events.length) this.buffered.push({ tick: batch.tick, events });
       this.newestTick = Math.max(this.newestTick, batch.tick);
     }
     this.dropStale();
+    if (receipts.length) this.emit(receipts, []);
   }
 
   /** Batches at or below latest - 10 are never animated; dropping them keeps the buffer small. */
