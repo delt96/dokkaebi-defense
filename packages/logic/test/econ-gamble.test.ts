@@ -23,8 +23,13 @@ function fixedRoll(lo: number, hi: number) {
   }
 }
 
+test('coin gamble pays back 101.25% of the stake on average', () => {
+  const outcomes = data.economy!.market!.gamble!.coins.outcomes;
+  expect(outcomes.reduce((ev, o) => ev + o.result * o.chance, 0)).toBeCloseTo(1.0125, 9);
+});
+
 test.each([
-  [0, .38, 0], [.38, .58, .5], [.58, .86, 1.5], [.86, .95, 2], [.95, .995, 5], [.995, 1, 10],
+  [0, .355, 0], [.355, .555, .5], [.555, .86, 1.5], [.86, .95, 2], [.95, .995, 5], [.995, 1, 10],
 ])('coin outcome in [%s, %s) pays ×%s', (lo, hi, multiplier) => {
   const s = lane();
   s.econ!.rng.gambleCoins = fixedRoll(lo, hi);
