@@ -29,7 +29,7 @@ export interface EconRow {
   /** 지게 received, spent and still held at the end; paid tame attempts (successes included). */
   jigeGrants: number; jigeUses: number; jigeHeld: number; tameTries: number;
   /** 묵 after each ten-round settlement (null: the seat was out before it); 묵 just before R60 combat. */
-  muk10: number | null; muk20: number | null; muk30: number | null; muk40: number | null; muk50: number | null; muk60: number | null;
+  muk10: number | null; muk20: number | null; muk30: number | null; muk40: number | null; muk50: number | null; muk60: number | null; muk70: number | null;
   /** Ever had every material and the coins for a final grade 6 combine but not the 묵. */
   mukBlocked: boolean;
   /** 격파: kills, time-outs, the highest level killed and the 묵 they paid. */
@@ -44,10 +44,13 @@ export interface EconRow {
   startMuk?: number; earnedMuk?: number; bossMuk?: number; questMuk?: number; yeoksinMuk?: number;
   grade5Muk?: number; finalMuk?: number; tameMuk?: number; endMuk?: number; lostMuk?: number;
   sold: number; missingAtEnd: string; yeoksinKills: number;
-  boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null;
+  boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null; boss70: number | null;
 }
 
-const BOSS_ROUNDS = [10, 20, 30, 40, 50, 60] as const;
+const BOSS_ROUNDS = [10, 20, 30, 40, 50, 60, 70] as const;
+// grade 6 and coin counts are taken at the start of round 60, the old last round, so results stay comparable
+// with the measurements made before the game grew to 70 rounds
+const COMPARE_ROUND = 60;
 type BossCol = `boss${(typeof BOSS_ROUNDS)[number]}`;
 type MukCol = `muk${(typeof BOSS_ROUNDS)[number]}`;
 
@@ -117,7 +120,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
   const policy: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false };
   const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
   const driver = new EconDriver(match, bots, c.gamble);
-  const finalTick = roundStartTick(d, d.balance.rounds);
+  const finalTick = roundStartTick(d, Math.min(COMPARE_ROUND, d.balance.rounds));
   const rows = new Map<number, EconRow>();
   const prevCoins = new Map<number, number>();
   const earnedCoins = new Map<number, number>();
@@ -127,13 +130,13 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null,
       buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
       draws: 0, questWins: '', tames: 0, jigeGrants: 0, jigeUses: 0, jigeHeld: 0, tameTries: 0,
-      muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false,
+      muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, muk70: null, mukBlocked: false,
       huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, huntWins: '',
       startMuk: match.lanes[s]!.buckwheat, earnedMuk: 0, bossMuk: 0, questMuk: 0, yeoksinMuk: 0,
       grade5Muk: 0, finalMuk: 0, tameMuk: 0, endMuk: 0, lostMuk: 0, sold: 0, missingAtEnd: '', yeoksinKills: 0,
       ...(c.gamble && { coinBet: 0, coinPayout: 0 }),
       unitMuk: 0, unitConsolation: 0, gambleMiss: 0, gamble3: 0, gamble4: 0, gamble5: 0, gamble6: 0, gambleHidden: 0, smallPlays: 0, bigPlays: 0,
-      boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
+      boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null, boss70: null,
     });
     prevCoins.set(s, 0);
     earnedCoins.set(s, 0);
@@ -259,7 +262,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
     row.endMuk = lane.buckwheat;
     row.earnedMuk = row.huntMuk + row.bossMuk! + row.yeoksinMuk! + row.questMuk!;
     row.lostMuk = row.startMuk! + row.earnedMuk - row.unitMuk! - row.grade5Muk! - row.finalMuk! - row.tameMuk! - row.endMuk;
-    if (st.alive) row.muk60 = lane.buckwheat;
+    if (st.alive) row[`muk${BOSS_ROUNDS[BOSS_ROUNDS.length - 1]}` as MukCol] = lane.buckwheat;
     row.hidden = countHidden(lane);
     row.questWins = [...wins.get(s)!].sort().join('+');
     row.yeoksinKills = match.yeoksinKills;
@@ -310,8 +313,8 @@ const medRound = (xs: (number | null)[]) => {
 
 export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data?: GameData): string {
   const out = [
-    '| 설정 | 봇 | 완주자/참가 | 0 | 1 | 2 | 3 | 4 | 5+ | 3~4기 | 미완성 | 보유 중앙값 | 첫 완성 중앙값 | 늦은 10% | 묵 9 / 12 | 엽전 180 / 240 | 팀 클리어 | 판정 |',
-    '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: | --- |',
+    '| 설정 | 봇 | 완주자/참가 | 0 | 1 | 2 | 3 | 4 | 5+ | 3~4기 | 미완성 | 보유 중앙값 | 70R 보유 중앙값 | 첫 완성 중앙값 | 늦은 10% | 묵 9 / 12 | 엽전 180 / 240 | 팀 클리어 | 61R 이후 탈락 | 판정 |',
+    '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | ---: | ---: | --- |',
   ];
   const configs = [...new Set(rows.map(r => r.config))];
   for (const name of configs) {
@@ -320,9 +323,11 @@ export function econMarkdown(rows: EconRow[], yeoksin: (number | null)[][], data
     const fin = rs.filter(r => r.finished);
     const seeds = [...new Set(rs.map(r => r.seed))];
     const clears = seeds.filter(seed => rs.find(r => r.seed === seed)!.teamOutcome === 'clear').length;
-    out.push(`| ${name} | ${rs[0]!.bot} | ${s.finishers}/${rs.length} | ${s.dist.join(' | ')} | ${pct(s.share34)} | ${pct(s.neverRate)} | ${s.medianCount ?? '-'} | ${rnd(s.median)} | ${rnd(s.p90)} | ${medRound(fin.map(r => r.buckwheat9Round))} / ${medRound(fin.map(r => r.buckwheat12Round))} | ${medRound(fin.map(r => r.coins180Round))} / ${medRound(fin.map(r => r.coins240Round))} | ${clears}/${seeds.length} | ${s.pass ? '합격' : '미달'} |`);
+    const dropped = rs.filter(r => !r.finished);
+    const late = dropped.filter(r => r.endRound > COMPARE_ROUND).length;
+    out.push(`| ${name} | ${rs[0]!.bot} | ${s.finishers}/${rs.length} | ${s.dist.join(' | ')} | ${pct(s.share34)} | ${pct(s.neverRate)} | ${s.medianCount ?? '-'} | ${quantile(fin.map(r => r.grade6AtEnd), 0.5) ?? '-'} | ${rnd(s.median)} | ${rnd(s.p90)} | ${medRound(fin.map(r => r.buckwheat9Round))} / ${medRound(fin.map(r => r.buckwheat12Round))} | ${medRound(fin.map(r => r.coins180Round))} / ${medRound(fin.map(r => r.coins240Round))} | ${clears}/${seeds.length} | ${late}/${dropped.length} | ${s.pass ? '합격' : '미달'} |`);
   }
-  out.push('', '| 설정 | 자리당 보따리 평균 | 0회 자리 | 지게 획득 / 뽑기 | 지게 사용 평균 | 남은 지게 평균 | 유료 길들이기 평균 | 묵 R10 / 20 / 30 / 40 / 50 / 60 중앙값 (표본) | 최종 조합 묵 막힘 | 자리 간 SD |',
+  out.push('', '| 설정 | 자리당 보따리 평균 | 0회 자리 | 지게 획득 / 뽑기 | 지게 사용 평균 | 남은 지게 평균 | 유료 길들이기 평균 | 묵 R10 / 20 / 30 / 40 / 50 / 60 / 70 중앙값 (표본) | 최종 조합 묵 막힘 | 자리 간 SD |',
     '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |');
   for (const name of configs) {
     const rs = rows.filter(r => r.config === name);
@@ -397,11 +402,11 @@ const NUMBER_COLS = new Set([
   'gambleMiss', 'gamble3', 'gamble4', 'gamble5', 'gamble6', 'gambleHidden', 'smallPlays', 'bigPlays',
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 
   'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'jigeGrants', 'jigeUses', 'jigeHeld', 'tameTries',
-  'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60', 'huntKills', 'huntFled', 'huntBest', 'huntMuk', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60',
+  'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60', 'muk70', 'huntKills', 'huntFled', 'huntBest', 'huntMuk', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60', 'boss70',
 ]);
 const NULLABLE_COLS = new Set([
   'firstGrade6Round', 'firstSource', 'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round',
-  'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60', 'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60',
+  'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60', 'boss70', 'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60', 'muk70',
 ]);
 
 /** Reads back rows written by `toCsvRows` (no field contains a comma). */

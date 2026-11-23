@@ -9,7 +9,7 @@ import {
 import { EconDriver } from '../src/stage3/econDriver';
 import { expandTree, targetBot } from '../src/stage3/targetBot';
 import {
-  configData, econMatchRun, econSummary, parseEconCsv, parseYeoksinCsv, questPair, STANDARD_CONFIGS, type EconRow,
+  configData, econMarkdown, econMatchRun, econSummary, parseEconCsv, parseYeoksinCsv, questPair, STANDARD_CONFIGS, type EconRow,
 } from '../src/stage3/econRun';
 import { toCsvRows } from '../src/stage3/report';
 
@@ -182,6 +182,8 @@ describe('six-seat grade 6 measurement', () => {
       expect(r.finished).toBe(true);
       expect(r.grade6AtEnd).toBeGreaterThanOrEqual(0);
       expect(r.endRound).toBe(70);
+      expect(r).toHaveProperty('boss70');
+      expect(r.muk70).not.toBeNull();
     }
     expect(a.rows.some(r => r.draws > 0)).toBe(true);
   }, 120_000);
@@ -199,6 +201,13 @@ describe('six-seat grade 6 measurement', () => {
     expect(econSummary(never).pass).toBe(false);
   });
 
+  test('the summary judges grade 6 at round 60 and adds the end count and late defeats', () => {
+    const md = econMarkdown(econMatchRunStub(), []);
+    expect(md).toContain('| 70R 보유 중앙값 |');
+    expect(md).toContain('| 61R 이후 탈락 |');
+    expect(md).toContain('묵 R10 / 20 / 30 / 40 / 50 / 60 / 70 중앙값');
+  });
+
   test('econ rows survive a CSV round trip', () => {
     const rows = econMatchRunStub();
     expect(parseEconCsv(toCsvRows(rows))).toEqual(rows);
@@ -212,16 +221,16 @@ function econMatchRunStub(): EconRow[] {
     grade6AtFinal: 3, grade6AtEnd: 4, hidden: 1, coinsAtFinal: 412, buckwheatAtFinal: 2, firstGrade6Round: 33, firstSource: 'combine',
     buckwheat9Round: 30, buckwheat12Round: null, coins180Round: 6, coins240Round: 8,
     draws: 12, questWins: 'collection+team', tames: 1, jigeGrants: 2, jigeUses: 1, jigeHeld: 1, tameTries: 3,
-    muk10: 2, muk20: 3, muk30: 0, muk40: 1, muk50: null, muk60: null, mukBlocked: true, huntKills: 7, huntFled: 1, huntBest: 4, huntMuk: 9, sold: 30,
+    muk10: 2, muk20: 3, muk30: 0, muk40: 1, muk50: null, muk60: null, muk70: 1, mukBlocked: true, huntKills: 7, huntFled: 1, huntBest: 4, huntMuk: 9, sold: 30,
     missingAtEnd: 'moru', yeoksinKills: 4,
-    boss10: 21.5, boss20: 48.25, boss30: null, boss40: 60, boss50: null, boss60: 70.1,
+    boss10: 21.5, boss20: 48.25, boss30: null, boss40: 60, boss50: null, boss60: 70.1, boss70: 64,
   }, {
     seed: 1, config: 'target-full', bot: 'target', seat: 3, finished: false, teamOutcome: 'clear', endRound: 41,
     grade6AtFinal: 0, grade6AtEnd: 0, hidden: 0, coinsAtFinal: 0, buckwheatAtFinal: 0, firstGrade6Round: null, firstSource: null,
     buckwheat9Round: null, buckwheat12Round: null, coins180Round: null, coins240Round: null,
     draws: 0, questWins: '', tames: 0, jigeGrants: 0, jigeUses: 0, jigeHeld: 0, tameTries: 0,
-    muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, mukBlocked: false, huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
-    boss10: 30, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null,
+    muk10: null, muk20: null, muk30: null, muk40: null, muk50: null, muk60: null, muk70: null, mukBlocked: false, huntKills: 0, huntFled: 0, huntBest: 0, huntMuk: 0, sold: 0, missingAtEnd: '', yeoksinKills: 4,
+    boss10: 30, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null, boss70: null,
   }];
 }
 
