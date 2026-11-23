@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도깨비 랜덤 디펜스 · 장터 화면 목업</title>
+<style>
+  :root {color-scheme:dark;--bg:#0d0a14;--panel:#17121f;--edge:#392d46;--ink:#e8e0d0;--dim:#c9bdd3;--gold:#ffe08a;--warn:#ffbaaa}
+  * {box-sizing:border-box}
+  body {margin:0;overflow:hidden;background:#0b0810;color:var(--ink);font:14px/1.3 Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+  button,select {font:inherit;color:inherit;background:#2a2236;border:1px solid #584663;border-radius:2px}
+  button:not(:disabled),select {cursor:pointer}
+  :focus-visible {outline:2px solid var(--gold);outline-offset:1px}
+  main {display:grid;justify-items:center;align-content:center;height:100dvh}
+  #frame {width:640px;height:360px}
+  #stage {position:relative;width:640px;height:360px;overflow:hidden;background:var(--bg);font-size:10px;transform-origin:top left}
+  .hud,.left,.actions,.foot {position:absolute;background:var(--panel);border:1px solid #2a2236}
+  .hud {inset:0 0 auto;height:24px;padding:2px 7px;display:flex;gap:9px;align-items:center}
+  .hud strong,.gold {color:var(--gold)}
+  .preview {margin-left:auto;display:flex;gap:4px;align-items:center}
+  .preview select,.preview button {height:18px;padding:0 3px}
+  .left {left:0;top:24px;width:128px;height:308px;padding:7px}
+  .left p,.actions p {margin:4px 0}
+  .unit {display:flex;align-items:center;gap:6px}
+  .unit strong {color:#ffb347}
+  img {image-rendering:pixelated;object-fit:contain;vertical-align:middle}
+  .unit img {width:32px;height:32px;background:#242034;border:1px solid #ffb347}
+  .stats {display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:8px 0;color:var(--dim)}
+  .peers {display:grid;gap:5px;margin-top:7px}
+  .peers span {padding:6px 4px;border:1px solid var(--edge)}
+  .peers span:first-child {color:var(--gold)}
+  .actions {right:0;top:24px;width:112px;height:308px;padding:7px}
+  .actions button {display:block;width:100%;margin-top:5px;min-height:22px}
+  .foot {inset:auto 0 0;height:28px;padding:4px 8px;display:flex;align-items:center;gap:8px;color:var(--dim)}
+  .online .left,.online .actions {height:292px}
+  .online .foot {height:44px}
+  .field {position:absolute;left:128px;top:24px;width:400px;height:308px;background:#191722}
+  .online .field {height:292px}
+  .path {position:absolute;inset:33px 30px 42px 70px;border:19px solid #43363b;background:#272333;box-shadow:inset 0 0 0 2px #574547,0 0 0 2px #514147}
+  .path::after {content:"";position:absolute;inset:-12px;border:1px dashed #786058;opacity:.65}
+  .grid {position:absolute;left:104px;top:90px;display:grid;grid-template-columns:repeat(6,32px);grid-template-rows:repeat(4,32px);background:#232433}
+  .cell {border:1px solid #373649;display:grid;place-items:center;position:relative}
+  .cell img {width:30px;height:30px}
+  .selected {border-color:#e9c46c;background:#423727}
+  .marked {z-index:1;outline:2px solid #ffe08a;background:#66512e;animation:ping .65s ease-out}
+  @keyframes ping {from {box-shadow:0 0 0 5px #ffe08a80} to {box-shadow:0 0 0 0 transparent}}
+  .storage {position:absolute;top:46px;left:2px;width:66px;height:200px;padding:4px;background:#181423;border:1px solid #3d3248;color:#c9bdd3}
+  .storage b {color:var(--ink)}
+  .storage img {width:24px;height:24px;margin-top:5px;border:1px solid #4f9dff}
+  .tracker {position:absolute;top:66px;left:104px;color:var(--dim)}
+  .mob {position:absolute;width:19px;height:19px;filter:grayscale(.45)}
+  .drawer {position:absolute;z-index:2;inset:24px 0 28px auto;width:214px;background:#17121f;border:1px solid #82663f;padding:4px;display:grid;align-content:start;gap:2px;font-size:9px;line-height:11px}
+  .online .drawer {bottom:44px}
+  .heading,.line,.reveal,.history li {display:flex;align-items:center;justify-content:space-between;gap:4px}
+  .heading strong {color:var(--gold);font-size:12px}
+  .heading button {height:16px;min-width:33px;padding:0 3px}
+  .hint {color:var(--dim);font-size:8px}
+  .shop {background:#241b30;border:1px solid #473653;padding:2px 4px;display:grid;gap:1px}
+  .line h2 {margin:0;color:var(--gold);font-size:10px;line-height:11px}
+  .count {color:var(--dim);white-space:nowrap}
+  .bundle-options,.stakes {display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .option {min-width:0;display:grid;align-content:start}
+  .bundle-options .option {grid-template-columns:max-content 1fr;align-items:center;gap:0 3px}
+  .bundle-options .reason {grid-column:1/-1}
+  .inspect {padding:0;border:0;background:transparent;color:var(--gold);text-align:left;white-space:nowrap}
+  .inspect:hover,.inspect:focus-visible {text-decoration:underline}
+  .buy {width:100%;height:16px;padding:0 2px;font-weight:bold;color:#ffe08a;background:#3b2b23;border-color:#8e6a40;white-space:nowrap}
+  .buy:disabled {background:#30283b;border-color:#51445c;color:#ddd0e4;pointer-events:none}
+  .reason {color:var(--warn);font-size:8px;line-height:9px;min-height:9px}
+  .reason:empty {display:none}
+  .odds {display:flex;height:4px;overflow:hidden;background:#0d0a14}
+  .odds i {display:block;flex-basis:calc(var(--chance) * 1%);background:var(--swatch)}
+  .odds-label {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 2px;font-size:8px;line-height:10px}
+  .odds-label span {white-space:nowrap}
+  .odds-label i {display:inline-block;width:4px;height:4px;margin-right:2px;background:var(--swatch);vertical-align:1px}
+  .info {height:67px;padding:2px 4px;border:1px solid #614c66;background:#201829}
+  .info-content {display:grid;gap:1px;margin-top:1px}
+  .info-content p {font-size:8px;line-height:9px;color:var(--dim);margin:0}
+  .coin-line {display:grid;grid-template-columns:1fr 45px;align-items:center;gap:4px}
+  .reveal {position:relative;isolation:isolate;overflow:hidden;min-height:18px;padding:1px 4px;background:#342436;border:1px solid #8d6d44;color:var(--gold)}
+  .reveal img {width:14px;height:14px}
+  .reveal.flash::after {content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse,#ffe39a80,transparent 75%);animation:flash .45s ease-out both}
+  @keyframes flash {from {opacity:1;transform:scale(.45)} to {opacity:0;transform:scale(1.8)}}
+  .recent {padding:1px 3px;background:#21182c;border:1px solid #82663f;font-size:9px}
+  .history {margin:0;padding:0;list-style:none}
+  .history li {height:11px;border-bottom:1px solid #34283e;padding:0 2px;font-size:8px}
+  .history li:last-child {border-bottom:0}
+  .history li img {width:11px;height:11px;margin-right:2px}
+  .history li button {height:10px;padding:0 3px;font-size:8px;line-height:8px;color:var(--gold)}
+  .history li .result {flex:1}
+  .history li .time {color:var(--dim);min-width:15px}
+  .mark {display:inline-grid;vertical-align:middle;place-items:center;min-width:11px;height:11px;padding:0 1px;border-radius:50%;background:#ffe08a;color:#241a0c;font:bold 8px/1 sans-serif}
+  dialog {width:min(600px,calc(100vw - 24px));max-height:calc(100dvh - 24px);background:#1e1729;border:1px solid #82663f;color:var(--ink);padding:14px;font-size:13px}
+  dialog::backdrop {background:#07050cd9}
+  dialog h1 {font-size:16px;color:var(--gold);margin:0}
+  dialog ol {padding-left:24px}
+  dialog li {margin:5px 0}
+  dialog li b {color:var(--gold)}
+  [hidden] {display:none!important}
+  @media (prefers-reduced-motion:reduce) {.marked,.reveal.flash::after {animation:none}}
+</style>
+<main>
+  <div id="frame">
+    <section id="stage" aria-label="장터를 연 게임 화면 목업">
+      <header class="hud">
+        <strong id="round"></strong><span>보통</span><span id="clock">남은 24초</span>
+        <span>엽전 <b id="coins" class="gold"></b>냥</span><span>메밀묵 <b class="gold">3</b>개</span>
+        <div class="preview" aria-label="목업 보기 설정">
+          <select id="scenario" aria-label="목업 상태">
+            <option value="open">장터 열림 · 32라운드</option>
+            <option value="locked">보스 격파 전 · 9라운드</option>
+            <option value="short">엽전 부족 · 24라운드</option>
+          </select>
+          <select id="mode" aria-label="게임 방식"><option value="solo">혼자</option><option value="online">온라인</option></select>
+          <select id="zoom" aria-label="보기 배율"><option value="1">×1</option><option value="2">×2</option></select>
+          <button id="show-legend">번호 설명</button>
+        </div>
+      </header>
+      <aside class="left">
+        <div id="solo-card"></div>
+        <div id="online-peers" hidden><strong>고개 현황 <span class="mark">1</span></strong>
+          <div class="peers"><span>1고개 · 나　잡귀 14</span><span>2고개　잡귀 8</span><span>3고개　잡귀 11</span><span>4고개　잡귀 17</span><span>5고개　잡귀 9</span><span>6고개　잡귀 12</span></div>
+        </div>
+      </aside>
+      <div class="field" aria-label="고개와 진영">
+        <div class="path"></div>
+        <div class="storage"><b>보관함</b><br>1·2등급<br><img src="../../../packages/client/public/sprites/dunggumi.png" alt="둥구미"></div>
+        <div class="grid" id="grid"></div>
+        <img class="mob" style="top:33px;left:163px" src="../../../packages/client/public/sprites/mogitbul.png" alt="">
+        <img class="mob" style="top:33px;left:197px" src="../../../packages/client/public/sprites/mogitbul.png" alt="">
+        <img class="mob" style="top:33px;left:230px" src="../../../packages/client/public/sprites/mogitbul.png" alt="">
+        <span class="tracker">우리 고개 잡귀 14 / 60</span>
+      </div>
+      <aside class="actions" aria-label="게임 조작">
+        <p>도깨비불 (뽑기) <b class="gold">4</b></p><button>뚝딱! (4번)</button><button>불 바꾸기 (+25냥)</button>
+        <button>강화 (E)</button><button id="open-market">장터 (B)</button><button>퀘스트 (J)</button><button>도감 (D)</button>
+      </aside>
+      <footer class="foot" id="foot"></footer>
+      <section class="drawer" id="drawer" aria-label="장터">
+        <div class="heading"><strong>장터 <span class="mark">2</span></strong><span class="hint">매 라운드 횟수가 다시 차요 <span class="mark">3</span></span><button id="close-market" aria-label="장터 닫기">닫기 B</button></div>
+        <div id="goods" style="display:contents"></div>
+        <section class="info" aria-label="상품 안내">
+          <div class="line"><strong class="gold"><span id="item-name">상품 안내</span> <span class="mark">4</span></strong><span class="hint">이름을 눌러 확률 보기 <span class="mark">10</span></span></div>
+          <div class="info-content" id="item-info" aria-live="polite"></div>
+        </section>
+        <div class="reveal" id="reveal" role="status"></div>
+        <section class="recent" id="recent" aria-label="최근 장터 결과">
+          <div class="line"><strong>최근 결과 <span class="mark">8</span></strong><span id="location-label">진영 위치 <span class="mark">9</span></span></div>
+          <ul class="history" id="history"></ul>
+        </section>
+      </section>
+    </section>
+  </div>
+</main>
+<dialog id="legend">
+  <div class="heading"><h1>장터 화면 명세</h1><form method="dialog"><button>닫기</button></form></div>
+  <p>상단의 상태, 게임 방식, 배율을 바꿔 보세요. “칸 보기”는 진영 칸 점멸을, “다시 보기”는 결과 연출을 보여줍니다.</p>
+  <ol>
+    <li><b>UNCHANGED · 유닛 카드와 고개 목록</b> 혼자는 왼쪽 유닛 카드, 온라인은 왼쪽 고개 목록과 하단 유닛 카드가 그대로 보입니다.</li>
+    <li><b>CHANGED · 오른쪽 서랍</b> 우측 조작과 고개 오른쪽 통로 일부를 가립니다. 진영 6×4칸과 보관함은 보입니다. B 또는 닫기로 원래 조작을 다시 엽니다.</li>
+    <li><b>CHANGED · 라운드 몫</b> 모든 상품에 “남은 횟수 n/m”을 씁니다. 보따리 두 종류는 한 몫을 쓰고, 엽전 보따리와 돈 도박은 각각 따로 셉니다.</li>
+    <li><b>NEW · 공용 상품 안내</b> 상품이나 가격에 마우스를 올리거나 키보드로 이동하면 해당 상품의 색 막대와 확률 숫자, 위로금 또는 지급 방식이 보입니다. 마지막으로 본 상품을 계속 표시합니다.</li>
+    <li><b>CHANGED · 버튼별 사유</b> 잠금이나 부족 사유는 해당 가격 바로 아래에 표시합니다. 장터 잠금이 풀린 뒤 큰 보따리의 30라운드 제한을 보여 줍니다. 비활성 가격은 글자색을 유지합니다.</li>
+    <li><b>CHANGED · 지게 안내</b> 묵 보따리를 살펴볼 때 상품 안내에서 별도 3% 확률, 보유량, 4등급 이하 같은 등급 교환과 R 키가 보입니다.</li>
+    <li><b>UNCHANGED · 결과 연출</b> 굴리기와 기존 등급별 반짝임·엽전 팝 연출을 이어갑니다. 목업에서는 “다시 보기”로 반짝임을 미리 볼 수 있습니다.</li>
+    <li><b>NEW · 최근 다섯 건</b> 서랍 안에서 위부터 최신순으로 읽습니다. 유닛은 얼굴과 이름을, 꽝은 위로금을 표시합니다. 도박은 배수, 받은 돈, 판돈을 뺀 손익을 함께 표시합니다.</li>
+    <li><b>NEW · 진영 위치</b> “칸 보기”를 누르면 같은 유닛의 현재 칸이 깜빡입니다. 배치 직후에는 처음 들어간 칸을 가리킵니다. 유닛이 진영을 떠나면 “진영에 없음”을 표시합니다.</li>
+    <li><b>NEW · 터치로 살펴보기</b> 카드 본문을 누르면 상품 안내가 바뀝니다. 가격 버튼을 누르면 한 번에 구매합니다. 목업에서는 그 자리에서 예시 결과가 나옵니다.</li>
+  </ol>
+  <p class="hint">구매 버튼은 예시 결과만 보여 줍니다. 재화·남은 횟수·기록은 상태별 예시를 유지합니다.</p>
+</dialog>
+<script>
+  const $ = id => document.getElementById(id);
+  const mark = number => `<span class="mark" aria-hidden="true">${number}</span>`;
+  const sprite = (id, alt = '') => `<img src="../../../packages/client/public/sprites/${id}.png" alt="${alt}">`;
+  const grade = ['#82748e', '#4f9dff', '#4fd27a', '#b07aff', '#ffb347', '#ff4a3a', '#ffe35a'];
+  const small = [['꽝',40,grade[0]],['3등급',45,grade[3]],['4등급',13,grade[4]],['5등급',2,grade[5]]];
+  const big = [['꽝',35,grade[0]],['4등급',45,grade[4]],['5등급',17,grade[5]],['6등급',2.5,grade[6]],['숨은 유닛',0.5,'#fff0e0']];
+  const cheap = [['1등급',75,grade[1]],['2등급',25,grade[2]]];
+  const coin = [['×0',35.5,'#82748e'],['×0.5',20,'#c78c95'],['×1.5',30.5,'#b9a8e7'],['×2',9,'#dbb16e'],['×5',4.5,'#ffe08a'],['×10',0.5,'#fff0e0']];
+  const scenes = {
+    open: {round:32, coins:142, left:[1,2,4], jige:1, small:'', big:'', high:''},
+    locked: {round:9, coins:124, left:[2,3,5], jige:0, small:'10라운드 보스 격파 후', big:'10라운드 보스 격파 후', high:'10라운드 보스 격파 후'},
+    short: {round:24, coins:31, left:[1,3,4], jige:0, small:'', big:'30라운드부터', high:'엽전 69냥 부족'}
+  };
+  const items = {
+    small: {name:'보따리', odds:small, consolation:15, sample:'홍두깨를 뽑았어요!'},
+    big: {name:'큰 보따리', odds:big, consolation:40, sample:'꽝! 위로금 40냥을 받았어요.'},
+    cheap: {name:'엽전 보따리', odds:cheap, note:'뽑으면 유닛 한 기를 받아요.', sample:'둥구미를 뽑았어요!'},
+    low: {name:'돈 도박 · 10냥', odds:coin, note:'판돈 × 배수만큼 받아요. ×2면 20냥을 받아 10냥 이득이에요.', sample:'×2 · 받음 20냥 · 이득 10냥'},
+    high: {name:'돈 도박 · 100냥', odds:coin, note:'판돈 × 배수만큼 받아요. ×2면 200냥을 받아 100냥 이득이에요.', sample:'×2 · 받음 200냥 · 이득 100냥'}
+  };
+
+  function odds(rows) {
+    const bar = rows.map(([, chance, color]) => `<i style="--chance:${chance};--swatch:${color}"></i>`).join('');
+    const labels = rows.map(([label, chance, color]) => `<span><i aria-hidden="true" style="--swatch:${color}"></i>${label} ${chance}%</span>`).join('');
+    return `<div class="odds" aria-hidden="true">${bar}</div><div class="odds-label">${labels}</div>`;
+  }
+
+  function buy(label, reason = '') {
+    return `<button type="button" class="buy" ${reason ? 'disabled' : ''}>${label}</button><div class="reason">${reason}</div>`;
+  }
+
+  function title(name, detail, remaining, limit) {
+    return `<div class="line"><h2>${name}</h2><span class="hint">${detail}</span><span class="count">남은 횟수 ${remaining}/${limit}</span></div>`;
+  }
+
+  function inspect(name) {
+    return `<button type="button" class="inspect" aria-controls="item-info">${name}</button>`;
+  }
+
+  let inspected;
+  function showInfo(id) {
+    if (id === inspected) return;
+    inspected = id;
+    $('item-name').textContent = id ? items[id].name : '상품 안내';
+    if (!id) {
+      $('item-info').innerHTML = '<p>상품이나 가격에 마우스를 올려 보세요.</p>';
+      return;
+    }
+    const item = items[id];
+    const jige = scenes[$('scenario').value].jige;
+    $('item-info').innerHTML = `${odds(item.odds)}${item.consolation
+      ? `<p>꽝 위로금 ${item.consolation}냥 · 지게는 따로 3% ${mark(6)}<br>보유 ${jige}개 · 4등급 이하를 골라 R · 같은 등급으로 바꿔요</p>`
+      : `<p>${item.note}</p>`}`;
+  }
+
+  function render() {
+    const key = $('scenario').value;
+    const scene = scenes[key];
+    const online = $('mode').value === 'online';
+    const locked = key === 'locked';
+    $('stage').classList.toggle('online', online);
+    $('round').textContent = `${scene.round} / 60 라운드`;
+    $('coins').textContent = scene.coins;
+    const unit = `<div class="unit">${sprite('dwiju')}<div><strong>뒤주</strong><br>4등급 · 물리 ${mark(1)}</div></div>`;
+    $('solo-card').hidden = online;
+    $('solo-card').innerHTML = `${unit}<div class="stats"><span>공격 96</span><span>사거리 1.5</span></div><p>선택한 유닛</p>`;
+    $('online-peers').hidden = !online;
+    $('foot').innerHTML = online ? `${unit}<span>공격 96　사거리 1.5</span>` : '유닛 선택 · W 다음 유닛 · Space 소환 · E 강화 · B 장터';
+    $('grid').innerHTML = Array.from({length:24}, (_, index) => {
+      const id = index === 8 ? 'dwiju' : index === 3 && !locked ? 'hongdukkae' : index === 15 ? 'samtaegi' : index === 19 && key === 'open' ? 'dunggumi' : '';
+      return `<div class="cell ${index === 8 ? 'selected' : ''}" id="cell-${index}">${id ? sprite(id) : ''}</div>`;
+    }).join('');
+    $('goods').innerHTML = `
+      <article class="shop" aria-label="묵 보따리">
+        ${title('묵 보따리 ' + mark(4),'유닛 또는 위로금',scene.left[0],2)}
+        <div class="bundle-options">
+          <div class="option" data-item="small">${inspect('보따리')}${buy('묵 1개',scene.small)}</div>
+          <div class="option" data-item="big">${inspect('큰 보따리')}${buy('묵 2개',scene.big ? scene.big + ' ' + mark(5) : '')}</div>
+        </div>
+      </article>
+      <article class="shop coin-line" aria-label="엽전 보따리" data-item="cheap">
+        ${title(inspect('엽전 보따리'),'유닛 한 기',scene.left[1],3)}
+        <button class="buy" type="button">30냥</button>
+      </article>
+      <article class="shop" aria-label="돈 도박" data-item="low">
+        ${title(inspect('돈 도박'),'판돈 × 나온 배수',scene.left[2],5)}
+        <div class="stakes"><div>${buy('10냥 걸기')}</div><div data-item="high">${buy('100냥 걸기',scene.high)}</div></div>
+      </article>`;
+    showInfo(null);
+    $('reveal').classList.remove('flash');
+    $('reveal').innerHTML = locked
+      ? `<span>아직 뽑은 결과가 없어요 ${mark(7)}</span>`
+      : `<span>${sprite('hongdukkae')} 홍두깨를 뽑았어요! ${mark(7)}</span><button type="button" id="animate" class="hint">다시 보기</button>`;
+    const won = (round, id, name, shop, cell, location) => `<li><span class="time">${round}R</span><span class="result">${sprite(id)}${name} · ${shop}</span><button type="button" data-cell="${cell}" aria-label="${name}의 ${location} 보기">칸 보기 · ${location}</button></li>`;
+    const history = key === 'open'
+      ? [
+          won(32,'hongdukkae','홍두깨','보따리',3,'1행 4열'),
+          '<li><span class="time">32R</span><span class="result">돈 도박 ×2 · 판돈 10냥</span><span>받음 20냥 · 이득 10냥</span></li>',
+          '<li><span class="time">31R</span><span class="result">꽝 · 큰 보따리</span><span>위로금 40냥</span></li>',
+          won(31,'dunggumi','둥구미','엽전 보따리',19,'4행 2열'),
+          '<li><span class="time">31R</span><span class="result">돈 도박 ×0.5 · 판돈 10냥</span><span>받음 5냥 · 손해 5냥</span></li>'
+        ]
+      : key === 'short'
+        ? [won(24,'hongdukkae','홍두깨','보따리',3,'1행 4열'),
+           '<li><span class="time">24R</span><span class="result">돈 도박 ×0 · 판돈 10냥</span><span>받음 0냥 · 손해 10냥</span></li>',
+           '<li><span class="time">23R</span><span class="result">꽝 · 보따리</span><span>위로금 15냥</span></li>']
+        : [];
+    $('history').innerHTML = history.length ? history.join('') : '<li>이번 경기에서 아직 뽑지 않았어요</li>';
+    $('location-label').hidden = !history.length;
+  }
+
+  function fit() {
+    const scale = Math.min(Number($('zoom').value), innerWidth / 640, innerHeight / 360);
+    $('stage').style.transform = `scale(${scale})`;
+    $('frame').style.width = `${640 * scale}px`;
+    $('frame').style.height = `${360 * scale}px`;
+  }
+  function market(open, focus = true) {
+    $('drawer').hidden = !open;
+    document.querySelector('.actions').inert = open;
+    if (focus) $(open ? 'close-market' : 'open-market').focus();
+  }
+  $('scenario').addEventListener('change', () => { render(); market(true, false); });
+  $('mode').addEventListener('change', render);
+  $('zoom').addEventListener('change', fit);
+  addEventListener('resize', fit);
+  $('show-legend').addEventListener('click', () => $('legend').showModal());
+  $('open-market').addEventListener('click', () => market(true));
+  $('close-market').addEventListener('click', () => market(false));
+  addEventListener('keydown', event => {
+    if ($('legend').open || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.target instanceof HTMLSelectElement) return;
+    if (event.key.toLowerCase() === 'b') market($('drawer').hidden);
+  });
+  let flashTimeout;
+  $('history').addEventListener('click', event => {
+    const trigger = event.target.closest('[data-cell]');
+    if (!trigger) return;
+    clearTimeout(flashTimeout);
+    document.querySelector('.marked')?.classList.remove('marked');
+    const cell = $(`cell-${trigger.dataset.cell}`);
+    void cell.offsetWidth;
+    cell.classList.add('marked');
+    flashTimeout = setTimeout(() => cell.classList.remove('marked'), 1000);
+  });
+  function flashReveal() {
+    $('reveal').classList.remove('flash');
+    void $('reveal').offsetWidth;
+    $('reveal').classList.add('flash');
+  }
+  $('reveal').addEventListener('click', event => {
+    if (event.target.id === 'animate') flashReveal();
+  });
+  function pointAtItem(event) {
+    const id = event.target.closest('[data-item]')?.dataset.item;
+    if (id) showInfo(id);
+    return id;
+  }
+  $('goods').addEventListener('pointerover', event => {
+    if (event.pointerType !== 'touch') pointAtItem(event);
+  });
+  $('goods').addEventListener('focusin', pointAtItem);
+  $('goods').addEventListener('click', event => {
+    const id = pointAtItem(event);
+    if (!id || !event.target.closest('.buy')) return;
+    $('reveal').innerHTML = `<span>${items[id].sample} ${mark(7)}</span><button type="button" id="animate" class="hint">다시 보기</button>`;
+    flashReveal();
+  });
+  render();
+  fit();
+  market(true, false);
+</script>
