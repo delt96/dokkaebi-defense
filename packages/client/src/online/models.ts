@@ -63,7 +63,7 @@ export function rowsModel(view: ClientView, data: GameData): RowModel[] {
   return out;
 }
 
-const STAGE_NAME = ['', '첫째', '둘째', '셋째', '넷째'];
+const STAGE_NAME = ['', '첫째', '둘째', '셋째', '넷째', '다섯째'];
 
 export function topModel(view: ClientView, data: GameData): TopModel {
   const coop = data.coop!;

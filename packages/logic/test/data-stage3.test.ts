@@ -151,6 +151,7 @@ describe('stage 3 balance stands on its own', () => {
         { stage: 2, enemy: 'yeoksin2', startRound: 15, deadlineRound: 19, baseHp: 30000, startIndex: 1 },
         { stage: 3, enemy: 'yeoksin3', startRound: 35, deadlineRound: 39, baseHp: 109000, startIndex: 2 },
         { stage: 4, enemy: 'yeoksin4', startRound: 55, deadlineRound: 59, baseHp: 210000, startIndex: 3 },
+        { stage: 5, enemy: 'yeoksin5', startRound: 65, deadlineRound: 69, baseHp: 330000, startIndex: 4 },
       ],
       hpPerExtraPlayer: 0.1, staySeconds: 12,
       killReward: { coins: 15, buckwheat: 1 }, topDamageBonus: 10,

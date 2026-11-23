@@ -22,15 +22,15 @@ describe('stage 3 match schedule', () => {
     expect(d2.coop!.yeoksin.map(y => y.baseHp)).toEqual([10700, 33000]);
   });
 
-  test('stage 3 matches have seven boss clocks, four yeoksin slots and a match econ seeded from the match seed', () => {
+  test('stage 3 matches have seven boss clocks, five yeoksin slots and a match econ seeded from the match seed', () => {
     const m = createMatch(d3, 3, [1, 2]);
     expect(Object.keys(m.seats[1]!.bosses)).toEqual(['10', '20', '30', '40', '50', '60', '70']);
-    expect(m.seats[1]!.yeoksinDamage).toEqual([0, 0, 0, 0]);
+    expect(m.seats[1]!.yeoksinDamage).toEqual([0, 0, 0, 0, 0]);
     expect(m.econ!.rng.s).toBe(createRng(deriveSeed(3, 'econ')).s);
     expect(m.econ).toMatchObject({ team: { streak: 0, paid: false }, ssireumSeat: null });
     expect('offers' in m.econ!).toBe(false);
     expect(d3.coop!.yeoksin.map(y => [y.stage, y.startRound, y.deadlineRound, y.baseHp, y.startIndex])).toEqual([
-      [1, 6, 9, 8000, 0], [2, 15, 19, 30000, 1], [3, 35, 39, 109000, 2], [4, 55, 59, 210000, 3],
+      [1, 6, 9, 8000, 0], [2, 15, 19, 30000, 1], [3, 35, 39, 109000, 2], [4, 55, 59, 210000, 3], [5, 65, 69, 330000, 4],
     ]);
   });
 
@@ -64,6 +64,15 @@ describe('stage 3 match schedule', () => {
     expect(g.yeoksinKills).toBe(2);
     stepMatch(g, []);
     expect(g.result?.outcome).toBe('gate');
+  });
+
+  test('fifth yeoksin spawns at round 65 with 363000 hp for two starters at ring index 4 % 2 = seat 1', () => {
+    const m = createMatch(d3, 1, [1, 2]);
+    jumpToTick(m, rst(65));
+    const r = stepMatch(m, []);
+    expect(r.events).toContainEqual({ type: 'yeoksinSpawn', stage: 5, maxHp: 363000 });
+    expect(r.events.find(e => e.type === 'yeoksinEnter')).toMatchObject({ stage: 5, seat: 1 });
+    expect(m.yeoksin?.stage).toBe(5);
   });
 
   test('a new yeoksin visit resets the previous visit\'s target streak', () => {
