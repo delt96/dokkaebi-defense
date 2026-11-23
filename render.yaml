@@ -5,7 +5,7 @@ services:
     runtime: node
     plan: free
     buildCommand: npm ci --include=dev && npm run build -w @dorandi/client
-    startCommand: npm run start -w @dorandi/server
+    startCommand: npm run --silent start -w @dorandi/server
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION

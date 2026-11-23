@@ -9,6 +9,8 @@ import { soloLogRouter } from './playLog';
 export function createGameServer(opts: { clientDist?: string } = {}): Server {
   const { clientDist } = opts;
   return defineServer({
+    // keep the host log to game lines: no startup banner
+    greet: false,
     rooms: { match: defineRoom(MatchRoom) },
     express: app => {
       app.use(soloLogRouter(line => console.log(line), rulesRevision));
