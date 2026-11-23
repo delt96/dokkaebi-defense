@@ -17,7 +17,10 @@ export function startSolo(): void {
   const newSeed = () => (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
   let seed = newSeed();
   const driver = new GameDriver(createGame(data, seed, difficulty));
-  driver.onFinished(state => void sendSoloLog(soloLogBody(state, seed, difficulty, rules, driver.record)));
+  driver.onFinished(state => {
+    // runs inside the tick loop: a log we cannot build must not break the game screen
+    try { void sendSoloLog(soloLogBody(state, seed, difficulty, rules, driver.record)); } catch { /* dropped */ }
+  });
   const resetAudio = bindBattleAudio(driver);
   const scene = new LaneScene(driver);
 

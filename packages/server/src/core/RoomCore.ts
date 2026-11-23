@@ -337,7 +337,8 @@ export class RoomCore {
       for (const { link } of this.links.values()) link.send('result', msg);
       const minutes = Math.round(match.result.tick * TICK_MS / 60_000);
       this.deps.log?.(`[게임 끝] ${this.playLabel()} · ${OUTCOME_TEXT[match.result.outcome]} · ${match.result.round}라운드 · ${minutes}분`);
-      this.logRecord(minutes);
+      // logging must never take the game server down: a record that cannot be built is dropped
+      try { this.logRecord(minutes); } catch { /* dropped */ }
     }
   }
 
@@ -439,7 +440,7 @@ export class RoomCore {
         board: ids(match.lanes[s.seat]?.slots), storage: ids(match.lanes[s.seat]?.storage),
       })),
     };
-    for (const line of playLogLines(randomUUID(), summary, this.recording())) log(line);
+    playLogLines(randomUUID(), summary, this.recording()).then(lines => { for (const line of lines) log(line); }, () => {});
   }
 
   /** "4명 · 70라운드 보통" for the log lines. */
