@@ -22,9 +22,9 @@ describe('stage 3 match schedule', () => {
     expect(d2.coop!.yeoksin.map(y => y.baseHp)).toEqual([10700, 33000]);
   });
 
-  test('stage 3 matches have six boss clocks, four yeoksin slots and a match econ seeded from the match seed', () => {
+  test('stage 3 matches have seven boss clocks, four yeoksin slots and a match econ seeded from the match seed', () => {
     const m = createMatch(d3, 3, [1, 2]);
-    expect(Object.keys(m.seats[1]!.bosses)).toEqual(['10', '20', '30', '40', '50', '60']);
+    expect(Object.keys(m.seats[1]!.bosses)).toEqual(['10', '20', '30', '40', '50', '60', '70']);
     expect(m.seats[1]!.yeoksinDamage).toEqual([0, 0, 0, 0]);
     expect(m.econ!.rng.s).toBe(createRng(deriveSeed(3, 'econ')).s);
     expect(m.econ).toMatchObject({ team: { streak: 0, paid: false }, ssireumSeat: null });
@@ -34,7 +34,7 @@ describe('stage 3 match schedule', () => {
     ]);
   });
 
-  test('a round-30 boss alive at time-out eliminates the seat; finished needs all six bosses', () => {
+  test('a round-30 boss alive at time-out eliminates the seat; finished needs all seven bosses', () => {
     const m = createMatch(d3, 1, [1, 2]);
     jumpToTick(m, rst(30));
     const r = stepMatch(m, []);
@@ -46,9 +46,9 @@ describe('stage 3 match schedule', () => {
     expect(out).toContainEqual({ type: 'eliminated', seat: 1, cause: 'boss', round: 30 });
     expect(m.seats[2]!.alive).toBe(true);
     expect(allBossesKilled(m, 2)).toBe(false);
-    for (const k of [10, 20, 40, 50]) m.seats[2]!.bosses[k]!.status = 'killed';
+    for (const k of [10, 20, 40, 50, 60]) m.seats[2]!.bosses[k]!.status = 'killed';
     expect(allBossesKilled(m, 2)).toBe(false);
-    m.seats[2]!.bosses[60]!.status = 'killed';
+    m.seats[2]!.bosses[70]!.status = 'killed';
     expect(allBossesKilled(m, 2)).toBe(true);
   });
 

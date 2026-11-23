@@ -58,5 +58,15 @@
   {"round": 57, "type": "normal", "pattern": ["geuseundae"]},
   {"round": 58, "type": "normal", "pattern": ["dueoksini"]},
   {"round": 59, "type": "normal", "pattern": ["japgwi", "geuseundae", "dueoksini"]},
-  {"round": 60, "type": "boss", "boss": "gangcheori6"}
+  {"round": 60, "type": "boss", "boss": "gangcheori6"},
+  {"round": 61, "type": "normal", "pattern": ["japgwi"]},
+  {"round": 62, "type": "normal", "pattern": ["japgwi", "geuseundae", "dueoksini"]},
+  {"round": 63, "type": "normal", "pattern": ["geuseundae"]},
+  {"round": 64, "type": "normal", "pattern": ["japgwi"]},
+  {"round": 65, "type": "normal", "pattern": ["dueoksini"]},
+  {"round": 66, "type": "normal", "pattern": ["japgwi", "geuseundae", "dueoksini"]},
+  {"round": 67, "type": "normal", "pattern": ["geuseundae"]},
+  {"round": 68, "type": "normal", "pattern": ["dueoksini"]},
+  {"round": 69, "type": "normal", "pattern": ["japgwi", "geuseundae", "dueoksini"]},
+  {"round": 70, "type": "boss", "boss": "jinegaksi7"}
 ]

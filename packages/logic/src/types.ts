@@ -62,7 +62,8 @@ export interface BalanceDef {
   difficulties?: Record<Difficulty, { tokensPerRound: number }>;
   tickMs: number; prepSeconds: number; roundSeconds: number; bossRoundSeconds: number;
   spawnCount: number; spawnIntervalSeconds: number; rounds: number;
-  hp: { base: number; coef: number; exp: number };
+  /** `late`: from `fromRound` on, normal enemies get `1 + perRound * (round - fromRound + 1)` times their hp. */
+  hp: { base: number; coef: number; exp: number; late?: { fromRound: number; perRound: number } };
   gradeDps: { base: number; mult: number };
   tokens: { start: number; perRound: number; toCoins: number };
   coins: { perKill: number; roundEnd: number; boss: number };

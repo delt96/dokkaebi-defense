@@ -181,7 +181,7 @@ describe('six-seat grade 6 measurement', () => {
     for (const r of a.rows) {
       expect(r.finished).toBe(true);
       expect(r.grade6AtEnd).toBeGreaterThanOrEqual(0);
-      expect(r.endRound).toBe(60);
+      expect(r.endRound).toBe(70);
     }
     expect(a.rows.some(r => r.draws > 0)).toBe(true);
   }, 120_000);

@@ -105,7 +105,7 @@ describe('resistance by round', () => {
   test('the round range lists the wave enemies the same way combat does', () => {
     expect(roundResistRange(d1, 10)).toBeNull();
     const r = d3.balance.resistByRound!;
-    const late = r.toRound;
+    const late = 60;
     const top = roundResistBonus(d3.balance, late);
     // round 60 is the last 강철이: magical base 0.3
     expect(roundResistRange(d3, late)).toEqual({

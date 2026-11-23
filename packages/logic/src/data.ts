@@ -113,7 +113,8 @@ export function unitAttack(def: UnitDef, b: BalanceDef): number {
 
 export function enemyHp(def: EnemyDef, round: number, b: BalanceDef): number {
   if ((def.boss || def.event) && def.hp !== undefined) return def.hp;
-  return Math.round((b.hp.base + b.hp.coef * round ** b.hp.exp) * def.hpMult);
+  const late = b.hp.late && round >= b.hp.late.fromRound ? 1 + b.hp.late.perRound * (round - b.hp.late.fromRound + 1) : 1;
+  return Math.round((b.hp.base + b.hp.coef * round ** b.hp.exp) * def.hpMult * late);
 }
 
 /** The hidden table includes recipe units and excludes direct tame recruits. */

@@ -41,14 +41,15 @@ describe('stage 3 data, grades 1-4', () => {
 
   test('balance, waves, provisional bosses', () => {
     expect(d3.balance).toMatchObject({
-      rounds: 60, prepSeconds: 30, onBasicHitRadius: 3, periodicReady: true,
+      rounds: 70, prepSeconds: 15, onBasicHitRadius: 3, periodicReady: true,
       bossControl: { windowTicks: 200, stunTicks: 60, pushDistance: 3, maxStoppedShare: 0.3 },
     });
-    expect(d3.waves.length).toBe(60);
+    expect(d3.waves.length).toBe(70);
     expect(d3.waves.filter(w => w.type === 'boss').map(w => (w as { boss: string }).boss))
-      .toEqual(['jinegaksi', 'gangcheori', 'jinegaksi3', 'gangcheori4', 'jinegaksi5', 'gangcheori6']);
+      .toEqual(['jinegaksi', 'gangcheori', 'jinegaksi3', 'gangcheori4', 'jinegaksi5', 'gangcheori6', 'jinegaksi7']);
     expect(d3.waves[44]).toEqual({ ...loadGameData().waves[4], round: 45 });
     expect(enemyDef(d3, 'gangcheori6')).toMatchObject({ boss: true, hp: 107000, resist: { magical: 0.3 } });
+    for (let i = 0; i < 9; i++) expect(d3.waves[60 + i]).toEqual({ ...d3.waves[50 + i], round: 61 + i });
   });
 
   test('onBasicHit entries', () => {
@@ -121,9 +122,9 @@ describe('stage 3 data, grades 5-6 and hidden', () => {
 describe('stage 3 balance stands on its own', () => {
   test('pins every resolved balance and coop value', () => {
     expect(d3.balance).toEqual({
-      tickMs: 50, prepSeconds: 30, roundSeconds: 40, bossRoundSeconds: 75,
-      spawnCount: 30, spawnIntervalSeconds: 0.8, rounds: 60,
-      hp: { base: 75, coef: 16, exp: 1.5 },
+      tickMs: 50, prepSeconds: 15, roundSeconds: 34, bossRoundSeconds: 70,
+      spawnCount: 30, spawnIntervalSeconds: 0.8, rounds: 70,
+      hp: { base: 75, coef: 16, exp: 1.5, late: { fromRound: 65, perRound: 0.08 } },
       gradeDps: { base: 10, mult: 2.6 },
       defaultDifficulty: 'normal',
       difficulties: { easy: { tokensPerRound: 4 }, normal: { tokensPerRound: 3 }, hard: { tokensPerRound: 2 } },
@@ -141,7 +142,7 @@ describe('stage 3 balance stands on its own', () => {
       periodicReady: true, extendedCombat: true,
       bossControl: { windowTicks: 200, stunTicks: 60, pushDistance: 3, maxStoppedShare: 0.3 },
       vulnCutsResist: true,
-      resistByRound: { fromRound: 20, toRound: 60, top: 0.45, cap: 0.8 },
+      resistByRound: { fromRound: 20, toRound: 70, top: 0.55, cap: 0.8 },
       zoneSlow: { pctFactor: 1 },
     });
     expect(d3.coop).toEqual({

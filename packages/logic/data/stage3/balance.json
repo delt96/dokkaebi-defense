@@ -1,7 +1,7 @@
 {
-  "tickMs": 50, "prepSeconds": 30, "roundSeconds": 40, "bossRoundSeconds": 75,
-  "spawnCount": 30, "spawnIntervalSeconds": 0.8, "rounds": 60,
-  "hp": { "base": 75, "coef": 16, "exp": 1.5 },
+  "tickMs": 50, "prepSeconds": 15, "roundSeconds": 34, "bossRoundSeconds": 70,
+  "spawnCount": 30, "spawnIntervalSeconds": 0.8, "rounds": 70,
+  "hp": { "base": 75, "coef": 16, "exp": 1.5, "late": { "fromRound": 65, "perRound": 0.08 } },
   "gradeDps": { "base": 10, "mult": 2.6 },
   "tokens": { "start": 4, "perRound": 3, "toCoins": 25 },
   "defaultDifficulty": "normal",
@@ -25,6 +25,6 @@
   "periodicReady": true, "extendedCombat": true,
   "bossControl": { "windowTicks": 200, "stunTicks": 60, "pushDistance": 3, "maxStoppedShare": 0.3 },
   "vulnCutsResist": true,
-  "resistByRound": { "fromRound": 20, "toRound": 60, "top": 0.45, "cap": 0.8 },
+  "resistByRound": { "fromRound": 20, "toRound": 70, "top": 0.55, "cap": 0.8 },
   "zoneSlow": { "pctFactor": 1 }
 }

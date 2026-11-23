@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { availableRecipes, createGame, damageBonus, loadGameData, speedBonus, step, unitDef } from '../src/index';
+import { availableRecipes, createGame, damageBonus, enemyDef, enemyHp, loadGameData, roundStartTick, speedBonus, step, unitDef } from '../src/index';
+import { toTicks } from '../src/flow';
 import { auraAttackPower } from '../src/effects';
 import { placeUnitForTest } from '../src/testing';
 
@@ -58,5 +59,24 @@ describe('stage 3 board rules', () => {
 
   test('sell price of grade 6 comes from stage 3 balance', () => {
     const s = createGame(d3, 1); placeUnitForTest(s, 'gildal', 0); step(s, [{ type: 'sell', slot: 0 }]); expect(s.coins).toBe(180);
+  });
+});
+
+describe('stage 3 runs 70 rounds', () => {
+  test('normal enemies grow 8% a round from round 65; bosses and events keep their hp', () => {
+    const b = d3.balance; const japgwi = enemyDef(d3, 'japgwi');
+    const plain = (r: number, m = 1) => Math.round((b.hp.base + b.hp.coef * r ** b.hp.exp) * japgwi.hpMult * m);
+    expect(enemyHp(japgwi, 64, b)).toBe(plain(64));
+    expect(enemyHp(japgwi, 65, b)).toBe(plain(65, 1.08));
+    expect(enemyHp(japgwi, 70, b)).toBe(plain(70, 1.48));
+    expect(enemyHp(enemyDef(d3, 'jinegaksi7'), 70, b)).toBe(enemyDef(d3, 'jinegaksi7').hp);
+    const event = d3.enemies.find(e => e.event && e.hp !== undefined)!;
+    expect(enemyHp(event, 70, b)).toBe(event.hp);
+  });
+
+  test('the match runs 70 rounds and ends on the round 70 boss', () => {
+    expect(roundStartTick(d3, 1)).toBe(toTicks(15));
+    expect(roundStartTick(d3, 71) - roundStartTick(d3, 1)).toBe(toTicks(63 * 34 + 7 * 70));
+    expect(d3.waves.find(w => w.round === 70)).toEqual({ round: 70, type: 'boss', boss: 'jinegaksi7' });
   });
 });

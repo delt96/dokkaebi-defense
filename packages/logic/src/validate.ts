@@ -31,6 +31,9 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     else if (data.enemies.some(e => !e.event && (e.resist.physical > cap || e.resist.magical > cap))) errors.push('resistByRound cap is below a base resist');
     if (toRound > data.balance.rounds) errors.push('resistByRound toRound is past the last round');
   }
+  const late = data.balance.hp.late;
+  if (late !== undefined && !(Number.isInteger(late?.fromRound) && late.fromRound >= 1 && late.fromRound <= data.balance.rounds
+    && Number.isFinite(late.perRound) && late.perRound > 0)) errors.push('invalid hp.late');
   const slow = data.balance.zoneSlow;
   if (slow !== undefined && !(Number.isFinite(slow?.pctFactor) && slow.pctFactor > 0 && slow.pctFactor <= 1)) errors.push('invalid zoneSlow');
   const eco = data.economy;

@@ -34,14 +34,14 @@ describe('team result screen', () => {
     expect(lastX(root.querySelector('.graph')!)).toBeCloseTo(300 * 3 / 19, 1);
   });
 
-  test('the graph scale names the last round of the match (20 and 60 rounds)', () => {
+  test('the graph scale names the last round of the match (20 and 70 rounds)', () => {
     const scale = (d: GameData): string[] => {
       const root = document.createElement('div');
       renderResult(root, result, {}, d, { rematch() {}, leave() {} }, { opened: 1, rematching: false });
       return Array.from(root.querySelectorAll('.graph-scale span'), s => s.textContent ?? '');
     };
     expect(scale(data)).toEqual(['1라운드', '20라운드']);
-    expect(scale(loadGameData('stage3'))).toEqual(['1라운드', '60라운드']);
+    expect(scale(loadGameData('stage3'))).toEqual(['1라운드', '70라운드']);
   });
 
   test('graph breaks the line at empty rounds; a full series spans the width as before', () => {

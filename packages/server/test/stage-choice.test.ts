@@ -62,12 +62,12 @@ describe('round count choice', () => {
     expect(core.phase).toBe('playing');
   });
 
-  test('a 60-round room starts on stage 3 data and a rejoin gets the same data version', () => {
+  test('a 70-round room starts on stage 3 data and a rejoin gets the same data version', () => {
     const { core, deps, links: [a] } = lobby(2);
     core.message('a', 'stage', { stage: 'stage3' });
     core.message('a', 'ready', { ready: true, stage: 'stage3' }); core.message('b', 'ready', { ready: true, stage: 'stage3' });
     core.message('a', 'start', {});
-    expect(core.match!.data.balance.rounds).toBe(60);
+    expect(core.match!.data.balance.rounds).toBe(70);
     const key = a!.last('full').me.key;
     expect(a!.last('full').dataVersion).toBe(version('stage3'));
     expect(version('stage3')).not.toBe(version('stage2'));
@@ -86,7 +86,7 @@ describe('round count choice', () => {
 
   test('rematch keeps the choice; a room created with stage 3 opens on it', async () => {
     const r = started(['가', '나'], {}, { stage: 'stage3' });
-    expect(r.core.match!.data.balance.rounds).toBe(60);
+    expect(r.core.match!.data.balance.rounds).toBe(70);
     send(r.core, 'a', 1, 'forfeit'); send(r.core, 'b', 1, 'forfeit'); tickOnce(r.core, r.deps);
     r.core.message('a', 'rematch', {}); await settle();
     expect(r.deps.createRematchRoom).toHaveBeenCalledWith({ hostToken: expect.any(String), keepOpenMs: expect.any(Number), stage: 'stage3', difficulty: 'normal' });

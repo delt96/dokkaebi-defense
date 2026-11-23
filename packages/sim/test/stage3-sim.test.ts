@@ -118,8 +118,8 @@ describe('stage 3 first grade 6 round', () => {
   test('grade6Run is deterministic and reports a round or null', () => {
     const a = grade6Run(d3, 1, targetBot(1, { targets: ['cheonnyeonmunbitjang'] }), { noDefeat: true });
     const b = grade6Run(d3, 1, targetBot(1, { targets: ['cheonnyeonmunbitjang'] }), { noDefeat: true });
-    expect(a).toEqual(b); expect(a.endRound).toBe(60);
-    expect(a.firstGrade6Round === null || (a.firstGrade6Round >= 1 && a.firstGrade6Round <= 60)).toBe(true);
+    expect(a).toEqual(b); expect(a.endRound).toBe(70);
+    expect(a.firstGrade6Round === null || (a.firstGrade6Round >= 1 && a.firstGrade6Round <= 70)).toBe(true);
   }, 120_000);
 
   test('grade6Summary treats never as later than any round', () => {

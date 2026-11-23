@@ -2,6 +2,7 @@
   {"id": "jinegaksi3", "name": "지네각시", "boss": true, "hpMult": 1, "hp": 38000, "speed": 0.9, "resist": {"physical": 0, "magical": 0}},
   {"id": "gangcheori4", "name": "강철이", "boss": true, "hpMult": 1, "hp": 58000, "speed": 0.9, "resist": {"physical": 0, "magical": 0.3}},
   {"id": "jinegaksi5", "name": "지네각시", "boss": true, "hpMult": 1, "hp": 82000, "speed": 0.9, "resist": {"physical": 0, "magical": 0}},
+  {"id": "jinegaksi7", "name": "지네각시", "boss": true, "hpMult": 1, "hp": 195000, "speed": 0.9, "resist": {"physical": 0, "magical": 0}},
   {"id": "gangcheori6", "name": "강철이", "boss": true, "hpMult": 1, "hp": 107000, "speed": 0.9, "resist": {"physical": 0, "magical": 0.3}},
   {"id": "yeoksin3", "name": "역신 셋째 탈", "boss": false, "shared": true, "hpMult": 1, "speed": 2, "resist": {"physical": 0, "magical": 0}},
   {"id": "yeoksin4", "name": "역신 넷째 탈", "boss": false, "shared": true, "hpMult": 1, "speed": 2, "resist": {"physical": 0, "magical": 0}},
