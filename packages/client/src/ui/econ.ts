@@ -178,15 +178,14 @@ export function questRows(econ: EconMine, state: GameState, online: boolean): Qu
     const [from, to] = span;
     const when = from === to ? `${from}라운드` : `${from}~${to}라운드`;
     const rec = econ.questResults[id];
-    const coopOnly = COOP_ONLY.has(id) && !online;
+    // solo cannot take part in the cooperative quests, so the list leaves them out
+    if (COOP_ONLY.has(id) && !online) continue;
     const base = { id, title: QUEST_TITLE[id], when, reward: rewardText(id, rec) };
     const live = liveProgress(id, econ, state);
     if (rec && rec.outcome !== 'active') {
       rows.push({ ...base, group: '끝남', progress: settledProgress(id, rec, data), short: '', outcome: outcomeText(id, rec, data) });
     } else if (round < from) {
-      rows.push({ ...base, group: '곧 열림', progress: plan(id, state), short: '', outcome: coopOnly ? '협동 전용' : '' });
-    } else if (coopOnly) {
-      rows.push({ ...base, group: '끝남', progress: plan(id, state), short: '', outcome: '협동 전용' });
+      rows.push({ ...base, group: '곧 열림', progress: plan(id, state), short: '', outcome: '' });
     } else if (round > to) {
       const missed = id === 'ssireum' ? '참여 못 함' : id === 'shadow' ? '도주' : '시간 종료';
       rows.push({ ...base, group: '끝남', progress: live.text, short: '', outcome: missed, reward: '보상 없음' });
@@ -317,7 +316,7 @@ export function questBoxModel(econ: EconMine, state: GameState, online: boolean)
   const hunts = allHunts.filter(h => h.open);
   const round = state.phase === 'prep' ? 0 : state.round;
   const soon = [
-    ...rows.filter(r => r.group === '곧 열림' && r.outcome !== '협동 전용').map(r => ({ from: questWindow(state, r.id)![0], name: QUEST_SHORT[r.id] })),
+    ...rows.filter(r => r.group === '곧 열림').map(r => ({ from: questWindow(state, r.id)![0], name: QUEST_SHORT[r.id] })),
     ...(econ.hunts ?? []).filter(h => round < h.fromRound).map(h => ({ from: h.fromRound, name: `${nameOf(state.data, h.enemy)} 격파` })),
   ].sort((a, b) => a.from - b.from)[0];
   return { active, next: soon ? `다음 ${soon.from}라운드 ${soon.name}` : null, count: active.length + hunts.filter(h => h.out).length, hunts };

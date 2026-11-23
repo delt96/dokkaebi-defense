@@ -228,8 +228,8 @@ body.online #bottom { top: 316px; height: 44px; }
 button.big.pressed { transform: translateY(1px) scale(0.97); background: #5a3e22; }
 
 /* Online top bar: two 12px lines (spec 7). */
-body.online #top { border: 0; box-shadow: inset 0 -1px var(--panel-edge); padding: 0 70px 0 8px; display: flex; flex-direction: column; }
-body.online #top .line { height: 12px; line-height: 12px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+body.online #top { border: 0; box-shadow: inset 0 -1px var(--panel-edge); padding: 1px 70px 0 8px; display: flex; flex-direction: column; }
+body.online #top .line { height: 11px; line-height: 11px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 body.online #top .line:first-child { color: var(--accent); font-weight: bold; }
 body.online #top .line.second { color: var(--ink); }
 body.online #top .line.turn { color: #ffb396; }
@@ -569,7 +569,7 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 /* T 길들이기: under the target's health bar (mount moves it every frame); over the lane's top without a bar */
 #tame-anchor { position: absolute; left: 132px; top: 26px; z-index: 2; display: flex; gap: 3px; align-items: center; font-size: 9px; white-space: nowrap; }
 #tame-anchor:empty { display: none; }
-#tame-anchor.floating { transform: translateX(-50%); }
+#tame-anchor.floating { transform: translate(-50%, 2px); padding: 1px 2px; background: #10101acc; border-radius: 2px; }
 #tame-anchor button { min-height: 14px; padding: 0 3px; font-size: 9px; line-height: 12px; }
 #tame-anchor .tame-hp { color: var(--ink-dim); text-shadow: 0 0 2px #000; }
 
@@ -630,3 +630,6 @@ body.online #right:has(.hunt-wait) .notices { min-height: 0; overflow: auto; }
 .dex-more[open] > summary::after { content: ' ▴'; }
 .dex-legend { padding: 1px 0 2px; color: var(--ink-dim); font-size: 8px; line-height: 1.3; word-break: keep-all; }
 button[data-action="sell"].armed { color: #ffb396; border-color: var(--danger); background: #3a1f22; }
+/* the lobby, waiting room and team result are laid out in real pixels; big windows scale them up a step at a time */
+@media (min-width: 1280px) and (min-height: 720px) { #screen > * { zoom: 1.25; } }
+@media (min-width: 1920px) and (min-height: 1080px) { #screen > * { zoom: 1.5; } }
