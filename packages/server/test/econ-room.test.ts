@@ -68,7 +68,7 @@ describe('stage 3 economy commands through the room', () => {
     const r = room60(30);
     const lane = r.core.match!.lanes[1]!;
     lane.econ!.marketOpen = true;
-    lane.buckwheat = 2;
+    lane.buckwheat = 3;
     lane.econ!.rng.gambleUnit = { s: seed };
     send(r.core, 'a', 1, 'gambleUnit', { table: 'big' });
     tickOnce(r.core, r.deps);

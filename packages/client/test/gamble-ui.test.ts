@@ -16,14 +16,14 @@ test('every group shows remaining uses and each unavailable purchase owns its re
   const s = createGame(data, 1);
   forceRound(s, 29);
   s.econ!.marketOpen = true;
-  s.coins = 31;
+  s.coins = 46;
   s.econ!.gamble = { round: 29, coins: 1, units: 1 };
   const html = panel(gambleHtml(gambleModel(econView(s)!.market!.gamble!, s.coins, s.buckwheat), null));
   expect(Array.from(html.querySelectorAll('.gamble-count'), e => e.textContent)).toEqual([
     '남은 횟수 1/2', '남은 횟수 3/3', '남은 횟수 4/5',
   ]);
   const buy = (id: string) => html.querySelector<HTMLButtonElement>(`[data-arg="${id}"]`)!;
-  for (const [id, reason] of [['big', '30라운드부터'], ['100', '엽전 69냥 부족']]) {
+  for (const [id, reason] of [['big', '30라운드부터'], ['100', '엽전 54냥 부족']]) {
     const button = buy(id!);
     expect(button.disabled).toBe(true);
     expect(button.parentElement?.querySelector('.gamble-why')?.textContent).toBe(reason);

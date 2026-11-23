@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { cellDistance, createGame, createLane, dist, laneOf, loadGameData, slotsOpenedAt, step } from '../src/index';
+import { cellDistance, createGame, createLane, dist, laneOf, loadGameData, step } from '../src/index';
 import { forceRound, spawnEnemyForTest } from '../src/testing';
 import type { GameData } from '../src/types';
 
@@ -16,15 +16,14 @@ function lapTicks(data: GameData): number {
 }
 
 describe('every stage on the 6 x 4 board', () => {
-  test.each(['stage1', 'stage2', 'stage3'] as const)('%s: 24 cells, 18 open, the slots upgrade opens 2 a level up to 24', stage => {
+  test.each(['stage1', 'stage2', 'stage3'] as const)('%s: 24 cells, all open from the start, no slots upgrade', stage => {
     const d = loadGameData(stage);
     const s = createGame(d, 1);
-    expect([s.slots.length, s.open.filter(Boolean).length, laneOf(s).pitch, laneOf(s).perimeter]).toEqual([24, 18, 1, 24]);
-    expect([0, 1, 2].map(l => slotsOpenedAt(d, l))).toEqual([[18, 19], [20, 21], [22, 23]]);
+    expect([s.slots.length, s.open.filter(Boolean).length, laneOf(s).pitch, laneOf(s).perimeter]).toEqual([24, 24, 1, 24]);
+    expect(d.upgrades.map(u => u.id)).toEqual(['physical', 'magical', 'polish']);
     s.coins = 1000;
-    for (let i = 0; i < 3; i++) expect(step(s, [{ type: 'upgrade', id: 'slots' }]).rejected).toEqual([]);
-    expect(s.coins).toBe(1000 - 50 - 100 - 150);
-    expect(s.open.every(Boolean)).toBe(true);
+    expect(step(s, [{ type: 'upgrade', id: 'slots' as never }]).rejected[0]!.reason).toBe('unknown');
+    expect(s.coins).toBe(1000);
   });
   test('a japgwi lap takes 301 ticks in stage 3, the same as stage 1', () => {
     expect(lapTicks(d3)).toBe(301);

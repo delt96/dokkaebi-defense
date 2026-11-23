@@ -73,10 +73,9 @@ export function synergyScore(def: UnitDef, remaining: number, main: DamageType):
 
 /**
  * Upgrade for the main type: its damage upgrade and polish first (each unit reads only its own type's upgrade, so the
- * main type's is the one that pays), slots when the board is full, the other type only once those are maxed.
+ * main type's is the one that pays), the other type only once those are maxed.
  */
 export function synergyUpgrade(state: GameState, main: DamageType, coins: number): UpgradeId | null {
-  const full = !state.slots.some((u, i) => !u && state.open[i]);
   const off = TYPES.find(t => t !== main)!;
   const pick = (ids: UpgradeId[]): UpgradeId | null => {
     let best: UpgradeId | null = null;
@@ -90,7 +89,7 @@ export function synergyUpgrade(state: GameState, main: DamageType, coins: number
     }
     return best;
   };
-  const choice = pick(full ? [main, 'polish', 'slots'] : [main, 'polish']) ?? pick([off]);
+  const choice = pick([main, 'polish']) ?? pick([off]);
   if (!choice) return null;
   const def = state.data.upgrades.find(u => u.id === choice)!;
   return upgradeCost(def, state.upgrades[choice] + 1) <= coins ? choice : null;

@@ -1,9 +1,9 @@
-import { jigeCandidates, type GameState } from '@dorandi/logic';
+import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import { ATTACK_RANGE_HINT, attackRangeText, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
-import { STORE_ALL_KEY, unitFaceHtml } from './storage';
+import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
 import { materialChipsHtml } from './chips';
 import { roleText } from './dex-roles';
 import { pinButton } from './target';
@@ -90,8 +90,8 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
   return `<div class="modal unit-details" role="dialog" aria-label="${esc(card.name)} 상세">${head}<div class="ud-body">${body}</div></div>`;
 }
 
-/** What the help line can name: a selected unit, stage 3's quests (J) and 지게 (R), the solo pause (P). */
-export interface HelpContext { selected?: boolean; quests?: boolean; jige?: boolean; pause?: boolean }
+/** What the help line can name: a selected unit (and whether it fits in storage), stage 3's quests (J) and 지게 (R), the solo pause (P). */
+export interface HelpContext { selected?: boolean; storable?: boolean; quests?: boolean; jige?: boolean; pause?: boolean }
 
 /**
  * The hotkey help line under the board (the 도움말 setting hides it). With a unit selected it lists what that unit takes;
@@ -99,7 +99,7 @@ export interface HelpContext { selected?: boolean; quests?: boolean; jige?: bool
  */
 export function helpLineHtml(hotkeys?: string, ctx: HelpContext = {}): string {
   const keys = ctx.selected
-    ? ['Z/X/C 조합', 'S 판매', ...(ctx.jige ? ['R 지게'] : []), 'Tab 상세', 'W 다음 유닛', 'Space 소환', 'Esc 선택 해제']
+    ? ['Z/X/C 조합', 'S 판매', ...(ctx.storable ? [`${STORE_KEY} 보관`] : []), ...(ctx.jige ? ['R 지게'] : []), 'Tab 상세', 'W 다음 유닛', 'Space 소환', 'Esc 선택 해제']
     : ['유닛을 눌러 선택하고 끌어서 옮기세요.', 'W 다음 유닛', 'Space 소환', 'E 강화', 'D 도감', 'Q 도우미', `${STORE_ALL_KEY} 1·2등급 보관`,
       ...(hotkeys ? [hotkeys] : []), ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : [])];
   return `<div class="card hint">${keys.map(esc).join(' · ')}</div>`;
@@ -126,6 +126,18 @@ function sellButton(unitId: number | null, price: number, armed: boolean): strin
   return `<button data-action="sell" data-arg="${unitId}"${armed ? ' class="armed"' : ''}>${armed ? `한 번 더 누르면 판매 +${price}냥` : `판매(S) +${price}냥`}</button>`;
 }
 
+/** Whether the unit in `slot` can go to storage (grades 1-2), as the store command checks. */
+function storable(state: GameState, slot: number | null): boolean {
+  const unit = slot === null ? null : state.slots[slot];
+  return !!unit && unitDefFast(state.data, unit.defId).grade <= STORAGE_MAX_GRADE;
+}
+
+/** Puts a grade 1-2 unit in storage, the same as dragging it there; higher grades get no button. */
+function storeButton(state: GameState, selected: number, unitId: number | null): string {
+  return unitId !== null && storable(state, selected)
+    ? `<button data-action="store" data-arg="${unitId}" title="보관함에 넣기 (${STORE_KEY})">보관(${STORE_KEY})</button>` : '';
+}
+
 function jigeHtml(state: GameState, selected: number, unitId: number | null, jige: number | undefined): string {
   return jige !== undefined && unitId !== null && jigeCandidates(state.data, state.slots[selected]!.defId).length > 0
     ? `<span class="jige-held" title="지게는 장터 묵 보따리에서 3% 확률로 함께 나옵니다">보유 지게 ${jige}개</span><button data-action="jigeOpen" data-arg="board:${unitId}"${jige < 1 ? ' disabled' : ''}>R 지게 바꾸기</button>` : '';
@@ -139,7 +151,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
   const pick = cardRecipes(state, selected);
   const card = online && selected !== null ? unitCard(state, selected) : null;
   const help = hotkeys === null ? '' : helpLineHtml(hotkeys, {
-    selected: selected !== null && !!state.slots[selected], quests: !!state.data.economy, jige: !!state.data.economy?.market, pause: !online,
+    selected: selected !== null && !!state.slots[selected], storable: storable(state, selected), quests: !!state.data.economy, jige: !!state.data.economy?.market, pause: !online,
   });
   if (!card) {
     setHtml(el('bottom'), help);
@@ -153,6 +165,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
         ${options}
         <button data-action="unitDetails">상세(Tab)</button>
         ${jigeHtml(state, selected!, unitId, jige)}
+        ${storeButton(state, selected!, unitId)}
         ${sellButton(unitId, card.sellPrice, sellArmed)}</div>`);
   return pick;
 }
@@ -175,7 +188,7 @@ export function unitPanelHtml(state: GameState, selected: number | null, opts: {
     <p class="up-skill${opts.compact ? ' compact' : ''}" title="${esc(card.skillText)}">${esc(card.skillText)}</p>
     ${options}
     ${jige ? `<div class="up-jige">${jige}<small class="jige-note">지게: 같은 등급의 다른 유닛으로 바꿉니다</small></div>` : ''}
-    <div class="up-actions">${details}${sellButton(unitId, card.sellPrice, opts.sellArmed === true)}</div></div>`;
+    <div class="up-actions">${details}${storeButton(state, selected!, unitId)}${sellButton(unitId, card.sellPrice, opts.sellArmed === true)}</div></div>`;
 }
 
 export function upgradesHtml(state: GameState): string {

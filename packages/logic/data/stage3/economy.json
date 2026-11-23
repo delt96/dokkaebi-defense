@@ -18,11 +18,11 @@
             { "result": 0, "chance": 0.40 }, { "result": 3, "chance": 0.45 },
             { "result": 4, "chance": 0.13 }, { "result": 5, "chance": 0.02 }
           ] },
-          "big": { "buckwheatCost": 2, "consolation": 40, "fromRound": 30, "outcomes": [
-            { "result": 0, "chance": 0.35 }, { "result": 4, "chance": 0.45 }, { "result": 5, "chance": 0.17 },
-            { "result": 6, "chance": 0.025 }, { "result": "hidden", "chance": 0.005 }
+          "big": { "buckwheatCost": 3, "consolation": 40, "fromRound": 30, "outcomes": [
+            { "result": 0, "chance": 0.35 }, { "result": 4, "chance": 0.46 }, { "result": 5, "chance": 0.17 },
+            { "result": 6, "chance": 0.015 }, { "result": "hidden", "chance": 0.005 }
           ] },
-          "coin": { "buckwheatCost": 0, "coinCost": 30, "consolation": 0, "fromRound": 1, "perRound": 3, "openBeforeMarket": true, "outcomes": [
+          "coin": { "buckwheatCost": 0, "coinCost": 45, "consolation": 0, "fromRound": 1, "perRound": 3, "openBeforeMarket": true, "outcomes": [
             { "result": 1, "chance": 0.75 }, { "result": 2, "chance": 0.25 }
           ] }
         }

@@ -44,8 +44,7 @@ export interface BossControlLog {
 export interface EnemyDef { id: string; name: string; boss: boolean; shared?: boolean; event?: true; hpMult: number; hp?: number; speed: number; resist: { physical: number; magical: number } }
 export type WaveDef = { round: number; type: 'normal'; pattern: string[] } | { round: number; type: 'boss'; boss: string };
 /**
- * `frame`: the area the enemy path runs around (defaults to cols x rows, which every stage uses today). The slots
- * upgrade opens its openCount cells per level after the initial rows, the last level stopping at the board's end.
+ * `frame`: the area the enemy path runs around (defaults to cols x rows, which every stage uses today).
  */
 export interface GridDef {
   cols: number; rows: number; initialOpenRows: number;
@@ -85,8 +84,8 @@ export interface BalanceDef {
  * 0 up to fromRound and `top` from toRound on; each total resist stops at `cap`. Event enemies keep their own resists.
  */
 export interface ResistByRoundDef { fromRound: number; toRound: number; top: number; cap: number }
-export type UpgradeId = 'physical' | 'magical' | 'polish' | 'slots';
-export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number; openCount?: number }
+export type UpgradeId = 'physical' | 'magical' | 'polish';
+export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number }
 export interface YeoksinStageDef { stage: number; enemy: string; startRound: number; deadlineRound: number; baseHp: number; startIndex: number }
 export interface CoopDef {
   yeoksin: YeoksinStageDef[]; hpPerExtraPlayer: number; staySeconds: number;

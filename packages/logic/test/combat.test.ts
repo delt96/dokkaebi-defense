@@ -58,13 +58,13 @@ describe('combat', () => {
     expect(s.result).toEqual({ outcome: 'clear', reason: null, round: 20 });
     expect(s.buckwheat).toBe(2);
   });
-  test('upgrades: cost, coins, max, slots', () => {
+  test('upgrades: cost, coins, max', () => {
     const s = createGame(data, 1);
     expect(upgradeCost(data.upgrades[0]!, 2)).toBe(50);
     expect(step(s, [{ type: 'upgrade', id: 'physical' }]).rejected[0]!.reason).toBe('noCoins');
     s.coins = 1000;
-    step(s, [{ type: 'upgrade', id: 'slots' }]);
-    expect(s.coins).toBe(950); expect(s.open[18]).toBe(true); expect(s.open[19]).toBe(true); expect(s.open[20]).toBe(false);
+    step(s, [{ type: 'upgrade', id: 'physical' }]);
+    expect([s.coins, s.upgrades.physical]).toEqual([975, 1]);
     s.upgrades.physical = 10;
     expect(step(s, [{ type: 'upgrade', id: 'physical' }]).rejected[0]!.reason).toBe('maxed');
   });

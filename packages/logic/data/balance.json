@@ -48,7 +48,7 @@
   "grid": {
     "cols": 6,
     "rows": 4,
-    "initialOpenRows": 3
+    "initialOpenRows": 4
   },
   "bossCcFactor": 0.5,
   "vulnCap": 0.5,

@@ -13,7 +13,7 @@ function lane(round = 30) {
   forceRound(s, round);
   s.econ!.marketOpen = true;
   s.coins = 2000;
-  s.buckwheat = 3;
+  s.buckwheat = 4;
   return s;
 }
 function fixedRoll(lo: number, hi: number) {
@@ -41,7 +41,7 @@ test.each([
 
 test.each([
   ['small', 0, .4, 0], ['small', .4, .85, 3], ['small', .85, .98, 4], ['small', .98, 1, 5],
-  ['big', 0, .35, 0], ['big', .35, .8, 4], ['big', .8, .97, 5], ['big', .97, .995, 6], ['big', .995, 1, 'hidden'],
+  ['big', 0, .35, 0], ['big', .35, .81, 4], ['big', .81, .98, 5], ['big', .98, .995, 6], ['big', .995, 1, 'hidden'],
 ] as const)('%s table outcome in [%s, %s) is %s', (table, lo, hi, result) => {
   const s = lane();
   s.econ!.rng.gambleUnit = fixedRoll(lo, hi);
@@ -49,12 +49,12 @@ test.each([
   const events: GameEvent[] = [];
   expect(applyCommand(s, { type: 'gambleUnit', table }, events)).toBeNull();
   const ev = events.find(e => e.type === 'gambleUnit')!;
-  const buckwheatCost = table === 'small' ? 1 : 2;
+  const buckwheatCost = table === 'small' ? 1 : 3;
   const consolation = result === 0 ? (table === 'small' ? 15 : 40) : 0;
   expect(ev).toMatchObject({ result, buckwheatCost, consolation, jige: false });
   expect(ev).not.toHaveProperty('refund');
   expect(s.coins).toBe(2000 + consolation);
-  expect(s.buckwheat).toBe(3 - buckwheatCost);
+  expect(s.buckwheat).toBe(4 - buckwheatCost);
   if (result !== 0) {
     const unit = s.slots.find(u => u?.id === ev.unitId)!;
     const def = data.units.find(u => u.id === unit.defId)!;
@@ -70,7 +70,7 @@ test('unit tables require whole buckwheat and never charge coins', () => {
   s.buckwheat = 1;
   s.econ!.rng.gambleUnit = fixedRoll(0, .35);
   const before = canonicalJson(s);
-  expect(marketView(s)!.gamble!.units.tables.big).toMatchObject({ buckwheatCost: 2, consolation: 40, why: 'noBuckwheat' });
+  expect(marketView(s)!.gamble!.units.tables.big).toMatchObject({ buckwheatCost: 3, consolation: 40, why: 'noBuckwheat' });
   expect(applyCommand(s, big, [])).toBe('noBuckwheat');
   expect(canonicalJson(s)).toBe(before);
   expect(applyCommand(s, small, [])).toBeNull();
@@ -201,7 +201,7 @@ test('accepted gambles replay deterministically and change the recorded state', 
 });
 
 test.each([
-  [small, 0, .4], [small, .85, .98], [big, 0, .35], [big, .8, .97],
+  [small, 0, .4], [small, .85, .98], [big, 0, .35], [big, .81, .98],
 ] as const)('%j grants 지게 on both a miss and a hit', (cmd, lo, hi) => {
   const s = lane();
   s.econ!.rng.gambleUnit = fixedRoll(lo, hi);
@@ -215,14 +215,14 @@ test.each([
 describe('the coin bundle draws grade 1 or 2 for coins, without 묵', () => {
   const coinBundle = { type: 'gambleUnit', table: 'coin' } as const;
 
-  test('stage 3 prices it at 30냥, three a round, 1등급 75% · 2등급 25%', () => {
+  test('stage 3 prices it at 45냥, three a round, 1등급 75% · 2등급 25%', () => {
     expect(data.economy!.market!.gamble!.units.tables.coin).toMatchObject({
-      coinCost: 30, buckwheatCost: 0, consolation: 0, fromRound: 1, perRound: 3, openBeforeMarket: true,
+      coinCost: 45, buckwheatCost: 0, consolation: 0, fromRound: 1, perRound: 3, openBeforeMarket: true,
       outcomes: [{ result: 1, chance: 0.75 }, { result: 2, chance: 0.25 }],
     });
   });
 
-  test.each([[0, .75, 1], [.75, 1, 2]] as const)('roll in [%s, %s) gives a grade %s unit for 30냥 before the market opens', (lo, hi, grade) => {
+  test.each([[0, .75, 1], [.75, 1, 2]] as const)('roll in [%s, %s) gives a grade %s unit for 45냥 before the market opens', (lo, hi, grade) => {
     const s = lane(1);
     s.econ!.marketOpen = false;
     s.econ!.rng.gambleUnit = fixedRoll(lo, hi);
@@ -230,12 +230,12 @@ describe('the coin bundle draws grade 1 or 2 for coins, without 묵', () => {
     const events: GameEvent[] = [];
     expect(applyCommand(s, coinBundle, events)).toBeNull();
     const ev = events.find(e => e.type === 'gambleUnit')!;
-    expect(ev).toMatchObject({ table: 'coin', result: grade, buckwheatCost: 0, coinCost: 30, consolation: 0, jige: false });
+    expect(ev).toMatchObject({ table: 'coin', result: grade, buckwheatCost: 0, coinCost: 45, consolation: 0, jige: false });
     const unit = s.slots.find(u => u?.id === (ev as { unitId: number }).unitId)!;
     expect(data.units.find(u => u.id === unit.defId)!.grade).toBe(grade);
     expect(unit.cost).toBe(unitValue(data, unit.defId));
-    expect(s.coins).toBe(1970);
-    expect(s.buckwheat).toBe(3);
+    expect(s.coins).toBe(1955);
+    expect(s.buckwheat).toBe(4);
     expect(s.econ!.jige).toBe(jige);
   });
 

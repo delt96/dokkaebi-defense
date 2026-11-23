@@ -51,11 +51,11 @@ describe('ui models', () => {
     expect(combineOptions(s, 2)).toEqual([]);
   });
   test('upgrade rows', () => {
-    const s = createGame(data, 1); s.coins = 30; s.upgrades.slots = 3;
+    const s = createGame(data, 1); s.coins = 30; s.upgrades.polish = 10;
     const rows = upgradeRows(s);
-    expect(rows.map(r => r.label)).toEqual(['물딜 강화', '마딜 강화', '등급 손질', '칸 늘리기']);
+    expect(rows.map(r => r.label)).toEqual(['물딜 강화', '마딜 강화', '등급 손질']);
     expect(rows[0]).toMatchObject({ level: 0, cost: 25, affordable: true });
-    expect(rows[3]).toMatchObject({ cost: null, affordable: false });
+    expect(rows[2]).toMatchObject({ cost: null, affordable: false });
   });
   test('dex has 22 entries with recipes for grade 2+', () => {
     const d = dexEntries(data);
@@ -380,7 +380,7 @@ describe('upgrade window keys', () => {
     expect(buys(queue)).toHaveLength(0);
     press('KeyE');
     press('Digit1'); press('Digit2'); press('Digit3'); press('Digit4');
-    expect(buys(queue).map(c => (c[0] as { id: string }).id)).toEqual(['physical', 'magical', 'polish', 'slots']);
+    expect(buys(queue).map(c => (c[0] as { id: string }).id)).toEqual(['physical', 'magical', 'polish']);
     press('KeyE');
     queue.mockClear();
     press('Digit1');

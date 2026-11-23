@@ -42,7 +42,7 @@ describe('stage 3 economy bot policies', () => {
     s.coins = 0;
     s.buckwheat = 2;
     expect(surplusGamble(s, T)).toEqual({ type: 'gambleUnit', table: 'small' });
-    s.buckwheat = 3;
+    s.buckwheat = 4;
     expect(surplusGamble(s, T)).toEqual({ type: 'gambleUnit', table: 'big' });
     forceRound(s, 29);
     expect(surplusGamble(s, T)).toEqual({ type: 'gambleUnit', table: 'small' });
@@ -126,7 +126,7 @@ describe('stage 3 economy bot policies', () => {
     const board = () => {
       const s = lane(5, 0);
       strong.forEach((id, k) => placeUnitForTest(s, id, k));
-      for (let k = 4; k < 18; k++) placeUnitForTest(s, one, k);
+      for (let k = 4; k < 24; k++) placeUnitForTest(s, one, k);
       s.tokens = 1;
       return s;
     };
@@ -273,7 +273,7 @@ describe('economy measurement additions', () => {
     expect(r.rows.some(row => row.unitMuk! > 0)).toBe(true);
     expect(r.rows.some(row => row.huntWins)).toBe(true);
     for (const row of r.rows) {
-      expect(row.unitMuk).toBe(row.smallPlays! + 2 * row.bigPlays!);
+      expect(row.unitMuk).toBe(row.smallPlays! + 3 * row.bigPlays!);
       expect(row.unitConsolation).toBeGreaterThanOrEqual(15 * row.gambleMiss!);
       expect(row.huntWins!.split('+').filter(Boolean)).toHaveLength(row.huntKills);
       expect(row.draws).toBe(row.smallPlays! + row.bigPlays!);

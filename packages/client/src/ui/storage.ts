@@ -9,6 +9,8 @@ import { SPRITE_IDS } from '../art';
 /** Two big columns hold this many stacks; more switch to three small ones. */
 const ROOMY_STACKS = 12;
 export const STORE_ALL_KEY = 'G';
+/** Stores the selected unit (grades 1-2) from its card, next to S for selling. */
+export const STORE_KEY = 'A';
 
 export function iconHtml(defId: string, name: string, grade: number): string {
   if (SPRITE_IDS.has(defId)) return `<img src="${import.meta.env.BASE_URL}sprites/${esc(defId)}.png" alt="" draggable="false">`;

@@ -41,7 +41,7 @@ describe('B market', () => {
     const s = lane(30, 0);
     s.buckwheat = 1;
     const p = panel(s, { jige: 2 });
-    for (const text of ['보따리', '묵 1개', '큰 보따리', '묵 2개', '남은 횟수 2/2', '라운드마다 충전', '메밀묵 1개 부족']) {
+    for (const text of ['보따리', '묵 1개', '큰 보따리', '묵 3개', '남은 횟수 2/2', '라운드마다 충전', '메밀묵 2개 부족']) {
       expect(p.textContent, text).toContain(text);
     }
     expect(p.textContent).not.toMatch(/헌 살림|라운드까지/);
@@ -197,7 +197,7 @@ describe('market hotkey', () => {
   test('touch opens details on the card, then the first touch on the price draws and records its result', () => {
     let now = performance.now();
     vi.spyOn(performance, 'now').mockImplementation(() => now);
-    const driver = new GameDriver(lane(30, 31));
+    const driver = new GameDriver(lane(30, 46));
     const scene = new FakeScene();
     mountUi(driver, scene as never);
     keydown(window, { code: 'KeyB' });
@@ -207,7 +207,7 @@ describe('market hotkey', () => {
     tap('[data-market-focus="info-coin"]');
     expect(document.getElementById('gamble-info')!.textContent).toContain('1등급 75%');
     driver.update(50);
-    expect(driver.state.coins).toBe(31);
+    expect(driver.state.coins).toBe(46);
     tap('[data-market-focus="buy-coin"]');
     driver.update(50);
     expect(driver.state.coins).toBe(1);

@@ -33,7 +33,7 @@ export function createGame(data: GameData, seed: number, difficulty?: Difficulty
     open: Array.from({ length: total }, (_, i) => i < initialOpenRows * cols),
     summonCounts: {}, grade1Summons: 0,
     enemies: [], fires: [],
-    upgrades: { physical: 0, magical: 0, polish: 0, slots: 0 },
+    upgrades: { physical: 0, magical: 0, polish: 0 },
     overLimitTicks: 0, helperOpens: 0,
     stats: [],
     rng: { summon: createRng(deriveSeed(seed, 'summon')), combat: createRng(deriveSeed(seed, 'combat')) },

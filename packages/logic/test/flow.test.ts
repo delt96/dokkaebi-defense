@@ -9,8 +9,7 @@ describe('flow', () => {
   test('initial state', () => {
     const s = createGame(data, 1);
     expect(s).toMatchObject({ tick: 0, phase: 'prep', tokens: 4, coins: 0, round: 0 });
-    expect(s.open.filter(Boolean).length).toBe(18);
-    expect(s.open.slice(18).some(Boolean)).toBe(false);
+    expect(s.open.filter(Boolean).length).toBe(24);
   });
   test('round 1 starts at tick 400 and spawns every 16 ticks', () => {
     const s = createGame(data, 1);

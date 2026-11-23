@@ -16,7 +16,7 @@ describe('help line and labels', () => {
     const s = createGame(d3, 1);
     placeUnitForTest(s, 'sotlid', 0);
     renderBottom(s, 0, false, 'B 장터');
-    expect(document.getElementById('bottom')!.textContent).toBe('Z/X/C 조합 · S 판매 · R 지게 · Tab 상세 · W 다음 유닛 · Space 소환 · Esc 선택 해제');
+    expect(document.getElementById('bottom')!.textContent).toBe('Z/X/C 조합 · S 판매 · A 보관 · R 지게 · Tab 상세 · W 다음 유닛 · Space 소환 · Esc 선택 해제');
     renderBottom(s, null, false, 'B 장터');
     expect(document.getElementById('bottom')!.textContent).toBe(
       '유닛을 눌러 선택하고 끌어서 옮기세요. · W 다음 유닛 · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤');

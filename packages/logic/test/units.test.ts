@@ -87,10 +87,10 @@ describe('units', () => {
   test('the pity summon fills the last free slot and nothing waits', () => {
     const g1 = makeData(d => { delete d.balance.summonOddsByRound; d.balance.summonOdds = [1, 0, 0]; });
     const s = createGame(g1, 1);
-    for (let i = 0; i < 17; i++) placeUnitForTest(s, 'sotlid', i);
+    for (let i = 0; i < 23; i++) placeUnitForTest(s, 'sotlid', i);
     s.tokens = 2; s.grade1Summons = 6;
     step(s, [{ type: 'summon' }]);
-    expect(s.slots.filter(Boolean).length).toBe(18);
+    expect(s.slots.filter(Boolean).length).toBe(24);
     expect(step(s, [{ type: 'summon' }]).rejected[0]!.reason).toBe('noSlot');
     expect(s.tokens).toBe(1);
   });
@@ -148,7 +148,7 @@ describe('units', () => {
     placeUnitForTest(s, 'sotlid', 0); placeUnitForTest(s, 'horong', 7);
     step(s, [{ type: 'move', from: 0, to: 1 }]); expect(s.slots[1]!.defId).toBe('sotlid'); expect(s.slots[0]).toBeNull();
     step(s, [{ type: 'move', from: 1, to: 7 }]); expect(s.slots[7]!.defId).toBe('sotlid'); expect(s.slots[1]!.defId).toBe('horong');
-    const r = step(s, [{ type: 'move', from: 7, to: 20 }, { type: 'move', from: 0, to: 2 }, { type: 'move', from: 99, to: 2 }]);
+    const r = step(s, [{ type: 'move', from: 7, to: 99 }, { type: 'move', from: 0, to: 2 }, { type: 'move', from: 99, to: 2 }]);
     expect(r.rejected.map(x => x.reason)).toEqual(['closedSlot', 'noUnit', 'noUnit']);
   });
   test('sell, convert, double sell', () => {

@@ -42,11 +42,9 @@ function bestRecipe(state: GameState): string | null {
 }
 
 export function cheapestUpgrade(state: GameState): UpgradeId | null {
-  const hasEmpty = emptyOpenSlots(state).length > 0;
   let best: UpgradeId | null = null;
   let bestCost = Infinity;
   for (const def of state.data.upgrades) {
-    if (def.id === 'slots' && hasEmpty) continue;
     const level = state.upgrades[def.id];
     if (level >= def.max) continue;
     const cost = upgradeCost(def, level + 1);
@@ -91,13 +89,6 @@ function sellForRoom(state: GameState): Command | null {
   return best >= 0 ? { type: 'sell', slot: best } : null;
 }
 
-function slotsAffordable(state: GameState): boolean {
-  const def = state.data.upgrades.find(u => u.id === 'slots');
-  if (!def) return false;
-  const level = state.upgrades.slots;
-  return level < def.max && state.coins >= upgradeCost(def, level + 1);
-}
-
 export function followBoss(state: GameState): Command[] {
   const boss = state.enemies.find(e => e.boss && e.hp > 0) ?? state.enemies.find(e => isShared(state.data, e) && e.hp > 0);
   if (!boss) return [];
@@ -136,12 +127,9 @@ export function normalBot(): Bot {
       const recipe = bestRecipe(state);
       if (recipe) cmds.push({ type: 'combine', result: recipe });
       const full = emptyOpenSlots(state).length === 0;
-      if (full && state.tokens > 0) {
-        if (slotsAffordable(state)) cmds.push({ type: 'upgrade', id: 'slots' });
-        else if (!recipe) {
-          const sell = sellForRoom(state);
-          if (sell) cmds.push(sell, { type: 'summon' });
-        }
+      if (full && state.tokens > 0 && !recipe) {
+        const sell = sellForRoom(state);
+        if (sell) cmds.push(sell, { type: 'summon' });
       }
       const up = cheapestUpgrade(state);
       if (up) cmds.push({ type: 'upgrade', id: up });

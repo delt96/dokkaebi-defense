@@ -31,11 +31,11 @@ import {
 import { renderBottom, renderRight, unitDetailsHtml, unitPanelHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
 import { readHelpLine, settingsHtml, writeHelpLine } from './settings';
-import { STORE_ALL_KEY, storageHtml, storageInfoHtml, storageInfoModel, wireStorage } from './storage';
+import { STORE_ALL_KEY, STORE_KEY, storageHtml, storageInfoHtml, storageInfoModel, wireStorage } from './storage';
 import { readTarget, targetHtml, writeTarget } from './target';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
-  Digit1: 'physical', Digit2: 'magical', Digit3: 'polish', Digit4: 'slots',
+  Digit1: 'physical', Digit2: 'magical', Digit3: 'polish',
 };
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
@@ -52,7 +52,7 @@ const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'set
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
   'summon', 'convert', 'combine', 'sell', 'upgrade', 'gambleCoins', 'gambleUnit', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
-  'storeAll', 'retrieve', 'sellStored',
+  'store', 'storeAll', 'retrieve', 'sellStored',
 ]);
 const PRESS_MS = 120;
 
@@ -191,6 +191,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       }
       case 'upgrade': driver.queue({ type: 'upgrade', id: arg as UpgradeId }); break;
+      case 'store': {
+        // grade 3 and up are refused by the command itself and come back as the storage notice
+        const slot = selectedSlot(driver.state, Number(arg));
+        if (slot !== null) driver.queue({ type: 'store', slot });
+        break;
+      }
       case 'storeAll': driver.queue({ type: 'storeAll' }); break;
       case 'retrieve': {
         const [defId = '', slot] = arg.split('@');
@@ -523,6 +529,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       render();
     }
     else if ((ev.code === 'KeyS' || ev.code === 'Delete') && card?.unitId != null) act('sell', String(card.unitId));
+    else if (ev.code === `Key${STORE_KEY}` && card?.unitId != null) act('store', String(card.unitId));
     else if (card?.unitId != null && (ev.code === 'KeyZ' || ev.code === 'KeyX' || ev.code === 'KeyC')) {
       const option = card.recipes.find(o => `Key${o.key}` === ev.code);
       if (option) act('combine', `${option.result}@${card.unitId}`);
@@ -683,6 +690,8 @@ ${dex.mine.join()}`;
     const active = document.activeElement as HTMLElement | null;
     const focus = active && drawer.contains(active) ? active.dataset.marketFocus : undefined;
     setHtml(drawer, shownMarket ? econPanelHtml(shownMarket, display, driver.readOnly) : '');
+    // the drawer covers the lane's right edge, where the pinned recipe sits; the class moves it beside the drawer
+    el('stage').classList.toggle('market-open', drawer.firstElementChild !== null);
     const wallet = drawer.querySelector('.gamble-wallet');
     const balance = `엽전 ${s.coins - heldCoins(reveal)}냥 · 묵 ${s.buckwheat}개`;
     if (wallet && wallet.textContent !== balance) wallet.textContent = balance;

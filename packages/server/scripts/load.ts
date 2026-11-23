@@ -64,7 +64,6 @@ function setup(): Started {
   if (kinds.length === 0) throw new Error('no grade 4 units in stage2 data');
   for (const seat of match.ring) {
     const lane = match.lanes[seat]!;
-    lane.upgrades.slots = 3;
     lane.open.fill(true);
     for (let i = 0; i < lane.slots.length; i++) placeUnitForTest(lane, kinds[i % kinds.length]!, i);
   }
