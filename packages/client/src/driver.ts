@@ -1,3 +1,4 @@
+import type { BirthAlert } from './ui/birth';
 import { econView, step, type Command, type EconMine, type GameEvent, type GameState, type SoloLogEntry, type StepResult } from '@dorandi/logic';
 
 export function ticksToRun(elapsedMs: number, carryMs: number, tickMs = 50, maxTicks = 40): { ticks: number; carryMs: number } {
@@ -40,6 +41,7 @@ export interface Driver {
   onEvents(cb: Listener): void;
   onAccepted?(cb: (type: Command['type']) => void): void;
   onGambleNotice?(cb: (text: string) => void): void;
+  onBirthNotice?(cb: (alert: BirthAlert, mine: boolean) => void): void;
   /** Online only: old unit id → new unit id when the server's board replaced a unit in place. */
   onRemap?(cb: (ids: Map<number, number>) => void): void;
   update(elapsedMs: number): void;

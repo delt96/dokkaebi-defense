@@ -186,7 +186,20 @@ describe('planEvents', () => {
       { type: 'combine', replacedUnitId: 2, unitId: 3, defId: 'yeonjabangga', slot: 1 },
     ];
     const cmds = planEvents(events, ctx({ 1: 'sotlid', 3: 'yeonjabangga' }, {}));
-    expect(cmds).toEqual([expect.objectContaining({ kind: 'bigUnit', unitId: 3, grade: 4, name: '연자방아', priority: PRIORITY.high })]);
+    expect(cmds).toEqual([expect.objectContaining({ kind: 'bigUnit', unitId: 3, grade: 4, name: '연자방아', priority: PRIORITY.high, toast: true })]);
+  });
+
+  test('a grade 6 or hidden unit keeps its moment but leaves the toast to the birth banner', () => {
+    const stage3 = loadGameData('stage3');
+    const events: GameEvent[] = [
+      { type: 'combine', replacedUnitId: 1, unitId: 2, defId: 'bihyeongrang', slot: 0 },
+      { type: 'combine', replacedUnitId: 3, unitId: 4, defId: 'top', slot: 1 },
+    ];
+    const cmds = planEvents(events, ctx({ 2: 'bihyeongrang', 4: 'top' }, {}, { def: id => stage3.units.find(u => u.id === id) }));
+    expect(cmds).toEqual([
+      expect.objectContaining({ kind: 'bigUnit', unitId: 2, grade: 6, toast: false }),
+      expect.objectContaining({ kind: 'bigUnit', unitId: 4, grade: 5, toast: true }),
+    ]);
   });
 
   test('a lane boss spawn is a boss moment; the shared yeoksin and normal enemies are not', () => {

@@ -6,14 +6,14 @@ import { SETTINGS_BUTTON } from '../ui/settings';
 
 /** Left panel: a 28px title and six 44px rows, one per seat. */
 /** `quests` is the folded J line of the 70-round rules, kept in the title bar. */
-export function renderRows(view: ClientView, data: GameData, overlay = ''): void {
+export function renderRows(view: ClientView, data: GameData, overlay = '', flashing: ReadonlySet<number> = new Set()): void {
   const spirit = spiritModel(view) !== null;
   const turn = myTurnText(view, data);
   const rows = rowsModel(view, data).map(r => {
     if (r.empty) return `<div class="lane-row empty"><div class="line1"><span class="title">${esc(r.title)}</span></div></div>`;
     const seat = view.rows.find(x => x.seat === r.seat)!;
     const pick = spirit && seat.status === 'alive';
-    const classes = ['lane-row', r.me ? 'me' : '', r.danger ? 'danger' : '', r.mark ?? '', r.seat === view.watching ? 'watching' : '', pick ? 'pickable' : ''].filter(Boolean).join(' ');
+    const classes = ['lane-row', r.me ? 'me' : '', r.danger ? 'danger' : '', r.mark ?? '', r.seat === view.watching ? 'watching' : '', pick ? 'pickable' : '', flashing.has(r.seat) ? 'birth-flash' : ''].filter(Boolean).join(' ');
     const mark = r.mark ? `<span class="mask" title="역신">탈</span><i class="bar"><i style="width:${Math.round((r.progress ?? 0) * 100)}%"></i></i>` : '';
     const tag = pick ? 'button' : 'div';
     return `<${tag} class="${classes}" title="${esc(r.title)}"${pick ? ` data-action="watch" data-arg="${r.seat}"` : ''}>

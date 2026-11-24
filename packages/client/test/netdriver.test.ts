@@ -55,6 +55,21 @@ function tickFrom(view: FullMsg): TickMsg {
 }
 
 describe('NetDriver', () => {
+  test('a birth notice reaches the scene, marked mine for the own seat', () => {
+    const { net, room } = fixtureNet();
+    const drv = new NetDriver(net, data);
+    const got: [unknown, boolean][] = [];
+    drv.onBirthNotice((alert, mine) => got.push([alert, mine]));
+    const peer = { kind: 'birth', seat: 2, name: 'two', defId: 'bihyeongrang', unitId: 3, via: 'combine', firstSix: true };
+    room.emit('notice', peer);
+    room.emit('notice', { ...peer, seat: 1, name: '하나', firstSix: false });
+    room.emit('notice', { kind: 'gamble', name: 'two', hit: '×10 당첨' });
+    expect(got).toEqual([
+      [{ seat: 2, name: 'two', defId: 'bihyeongrang', unitId: 3, via: 'combine', firstSix: true }, false],
+      [{ seat: 1, name: '하나', defId: 'bihyeongrang', unitId: 3, via: 'combine', firstSix: false }, true],
+    ]);
+  });
+
   test('viewToGameState keeps the own book costs from mine, 0 included', () => {
     const { view, data } = fixtureView();
     const units = view.mine.units.map((u, i) => (u ? { ...u, cost: i } : null));

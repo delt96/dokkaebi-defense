@@ -46,7 +46,7 @@ export type FxCmd =
   | { kind: 'knock'; enemyId: number; fromD: number; toD: number; priority: Priority }
   | { kind: 'pulse'; unitId: number; radius: number; color: number; priority: Priority }
   | { kind: 'cast'; unitId: number; color: number; priority: Priority }
-  | { kind: 'bigUnit'; unitId: number; grade: number; name: string; priority: Priority }
+  | { kind: 'bigUnit'; unitId: number; grade: number; name: string; toast: boolean; priority: Priority }
   | { kind: 'boss'; enemyId: number; name: string; priority: Priority };
 
 export interface PlanEnemy { d: number; boss: boolean; shared: boolean; alive: boolean; name: string; prevD?: number }
@@ -183,7 +183,7 @@ export function planEvents(events: readonly GameEvent[], ctx: PlanCtx): FxCmd[] 
       case 'combine': {
         close();
         const def = ctx.def(e.defId);
-        if (def && def.grade >= BIG_GRADE) out.push({ kind: 'bigUnit', unitId: e.unitId, grade: def.grade, name: def.name, priority: PRIORITY.high });
+        if (def && def.grade >= BIG_GRADE) out.push({ kind: 'bigUnit', unitId: e.unitId, grade: def.grade, name: def.name, toast: def.grade < 6 && !def.hidden, priority: PRIORITY.high });
         break;
       }
       case 'spawn': {

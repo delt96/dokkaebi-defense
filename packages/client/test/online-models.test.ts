@@ -61,6 +61,14 @@ describe('online rows', () => {
     expect(mine.textContent).toContain('다음은 내 고개 · 12초');
   });
 
+  test('a seat that just got a grade 6 or hidden unit flashes its row', () => {
+    document.body.innerHTML = '<div id="left"></div>';
+    const v = viewWith({ me: 1, rows: [row({}), row({ seat: 2 })], yeoksin: null });
+    renderRows(v, data, '', new Set([2]));
+    const rows = Array.from(document.querySelectorAll('.lane-row'));
+    expect(rows.map(r => r.classList.contains('birth-flash'))).toEqual([false, true, ...rows.slice(2).map(() => false)]);
+  });
+
   test('top lines and my-turn notice', () => {
     const o: ViewOpts = { me: 1, tick: 5000, round: 6, roundEndTick: 5400, rows: [row({ seat: 1, count: 12 }), row({ seat: 2 })],
       gate: { stage: 1, kills: 0, deadlineTick: 7799 }, yeoksin: { stage: 1, hp: 7950, maxHp: 8800, seat: 2, enterTick: 4881, nextSeat: 1 } };

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { loadGameData } from '@dorandi/logic';
-import { BIRTH_MS, BirthHold, BirthQueue, FirstSix, birthBanner, type BirthAlert, type BirthBanner } from '../src/ui/birth';
+import { BIRTH_MS, BirthHold, BirthQueue, FirstSix, birthBanner, birthSource, type BirthAlert, type BirthBanner } from '../src/ui/birth';
 
 const d3 = loadGameData('stage3');
 
@@ -82,5 +82,12 @@ describe('FirstSix', () => {
     expect([f.take(4), f.take(6), f.take(6)]).toEqual([false, true, false]);
     f.reset();
     expect(f.take(6)).toBe(true);
+  });
+});
+
+describe('birthSource', () => {
+  test('solo reads its own events, online waits for the room notice', () => {
+    expect(birthSource(false)).toBe('events');
+    expect(birthSource(true)).toBe('notice');
   });
 });

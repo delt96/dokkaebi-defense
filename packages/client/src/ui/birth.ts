@@ -85,3 +85,8 @@ export class FirstSix {
     this.seen = false;
   }
 }
+
+/** Solo shows its own events; online waits for the room's notice, which also covers its own lane. */
+export function birthSource(online: boolean): 'events' | 'notice' {
+  return online ? 'notice' : 'events';
+}

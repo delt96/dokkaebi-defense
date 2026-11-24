@@ -1,5 +1,5 @@
 import {
-  laneOf, unitDefFast, type ClientView, type EconMine, type EconNote, type GameData, type GameEvent, type GameState, type GambleCommand, type QuestId, type UpgradeId,
+  birthOf, laneOf, unitDefFast, type ClientView, type EconMine, type EconNote, type GameData, type GameEvent, type GameState, type GambleCommand, type QuestId, type UpgradeId,
 } from '@dorandi/logic';
 import { SPEEDS, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
@@ -11,6 +11,7 @@ import { cellCorner, cellPx, CENTER_X, CENTER_Y } from '../layout';
 import { gameAudio } from '../audio/engine';
 import { wireAudioSettings } from '../audio/settings-ui';
 import { playGamblePress, playGambleResult } from '../sfx';
+import { BIRTH_MS, BirthHold, FirstSix, birthBanner, birthSource, type BirthAlert } from './birth';
 import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
@@ -109,6 +110,24 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   }
 
   driver.onGambleNotice?.(text => scene.showGambleNotice(text));
+  const births = new BirthHold();
+  const firstSix = new FirstSix();
+  const flashUntil = new Map<number, number>();
+  function showBirth(alert: BirthAlert, mine: boolean): void {
+    scene.showBirth(birthBanner(opts.data ?? driver.state.data, alert, { mine, team: online }));
+    gameAudio.play('sparkle');
+    if (!mine) gameAudio.play('combineBig');
+    if (online && alert.seat !== undefined) flashUntil.set(alert.seat, performance.now() + BIRTH_MS);
+  }
+  function ownBirth(alert: BirthAlert): void {
+    const ready = alert.via === 'gamble' ? births.hold(alert) : alert;
+    if (ready) showBirth(ready, true);
+  }
+  function flashingSeats(now: number): Set<number> {
+    for (const [seat, until] of flashUntil) if (until <= now) flashUntil.delete(seat);
+    return new Set(flashUntil.keys());
+  }
+  driver.onBirthNotice?.((alert, mine) => (mine ? ownBirth(alert) : showBirth(alert, false)));
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
   const refuse = (text: string) => { gameAudio.play('error'); say(text); };
@@ -404,6 +423,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (event.type === 'combine' && event.replacedUnitId === scene.selectedId) {
         scene.selectedId = event.unitId;
       }
+      const birth = birthSource(online) === 'events' ? birthOf(driver.state.data, event) : null;
+      if (birth) ownBirth({ defId: birth.defId, unitId: birth.unitId, via: birth.via, firstSix: firstSix.take(birth.grade) });
       if (event.type === 'roundStart') {
         const wave = driver.state.data.waves.find(w => w.round === event.round);
         const boss = wave?.type === 'boss' && driver.state.data.enemies.find(e => e.id === wave.boss);
@@ -557,7 +578,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     el('stage').classList.toggle('has-target', !!el('target-overlay').firstChild);
     if (view && opts.data) {
       renderTop(view, opts.data);
-      renderRows(view, opts.data, helperOpen ? helperPopHtml(s) : '');
+      renderRows(view, opts.data, helperOpen ? helperPopHtml(s) : '', flashingSeats(now));
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
@@ -683,6 +704,8 @@ ${dex.mine.join()}`;
     if (prior?.phase === 'rolling' && reveal?.phase === 'result' && display) {
       const id = reveal.event.type === 'gambleUnit' ? reveal.event.unitId : undefined;
       scene.showGambleResult(reveal.tier, display.announcement, id);
+      const held = id === undefined ? null : births.reveal(id);
+      if (held) showBirth(held, true);
       const grade = reveal.event.type === 'gambleUnit' && reveal.event.defId ? unitDefFast(s.data, reveal.event.defId).grade : undefined;
       playGambleResult(reveal.tier, grade);
     }
@@ -761,6 +784,9 @@ ${dex.mine.join()}`;
     marketItem = null;
     gambleHistory = [];
     pendingGambles = [];
+    births.clear();
+    firstSix.reset();
+    flashUntil.clear();
     marketCell?.remove();
     render();
   }

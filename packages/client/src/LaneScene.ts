@@ -4,6 +4,7 @@ import {
 } from '@dorandi/logic';
 import { selectedSlot } from './ui/models';
 import type { Driver } from './driver';
+import type { BirthBanner } from './ui/birth';
 import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_FILES, SPRITE_IDS, loadArt, spriteFile } from './art';
@@ -646,6 +647,10 @@ export class LaneScene extends Phaser.Scene {
     }
     for (const c of later) fx!.run(c, now);
     for (const cb of this.eventListeners) cb(events);
+  }
+
+  showBirth(b: BirthBanner): void {
+    this.fx?.birth(b, this.hasTexture(b.defId) ? b.defId : null);
   }
 
   showGambleNotice(text: string): void {

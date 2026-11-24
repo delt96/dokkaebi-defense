@@ -239,6 +239,7 @@ body.online #left { border: 0; box-shadow: inset -1px 0 var(--panel-edge); paddi
 .rows-title { height: 28px; line-height: 28px; padding: 0 6px; font-size: 10px; font-weight: bold; color: var(--ink-dim); border-bottom: 1px solid var(--panel-edge); }
 .lane-row { width: 100%; display: block; text-align: left; background: transparent; border: 0; border-radius: 0; color: var(--ink); height: 44px; padding: 2px 5px 1px 6px; border-bottom: 1px solid var(--panel-edge); border-left: 2px solid transparent; font-size: 11px; overflow: hidden; }
 .lane-row.me { border-left-color: var(--accent); }
+.lane-row.birth-flash { background: linear-gradient(90deg, rgba(255, 227, 90, 0.38), rgba(255, 227, 90, 0.06)); }
 .lane-row.current { background: #2a2030; }
 .lane-row.empty { color: var(--ink-dim); }
 .lane-row .line1, .lane-row .line2 { display: flex; align-items: center; gap: 3px; height: 14px; line-height: 14px; white-space: nowrap; }

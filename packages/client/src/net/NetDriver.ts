@@ -3,6 +3,7 @@ import type {
 } from '@dorandi/logic';
 import { enemyDistanceAt } from '@dorandi/logic';
 import type { Driver } from '../driver';
+import type { BirthAlert } from '../ui/birth';
 import type { NetClient } from './NetClient';
 import { dimmedSlots, summonsLeft, type PendingCmd } from './predict';
 import { viewToGameState } from './viewState';
@@ -84,6 +85,14 @@ export class NetDriver implements Driver {
   onAccepted(cb: (type: Command['type']) => void): void {
     this.net.on(event => {
       if (event.kind === 'accepted') cb(commandOf(event.cmd).type);
+    });
+  }
+
+  onBirthNotice(cb: (alert: BirthAlert, mine: boolean) => void): void {
+    this.net.on(e => {
+      if (e.kind !== 'notice' || e.msg.kind !== 'birth') return;
+      const { kind: _, ...alert } = e.msg;
+      cb(alert, alert.seat === (this.net.view ?? this.view).me.seat);
     });
   }
 
