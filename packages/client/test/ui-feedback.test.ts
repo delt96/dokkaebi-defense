@@ -105,10 +105,14 @@ test('pinning from details replaces the dex target, follows inventory, and survi
   key('Escape');
   key('Escape');
   expect(overlay.querySelector('.target-head')!.textContent).toContain('장독');
-  expect(overlay.querySelector('.target-board')!.textContent).toContain('진영');
+  expect(overlay.querySelector('.target-material.target-board')!.getAttribute('title')).toContain('진영');
   step(state, [{ type: 'store', slot: 0 }]);
   key('Escape');
-  expect(overlay.querySelector('.target-storage')!.textContent).toContain('보관함');
+  const stored = overlay.querySelector('.target-material.target-storage')!;
+  expect(stored.getAttribute('title')).toContain('보관함');
+  // depth 1 is what 장독 takes itself; the title says so, and the name keeps its grade color
+  expect(stored.getAttribute('title')).toMatch(/^바로 넣는 재료 · /);
+  expect(stored.querySelector('b')!.getAttribute('style')).toMatch(/--g:#/);
   press(overlay.querySelector('[data-action="foldTarget"]'));
   expect(overlay.querySelector('.target-scroll')).toBeNull();
   press(overlay.querySelector('[data-action="clearTarget"]'));
@@ -131,4 +135,25 @@ test('a redraw keeps the recipe list scroll for the same unit only, and stubbed 
   const stub = { innerHTML: '', querySelectorAll: () => [] } as unknown as HTMLElement;
   setHtml(stub, '<b>x</b>');
   expect(stub.innerHTML).toBe('<b>x</b>');
+});
+
+test("a details recipe shows the result's own spec against the selected unit, not the lost-control line", async () => {
+  const { unitDetailsHtml } = await import('../src/ui/panels');
+  const state = createGame(d3, 1);
+  placeUnitForTest(state, 'jipsin', 0);
+  const html = unitDetailsHtml(state, 0);
+  expect(html).toContain('class="result-spec"');
+  expect(html).toMatch(/공격력<\/i> \d+ → <b/);
+  expect(html).not.toContain('조합하면 사라지는 제어');
+});
+
+test('the pinned tree names whose material a deeper node is', () => {
+  const state = createGame(d3, 1);
+  document.body.innerHTML = '<div id="t"></div>';
+  return import('../src/ui/target').then(({ targetHtml }) => {
+    const root = document.getElementById('t')!;
+    root.innerHTML = targetHtml(pinnedTarget(d3, 'geumulbaneul', state.slots, state.storage)!, false);
+    const deep = root.querySelector('.target-depth-2 .target-material')!;
+    expect(deep.getAttribute('title')).toMatch(/^새끼줄의 재료 · /);
+  });
 });

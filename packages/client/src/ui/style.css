@@ -303,6 +303,15 @@ button.combine-blocked[disabled] { opacity: 0.85; border-style: dashed; color: v
 .dex td { vertical-align: top; padding-block: 3px; }
 .dex th, .dex td:nth-child(-n + 2) { white-space: nowrap; }
 .card-notes + .recipe-list { margin-top: 6px; }
+/* the 상세 window's recipe: the result's own spec against the selected unit's */
+.result-spec { display: grid; gap: 2px; width: 100%; padding: 2px 0 2px 6px; border-left: 2px solid var(--panel-edge); }
+.rs-stats { display: flex; flex-wrap: wrap; gap: 0 10px; }
+.rs-cell i { font-style: normal; color: var(--ink-dim); }
+.rs-cell b { font-weight: normal; }
+.rs-cell .rs-up { color: #9fe0a8; }
+.rs-cell .rs-down { color: #ffad97; }
+.rs-skills { margin: 0; padding-left: 12px; line-height: 1.45; word-break: keep-all; }
+.rs-skills li { margin: 0; }
 .dex .dex-skill { margin-top: 1px; color: var(--ink-dim); line-height: 1.45; word-break: keep-all; }
 body.online #bottom [data-action="unitDetails"] { margin-left: auto; }
 body.online #bottom [data-action="sell"] { margin-left: 0; }
@@ -461,22 +470,34 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 #bottom .storage-info .up-skill { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #bottom .storage-info [data-action="closeStorageInfo"] { position: static; }
 /* the right twin of the storage column: right of the lane path and a boss's bar, between the prompts and the trackers */
-#target-overlay { position: absolute; left: 464px; top: 70px; width: 62px; max-height: 200px; z-index: 1; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 10px; }
+#target-overlay { position: absolute; left: 458px; top: 70px; width: 68px; max-height: 240px; z-index: 1; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 10px; }
 #target-overlay:empty { display: none; }
 /* the B drawer spans 426-640px: the pinned recipe moves just left of it instead of under it */
-#stage.market-open #target-overlay { left: 362px; }
-.target-head, .target-material { display: flex; align-items: center; justify-content: space-between; gap: 3px; }
-.target-head button { min-height: 16px; padding: 0 4px; }
-.target-head button:first-child { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.target-scroll { max-height: 182px; overflow: auto; padding: 2px 4px; line-height: 12px; }
-.target-scroll ul { list-style: none; margin: 0; padding: 0; }
-.target-scroll ul ul { border-left: 1px solid var(--panel-edge); padding-left: 4px; }
-.target-material b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: normal; }
-.target-material span { flex: none; margin-left: auto; }
-#target-overlay .target-material { flex-wrap: wrap; column-gap: 2px; }
-.target-board, .target-owned { color: #9fe0a8; }
-.target-storage { color: #9bd3ff; }
-.target-missing { color: #ffad97; }
+#stage.market-open #target-overlay { left: 356px; }
+.target-head { display: flex; align-items: center; gap: 2px; }
+.target-head button { min-height: 16px; padding: 0 3px; }
+.target-head button:first-child { flex: 1; min-width: 0; text-align: left; line-height: 11px; padding: 1px 2px; word-break: keep-all; overflow-wrap: anywhere; }
+.target-head button:last-child { align-self: flex-start; }
+.target-head b, .target-material b { color: var(--g); }
+.target-scroll { max-height: 222px; overflow: auto; padding: 1px 3px 3px; line-height: 12px; }
+.target-legend { display: flex; flex-wrap: wrap; gap: 0 3px; font-size: 8px; line-height: 10px; }
+.target-legend span { white-space: nowrap; }
+.target-level { list-style: none; margin: 0; padding: 0; }
+/* depth 1: what the target takes, one block each with a rule above it */
+.target-depth-1 > li { border-top: 1px solid var(--panel-edge); padding-top: 1px; margin-top: 1px; }
+/* deeper: the materials of the unit above, hung on a line in that unit's grade color */
+.target-level .target-level { margin-left: 2px; padding-left: 3px; border-left: 2px solid color-mix(in srgb, var(--g) 70%, transparent); font-size: 9px; line-height: 11px; }
+.target-depth-3 { opacity: 0.85; }
+.target-material { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.target-material i { flex: none; width: 8px; font-style: normal; font-weight: bold; text-align: center; }
+.target-material b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.target-depth-1 > li > .target-material b { font-weight: bold; }
+.target-level .target-level .target-material b { font-weight: normal; }
+.target-board, .target-owned, .legend-board { color: #9fe0a8; }
+.target-storage, .legend-storage { color: #9bd3ff; }
+.target-missing, .legend-missing { color: #ff8a73; }
+/* a missing material's name keeps its grade color; owned ones dim, since they are covered */
+.target-board > b, .target-storage > b { opacity: 0.7; }
 /* while a board unit is dragged the column lets the pointer through, so the lane keeps getting its moves */
 #storage.board-drag, #storage.board-drag * { pointer-events: none; }
 #storage.board-drag { opacity: 0.8; }

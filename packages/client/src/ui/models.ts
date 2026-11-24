@@ -217,15 +217,30 @@ const INHERIT_CTX = (data: GameData): SkillCtx => ({
   zoneSlow: data.balance.zoneSlow?.pctFactor,
 });
 
-/** The combine notes as card lines; empty for stage 1-2. */
-export function combineNoteLines(data: GameData, result: string): string[] {
+/**
+ * The combine notes as card lines; empty for stage 1-2. `spec`: the 상세 window's recipes show the result's own stats and
+ * skills instead, so its range line and the lost-control line (which the result's skills already answer) are left out.
+ */
+export function combineNoteLines(data: GameData, result: string, spec = false): string[] {
   const n = combineNotes(data, result);
   if (!n) return [];
-  const lines = [`사거리 ${attackRangeText(data, n.range)}`];
+  const lines = spec ? [] : [`사거리 ${attackRangeText(data, n.range)}`];
   if (n.inherited.length) lines.push(`이어받는 지원 효과: ${n.inherited.join(' / ')}`);
   if (n.lostAuras.length) lines.push(`조합하면 사라지는 오라: ${n.lostAuras.join(' / ')}`);
-  if (n.lostControls.length) lines.push(`조합하면 사라지는 제어: ${n.lostControls.join(', ')}`);
+  if (n.lostControls.length && !spec) lines.push(`조합하면 사라지는 제어: ${n.lostControls.join(', ')}`);
   return lines;
+}
+
+/** What a unit is before upgrades and auras: the numbers a recipe compares against the unit it starts from. */
+export interface BaseSpec { attack: number; interval: number; range: number; skills: string[]; roles: RoleTag[] }
+
+export function baseSpec(data: GameData, id: string): BaseSpec {
+  const def = unitDefFast(data, id);
+  const text = unitSkillText(data, def);
+  return {
+    attack: Math.round(unitAttack(def, data.balance)), interval: attackIntervalTicks(def.interval, 0) * data.balance.tickMs / 1000, range: def.range,
+    skills: text ? text.split(' / ') : [], roles: unitRoles(def),
+  };
 }
 
 /** "메밀묵 1개 · 엽전 60냥", or null for a recipe without a cost. */
@@ -598,7 +613,7 @@ function markMaterials(top: RecipeNode[], reserve: (node: RecipeNode) => boolean
 }
 
 type MaterialLocation = 'board' | 'storage' | 'missing';
-export interface TargetNode { id: string; name: string; location: MaterialLocation; children: TargetNode[] }
+export interface TargetNode { id: string; name: string; grade: number; location: MaterialLocation; children: TargetNode[] }
 
 export function pinnedTarget(
   data: GameData, id: string, board: readonly ({ defId: string } | null)[], storage: readonly { defId: string }[] = [],
@@ -614,7 +629,7 @@ export function pinnedTarget(
     return location !== 'missing';
   });
   const display = (node: RecipeNode): TargetNode => ({
-    id: node.id, name: node.name, location: locations.get(node) ?? 'missing',
+    id: node.id, name: node.name, grade: node.grade, location: locations.get(node) ?? 'missing',
     children: node.children.filter(child => child.mark !== 'covered').map(display),
   });
   return display(tree);

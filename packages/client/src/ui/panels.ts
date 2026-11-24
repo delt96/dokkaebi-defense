@@ -1,6 +1,6 @@
 import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { ATTACK_RANGE_HINT, attackRangeText, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
+import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
@@ -61,6 +61,28 @@ function statHtml(label: string, value: string, bonus = 0, bonusLabel = '', hint
   return `<div class="ud-stat"${hint ? ` title="${esc(hint)}"` : ''}><dt>${label}</dt><dd>${value}${extra}</dd></div>`;
 }
 
+/** A number of the recipe's result beside the current unit's ("120 → 340"), green when it is better. */
+function specCell(label: string, from: number, to: number, unit: string, lowerIsBetter = false, text = (n: number) => `${n}${unit}`): string {
+  const better = lowerIsBetter ? to < from : to > from;
+  const worse = lowerIsBetter ? to > from : to < from;
+  return `<span class="rs-cell"><i>${label}</i> ${text(from)} → <b class="${better ? 'rs-up' : worse ? 'rs-down' : ''}">${text(to)}</b></span>`;
+}
+
+/**
+ * What the recipe's result is, before upgrades: its attack, interval and range against the selected unit's, its roles,
+ * then one line per skill — the higher unit's own spec, so the player can tell what the combine gives.
+ */
+function resultSpecHtml(state: GameState, fromId: string, resultId: string): string {
+  const from = baseSpec(state.data, fromId);
+  const to = baseSpec(state.data, resultId);
+  const range = (n: number) => attackRangeText(state.data, n);
+  const cells = specCell('공격력', from.attack, to.attack, '') + specCell('간격', from.interval, to.interval, '초', true)
+    + specCell('사거리', from.range, to.range, '', false, range);
+  const roles = to.roles.length ? `<div class="dex-roles">${to.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
+  const skills = to.skills.length ? `<ul class="rs-skills">${to.skills.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="ud-empty">특수 능력 없음</p>';
+  return `<div class="result-spec" title="강화·오라 빼고 비교"><div class="rs-stats">${cells}</div>${roles}${skills}</div>`;
+}
+
 const sectionHtml = (title: string, body: string): string => `<section class="ud-sec"><h3>${title}</h3>${body}</section>`;
 
 /**
@@ -71,8 +93,8 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
   const card = unitCard(state, selected)!;
   const unit = state.slots[selected]!;
   const options = combineOptions(state, selected).map(option => {
-    const notes = combineNoteLines(state.data, option.result);
-    return `<div class="recipe"><div class="recipe-head">${recipeHtml(state, option, unit.id, false)}${pinButton(option.result, target)}</div>${notesHtml(notes)}</div>`;
+    const notes = combineNoteLines(state.data, option.result, true);
+    return `<div class="recipe"><div class="recipe-head">${recipeHtml(state, option, unit.id, false)}${pinButton(option.result, target)}</div>${resultSpecHtml(state, unit.defId, option.result)}${notesHtml(notes)}</div>`;
   });
   const head = `<div class="modal-head ud-head">${unitFaceHtml(unit.defId, card.name, card.grade)}<b class="ud-name">${esc(card.name)}</b>
     <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
