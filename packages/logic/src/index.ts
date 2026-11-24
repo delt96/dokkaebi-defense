@@ -14,6 +14,7 @@ export { econView, type EconHuntView, type EconMarketView, type EconTameView, ty
 export { spawnEventEnemy, type EventKind } from './econ/events';
 export { onCollectionCombine } from './econ/quests';
 export { pickResultSlot } from './combine';
+export { birthOf, type Birth, type BirthVia } from './birth';
 export { tameCheck, tameChance, tameReadyTick } from './econ/tame';
 export { huntCheck, huntCoins, huntDef, huntHp, huntSeat } from './econ/hunts';
 export { createGame, step, laneOf, applyCommand, runAfterCommandHooks, runCombat } from './game';
