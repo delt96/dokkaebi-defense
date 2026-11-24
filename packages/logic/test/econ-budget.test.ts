@@ -106,7 +106,7 @@ describe('six ten-round windows reconcile with the personal budget', () => {
   });
 
   test('no former request or delivery route is left in the design drafts', () => {
-    for (const [name, text] of readDocs(draft, 'design/content-draft-116-v5.md')) {
+    for (const [name, text] of readDocs(draft, 'design/content-draft-116-v5.md', 'design/content-draft-116-v6.md')) {
       for (const stale of ['설화 의뢰', '의뢰 거절', '묵장수', '배달 버튼', 'storyTarget', 'transferOffer', '쇠밥 한 끼', 'R12 입장', '미션 입장']) {
         expect(text.includes(stale), `${name}: ${stale}`).toBe(false);
       }

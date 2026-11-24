@@ -1,11 +1,15 @@
 import { describe, expect, test } from 'vitest';
-import { dataSources, loadGameData, recipeValue, unitDef } from '@dorandi/logic';
+import { buildGameData, dataSources, loadGameData, recipeValue, unitDef } from '@dorandi/logic';
 import {
   applySwaps, changedRecipes, editableRecipes, leafCounts, lockedMaterials, searchSpread, spreadDemand, spreadLowerBound, swapProblems, targetMisses,
   type Swap,
 } from '../src/stage3/spread';
+import v5Recipes from './recipes-stage3-v5.json';
 
-const d3 = loadGameData('stage3');
+// The search is pinned on the skewed stage 3 recipes of content draft v5, before v6 evened them out.
+const v5Sources = dataSources();
+v5Sources.stage3.recipes = v5Recipes;
+const d3 = buildGameData('stage3', v5Sources);
 const editable = editableRecipes(dataSources());
 const normal = (g: number) => d3.units.filter(u => u.grade === g && !u.hidden);
 
@@ -16,6 +20,10 @@ describe('demand and targets', () => {
       .toEqual({ kkeul: 7, sil: 5, gat: 1, ja: 7, onggigama: 6, cheongsachorong: 2, saekkijul: 5, baneul: 5 });
     expect(normal(3).filter(u => d.get(u.id) === 1).length).toBe(10);
     expect(normal(1).map(u => d.get(u.id))).toEqual(Array(8).fill(7));
+  });
+
+  test('the v6 stage 3 data meets every target', () => {
+    expect(targetMisses(loadGameData('stage3'))).toEqual([]);
   });
 
   test('targetMisses lists the current misses', () => {

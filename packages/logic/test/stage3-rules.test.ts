@@ -22,7 +22,7 @@ describe('stage 3 board rules', () => {
 
   test('grade 6 combine needs 60 coins too', () => {
     const s = createGame(d3, 1);
-    for (const [id, i] of [['top', 0], ['kkeul', 1], ['ja', 7]] as const) placeUnitForTest(s, id, i);
+    for (const [id, i] of [['top', 0], ['kkeul', 1], ['jumadeung', 7]] as const) placeUnitForTest(s, id, i);
     s.buckwheat = 1; s.coins = 59;
     expect(step(s, [{ type: 'combine', result: 'bihyeongrang' }]).rejected[0]!.reason).toBe('noCoins');
     expect([s.buckwheat, s.coins, ids(s).length]).toEqual([1, 59, 3]);
