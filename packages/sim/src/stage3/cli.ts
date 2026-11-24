@@ -5,6 +5,7 @@ import { isDifficulty, loadGameData, stripEconomy, type GameData } from '@dorand
 import { normalBot } from '../bots';
 import { combineGainAll, parseCombinePlacement, parseUpgradeLevels } from './combineGain';
 import { controlAll } from './control';
+import { firepowerMarkdown, firepowerRun, type FirepowerRow } from './firepower';
 import { grade6Markdown, grade6Run, type Grade6Row } from './grade6';
 import { combineGainMarkdown, controlMarkdown, toCsvRows } from './report';
 import { targetBot } from './targetBot';
@@ -81,6 +82,22 @@ export function stage3Cli(arg: Arg): void {
     console.log(grade6Markdown(rows) + '\n');
   }
   if (check === 'grade6') econGrade6(arg, data, out, elapsed);
+  if (check === 'firepower') {
+    const seeds = Number(arg('seeds', '10'));
+    const bots = arg('bot', 'switch,synergy,target').split(',');
+    const noDefeat = arg('defeat', 'on') !== 'on';
+    const configs = bots.map(b => {
+      const c = STANDARD_CONFIGS.find(x => x.name === `${b}-full-q2`);
+      if (!c) throw new Error(`--bot ${b}: no ${b}-full-q2 config`);
+      return { ...c, noDefeat };
+    });
+    const rows: FirepowerRow[] = [];
+    for (const c of configs) for (let seed = 1; seed <= seeds; seed++) rows.push(...firepowerRun(data, seed, c));
+    const file = join(out, `firepower-${bots.join('-')}${noDefeat ? '' : '-defeat'}.csv`);
+    writeFileSync(file, toCsvRows(rows));
+    console.log(`## board firepower / round need, median of live seats (seeds ${seeds}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
+    console.log(firepowerMarkdown(rows) + '\n');
+  }
   if (check === 'r10probe') {
     const seeds = Number(arg('seeds', '20'));
     const rows: R10Pair[] = [];

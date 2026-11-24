@@ -54,9 +54,9 @@ const COMPARE_ROUND = 60;
 type BossCol = `boss${(typeof BOSS_ROUNDS)[number]}`;
 type MukCol = `muk${(typeof BOSS_ROUNDS)[number]}`;
 
-type RunBot = Bot & { currentTarget?(): string | null };
+export type RunBot = Bot & { currentTarget?(): string | null };
 
-function makeBot(kind: EconBotKind, seed: number, policy: EconPolicy): RunBot {
+export function makeBot(kind: EconBotKind, seed: number, policy: EconPolicy): RunBot {
   switch (kind) {
     case 'clumsy': return clumsyBot(seed);
     case 'normal': return normalBot();
@@ -90,7 +90,7 @@ export function configData(data: GameData, c: EconConfig, seed: number): GameDat
   return d;
 }
 
-const SEATS = [1, 2, 3, 4, 5, 6];
+export const SEATS = [1, 2, 3, 4, 5, 6];
 const MAX_TICKS = 400_000;
 
 const isNormal6 = (state: GameState, defId: string) => {
