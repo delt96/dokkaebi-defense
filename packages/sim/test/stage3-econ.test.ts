@@ -48,6 +48,16 @@ describe('stage 3 economy bot policies', () => {
     expect(surplusGamble(s, T)).toEqual({ type: 'gambleUnit', table: 'small' });
   });
 
+  test('reserveCoins keeps the coin cost of the target recipe once a tree grade 5 is held', () => {
+    const data = structuredClone(d3);
+    const recipe = data.recipes.find(r => r.result === T && r.kind !== 'tame')!;
+    recipe.cost = { ...recipe.cost, coins: 90 };
+    const s = createGame(data, 1);
+    expect(reserveCoins(s, T)).toBe(0);
+    placeUnitForTest(s, recipe.materials.find(m => data.units.find(u => u.id === m)!.grade === 5)!, 0);
+    expect(reserveCoins(s, T)).toBe(90);
+  });
+
   test('격파 policy summons a ready target the board can kill, never during a boss or near the limit', () => {
     const s = lane(5, 100);
     s.spawned = d3.balance.spawnCount;

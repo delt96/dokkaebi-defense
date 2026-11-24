@@ -4,11 +4,9 @@ import {
 } from '@dorandi/logic';
 import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
 import {
-  betterTarget, huntCommands, jigeCommands, questCommands, remainingValue, tameCommands, type EconPolicy, type TargetBot,
+  betterTarget, huntCommands, jigeCommands, questCommands, remainingValue, reserveCoins, tameCommands, type EconPolicy, type TargetBot,
 } from './econBot';
 import { auraPlacement, mainType, supportSlots, synergyScore, synergyUpgrade } from './synergy';
-
-const FINAL_COMBINE_COINS = 60;
 
 /** Every unit needed to build `id` from summons, counted with repeats (including `id` itself). */
 export function expandTree(data: GameData, id: string): Map<string, number> {
@@ -181,8 +179,7 @@ export function targetBot(
         if (policy.tame) cmds.push(...tameCommands(state, target));
       }
 
-      const holdsTree5 = state.slots.some(u => u && tree.has(u.defId) && unitDefFast(state.data, u.defId).grade === 5);
-      const keep = holdsTree5 ? FINAL_COMBINE_COINS : 0;
+      const keep = reserveCoins(state, target);
       const up = main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
       if (up) cmds.push({ type: 'upgrade', id: up });
       const fix = placementFix(state);

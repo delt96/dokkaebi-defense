@@ -12,7 +12,6 @@ import { expandTree, remainingNeed, targetBot } from './targetBot';
 export interface EconPolicy { quests: boolean; tame: boolean; jige?: boolean; hunts?: boolean }
 export type TargetBot = Bot & { currentTarget(): string | null };
 
-const FINAL_COMBINE_COINS = 60;
 const MAX_TAMED = 2;
 const SWITCH_MARGIN = 4;
 
@@ -22,9 +21,10 @@ const holdsTree5 = (state: GameState, target: string | null): boolean => {
   return state.slots.some(u => u && tree.has(u.defId) && unitDefFast(state.data, u.defId).grade === 5);
 };
 
-/** Coins kept back for the final combine: 60 once a grade 5 of the target tree is held. */
+/** Coins kept back for the final combine: its recipe coin cost once a grade 5 of the target tree is held. */
 export function reserveCoins(state: GameState, target: string | null): number {
-  return holdsTree5(state, target) ? FINAL_COMBINE_COINS : 0;
+  if (!holdsTree5(state, target)) return 0;
+  return state.data.recipes.find(r => r.result === target && r.kind !== 'tame')?.cost?.coins ?? 0;
 }
 
 /** Buckwheat wanted on hand: the next two grade-5 combines of the tree and the final combine. */
