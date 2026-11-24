@@ -2,6 +2,7 @@ import { extname, resolve } from 'node:path';
 import express from 'express';
 import { defineRoom, defineServer, type Server } from 'colyseus';
 import { rulesRevision } from './core/RoomCore';
+import { liveRouter } from './live';
 import { MatchRoom } from './MatchRoom';
 import { soloLogRouter } from './playLog';
 
@@ -14,6 +15,7 @@ export function createGameServer(opts: { clientDist?: string } = {}): Server {
     rooms: { match: defineRoom(MatchRoom) },
     express: app => {
       app.use(soloLogRouter(line => console.log(line), rulesRevision));
+      app.use(liveRouter());
       if (!clientDist) return;
       app.use(express.static(clientDist));
       // Unknown extensionless GET paths (e.g. /room/{id}, /solo) fall back to the SPA entry.
