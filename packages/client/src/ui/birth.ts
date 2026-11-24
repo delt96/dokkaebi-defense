@@ -90,3 +90,15 @@ export class FirstSix {
 export function birthSource(online: boolean): 'events' | 'notice' {
   return online ? 'notice' : 'events';
 }
+
+const TOAST_Y = 30;
+
+export function birthBand(height: number): { y: number; half: number } {
+  return { y: Math.round(height * 0.18), half: Math.round(height * 0.11) };
+}
+
+export function toastY(height: number, bandOn: boolean): number {
+  if (!bandOn) return TOAST_Y;
+  const band = birthBand(height);
+  return band.y + band.half + 12;
+}

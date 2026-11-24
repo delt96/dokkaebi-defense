@@ -3,7 +3,7 @@ import { FX_KEYS, areaSheet, hitKey, pierceSheet, quarterTurn, statusKey, textur
 import { FX_SHEETS, type FxKey } from './manifest';
 import { FROST_ALPHA, FX_FLAGS, FxBudget, PRIORITY, gradeHex, slowLook, type EnemyStatus, type FxCmd, type FxFlags, type Priority, type ShotStyle } from './plan';
 import { Pool } from './pool';
-import { BIRTH_MS, BirthQueue, type BirthBanner } from '../ui/birth';
+import { BIRTH_MS, BirthQueue, birthBand, toastY, type BirthBanner } from '../ui/birth';
 
 type Pt = { x: number; y: number };
 
@@ -316,8 +316,7 @@ export class FxLayer {
     }
     const b = cur.banner;
     const w = this.host.width;
-    const y = Math.round(this.host.height * 0.18);
-    const half = Math.round(this.host.height * 0.11);
+    const { y, half } = birthBand(this.host.height);
     if (this.shownBirth !== b) {
       if (this.shownBirth) this.birthKeys.delete(this.shownBirth);
       this.shownBirth = b;
@@ -497,7 +496,7 @@ export class FxLayer {
       if (now >= this.toastUntil) this.toastText.setVisible(false);
       else {
         const p = (now - this.toastStart) / 1500;
-        this.toastText.setAlpha(p < 0.12 ? p / 0.12 : p > 0.75 ? (1 - p) / 0.25 : 1).setY(30 - 6 * ease(Math.min(1, p * 4)));
+        this.toastText.setAlpha(p < 0.12 ? p / 0.12 : p > 0.75 ? (1 - p) / 0.25 : 1).setY(toastY(this.host.height, this.shownBirth !== null) - 6 * ease(Math.min(1, p * 4)));
       }
     }
     if (this.bannerText.visible) {

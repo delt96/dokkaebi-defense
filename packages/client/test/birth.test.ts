@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { loadGameData } from '@dorandi/logic';
-import { BIRTH_MS, BirthHold, BirthQueue, FirstSix, birthBanner, birthSource, type BirthAlert, type BirthBanner } from '../src/ui/birth';
+import { BIRTH_MS, BirthHold, BirthQueue, FirstSix, birthBand, birthBanner, birthSource, toastY, type BirthAlert, type BirthBanner } from '../src/ui/birth';
 
 const d3 = loadGameData('stage3');
 
@@ -89,5 +89,14 @@ describe('birthSource', () => {
   test('solo reads its own events, online waits for the room notice', () => {
     expect(birthSource(false)).toBe('events');
     expect(birthSource(true)).toBe('notice');
+  });
+});
+
+describe('toastY', () => {
+  test('a toast sits at the top, and moves under the band while one is showing', () => {
+    const band = birthBand(300);
+    expect(band).toEqual({ y: 54, half: 33 });
+    expect(toastY(300, false)).toBe(30);
+    expect(toastY(300, true)).toBe(54 + 33 + 12);
   });
 });
