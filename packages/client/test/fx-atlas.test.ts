@@ -79,7 +79,7 @@ describe('areas at their real size', () => {
 
 describe('statuses regenerated per enemy sprite', () => {
   test('each enemy with a sprite has its own stun and frost sheet', () => {
-    for (const id of ['japgwi', 'geuseundae', 'dueoksini', 'jinegaksi', 'gangcheori']) {
+    for (const id of ['japgwi', 'geuseundae', 'dueoksini', 'jinegaksi', 'gangcheori', 'ev_oenun', 'ev_yagwang']) {
       expect(statusKey('stun', id)).toBe(`stun-${id}`);
       expect(statusKey('frozen', id)).toBe(`frozen-${id}`);
     }
@@ -91,10 +91,13 @@ describe('statuses regenerated per enemy sprite', () => {
   });
 
   test('the frost sheet leaves the inside of the body clear, so a slowed enemy still reads as itself', () => {
-    for (const id of ['japgwi', 'geuseundae', 'dueoksini', 'jinegaksi', 'gangcheori']) {
+    for (const id of ['japgwi', 'geuseundae', 'dueoksini', 'jinegaksi', 'gangcheori', 'ev_oenun', 'ev_yagwang']) {
       const key = `frozen-${id}` as keyof typeof FX_SHEETS;
       const s = FX_SHEETS[key];
-      const sprite = readPng(join(__dirname, '..', 'public', 'sprites', `${id}.png`));
+      // ordinary enemies are drawn (and their sheets baked) from their 24px lane art
+      const sprites = join(__dirname, '..', 'public', 'sprites');
+      const small = join(sprites, 'small', `${id}.png`);
+      const sprite = readPng(existsSync(small) ? small : join(sprites, `${id}.png`));
       const sheet = readPng(join(PUBLIC, `${key}.png`));
       const json = JSON.parse(readFileSync(join(PUBLIC, `${key}.json`), 'utf8')) as { frames: { frame: { x: number; y: number } }[] };
       const on = (x: number, y: number) => x >= 0 && y >= 0 && x < sprite.w && y < sprite.h && sprite.alpha(x, y) > 0;

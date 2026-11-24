@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
@@ -11,6 +11,8 @@ import { combineNoteLines, combineNotes, combineOptions, dexEntries, helperModel
 const noMats = <T extends { materials: unknown }>({ materials: _m, ...rest }: T) => rest;
 
 const d3 = loadGameData('stage3');
+/** Width and height from a PNG's IHDR chunk. */
+const pngSize = (path: string): [number, number] => { const b = readFileSync(path); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
 const text = (id: string) => unitSkillText(d3, unitDefFast(d3, id));
 
 describe('stage 3 skill text', () => {
@@ -110,11 +112,26 @@ describe('sprites', () => {
     expect(spriteKey('jinegaksi5', files)).toBe('jinegaksi');
     expect(spriteKey('gangcheori6', files)).toBe('gangcheori');
     expect(spriteKey('nosuchunit', files)).toBeNull();
-    expect(spriteKey('yeoksin1', files)).toBeNull();
-    // event enemies borrow the art of the hidden unit they are tamed into
+    // event enemies that can be tamed wear the art of the hidden unit they are tamed into
     const alias = tameArt(d3);
     for (const id of ['ev_soebap', 'ev_ssireum', 'ev_shadow']) expect(spriteKey(id, files, alias), id).toBe(alias.get(id));
     expect(tameArt(loadGameData('stage2')).size).toBe(0);
+  });
+  test('every enemy has art: its own, its repeated boss, or its tamed unit; the yeoksin masks are 40px', () => {
+    const alias = tameArt(d3);
+    const all = [...loadGameData('stage1').enemies, ...loadGameData('stage2').enemies, ...d3.enemies];
+    expect(all.filter(e => spriteKey(e.id, files, alias) === null).map(e => e.id)).toEqual([]);
+    for (const id of ['ev_oenun', 'ev_yagwang', 'yeoksin1', 'yeoksin5']) expect(spriteKey(id, files, alias), id).toBe(id);
+    for (const e of all.filter(x => x.shared)) expect(pngSize(`${dir}${e.id}.png`), e.id).toEqual([40, 40]);
+  });
+  test('the hidden grade 6 results have art of their own, not a copy of their recruit', () => {
+    for (const r of d3.recipes.filter(x => x.kind === 'tame')) {
+      const recruit = r.materials.find(m => d3.units.find(u => u.id === m)?.hidden)!;
+      expect(readFileSync(`${dir}${r.result}.png`).equals(readFileSync(`${dir}${recruit}.png`)), r.result).toBe(false);
+    }
+  });
+  test('ordinary lane enemies have 24px lane art', () => {
+    for (const id of ['japgwi', 'geuseundae', 'dueoksini']) expect(pngSize(`${dir}small/${id}.png`), id).toEqual([24, 24]);
   });
 });
 

@@ -7,7 +7,7 @@ import type { Driver } from './driver';
 import type { BirthBanner } from './ui/birth';
 import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
-import { FX_FILES, SPRITE_IDS, loadArt, spriteFile } from './art';
+import { FX_FILES, SMALL_IDS, SPRITE_IDS, loadArt, smallFile, smallKey, spriteFile } from './art';
 import { spriteKey, tameArt } from './sprites';
 import { FX_FLAGS, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, writeReduceFx, type FxCmd } from './fx/plan';
 
@@ -116,7 +116,8 @@ export class LaneScene extends Phaser.Scene {
   preload(): void {
     const data = this.driver.state.data;
     const sprites = [...data.units, ...data.enemies].filter(def => SPRITE_IDS.has(def.id)).map(def => spriteFile(def.id));
-    this.load.addFile([...sprites, ...FX_FILES].map(file => new LaneArtFile(this.load, file)));
+    const small = data.enemies.filter(def => SMALL_IDS.has(def.id)).map(def => smallFile(def.id));
+    this.load.addFile([...sprites, ...small, ...FX_FILES].map(file => new LaneArtFile(this.load, file)));
   }
 
   private warned = new Set<string>();
@@ -454,11 +455,15 @@ export class LaneScene extends Phaser.Scene {
     view.defId = defId;
     const radius = boss ? 14 : 6;
     const key = spriteKey(defId, SPRITE_IDS, this.artAlias) ?? defId;
-    const body = this.hasTexture(key)
-      ? this.add.image(0, 0, key).setScale(boss ? 1 : 0.75)
+    // bosses and 격파 targets stand at full size; ordinary enemies use their 24px lane art, or the 32px art at 0.75
+    const full = boss || !!def?.event;
+    const small = !full && SMALL_IDS.has(key) && this.textures.exists(smallKey(key));
+    const body = small ? this.add.image(0, 0, smallKey(key))
+      : this.hasTexture(key) ? this.add.image(0, 0, key).setScale(full ? 1 : 0.75)
       : this.add.circle(0, 0, radius, ENEMY_COLOR[defId] ?? 0x7a6a9a).setStrokeStyle(1, 0xb8a8e8);
     view.add(body);
-    this.attachBar(view, boss ? 44 : 18, boss ? -28 : -15, boss ? 0xff715c : 0x83d5a3);
+    const barY = boss ? -28 : body instanceof Phaser.GameObjects.Image ? -Math.round(body.displayHeight / 2) - 3 : -15;
+    this.attachBar(view, boss ? 44 : full ? 24 : 18, barY, boss ? 0xff715c : 0x83d5a3);
     this.enemies.set(id, view);
     return view;
   }
@@ -480,17 +485,24 @@ export class LaneScene extends Phaser.Scene {
     view.once('destroy', () => bar.destroy());
   }
 
-  /** A shared enemy (the yeoksin): a mask a little smaller than a boss, marked '탈', with its own bar. */
+  /** A shared enemy (the yeoksin): its stage's mask, a little smaller than a boss, with its own bar. Without art, a disc marked '탈'. */
   private makeSharedEnemy(id: number, defId: string): EnemyContainer {
     const spawn = laneToCanvas(this.lane.pointAt(0));
     const view: EnemyContainer = this.add.container(spawn.x, spawn.y).setDepth(2);
     view.defId = defId;
     view.shared = true;
-    view.add([
-      this.add.circle(0, 0, 12, 0xc89a52).setStrokeStyle(2, 0x4a1a12),
-      this.add.text(0, 0, '탈', { fontSize: '11px', color: '#2a0e08', fontFamily: 'sans-serif' }).setOrigin(0.5),
-    ]);
-    this.attachBar(view, 36, -20, 0xffb347);
+    const key = spriteKey(defId, SPRITE_IDS, this.artAlias);
+    if (key && this.hasTexture(key)) {
+      const body = this.add.image(0, 0, key);
+      view.add(body);
+      this.attachBar(view, 36, -Math.round(body.displayHeight / 2) - 3, 0xffb347);
+    } else {
+      view.add([
+        this.add.circle(0, 0, 12, 0xc89a52).setStrokeStyle(2, 0x4a1a12),
+        this.add.text(0, 0, '탈', { fontSize: '11px', color: '#2a0e08', fontFamily: 'sans-serif' }).setOrigin(0.5),
+      ]);
+      this.attachBar(view, 36, -20, 0xffb347);
+    }
     if (!this.freshLane) { view.enterAt = this.time.now; view.enterSide = -1; }
     this.enemies.set(id, view);
     return view;
@@ -533,8 +545,9 @@ export class LaneScene extends Phaser.Scene {
       if (status.stunned || status.slowed || status.marked) {
         const body = view.first as Phaser.GameObjects.Image | Phaser.GameObjects.Arc;
         const scale = body instanceof Phaser.GameObjects.Image ? body.scaleY : 0.75;
-        // status sheets are drawn per sprite, so a repeated boss uses its base boss's sheet
-        statuses.push({ id: enemy.id, defId: spriteKey(enemy.defId, SPRITE_IDS, this.artAlias) ?? enemy.defId, x: view.x, y: view.y, feet: view.y + 16 * scale, scale, r: body.displayHeight / 2, status });
+        // status sheets are drawn per sprite (the 24px lane art for ordinary enemies), so a repeated boss uses its
+        // base boss's sheet; the sheet's anchor is the bottom of the sprite as drawn
+        statuses.push({ id: enemy.id, defId: spriteKey(enemy.defId, SPRITE_IDS, this.artAlias) ?? enemy.defId, x: view.x, y: view.y, feet: view.y + body.displayHeight / 2, scale, r: body.displayHeight / 2, status });
       }
       view.hp?.setScale(Math.max(0, enemy.hp / enemy.maxHp), 1);
     }
@@ -547,7 +560,9 @@ export class LaneScene extends Phaser.Scene {
       for (const slot of this.buffed) {
         const u = this.state.slots[slot];
         const v = u && this.units.get(u.id);
-        if (v && v.visible) auras.push({ id: u.id, x: v.x, feet: v.y + 16 });
+        // a 48px unit (a tamed boss or its grade 6 result) stands lower than the 32px ones
+        const body = v?.first;
+        if (v && v.visible) auras.push({ id: u.id, x: v.x, feet: v.y + (body instanceof Phaser.GameObjects.Image ? body.displayHeight / 2 : 16) });
       }
       this.fx.update(now, statuses, auras);
     }

@@ -20,15 +20,20 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 test('the lobby warms every sprite and fx sheet at low priority, and the match reuses those requests', async () => {
-  const { FX_FILES, SPRITE_IDS, loadArt, spriteFile, warmArt } = await import('../src/art');
+  const { FX_FILES, SMALL_IDS, SPRITE_IDS, loadArt, smallFile, spriteFile, warmArt } = await import('../src/art');
   warmArt();
-  expect(images).toHaveLength(SPRITE_IDS.size + FX_FILES.length);
+  const total = SPRITE_IDS.size + SMALL_IDS.size + FX_FILES.length;
+  expect(SMALL_IDS.has('japgwi')).toBe(true);
+  expect(images).toHaveLength(total);
   expect(images.every(i => i.fetchPriority === 'low')).toBe(true);
   expect(fetch).toHaveBeenCalledTimes(FX_FILES.length);
   const id = [...SPRITE_IDS][0]!;
   const warmed = await loadArt(spriteFile(id));
   const sheet = await loadArt(FX_FILES[0]!);
-  expect(images).toHaveLength(SPRITE_IDS.size + FX_FILES.length);
+  // the 24px lane art has its own key, so it does not share the 32px art's request
+  const small = await loadArt(smallFile('japgwi'));
+  expect(images).toHaveLength(total);
+  expect(small.image.src).toContain('sprites/small/japgwi.png');
   expect(warmed.image.src).toContain(`sprites/${id}.png`);
   expect(sheet.atlas).toEqual({ url: FX_FILES[0]!.atlas });
 });

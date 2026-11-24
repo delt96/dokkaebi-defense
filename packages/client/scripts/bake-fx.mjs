@@ -101,10 +101,15 @@ function emptyActor(w = 24, h = 32) {
   return { mask: { w, h, data: new Uint8Array(w * h) }, pixels: new Uint32Array(w * h), x: -w / 2, y: -h, w, h, k: 2, head: [0, -h], chest: [0, -h * 0.55] };
 }
 
-const enemies = JSON.parse(readFileSync(join(LOGIC_DATA, 'enemies.json'), 'utf8'));
+// stage 1 enemies, plus the stage 3 격파 targets with art of their own; the yeoksin ignores stun and slow
+const enemies = ['enemies.json', 'stage3/enemies.json'].flatMap(f => JSON.parse(readFileSync(join(LOGIC_DATA, f), 'utf8')));
 const spriteDir = join(CLIENT, 'public', 'sprites');
-const sprites = new Set(readdirSync(spriteDir).filter(f => f.endsWith('.png')).map(f => f.slice(0, -4)));
-const enemyIds = enemies.filter(e => sprites.has(e.id)).map(e => e.id);
+const pngs = dir => new Set(readdirSync(dir).filter(f => f.endsWith('.png')).map(f => f.slice(0, -4)));
+const sprites = pngs(spriteDir);
+const small = pngs(join(spriteDir, 'small'));
+const enemyIds = [...new Set(enemies.filter(e => !e.shared && sprites.has(e.id)).map(e => e.id))];
+// an ordinary enemy is drawn on the lane with its 24px art, so its status sheets follow that drawing
+const enemyArt = id => small.has(id) ? join(spriteDir, 'small', `${id}.png`) : join(spriteDir, `${id}.png`);
 
 // --- what gets baked ---
 // until: cut a one-shot here (s); fps: sample rate; pivot: the effect's origin unless 'center' (of what is drawn)
@@ -127,8 +132,8 @@ const JOBS = [
   ...[...radii.blast].sort().map(r => ({ key: `blast-${px(r)}`, local: 'blast', opts: { reach: px(r) }, size: px(r) })),
   ...[...radii.pierce].sort().map(r => ({ key: `pierce-${px(r)}`, src: 'melee/thrust', opts: { reach: px(r) }, until: 0.45, fps: 24, actor: emptyActor(), pivot: 'thrust' })),
   ...enemyIds.flatMap(id => [
-    { key: `stun-${id}`, src: 'status/stunned', fps: 12, actor: spriteActor(join(spriteDir, `${id}.png`)) },
-    { key: `frozen-${id}`, src: 'status/frozen', fps: 12, actor: spriteActor(join(spriteDir, `${id}.png`)), bodyless: true },
+    { key: `stun-${id}`, src: 'status/stunned', fps: 12, actor: spriteActor(enemyArt(id)) },
+    { key: `frozen-${id}`, src: 'status/frozen', fps: 12, actor: spriteActor(enemyArt(id)), bodyless: true },
   ]),
 ];
 

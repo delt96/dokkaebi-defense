@@ -5,8 +5,19 @@ export const SPRITE_IDS: ReadonlySet<string> = new Set(
   Object.keys(import.meta.glob('../public/sprites/*.png')).map(path => path.slice(path.lastIndexOf('/') + 1, -4)),
 );
 
+/**
+ * Ordinary lane enemies drawn at 24px for the lane, where they stand smaller than units. Scaling the 32px art by
+ * 0.75 under nearest filtering drops every fourth row and column, so these have their own drawings.
+ */
+export const SMALL_IDS: ReadonlySet<string> = new Set(
+  Object.keys(import.meta.glob('../public/sprites/small/*.png')).map(path => path.slice(path.lastIndexOf('/') + 1, -4)),
+);
+
 type ArtFile = { key: string; image: string; atlas?: string };
 export const spriteFile = (id: string): ArtFile => ({ key: id, image: `${BASE}sprites/${id}.png` });
+/** Texture key of an enemy's 24px lane art. */
+export const smallKey = (id: string): string => `small/${id}`;
+export const smallFile = (id: string): ArtFile => ({ key: smallKey(id), image: `${BASE}sprites/small/${id}.png` });
 export const FX_FILES: readonly ArtFile[] = FX_KEYS.map(key => ({
   key: textureKey(key), image: `${BASE}fx/${key}.png`, atlas: `${BASE}fx/${key}.json`,
 }));
@@ -34,7 +45,7 @@ export function loadArt(file: ArtFile, background = false): Promise<Art> {
 }
 
 export function warmArt(): void {
-  for (const file of [...Array.from(SPRITE_IDS, spriteFile), ...FX_FILES]) {
+  for (const file of [...Array.from(SPRITE_IDS, spriteFile), ...Array.from(SMALL_IDS, smallFile), ...FX_FILES]) {
     void loadArt(file, true).catch(() => { /* The match loader can retry failed requests. */ });
   }
 }

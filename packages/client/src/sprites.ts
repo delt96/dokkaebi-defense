@@ -12,12 +12,8 @@ export function spriteKey(id: string, have: ReadonlySet<string>, alias?: Readonl
   return borrowed !== undefined && have.has(borrowed) ? borrowed : null;
 }
 
-/** Draft art for 격파 targets that have no drawing yet: they wear an ordinary enemy until theirs is made. */
-const DRAFT_ART: Record<string, string> = { ev_oenun: 'dueoksini', ev_yagwang: 'geuseundae' };
-
-/** Enemy id -> the unit its taming gives, from the rule data (empty without an economy), plus draft art for 격파 targets. */
+/** Enemy id -> the unit its taming gives, from the rule data (empty without an economy). */
 export function tameArt(data: { economy?: { tame?: { targets: { enemy: string; unit: string }[] } } }): ReadonlyMap<string, string> {
   const tame = data.economy?.tame?.targets ?? [];
-  if (!data.economy) return new Map();
-  return new Map([...Object.entries(DRAFT_ART), ...tame.map(t => [t.enemy, t.unit] as [string, string])]);
+  return new Map(tame.map(t => [t.enemy, t.unit] as [string, string]));
 }
