@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {
-  buildFull, buildTick, createMatch, gambleTier, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
+  birthOf, buildFull, buildTick, createMatch, gambleTier, jumpToTick, loadGameData, MatchStreamer, normalizeNickname, parseClientCommand, sameNickname, stepMatch,
   isDifficulty, type Difficulty, MATCH_STAGES, type InputLogEntry, type JoinErrorName, type LaneBatch, type LobbyMsg, type MatchInput, type MatchStage, type MatchState, type NoticeMsg,
   type MatchResult, type RecordedMatch, type ResultMsg,
 } from '@dorandi/logic';
@@ -85,6 +85,7 @@ export class RoomCore {
   private readonly prevKeys = new Map<number, { key: string; linkId: string }>();
   /** Deadline for an empty lobby to accept returning players or later rematch pressers. */
   private keepOpenUntil: number | null = null;
+  private sawSix = false;
 
   constructor(readonly roomId: string, readonly deps: RoomDeps, readonly options: RoomOptions = {}) {
     this.stage = options.stage ?? 'stage2';
@@ -286,6 +287,16 @@ export class RoomCore {
 
     for (const [seat, lane] of Object.entries(step.lanes)) {
       for (const event of lane.events) {
+        const birth = birthOf(match.data, event);
+        if (birth) {
+          const firstSix = birth.grade === 6 && !this.sawSix;
+          if (birth.grade === 6) this.sawSix = true;
+          const msg: NoticeMsg = {
+            kind: 'birth', seat: Number(seat), name: this.names[Number(seat)]!, defId: birth.defId, unitId: birth.unitId, via: birth.via, firstSix,
+          };
+          for (const peer of this.links.values()) this.notice(peer.link, msg);
+          continue;
+        }
         if (event.type !== 'gambleCoins' && event.type !== 'gambleUnit') continue;
         if (gambleTier(match.data, event) !== 'big') continue;
         const prize = event.type === 'gambleCoins' ? `×${event.multiplier}`
@@ -407,6 +418,7 @@ export class RoomCore {
   private start(): void {
     const { deps, options } = this;
     this.phase = 'playing';
+    this.sawSix = false;
     const seed = deps.dev && options.seed !== undefined ? options.seed : deps.randomSeed();
     const ring = [...this.seats.keys()].sort((a, b) => a - b);
     // Only set the option when it is on, so a normal room hashes (and replays) like createMatch with default options.

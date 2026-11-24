@@ -1,5 +1,6 @@
 import type { Difficulty, GameEvent, HitEffect, UpgradeId } from '../types';
 import type { EconView } from '../econ/view';
+import type { BirthVia } from '../birth';
 import type { Ack, EliminationCause, MatchEvent, MatchResult } from './types';
 
 // Server -> browser message names: 'lobby', 'full', 'tick', 'lane', 'mine', 'result' and the room notice 'notice'.
@@ -63,6 +64,7 @@ export interface LobbyMsg { roomId: string; you: number; hostSeat: number | null
 export type NoticeMsg =
   | { kind: 'replaced' } | { kind: 'rematch'; roomId: string; hostToken?: string }
   | { kind: 'gamble'; name: string; hit: string }
+  | { kind: 'birth'; seat: number; name: string; defId: string; unitId: number; via: BirthVia; firstSix: boolean }
   | { kind: 'rematchReady'; seats: number[] }
   | { kind: 'roomError'; reason: 'notHost' | 'notReady' | 'notInLobby' | 'badDifficulty' };
 export interface WireCommand { seq: number; type: string; args?: Record<string, unknown> }

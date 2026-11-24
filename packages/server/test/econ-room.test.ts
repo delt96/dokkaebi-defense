@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { loadGameData, roundStartTick } from '@dorandi/logic';
+import { loadGameData, roundStartTick, unitDefFast } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { send, started, tickOnce } from './helpers';
 
@@ -64,7 +64,7 @@ describe('stage 3 economy commands through the room', () => {
     expect(r.links[0]!.last('notice')).toBeUndefined();
   });
 
-  test.each([[67, '6등급'], [43, '숨은 유닛']])('a big bundle hit is sent to peers (seed %s)', (seed, label) => {
+  test.each([67, 43])('a grade 6 or hidden bundle hit tells everyone of the birth instead (seed %s)', seed => {
     const r = room60(30);
     const lane = r.core.match!.lanes[1]!;
     lane.econ!.marketOpen = true;
@@ -72,8 +72,42 @@ describe('stage 3 economy commands through the room', () => {
     lane.econ!.rng.gambleUnit = { s: seed };
     send(r.core, 'a', 1, 'gambleUnit', { table: 'big' });
     tickOnce(r.core, r.deps);
-    expect(r.links[1]!.last('notice')).toMatchObject({ kind: 'gamble', hit: `${label} 당첨` });
-    expect(r.links[0]!.last('notice')).toBeUndefined();
+    const unitId = r.links[0]!.last('notice')?.unitId;
+    const defId = lane.slots.find(u => u?.id === unitId)?.defId;
+    expect(defId).toBeDefined();
+    for (const link of r.links) {
+      expect(link.last('notice')).toEqual({
+        kind: 'birth', seat: 1, name: '가', defId, unitId, via: 'gamble', firstSix: unitDefFast(d3, defId!).grade === 6,
+      });
+      expect(link.all('notice').some(n => n.kind === 'gamble')).toBe(false);
+    }
+  });
+
+  test('a grade 6 combine tells everyone, and only the first is the team first', () => {
+    const r = room60(30);
+    const match = r.core.match!;
+    for (const [seat, link] of [[1, 'a'], [2, 'b']] as const) {
+      const lane = match.lanes[seat]!;
+      ['top', 'kkeul', 'jumadeung'].forEach((id, i) => placeUnitForTest(lane, id, i));
+      lane.coins = 200;
+      lane.buckwheat = 2;
+      send(r.core, link, 1, 'combine', { result: 'bihyeongrang' });
+      tickOnce(r.core, r.deps);
+      for (const l of r.links) {
+        expect(l.last('notice')).toMatchObject({ kind: 'birth', seat, defId: 'bihyeongrang', via: 'combine', firstSix: seat === 1 });
+      }
+    }
+  });
+
+  test('a grade 5 combine sends no birth', () => {
+    const r = room60(30);
+    const lane = r.core.match!.lanes[1]!;
+    ['meok', 'jige'].forEach((id, i) => placeUnitForTest(lane, id, i));
+    lane.buckwheat = 2;
+    send(r.core, 'a', 1, 'combine', { result: 'top' });
+    tickOnce(r.core, r.deps);
+    expect(lane.slots.some(u => u?.defId === 'top')).toBe(true);
+    for (const l of r.links) expect(l.all('notice').some(n => n.kind === 'birth')).toBe(false);
   });
 
   test('the retired draw is invalid and leaves the wallet and quota untouched', () => {
