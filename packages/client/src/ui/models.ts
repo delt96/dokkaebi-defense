@@ -1,6 +1,6 @@
 import { difficultySuffix } from './difficulty';
 import {
-  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
+  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineLockRound, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
   upgradeCost, summonOddsForRound, roundResistRange,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
@@ -261,6 +261,12 @@ export function costShortText(state: GameState, recipe: RecipeDef | undefined): 
   return parts.length ? `${parts.join(', ')} 모자람` : null;
 }
 
+/** "20라운드부터" while a recipe is shut until a round, else what the player is short of to pay for it. */
+function blockedText(state: GameState, recipe: RecipeDef | undefined): string | null {
+  const from = combineLockRound(state, recipe);
+  return from !== null ? `${from}라운드부터` : costShortText(state, recipe);
+}
+
 export function selectedSlot(state: GameState, id: number | null): number | null {
   const slot = state.slots.findIndex(unit => unit?.id === id);
   return slot < 0 ? null : slot;
@@ -318,6 +324,7 @@ const REJECT_TEXT: Record<string, string> = {
   tameCondition: '길들이기 조건이 풀렸습니다',
   cooldown: '아직 다시 시도할 수 없습니다',
   noJige: '지게가 없습니다',
+  tameLocked: '길들인 유닛 조합은 아직 열리지 않았습니다',
   // storage
   notStorable: '1·2등급만 보관할 수 있습니다',
   nothingToStore: '보관할 1·2등급 유닛이 없습니다',
@@ -386,7 +393,7 @@ export function helperModel(state: GameState): HelperItem[] {
     const missing = missingMaterials(state, recipe.result);
     if (missing.length) continue;
     const cost = costText(recipe);
-    const short = cost ? costShortText(state, recipe) : null;
+    const short = blockedText(state, recipe);
     const def = unitDefFast(state.data, recipe.result);
     const stored = storedMaterials(state, recipe.result);
     out.push({
@@ -406,7 +413,7 @@ function optionsFor(state: GameState, recipes: { result: string; missing: string
     const { name, grade } = unitDefFast(state.data, result);
     const recipe = state.data.recipes.find(r => r.result === result);
     const cost = costText(recipe);
-    const short = costShortText(state, recipe);
+    const short = blockedText(state, recipe);
     return {
       result, name, grade,
       missing: missing.map(id => unitDefFast(state.data, id).name),

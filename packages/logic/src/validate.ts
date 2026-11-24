@@ -98,6 +98,9 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     if (!sorted || b[b.length - 1]!.upTo !== 1 || !b.every(x => x.chance >= 0 && x.chance <= 1)) errors.push('invalid tame hpBands');
     if (!(tame.failureHealPct >= 0 && tame.failureHealPct <= 1)) errors.push('invalid tame failureHealPct');
     if (!(tame.cooldownSeconds > 0)) errors.push('invalid tame cooldownSeconds');
+    if (tame.combineFromRound !== undefined && !(Number.isInteger(tame.combineFromRound) && tame.combineFromRound >= 1 && tame.combineFromRound <= data.balance.rounds)) {
+      errors.push('invalid tame combine round');
+    }
     for (const t of tame.targets) {
       if (!Object.values(t.cost).every(n => Number.isInteger(n) && n! >= 0)) errors.push(`invalid tame cost: ${t.enemy}`);
       if (!data.units.some(u => u.id === t.unit)) errors.push(`unknown tame unit: ${t.unit}`);

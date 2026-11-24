@@ -169,7 +169,8 @@ export interface EconomyDef {
   shadow?: { round: number; enemy: string; growSeconds: number; grownHp: number; coins: number; grownCoins: number };
   hunts?: HuntsDef;
   /** hpBands: ascending inclusive upper bounds of remaining HP / max HP, the last one 1. */
-  tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[] };
+  /** `combineFromRound`: exclusive (tame) recipes are refused before this round. */
+  tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[]; combineFromRound?: number };
 }
 export interface EconState {
   rng: { jige: RngState; drop: RngState; tame: RngState; gambleCoins?: RngState; gambleUnit?: RngState };
@@ -248,7 +249,7 @@ export type GambleEvent =
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
   | 'marketClosed' | 'marketLocked' | 'gambleRound' | 'gambleLimit' | 'huntClosed' | 'huntOut' | 'noTarget' | 'tameCondition'
-  | 'cooldown' | 'noJige'
+  | 'cooldown' | 'noJige' | 'tameLocked'
   | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 

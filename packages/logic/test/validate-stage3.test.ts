@@ -67,8 +67,9 @@ test('invalid market settings fail validation', () => {
     d.economy!.startingBuckwheat = -1;
     d.economy!.market!.openAfterBossRound = 0.5;
     d.economy!.market!.jigeChance = 1.1;
+    d.economy!.tame!.combineFromRound = 0.5;
   }, 'stage3');
-  expect(validateData(invalid).errors).toEqual(expect.arrayContaining(['invalid startingBuckwheat', 'invalid market unlock round', 'invalid jige chance']));
+  expect(validateData(invalid).errors).toEqual(expect.arrayContaining(['invalid startingBuckwheat', 'invalid market unlock round', 'invalid jige chance', 'invalid tame combine round']));
 });
 
 describe('exclusive recipe checks', () => {

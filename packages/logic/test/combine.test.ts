@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createGame, step, loadGameData, recipesUsing } from '../src/index';
 import { availableRecipes, missingMaterials } from '../src/combine';
-import { placeUnitForTest } from '../src/testing';
+import { forceRound, placeUnitForTest } from '../src/testing';
 
 const data = loadGameData();
 
@@ -104,6 +104,7 @@ describe('exclusive recipes combine like any grade 6', () => {
     expect(PAIRS.length).toBe(5);
     for (const r of PAIRS) {
       const s = createGame(d3, 1);
+      forceRound(s, 20);
       s.open = s.open.map(() => true);
       const [a, b] = r.materials as [string, string];
       const ua = placeUnitForTest(s, a, 0);
@@ -123,11 +124,27 @@ describe('exclusive recipes combine like any grade 6', () => {
     }
   });
 
+  test('exclusive recipes open at round 20: refused and left out of the available list before it', () => {
+    expect(d3.economy!.tame!.combineFromRound).toBe(20);
+    for (const r of PAIRS) {
+      const s = createGame(d3, 1);
+      forceRound(s, 19);
+      r.materials.forEach((id, i) => placeUnitForTest(s, id, i));
+      s.buckwheat = 1; s.coins = 60;
+      expect(availableRecipes(s)).not.toContain(r.result);
+      expect(step(s, [{ type: 'combine', result: r.result }]).rejected.map(x => x.reason)).toEqual(['tameLocked']);
+      forceRound(s, 20);
+      expect(availableRecipes(s)).toContain(r.result);
+      expect(step(s, [{ type: 'combine', result: r.result }]).rejected).toEqual([]);
+    }
+  });
+
   test('a missing recruit, a missing partner or a short fee is refused', () => {
     const r = PAIRS[0]!;
     const [a, b] = r.materials as [string, string];
     for (const [have, bw, coins, reason] of [[[a], 1, 60, 'missingMaterials'], [[b], 1, 60, 'missingMaterials'], [[a, b], 1, 59, 'noCoins'], [[a, b], 0, 60, 'noBuckwheat']] as const) {
       const s = createGame(d3, 1);
+      forceRound(s, 20);
       have.forEach((id, i) => placeUnitForTest(s, id, i));
       s.buckwheat = bw; s.coins = coins;
       expect(step(s, [{ type: 'combine', result: r.result }]).rejected.map(x => x.reason)).toEqual([reason]);

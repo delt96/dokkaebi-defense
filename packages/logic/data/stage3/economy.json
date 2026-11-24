@@ -43,6 +43,7 @@
   "ssireum": { "round": 32, "enemy": "ev_ssireum", "seconds": 20, "buckwheat": 1 },
   "shadow": { "round": 43, "enemy": "ev_shadow", "growSeconds": 10, "grownHp": 16000, "coins": 5, "grownCoins": 10 },
   "tame": {
+    "combineFromRound": 20,
     "hpBands": [
       { "upTo": 0.15, "chance": 0.7 }, { "upTo": 0.3, "chance": 0.5 }, { "upTo": 0.5, "chance": 0.35 },
       { "upTo": 0.75, "chance": 0.25 }, { "upTo": 1, "chance": 0.1 }

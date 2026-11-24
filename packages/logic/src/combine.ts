@@ -27,6 +27,12 @@ export function missingMaterials(state: GameState, result: string): string[] {
   return recipe ? missingFrom(state, recipe.materials) : [];
 }
 
+/** The round an exclusive (tame) recipe opens at while it is still shut, else null. */
+export function combineLockRound(state: GameState, recipe: RecipeDef | undefined): number | null {
+  const from = state.data.economy?.tame?.combineFromRound;
+  return recipe?.kind === 'tame' && from !== undefined && state.round < from ? from : null;
+}
+
 function costShortfall(state: GameState, recipe: RecipeDef): 'noBuckwheat' | 'noCoins' | null {
   if ((recipe.cost?.buckwheat ?? 0) > state.buckwheat) return 'noBuckwheat';
   if ((recipe.cost?.coins ?? 0) > state.coins) return 'noCoins';
@@ -53,7 +59,7 @@ export function storedMaterials(state: GameState, result: string): number {
 
 export function availableRecipes(state: GameState): string[] {
   return state.data.recipes
-    .filter(r => missingMaterials(state, r.result).length === 0 && costShortfall(state, r) === null)
+    .filter(r => missingMaterials(state, r.result).length === 0 && combineLockRound(state, r) === null && costShortfall(state, r) === null)
     .map(r => r.result);
 }
 
@@ -82,6 +88,7 @@ registerCommand('combine', (state, cmd, events) => {
   if (!recipe) return 'unknown';
   if (chosen && !recipe.materials.includes(chosen.defId)) return 'missingMaterials';
   if (missingFrom(state, recipe.materials).length) return 'missingMaterials';
+  if (combineLockRound(state, recipe) !== null) return 'tameLocked';
   const short = costShortfall(state, recipe);
   if (short) return short;
 
