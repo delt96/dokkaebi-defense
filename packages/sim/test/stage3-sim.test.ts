@@ -104,12 +104,12 @@ describe('stage 3 first grade 6 round', () => {
   });
 
   test('target bot sells tree units beyond what the target still needs', () => {
-    const target = 'cheonnyeonmunbitjang';
+    const target = 'bihyeongrang';
     const s = createGame(d3, 1); s.tokens = 3;
     const kkeulTree = expandTree(d3, 'kkeul');
     const coveredLeaf = [...expandTree(d3, 'top').keys()].find(id => unitDefFast(d3, id).grade === 1 && !kkeulTree.has(id))!;
     placeUnitForTest(s, 'top', 0); placeUnitForTest(s, coveredLeaf, 1);
-    s.slots.forEach((u, i) => { if (!u && s.open[i]) placeUnitForTest(s, 'soemangchi', i); });
+    s.slots.forEach((u, i) => { if (!u && s.open[i]) placeUnitForTest(s, 'jumadeung', i); });
     const cmds = targetBot(1, { targets: [target] }).decide(s);
     expect(cmds.some(c => c.type === 'convertToken')).toBe(false);
     expect(cmds).toContainEqual({ type: 'sell', slot: 1 });

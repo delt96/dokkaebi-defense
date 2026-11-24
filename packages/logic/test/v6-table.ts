@@ -8,9 +8,9 @@ const cells = (line: string): string[] => line.trim().replace(/^\|/, '').replace
 
 let cache: { units: V5Unit[]; recipes: V5Recipe[] } | null = null;
 
-export function readV5(): { units: V5Unit[]; recipes: V5Recipe[] } {
+export function readV6(): { units: V5Unit[]; recipes: V5Recipe[] } {
   if (cache) return cache;
-  const text = readFileSync(new URL('../../../docs/design/content-draft-116-v5.md', import.meta.url), 'utf8');
+  const text = readFileSync(new URL('../../../docs/design/content-draft-116-v6.md', import.meta.url), 'utf8');
   const lines = text.split(/\r?\n/);
   const rows: { cols: string[]; grade: number; hidden: boolean }[] = [];
   let grade = 0;

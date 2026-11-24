@@ -1,0 +1,216 @@
+{
+ "che": {
+  "jeolgu": [
+   "sseurebatgi",
+   "dunggumi"
+  ]
+ },
+ "dwiju": {
+  "meongseok": [
+   "dunggumi"
+  ]
+ },
+ "mulle": {
+  "mumyeong": [
+   "cheongsachorong"
+  ],
+  "sut": [
+   "cheongsachorong"
+  ],
+  "saekkijul": [
+   "gireumbyeong"
+  ]
+ },
+ "geumulbaneul": {
+  "mumyeong": [
+   "cheongsachorong"
+  ]
+ },
+ "oedaridokkaebi": {
+  "saekkijul": [
+   "samtaegi"
+  ]
+ },
+ "cheonnyeontteoksal": {
+  "hamjibak": [
+   "didilbangga"
+  ],
+  "kkeul": [
+   "gireumteul",
+   "hahoetal"
+  ]
+ },
+ "gamtudokkaebi": {
+  "baneul": [
+   "sutdarimi"
+  ],
+  "sil": [
+   "manggeon"
+  ]
+ },
+ "cheonnyeondot": {
+  "baneul": [
+   "jaetmulsiru"
+  ]
+ },
+ "meok": {
+  "but": [
+   "mogitbul"
+  ]
+ },
+ "cheonnyeoneohwa": {
+  "mogitbul": [
+   "jwibul"
+  ]
+ },
+ "cheonnyeongombangdae": {
+  "mogitbul": [
+   "jwibul"
+  ]
+ },
+ "cheonnyeonmuseosot": {
+  "bagaji": [
+   "jangdok"
+  ]
+ },
+ "yeopjeonkkureomi": {
+  "chaeban": [
+   "byeoru",
+   "jumadeung"
+  ]
+ },
+ "jipbae": {
+  "geumulbaneul": [
+   "mulle"
+  ]
+ },
+ "tewak": {
+  "geumulbaneul": [
+   "mulle"
+  ]
+ },
+ "ssatba": {
+  "gawi": [
+   "golmu",
+   "indupan"
+  ]
+ },
+ "cheonnyeondolmulhwak": {
+  "soemangchi": [
+   "maetdol",
+   "yagyeon",
+   "yeonjabangga"
+  ]
+ },
+ "gireumteul": {
+  "maetdol": [
+   "yeonjabangga",
+   "yagyeon"
+  ]
+ },
+ "hahoetal": {
+  "ja": [
+   "indu"
+  ]
+ },
+ "bitdondokkaebi": {
+  "dongwe": [
+   "beoseon"
+  ]
+ },
+ "bihyeongrang": {
+  "ja": [
+   "jumadeung",
+   "meok"
+  ]
+ },
+ "buk": {
+  "ja": [
+   "indu"
+  ]
+ },
+ "janggu": {
+  "ja": [
+   "indu"
+  ],
+  "gawi": [
+   "golmu"
+  ]
+ },
+ "geumulchu": {
+  "onggigama": [
+   "byeoru"
+  ]
+ },
+ "tteoksiru": {
+  "onggigama": [
+   "chaeban"
+  ]
+ },
+ "duduri": {
+  "meok": [
+   "byeoru"
+  ]
+ },
+ "cheonnyeonno": {
+  "dokki": [
+   "buk"
+  ],
+  "ja": [
+   "meok",
+   "daljip"
+  ]
+ },
+ "cheonnyeondatdol": {
+  "kkeul": [
+   "eomang"
+  ]
+ },
+ "gildal": {
+  "kkeul": [
+   "hahoetal"
+  ]
+ },
+ "cheonnyeonmunbitjang": {
+  "kkeul": [
+   "dongwe"
+  ],
+  "top": [
+   "dokki"
+  ]
+ },
+ "cheonnyeonjing": {
+  "janggu": [
+   "buk"
+  ]
+ },
+ "cheonnyeondoe": {
+  "maksabal": [
+   "gireumteul",
+   "yeotpan"
+  ],
+  "tteoksiru": [
+   "yeopjeonkkureomi"
+  ]
+ },
+ "cheonnyeonjokja": {
+  "sil": [
+   "gat"
+  ]
+ },
+ "cheonnyeonbyeongpung": {
+  "top": [
+   "ssatba"
+  ]
+ },
+ "yeotpan": {
+  "gawi": [
+   "yeonjabangga"
+  ]
+ },
+ "cheonnyeonyeonjeok": {
+  "jejuheobeok": [
+   "tewak"
+  ]
+ }
+}

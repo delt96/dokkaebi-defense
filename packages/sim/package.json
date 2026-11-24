@@ -7,6 +7,7 @@
   "scripts": {
     "sim": "tsx src/cli.ts",
     "econ": "tsx src/econ.ts",
-    "golden": "tsx scripts/write-golden.ts"
+    "golden": "tsx scripts/write-golden.ts",
+    "spread": "tsx scripts/recipe-spread.ts"
   }
 }

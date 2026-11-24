@@ -79,17 +79,17 @@ describe('recipe tree', () => {
     expect(marks(recipeTree(data, d, [c, a, b])!)).toEqual([`${c}:have`, `  ${a}:covered`, `  ${b}:covered`, `${a}:have`, `${a}:missing`]);
   });
 
-  test('real data: 귀교 목수 lists 톱·끌·자 and marks them from the board, locked units excluded', () => {
+  test('real data: 귀교 목수 lists 톱·끌·주마등 and marks them from the board, locked units excluded', () => {
     const tree = recipeTree(d3, 'bihyeongrang')!;
-    expect(tree.map(n => n.name)).toEqual(['톱', '끌', '자']);
+    expect(tree.map(n => n.name)).toEqual(['톱', '끌', '주마등']);
     expect(tree[0]!.cost).toBe('메밀묵 1개');
     const s = createGame(d3, 1);
     placeUnitForTest(s, 'kkeul', 0);
-    placeUnitForTest(s, 'ja', 1);
-    expect(boardUnits(s)).toEqual(['kkeul', 'ja']);
+    placeUnitForTest(s, 'jumadeung', 1);
+    expect(boardUnits(s)).toEqual(['kkeul', 'jumadeung']);
     const marked = recipeTree(d3, 'bihyeongrang', boardUnits(s))!;
     expect(marked.map(n => n.mark)).toEqual(['missing', 'have', 'have']);
-    // 끌's own materials are not needed any more; the 자 inside 끌 is not counted twice
+    // 끌's own materials are not needed any more
     expect(marked[1]!.children.every(n => n.mark === 'covered')).toBe(true);
   });
 });
@@ -213,7 +213,7 @@ describe('dex links in the mounted ui', () => {
 
   test('a link switches the filter, the back button returns, and the tree marks the board', () => {
     const s = createGame(d3, 1);
-    placeUnitForTest(s, 'ja', 0);
+    placeUnitForTest(s, 'jumadeung', 0);
     mountUi(new GameDriver(s), new FakeScene() as never);
     const modal = document.getElementById('modal')!;
     press(document.querySelector('[data-action="openDex"]'));
@@ -249,8 +249,8 @@ describe('dex links in the mounted ui', () => {
     press(box().querySelector('[data-action="dexFold"][data-arg="bihyeongrang:1"]'));
     expect(box().querySelector('li.covered')).not.toBeNull();
     expect(document.activeElement).toBe(box().querySelector('.dex-fold'));
-    // a new board unit changes the marks (자 now ✓): the redraw keeps the branch open
-    placeUnitForTest(s, 'ja', 1);
+    // a new board unit changes the marks (주마등 now ✓): the redraw keeps the branch open
+    placeUnitForTest(s, 'jumadeung', 1);
     clock += 200;
     scene.onFrame!();
     expect(box().querySelector('.dex-tree')!.lastElementChild!.className).toBe('have');

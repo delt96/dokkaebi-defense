@@ -50,8 +50,9 @@ describe('stage 3 validator rules', () => {
   test('shape, duplicate materials and orphan rules', () => {
     const d = makeData(x => {
       x.recipes.find(r => r.result === 'gildal')!.materials = ['dokki', 'kkeul', 'dongwe'];
-      x.recipes.find(r => r.result === 'cheonnyeonmunbitjang')!.materials = ['top', 'kkeul', 'ja'];
+      x.recipes.find(r => r.result === 'cheonnyeonmunbitjang')!.materials = ['top', 'kkeul', 'jumadeung'];
       x.recipes.find(r => r.result === 'cheonnyeonsangmo')!.materials = ['gat', 'gat', 'gawi'];
+      x.recipes.find(r => r.result === 'gamtudokkaebi')!.materials = ['banjitgori', 'sil', 'sutdarimi'];
     }, 'stage3');
     const { errors } = validateData(d);
     expect(errors).toContain('recipe gildal shape 5+5+5 != 3+5+5 or 4+5+5');
