@@ -53,6 +53,14 @@ test('unknown paths serve index.html even when the build sits under a dot folder
   expect(a.roomId).toBeTruthy();
 });
 
+test('/api/live counts a room while it lives and forgets it once disposed', async () => {
+  const live = async () => (await fetch('http://localhost:2602/api/live')).json();
+  const a = await colyseus.sdk.create('match', { name: '마' });
+  expect(await live()).toEqual({ rooms: 1, players: 1, list: [{ phase: 'lobby', stage: 'stage2', round: 0, players: 1 }] });
+  await a.leave();
+  await vi.waitFor(async () => expect(await live()).toEqual({ rooms: 0, players: 0, list: [] }));
+});
+
 test('the match runs on its own 10 ms loop: numbered updates go out every 100 ms of room time', async () => {
   // Capture the room's timers so the test drives its clock itself: wall time under a busy machine says nothing.
   const realSetInterval = globalThis.setInterval;

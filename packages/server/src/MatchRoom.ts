@@ -3,6 +3,7 @@ import { performance } from 'node:perf_hooks';
 import { CloseCode, Room, ServerError, matchMaker, type Client } from 'colyseus';
 import { isDifficulty, JOIN_ERROR_CODES } from '@dorandi/logic';
 import { JoinError, RoomCore, isMatchStage, type ClientLink, type JoinOptions, type RoomOptions } from './core/RoomCore';
+import { liveRooms } from './live';
 
 /** Keeps only the room options RoomCore understands, with the right types. */
 function roomOptions(raw: unknown): RoomOptions {
@@ -38,6 +39,7 @@ export class MatchRoom extends Room {
       dev: process.env.DORANDI_DEV === '1',
       log: line => console.log(line),
     }, roomOptions(options));
+    liveRooms.add(this.core);
     // Its own 10 ms loop: without one, Colyseus only ticks the clock inside the 50 ms patch.
     this.setTimestep(() => this.core.advance(), 10);
     this.onMessage('*', (client: Client, type: string | number, msg: unknown) => {
@@ -61,5 +63,9 @@ export class MatchRoom extends Room {
 
   onLeave(client: Client, code?: number): void {
     this.core.leave(client.sessionId, code === CloseCode.CONSENTED);
+  }
+
+  onDispose(): void {
+    liveRooms.delete(this.core);
   }
 }
