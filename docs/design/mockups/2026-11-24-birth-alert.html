@@ -1,0 +1,98 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>6등급·히든 탄생 알림 목업</title><style>body{background:#140f17;color:#e8dfe9;font-family:sans-serif;padding:24px}</style></head><body>
+<h2>6등급·히든 탄생 알림: 이 배치로 진행하려 합니다</h2>
+<p class="subtitle">와이어프레임입니다(실제 화면 640×360을 2배로 그림). <b style="color:#e8a33d">주황 점선 = 새로 생기는 요소</b>, 회색 = 지금 있는 화면.</p>
+
+<style>
+  .stage { position: relative; width: 1280px; max-width: 100%; aspect-ratio: 16/9; background: #1d1620; border-radius: 6px; overflow: hidden; font-family: sans-serif; color: #cdbfd0; }
+  .stage * { box-sizing: border-box; }
+  .top { position: absolute; left: 0; top: 0; right: 0; height: 6.67%; background: #2a2030; font-size: 13px; padding: 6px 12px; }
+  .left { position: absolute; left: 0; top: 6.67%; width: 20%; bottom: 0; background: #241b29; padding: 6px; font-size: 13px; }
+  .left .ttl { color: #8f7f94; margin-bottom: 6px; }
+  .row { height: 12.2%; margin-bottom: 1.4%; background: #2e2434; border-radius: 4px; padding: 6px 8px; position: relative; }
+  .row b { float: right; color: #fff; }
+  .row.me { outline: 1px solid #6b5a72; }
+  .row.flash { background: linear-gradient(90deg, rgba(255,227,90,.35), rgba(255,227,90,.05)); outline: 2px dashed #e8a33d; }
+  .center { position: absolute; left: 20%; top: 6.67%; width: 62.5%; bottom: 12.2%; background: #1a2318; }
+  .path { position: absolute; left: 6%; top: 10%; right: 6%; bottom: 8%; border: 18px solid #2c3a28; border-radius: 6px; }
+  .grid { position: absolute; left: 22%; top: 30%; width: 48%; height: 46%; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(4, 1fr); gap: 2px; }
+  .grid div { background: #24301f; border-radius: 2px; }
+  .right { position: absolute; right: 0; top: 6.67%; width: 17.5%; bottom: 12.2%; background: #241b29; padding: 8px; font-size: 12px; color: #8f7f94; }
+  .bottom { position: absolute; left: 20%; right: 0; bottom: 0; height: 12.2%; background: #2a2030; font-size: 12px; padding: 8px; color: #8f7f94; }
+  .cutin { position: absolute; left: 0; right: 0; top: 7%; height: 22%; outline: 3px dashed #e8a33d; outline-offset: 3px;
+           background: linear-gradient(90deg, rgba(255,227,90,0) 0%, rgba(255,227,90,.28) 18%, rgba(40,26,10,.92) 30%, rgba(40,26,10,.92) 70%, rgba(255,227,90,.28) 82%, rgba(255,227,90,0) 100%);
+           display: flex; align-items: center; justify-content: center; gap: 18px; }
+  .cutin img { width: 80px; height: 80px; image-rendering: pixelated; filter: drop-shadow(0 0 10px #ffe35a); }
+  .cutin .who { font-size: 15px; color: #f3e6c8; }
+  .cutin .what { font-size: 28px; font-weight: 700; color: #ffe35a; letter-spacing: 1px; text-shadow: 0 2px 0 #3a2508; }
+  .cutin .sub { font-size: 13px; color: #d9c79a; margin-top: 2px; }
+  .cutin.hidden-unit { background: linear-gradient(90deg, rgba(196,140,255,0) 0%, rgba(196,140,255,.3) 18%, rgba(30,14,42,.92) 30%, rgba(30,14,42,.92) 70%, rgba(196,140,255,.3) 82%, rgba(196,140,255,0) 100%); }
+  .cutin.hidden-unit .what { color: #d6b0ff; }
+  .cutin.hidden-unit img { filter: drop-shadow(0 0 10px #c48cff); }
+  .toast { position: absolute; left: 50%; transform: translateX(-50%); top: 3%; font-size: 13px; color: #ffd28a; }
+  .num { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: #e8a33d; color: #1d1620; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; z-index: 5; box-shadow: 0 0 0 2px #1d1620; }
+  .notes { margin-top: 14px; display: grid; grid-template-columns: 34px 1fr; gap: 8px 6px; max-width: 1280px; font-size: 14px; line-height: 1.55; }
+  .notes .n { width: 26px; height: 26px; border-radius: 50%; background: #e8a33d; color: #1d1620; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .notes .old { background: #6b6470; color: #fff; }
+  h3.cap { margin: 22px 0 8px; }
+</style>
+
+<h3 class="cap">온라인 · 다른 사람(2번 자리)이 6등급을 만들었을 때 내 화면</h3>
+<div class="stage">
+  <div class="top">23라운드 · 남은 시간 18초 · 역신 2고개</div>
+  <div class="left">
+    <div class="ttl">고개 현황</div>
+    <div class="row me">1 나 <b>12</b><br><small>버티는 중</small></div>
+    <div class="row flash">2 범수 <b>8</b><br><small>버티는 중</small></div>
+    <div class="row">3 도깨비 <b>21</b><br><small>버티는 중</small></div>
+    <div class="row">4 손님 <b>15</b><br><small>버티는 중</small></div>
+    <div class="row">5 — <b></b></div>
+    <div class="row">6 — <b></b></div>
+  </div>
+  <div class="center">
+    <div class="path"></div>
+    <div class="grid"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+    <div class="cutin">
+      <img src="../../../packages/client/public/sprites/bihyeongrang.png" alt="">
+      <div>
+        <div class="who">2 범수 님이 만들었습니다</div>
+        <div class="what">귀교 목수</div>
+        <div class="sub">6등급 · 마딜 · 이번 판 팀 첫 6등급</div>
+      </div>
+    </div>
+  </div>
+  <div class="right">조합 도우미 · 장터 (지금 그대로)</div>
+  <div class="bottom">내 자원 카드 (지금 그대로)</div>
+  <div class="num" style="left:21%; top:8%">1</div>
+  <div class="num" style="left:17.5%; top:21%">2</div>
+</div>
+
+<h3 class="cap">히든 유닛일 때(길들이기·큰 판 도박) · 혼자 하기 화면에서 내가 얻었을 때</h3>
+<div class="stage" style="aspect-ratio: 16/6">
+  <div class="top">41라운드 · 남은 시간 22초</div>
+  <div class="left"><div class="ttl">내 고개</div></div>
+  <div class="center" style="bottom:0">
+    <div class="path"></div>
+    <div class="cutin hidden-unit" style="top:16%; height:42%">
+      <img src="../../../packages/client/public/sprites/topnisoemeokbo.png" alt="">
+      <div>
+        <div class="who">길들이기 조합</div>
+        <div class="what">톱니쇠먹보</div>
+        <div class="sub">히든 6등급 · 물딜</div>
+      </div>
+    </div>
+  </div>
+  <div class="right" style="bottom:0">조합 도우미 · 장터</div>
+  <div class="num" style="left:21%; top:16%">3</div>
+</div>
+
+<div class="notes">
+  <div class="n">1</div>
+  <div><b>탄생 띠 (새로 생김)</b>: 고개 화면 위쪽을 가로지르는 띠가 약 2.5초 동안 떠 있습니다. 스프라이트를 2.5배로 키워 보여 주고, <b>누가 · 무엇을 · 몇 등급 · 물딜/마딜</b>을 적습니다. 판에서 처음 나온 6등급이면 "이번 판 팀 첫 6등급"을 덧붙입니다. 방에 있는 모두(넋 포함)에게 보이고, 만든 사람 화면에도 같은 띠가 뜹니다. 지금 4등급 이상에서 뜨는 작은 "★ 이름" 글자는 6등급·히든일 때만 이 띠로 바뀝니다.</div>
+  <div class="n">2</div>
+  <div><b>고개 현황 줄 반짝임 (새로 생김)</b>: 만든 사람의 줄이 띠와 같은 시간 동안 금빛으로 빛나서, 누가 만들었는지 왼쪽 목록에서도 바로 보입니다.</div>
+  <div class="n">3</div>
+  <div><b>히든은 보랏빛 띠</b>: 히든 10종 모두가 해당합니다. 보스를 길들여 얻는 4등급 히든 5종(쇠밥짐승 등), 길들이기 전용 조합으로 만드는 6등급 히든 5종(톱니쇠먹보 등), 큰 판 도박의 히든 당첨이 여기에 들어갑니다. 혼자 하기에서는 이름 대신 얻은 방법(조합 · 길들이기 성공 · 도박 당첨)을 적습니다.</div>
+  <div class="n old">·</div>
+  <div><b>그대로 두는 것</b>: 큰 도박 당첨(엽전 ×5·×10, 5등급) 알림은 지금처럼 위쪽 작은 글자로 뜹니다. 도박에서 <b>6등급·히든</b>이 나오면 "6등급 당첨" 글자 대신 이 띠가 뜨고, 유닛 이름까지 보여 줍니다. 띠가 여러 개 겹치면 차례로 띄웁니다. '효과 줄이기' 설정에서는 화면 흔들림 없이 띠만 뜹니다.</div>
+</div>
+</body></html>
