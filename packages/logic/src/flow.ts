@@ -124,6 +124,7 @@ export function trackLimit(state: GameState): boolean {
   if (st && n > st.maxEnemies) st.maxEnemies = n;
   if (n > b.limit) state.overLimitTicks++;
   else state.overLimitTicks = 0;
+  if (b.limitInstantFromRound !== undefined && state.round >= b.limitInstantFromRound) return state.overLimitTicks > 0;
   return state.overLimitTicks >= toTicks(b.limitSeconds);
 }
 

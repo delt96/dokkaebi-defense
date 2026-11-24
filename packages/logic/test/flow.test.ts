@@ -40,6 +40,18 @@ describe('flow', () => {
     run(s, 1); expect(s.result).toEqual({ outcome: 'defeat', reason: 'limit', round: 1 });
     expect(s.stats.at(-1)!.endEnemies).toBe(61);
   });
+  test('stage 3 from round 65: over the limit is a defeat at once, round 64 still counts 5 seconds', () => {
+    const d3 = loadGameData('stage3');
+    expect(d3.balance.limitInstantFromRound).toBe(65);
+    for (const [round, endsAtOnce] of [[64, false], [65, true]] as const) {
+      const s = createGame(d3, 1); forceRound(s, round);
+      s.enemies = [];
+      for (let i = 0; i < d3.balance.limit + 1; i++) spawnEnemyForTest(s, 'japgwi', 0, 10 ** 9);
+      s.roundEndTick = 10 ** 9; s.spawned = d3.balance.spawnCount;
+      run(s, 1);
+      expect([round, s.result]).toEqual([round, endsAtOnce ? { outcome: 'defeat', reason: 'limit', round } : null]);
+    }
+  });
   test('boss round: spawn, tokens, fail after 75s', () => {
     const s = createGame(data, 1); forceRound(s, 10);
     const tokens = s.tokens;

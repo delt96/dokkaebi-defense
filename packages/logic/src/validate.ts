@@ -34,6 +34,8 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
   const late = data.balance.hp.late;
   if (late !== undefined && !(Number.isInteger(late?.fromRound) && late.fromRound >= 1 && late.fromRound <= data.balance.rounds
     && Number.isFinite(late.perRound) && late.perRound > 0)) errors.push('invalid hp.late');
+  const instant = data.balance.limitInstantFromRound;
+  if (instant !== undefined && !(Number.isInteger(instant) && instant >= 1 && instant <= data.balance.rounds)) errors.push('invalid limitInstantFromRound');
   const slow = data.balance.zoneSlow;
   if (slow !== undefined && !(Number.isFinite(slow?.pctFactor) && slow.pctFactor > 0 && slow.pctFactor <= 1)) errors.push('invalid zoneSlow');
   const eco = data.economy;

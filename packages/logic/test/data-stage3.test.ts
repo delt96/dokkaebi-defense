@@ -132,7 +132,7 @@ describe('stage 3 balance stands on its own', () => {
       coins: { perKill: 1, roundEnd: 10, boss: 60 },
       bossBuckwheat: 2,
       sellPrice: [5, 10, 20, 40, 80, 180],
-      limit: 60, limitSeconds: 5,
+      limit: 60, limitSeconds: 5, limitInstantFromRound: 65,
       summonOddsByRound: [{ fromRound: 1, odds: [1, 0, 0] }],
       summonOdds: [1, 0, 0], pityEvery: 5,
       grid: { cols: 6, rows: 4, initialOpenRows: 4 },

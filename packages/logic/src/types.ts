@@ -67,6 +67,8 @@ export interface BalanceDef {
   tokens: { start: number; perRound: number; toCoins: number };
   coins: { perKill: number; roundEnd: number; boss: number };
   bossBuckwheat: number; sellPrice: number[]; limit: number; limitSeconds: number;
+  /** From this round a lane over `limit` loses at once instead of after `limitSeconds`. */
+  limitInstantFromRound?: number;
   summonOddsByRound?: { fromRound: number; odds: number[] }[];
   summonOdds: number[]; pityEvery: number; grid: GridDef;
   bossCcFactor: number; vulnCap: number; auraRadius: number; pulseSeconds: number;
