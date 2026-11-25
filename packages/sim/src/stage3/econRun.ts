@@ -1,5 +1,5 @@
 import {
-  createMatch, economyVariant, laneSeed, missingMaterials, roundStartTick, stepMatch, unitDefFast, waveOf,
+  createMatch, economyVariant, laneSeed, missingMaterials, roundStartTick, shopItem, stepMatch, unitDefFast, waveOf,
   type EconSection, type GameData, type GameState, type GeneralQuestId, type MatchCommand, type MatchState,
 } from '@dorandi/logic';
 import { EconDriver } from './econDriver';
@@ -48,6 +48,8 @@ export interface EconRow {
   startMuk?: number; earnedMuk?: number; bossMuk?: number; questMuk?: number; yeoksinMuk?: number;
   grade5Muk?: number; finalMuk?: number; tameMuk?: number; endMuk?: number; lostMuk?: number;
   sold: number; missingAtEnd: string; yeoksinKills: number;
+  /** Exclusive (tame) recipes made, hidden grade 6 held at the end, and the 묵 paid for shop items. */
+  exclusive?: number; hidden6?: number; itemMuk?: number;
   boss10: number | null; boss20: number | null; boss30: number | null; boss40: number | null; boss50: number | null; boss60: number | null; boss70: number | null;
 }
 
@@ -147,6 +149,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
       ...(c.gamble && { coinBet: 0, coinPayout: 0 }),
       unitMuk: 0, unitConsolation: 0, gambleMiss: 0, gamble3: 0, gamble4: 0, gamble5: 0, gamble6: 0, gambleHidden: 0, smallPlays: 0, bigPlays: 0,
       boss10: null, boss20: null, boss30: null, boss40: null, boss50: null, boss60: null, boss70: null,
+      exclusive: 0, hidden6: 0, itemMuk: 0,
     });
     prevCoins.set(s, 0);
     earnedCoins.set(s, 0);
@@ -159,6 +162,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
   const checkpoints = new Map(BOSS_ROUNDS.slice(0, -1).map(r => [roundStartTick(d, r + 1), r]));
   const finals = d.recipes.filter(x => unitDefFast(d, x.result).grade === 6);
   const recipeMuk = new Map(d.recipes.map(x => [x.result, x.cost?.buckwheat ?? 0]));
+  const tameResults = new Set(d.recipes.filter(x => x.kind === 'tame').map(x => x.result));
   while (match.result === null && match.tick < MAX_TICKS) {
     if (c.noDefeat) dropTimedOutBosses(match);
     const settled = checkpoints.get(match.tick);
@@ -223,6 +227,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
         else if (e.type === 'jigeSwap') row.jigeUses++;
         else if (e.type === 'tameTry') { row.tameTries++; row.tameMuk! += e.buckwheat; }
         else if (e.type === 'tame') row.tames++;
+        else if (e.type === 'itemBought') row.itemMuk! += shopItem(d, e.item)?.buckwheat ?? 0;
         else if (e.type === 'questReward') { wins.get(s)!.add(e.quest); row.questMuk! += e.buckwheat; }
         else if (e.type === 'hunt' && e.outcome === 'won') {
           row.huntKills++;
@@ -236,6 +241,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
           const spent = recipeMuk.get(e.defId) ?? 0;
           if (unitDefFast(d, e.defId).grade === 6) row.finalMuk! += spent;
           else row.grade5Muk! += spent;
+          if (tameResults.has(e.defId)) row.exclusive!++;
           if (row.firstGrade6Round === null && isNormal6(lane, e.defId)) {
             row.firstGrade6Round = match.round;
             row.firstSource = 'combine';
@@ -271,9 +277,10 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
     row.jigeHeld = lane.econ?.jige ?? 0;
     row.endMuk = lane.buckwheat;
     row.earnedMuk = row.huntMuk + row.bossMuk! + row.yeoksinMuk! + row.questMuk!;
-    row.lostMuk = row.startMuk! + row.earnedMuk - row.unitMuk! - row.grade5Muk! - row.finalMuk! - row.tameMuk! - row.endMuk;
+    row.lostMuk = row.startMuk! + row.earnedMuk - row.unitMuk! - row.grade5Muk! - row.finalMuk! - row.tameMuk! - row.itemMuk! - row.endMuk;
     if (st.alive) row[`muk${BOSS_ROUNDS[BOSS_ROUNDS.length - 1]}` as MukCol] = lane.buckwheat;
     row.hidden = countHidden(lane);
+    row.hidden6 = lane.slots.filter(u => u && unitDefFast(d, u.defId).hidden && unitDefFast(d, u.defId).grade === 6).length;
     row.questWins = [...wins.get(s)!].sort().join('+');
     row.yeoksinKills = match.yeoksinKills;
     for (const r of BOSS_ROUNDS) row[`boss${r}` as BossCol] = lane.stats.find(x => x.round === r)?.bossKillSeconds ?? null;
@@ -413,6 +420,7 @@ const NUMBER_COLS = new Set([
   'seed', 'seat', 'endRound', 'grade6AtFinal', 'grade6AtEnd', 'hidden', 'coinsAtFinal', 'buckwheatAtFinal', 'firstGrade6Round', 
   'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round', 'draws', 'tames', 'jigeGrants', 'jigeUses', 'jigeHeld', 'tameTries',
   'muk10', 'muk20', 'muk30', 'muk40', 'muk50', 'muk60', 'muk70', 'huntKills', 'huntFled', 'huntBest', 'huntMuk', 'sold', 'yeoksinKills', 'boss10', 'boss20', 'boss30', 'boss40', 'boss50', 'boss60', 'boss70',
+  'exclusive', 'hidden6', 'itemMuk',
 ]);
 const NULLABLE_COLS = new Set([
   'firstGrade6Round', 'firstSource', 'buckwheat9Round', 'buckwheat12Round', 'coins180Round', 'coins240Round',

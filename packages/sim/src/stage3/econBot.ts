@@ -1,6 +1,6 @@
 import {
-  availableRecipes, boardDps, buyBlock, countNormalEnemies, gambleCheck, huntCheck, huntHp, jigeCandidates, shopItem, tameCheck,
-  unitAttack, unitDefFast,
+  availableRecipes, boardDps, buyBlock, countNormalEnemies, gambleCheck, huntCheck, huntHp, isEvolved, isTamedKind, jigeCandidates,
+  shopItem, tameCheck, unitAttack, unitDefFast,
   type Command, type GambleCommand, type GameState,
 } from '@dorandi/logic';
 import type { Bot } from '../bots';
@@ -153,6 +153,41 @@ export function tameCommands(state: GameState, target: string | null): Command[]
   return [];
 }
 
+/**
+ * One step per decision toward an exclusive recipe whose recruit is on the board with a partner the target does not
+ * keep (`reserved` units do not count as spare), or toward the target itself when it is that recipe's result: combine
+ * once the recruit is evolved (left to the target bot's own recipe pass for the target), else attach a held evolve
+ * charm, else buy one when the 묵 and 냥 for both the charm and the recipe are there above the target's needs.
+ */
+export function evolveCommands(state: GameState, target: string | null, reserved: ReadonlyMap<string, number> = new Map()): Command[] {
+  const charm = state.data.economy?.shop?.items.find(i => i.effect.kind === 'evolve');
+  if (!charm || !state.econ) return [];
+  const kept = target ? remainingNeed(state, target, reserved).kept : new Map<string, number>();
+  const count = (id: string) => state.slots.filter(u => u?.defId === id).length;
+  for (const r of state.data.recipes) {
+    if (r.kind !== 'tame') continue;
+    const recruit = r.materials.find(m => isTamedKind(state.data, m));
+    const partners = r.materials.filter(m => m !== recruit);
+    if (!recruit || count(recruit) === 0) continue;
+    const own = r.result === target;
+    if (!own && partners.some(p => count(p) - (kept.get(p) ?? 0) - (reserved.get(p) ?? 0) < 1)) continue;
+    const muk = (r.cost?.buckwheat ?? 0);
+    const coins = (r.cost?.coins ?? 0);
+    const spareMuk = state.buckwheat - buckwheatNeed(state, target);
+    const spareCoins = state.coins - reserveCoins(state, target);
+    if (state.slots.some(u => u?.defId === recruit && isEvolved(state.data, u))) {
+      if (own) return [];
+      return availableRecipes(state).includes(r.result) && spareMuk >= muk && spareCoins >= coins ? [{ type: 'combine', result: r.result }] : [];
+    }
+    const slot = state.slots.findIndex(u => u?.defId === recruit);
+    if ((state.econ.items?.[charm.id] ?? 0) > 0) return [{ type: 'attachItem', item: charm.id, slot, unitId: state.slots[slot]!.id }];
+    if (buyBlock(state, charm.id) === null && spareMuk >= muk + (charm.buckwheat ?? 0) && spareCoins >= coins + charm.coins) {
+      return [{ type: 'buyItem', item: charm.id }];
+    }
+  }
+  return [];
+}
+
 /** Grade-1 value still missing for `target` once holdings are counted. */
 export function remainingValue(state: GameState, target: string): number {
   const { missing } = remainingNeed(state, target);
@@ -215,11 +250,12 @@ export function itemCommands(state: GameState, item: string, reserve: number): {
   return { commands: [], saving: why === null || why === 'noCoins' };
 }
 
-/** Coins the commands would spend if applied in order (combine and tame costs, 격파 fees); sales are not counted. */
+/** Coins the commands would spend if applied in order (combine, tame and item costs, 격파 fees); sales are not counted. */
 export function coinsSpent(state: GameState, commands: Command[]): number {
   let n = 0;
   for (const c of commands) {
     if (c.type === 'combine') n += state.data.recipes.find(r => r.result === c.result)?.cost?.coins ?? 0;
+    else if (c.type === 'buyItem') n += shopItem(state.data, c.item)?.coins ?? 0;
     else if (c.type === 'hunt') n += state.data.economy?.hunts?.targets.find(t => t.enemy === c.enemy)?.fee ?? 0;
     else if (c.type === 'tame') {
       const e = state.enemies.find(x => x.id === c.enemyId);
