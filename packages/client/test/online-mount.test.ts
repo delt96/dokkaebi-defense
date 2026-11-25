@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { FullMsg } from '@dorandi/logic';
+import { buildFull, createMatch, loadGameData, roundStartTick, type FullMsg } from '@dorandi/logic';
+import { jumpToTick, placeUnitForTest, withoutMarketLock } from '@dorandi/logic/testing';
 import { NetClient } from '../src/net/NetClient';
 import { NetDriver } from '../src/net/NetDriver';
 import { FORFEIT_TEXT, onlineActions } from '../src/online/spirit';
 import { mountUi, type OnlineActions } from '../src/ui/mount';
+import { unitCard } from '../src/ui/models';
 import { FakeRoom, STAGE_HTML, data, fixtureFull, key, press } from './fixtures/net';
 
 class FakeScene {
@@ -31,6 +33,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   for (const [type, fn] of listeners.splice(0)) window.removeEventListener(type, fn);
+  delete document.documentElement.dataset.wins;
   vi.restoreAllMocks();
 });
 
@@ -335,5 +338,133 @@ describe('online helper and card off the next list', () => {
     expect(document.querySelector('#bottom .card-none')!.textContent).toBe('지금 가능 없음 · Q 도우미');
     expect(document.querySelector('#bottom [data-action="combine"], #bottom .combine-missing')).toBeNull();
     expect(document.querySelector('#bottom')!.textContent).not.toContain('부족');
+  });
+});
+
+describe('online helper and card in the side windows', () => {
+  const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel);
+  const helperWin = () => $('#win-left .helper-win');
+  const pressedScope = () => helperWin()?.querySelector('.scope-btn[aria-pressed="true"]')?.getAttribute('data-arg');
+  function withUnits() {
+    const full = fixtureFull();
+    full.mine.units = full.mine.units.map(() => null);
+    ['sotlid', 'bujigaengi'].forEach((defId, i) => { full.mine.units[i] = { id: 30 + i, defId }; });
+    return mountOnline(full);
+  }
+  /** Stage 3 with the market open: seat 1 at the start of round 3 with a sotlid at slot 0. */
+  function mountStage3() {
+    const d3 = withoutMarketLock(loadGameData('stage3'));
+    const match = createMatch(d3, 5, [1, 2]);
+    jumpToTick(match, roundStartTick(d3, 3) + 1);
+    placeUnitForTest(match.lanes[1]!, 'sotlid', 0);
+    const full = buildFull(match, 1, { watching: 1, names: { 1: '가', 2: '나' }, key: 'k', n: 0 });
+    const room = new FakeRoom();
+    const net = new NetClient(room, full.dataVersion);
+    room.emit('full', full);
+    const driver = new NetDriver(net, d3, () => clock);
+    driver.update(16);
+    const scene = new FakeScene();
+    mountUi(driver, scene as never, {}, { online: true, view: () => net.view, data: d3, actions: { support: vi.fn(), watch: vi.fn(), forfeit: vi.fn() } });
+    return { room, driver, scene };
+  }
+
+  test('outside, Q opens the helper in the left window and the six rows stay in view', () => {
+    document.documentElement.dataset.wins = 'outside';
+    const { room, scene } = withUnits();
+    key('KeyQ');
+    expect(helperWin()).not.toBeNull();
+    expect(helperWin()!.getAttribute('role')).toBe('dialog');
+    expect(helperWin()!.querySelector('.win-head .win-title')!.textContent).toBe('조합 도우미 (Q)');
+    expect(Array.from(helperWin()!.querySelectorAll('.scope-btn'), b => b.getAttribute('title'))).toEqual(['Shift+Q', 'Shift+Q']);
+    expect(helperWin()!.querySelector('.win-body.helper [data-action="combine"]')).not.toBeNull();
+    expect($('#left .helper-pop')).toBeNull();
+    expect(document.querySelectorAll('#left .lane-row')).toHaveLength(6);
+    expect(pressedScope()).toBe('all');
+    expect(room.cmds('helperOpened')).toHaveLength(1);
+    // a row under the mouse in the window lights its cells on the board, as in the helper over the rows
+    helperWin()!.querySelector('[data-recipe="gamasot"]')!.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+    expect((scene as unknown as { boardMarks: { focus: unknown } }).boardMarks.focus).not.toBeNull();
+    key('KeyQ');
+    expect($('#win-left')!.innerHTML).toBe('');
+    scene.select(0);
+    key('KeyQ');
+    expect(pressedScope()).toBe('unit');
+    key('KeyQ', { shiftKey: true });
+    expect(pressedScope()).toBe('all');
+    expect(room.cmds('helperOpened')).toHaveLength(2);
+  });
+
+  test('inside, Q keeps the helper over the six rows', () => {
+    withUnits();
+    key('KeyQ');
+    expect($('#left .helper-pop')).not.toBeNull();
+    expect($('#win-left')!.innerHTML).toBe('');
+    expect($('#left')!.inert).toBe(false);
+  });
+
+  test('a resize with the helper open moves it between the window and the rows without closing it', () => {
+    const { room } = withUnits();
+    key('KeyQ');
+    expect($('#left .helper-pop')).not.toBeNull();
+    document.documentElement.dataset.wins = 'outside';
+    key('KeyW');
+    expect(helperWin()).not.toBeNull();
+    expect($('#left .helper-pop')).toBeNull();
+    expect(room.cmds('helperOpened')).toHaveLength(1);
+  });
+
+  test('the close button and Esc close the helper window', () => {
+    document.documentElement.dataset.wins = 'outside';
+    withUnits();
+    key('KeyQ');
+    press(helperWin()!.querySelector('.win-close'));
+    expect(helperWin()).toBeNull();
+    key('KeyQ');
+    key('Escape');
+    expect(helperWin()).toBeNull();
+  });
+
+  test('Q does nothing while a locking window is up, except in the settings', () => {
+    document.documentElement.dataset.wins = 'outside';
+    withUnits();
+    press($('#top [data-action="openMenu"]'));
+    key('KeyQ');
+    expect(helperWin()).toBeNull();
+  });
+
+  test('the helper and the market are open together; 상세 replaces the helper', () => {
+    document.documentElement.dataset.wins = 'outside';
+    const { scene } = mountStage3();
+    key('KeyQ');
+    key('KeyB');
+    expect(helperWin()).not.toBeNull();
+    expect($('#win-right .econ-panel')).not.toBeNull();
+    scene.select(0);
+    key('Tab');
+    expect($('#win-left .unit-details')).not.toBeNull();
+    expect(helperWin()).toBeNull();
+    expect($('#left .helper-pop')).toBeNull();
+    expect($('#win-right .econ-panel')).not.toBeNull();
+  });
+
+  test('the card name opens 상세', () => {
+    const { driver, scene } = withUnits();
+    scene.select(0);
+    const name = $<HTMLButtonElement>('#bottom button.unit-info[data-action="unitDetails"]')!;
+    expect(name).not.toBeNull();
+    expect(name.textContent!.trim().endsWith('▸')).toBe(true);
+    expect(name.title).toBe(unitCard(driver.state, 0)!.skillText);
+    // the unit line and the attack line stay as they were
+    expect(name.textContent).toContain(unitCard(driver.state, 0)!.name);
+    expect(name.textContent).toContain('공격');
+    press(name);
+    expect($('#win-left .unit-details')).not.toBeNull();
+  });
+
+  test('online J opens the quest window without darkening the board', () => {
+    mountStage3();
+    key('KeyJ');
+    expect($('#win-right .quest-modal')).not.toBeNull();
+    expect($('#modal .modal')).toBeNull();
   });
 });

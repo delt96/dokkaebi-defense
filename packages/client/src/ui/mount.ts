@@ -88,8 +88,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   const dexSearched = (term: string) => { dexRecent = addRecent(dexRecent, term); saveRecent(dexRecent); };
   // the list the dex scroll position belongs to: a new filter or search starts at the top
   let dexListKey = '';
-  // online: the helper over the six rows (Q)
-  let helperOpen = false;
   // solo left panel: the list scope follows the selection (see syncSelection); idleList is the settings row
   let scope: NextScope = 'all';
   let idleList = true;
@@ -128,6 +126,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let helpLine = readHelpLine();
   let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | null = null;
   let sides: Sides = NO_SIDES;
+  // online Q: the left window beside the board, or laid over the six rows when the windows sit on the board
+  const helperOpen = () => sides.left === 'helper';
   const locked = () => sidesLocked({
     locking: modal !== null || (!online && driver.state.phase === 'ended'),
     paused: !online && userPaused,
@@ -318,8 +318,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         driver.queue({ type: 'tame', enemyId: t.enemyId });
         break;
       }
-      // online Q and the helper title flip it; the settings row sets it (solo: the list with nothing selected). Neither closes a window.
-      case 'toggleHelper': if (online) setHelper(!helperOpen); break;
+      // online Q and the helper title flip it; the settings row sets it (solo: the list with nothing selected). Online it takes the left window's place.
+      case 'toggleHelper': if (online) setHelper(!helperOpen()); break;
       case 'setHelper': if (online) setHelper(arg === 'on'); else idleList = arg === 'on'; break;
       case 'nextScope': {
         const next: NextScope = arg === 'unit' ? 'unit' : 'all';
@@ -472,14 +472,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   }
 
   function setHelper(on: boolean): void {
-    if (on === helperOpen) return;
-    helperOpen = on;
-    if (on) {
-      const id = selectedSlot(driver.state, scene.selectedId) === null ? null : scene.selectedId;
-      syncSelection(id);
-      scope = id === null ? 'all' : 'unit';
+    if (on === helperOpen()) return;
+    if (!on) {
+      sides = closeSide(sides, 'left');
+      return;
     }
-    if (on && !driver.readOnly) driver.queue({ type: 'helperOpened' });
+    sides = openSide(sides, 'helper');
+    const id = selectedSlot(driver.state, scene.selectedId) === null ? null : scene.selectedId;
+    syncSelection(id);
+    scope = id === null ? 'all' : 'unit';
+    if (!driver.readOnly) driver.queue({ type: 'helperOpened' });
   }
 
   for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) onAction(el(id), act);
@@ -500,18 +502,20 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   };
   scene.onBoardDrag = on => el('storage').classList.toggle('board-drag', on);
   // a hovered row lights its cells on the board; touch has no hover (selecting a unit shows its pairs instead)
-  el('left').addEventListener('pointerover', ev => {
-    if (ev.pointerType === 'touch') return;
-    const row = (ev.target as Element).closest<HTMLElement>('[data-recipe]')?.dataset.recipe ?? null;
-    if (row === hoverRow) return;
-    hoverRow = row;
-    render();
-  });
-  el('left').addEventListener('pointerleave', () => {
-    if (hoverRow === null) return;
-    hoverRow = null;
-    render();
-  });
+  for (const id of ['left', 'win-left']) {
+    el(id).addEventListener('pointerover', ev => {
+      if (ev.pointerType === 'touch') return;
+      const row = (ev.target as Element).closest<HTMLElement>('[data-recipe]')?.dataset.recipe ?? null;
+      if (row === hoverRow) return;
+      hoverRow = row;
+      render();
+    });
+    el(id).addEventListener('pointerleave', () => {
+      if (hoverRow === null) return;
+      hoverRow = null;
+      render();
+    });
+  }
   el('modal').addEventListener('submit', ev => {
     const form = ev.target as HTMLFormElement;
     if (!form.matches('.dex-search, .dex-skillsearch')) return;
@@ -648,6 +652,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const quests = ev.code === 'KeyJ' && !!driver.state.data.economy;
     const market = ev.code === 'KeyB' && !!driver.state.data.economy?.market;
     const jige = ev.code === 'KeyR' && !!driver.state.data.economy?.market;
+    const helperKey = online && ev.code === 'KeyQ';
     const card = displayedCard;
     if (ev.code === 'Tab') {
       // on a window or panel button Tab moves the focus as usual; elsewhere it opens and closes the selected unit's 상세
@@ -658,8 +663,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       else if (card?.unitId != null) act('unitDetails', '');
       return;
     }
-    if (ev.code === 'KeyE' || buy || quests || market || jige) {
+    if (ev.code === 'KeyE' || buy || quests || market || jige || helperKey) {
       if (locked()) return;
+      // online Q opens and closes the helper, so Shift+Q flips its scope while it is open
+      if (helperKey) {
+        if (!ev.shiftKey) act('toggleHelper', '');
+        else if (helperOpen()) {
+          syncSelection(scene.selectedId);
+          act('nextScope', scope === 'unit' ? 'all' : 'unit');
+        }
+        return;
+      }
       if (jige) {
         if (sides.left === 'jige') act('closeWin', 'left');
         else if (card?.unitId != null) act('jigeOpen', `board:${card.unitId}`);
@@ -675,16 +689,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (ev.code === 'KeyD') act('openDex', '');
     else if (ev.code === 'KeyQ') {
-      // online Q opens and closes the helper, so Shift+Q flips its scope; solo Q is the scope key and Shift+Q does nothing
-      if (online && ev.shiftKey) {
-        if (helperOpen) {
-          syncSelection(scene.selectedId);
-          act('nextScope', scope === 'unit' ? 'all' : 'unit');
-        }
-      }
-      else if (online) act('toggleHelper', '');
-      else if (ev.shiftKey) return;
-      else if (selectedSlot(driver.state, scene.selectedId) !== null) {
+      // solo Q is the scope key and Shift+Q does nothing
+      if (ev.shiftKey) return;
+      if (selectedSlot(driver.state, scene.selectedId) !== null) {
         syncSelection(scene.selectedId);
         act('nextScope', scope === 'unit' ? 'all' : 'unit');
       }
@@ -747,7 +754,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (!info) inspectedStack = null;
     const infoHtml = info ? storageInfoHtml(s, info) : '';
     const list = nextCombines(s, { target: targetId, slot: selected, scope });
-    const listShown = view && opts.data ? helperOpen : s.phase !== 'ended' && !infoHtml;
+    const listShown = view && opts.data ? helperOpen() : s.phase !== 'ended' && !infoHtml;
     const hovered = (listShown && list.rows.find(r => r.result === hoverRow)) || null;
     if (!hovered) hoverRow = null;
     // Z/X/C keys come from the selected unit's own list whatever scope the panel shows
@@ -764,12 +771,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     setHtml(el('target-overlay'), target && s.phase !== 'ended' ? targetHtml(target, targetFolded) : '');
     el('stage').classList.toggle('has-target', !!el('target-overlay').firstChild);
     const leftFocus = focusedIn(el('left'));
+    // design ⑩: beside the board the helper is the left window and the six rows stay in view
+    const helperFrame = currentWins() === 'outside' ? 'win' : 'pop';
+    let helperWin = '';
     if (view && opts.data) {
       renderTop(view, opts.data);
-      const helper = helperOpen ? helperPopHtml(s, list, {
+      const helper = helperOpen() ? helperPopHtml(s, list, {
         unitId: selected === null ? null : s.slots[selected]?.id ?? null, scope, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne,
-      }) : '';
-      renderRows(view, opts.data, helper, flashingSeats(now));
+      }, helperFrame) : '';
+      if (helperFrame === 'win') helperWin = helper;
+      renderRows(view, opts.data, helperFrame === 'win' ? '' : helper, flashingSeats(now));
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
@@ -813,7 +824,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const soloResult = !online && s.phase === 'ended';
     const lockOpen = modal !== null || soloResult;
     const wins = currentWins();
-    renderSides(s, wins, selected);
+    renderSides(s, wins, selected, helperWin);
     const covered = coveredIds(wins, sides);
     const leftCovered = covered.includes('left');
     // design ⑤: a pillar over the left panel leaves no focus behind it, or Space would press the hidden button
@@ -841,7 +852,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen() : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
@@ -854,7 +865,7 @@ ${dex.mine.join()}`;
   }
 
   /** Draws each side window into its box as a non-modal dialog named by its head title. */
-  function renderSides(s: GameState, wins: WinPlace, selected: number | null): void {
+  function renderSides(s: GameState, wins: WinPlace, selected: number | null, helperWin: string): void {
     const e = econ();
     shownMarket = sides.right === 'market' && e ? marketModel(e, s) : null;
     if ((sides.right === 'quests' && !e) || (sides.right === 'market' && !shownMarket)) sides = closeSide(sides, 'right');
@@ -869,6 +880,7 @@ ${dex.mine.join()}`;
     const leftBox = el('win-left');
     const leftMark = focusedIn(leftBox);
     setHtml(leftBox, sides.left === 'details' && selected !== null ? unitDetailsHtml(s, selected, targetId)
+      : sides.left === 'helper' ? helperWin
       : section('left', sides.left === 'jige' && jigeList ? { cls: 'jige-modal', html: jigeListHtml(s.data, jigeList, e?.jige ?? 0) } : null));
     refocusIn(leftBox, leftMark, '.win-close');
     const active = document.activeElement as HTMLElement | null;
@@ -1011,7 +1023,6 @@ ${dex.mine.join()}`;
     targetId = null;
     writeTarget(opts.targetKey, null);
     targetFolded = false;
-    helperOpen = false;
     scope = 'all';
     hoverRow = null;
     movingId = null;

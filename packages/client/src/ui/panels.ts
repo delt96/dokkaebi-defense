@@ -173,9 +173,9 @@ export function renderBottom(
   const { unitId, recipes } = pick;
   const keyed = recipes.filter(option => option.key);
   const options = keyed.length ? compactRecipes(state, keyed, unitId, 2) : '<span class="card-none">지금 가능 없음 · Q 도우미</span>';
-  setHtml(el('bottom'), `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
+  setHtml(el('bottom'), `<div class="card"><button class="unit-info" data-action="unitDetails" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
         <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}</span>
-        <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${attackRangeText(state.data, card.range)}</span></span>
+        <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${attackRangeText(state.data, card.range)}</span><span class="ui-open" aria-hidden="true">▸</span></button>
         ${options}
         <button data-action="unitDetails">상세(Tab)</button>
         ${jigeHtml(state, selected!, unitId, jige)}
