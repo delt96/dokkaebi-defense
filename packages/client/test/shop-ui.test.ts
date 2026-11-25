@@ -254,6 +254,32 @@ describe('the online card menu lists held items', () => {
   beforeEach(() => { document.body.innerHTML = STAGE_HTML; });
   afterEach(() => { vi.restoreAllMocks(); });
 
+  test('with nothing held the menu says where items come from', async () => {
+    const { buildFull, createMatch, roundStartTick } = await import('@dorandi/logic');
+    const { jumpToTick } = await import('@dorandi/logic/testing');
+    const { NetClient } = await import('../src/net/NetClient');
+    const { NetDriver } = await import('../src/net/NetDriver');
+    const { FakeRoom } = await import('./fixtures/net');
+    const clock = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    const match = createMatch(d3, 5, [1, 2]);
+    jumpToTick(match, roundStartTick(d3, 12) + 1);
+    const lane = match.lanes[1]!;
+    lane.econ!.marketOpen = true;
+    placeUnitForTest(lane, d3.units.find(u => !u.hidden && u.grade === 3)!.id, 2);
+    const room = new FakeRoom();
+    const full = () => buildFull(match, 1, { watching: 1, names: { 1: '가', 2: '나' }, key: 'k', n: 0 });
+    const net = new NetClient(room, full().dataVersion);
+    room.emit('full', full());
+    const driver = new NetDriver(net, d3, () => clock);
+    driver.update(16);
+    const scene = new FakeScene();
+    mountUi(driver, scene as never, {}, { online: true, view: () => net.view, data: d3, actions: { support() {}, watch() {}, forfeit() {} } });
+    scene.select!(2);
+    press(document.querySelector('#bottom [data-action="itemMenu"]'));
+    expect(document.querySelector('#bottom .item-pop .item-hint')?.textContent).toBe('장터(B) 아이템 탭에서 삽니다');
+  });
+
   test('the menu reads the held count from the shop view and drops it after the ack', async () => {
     const { buildFull, createMatch, roundStartTick } = await import('@dorandi/logic');
     const { jumpToTick } = await import('@dorandi/logic/testing');

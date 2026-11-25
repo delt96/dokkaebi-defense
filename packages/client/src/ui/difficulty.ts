@@ -17,7 +17,7 @@ export function difficultySuffix(data: GameData, difficulty?: Difficulty): strin
 export function difficultyRuleText(difficulty: Difficulty, data: GameData = loadGameData('stage3')): string {
   const rule = data.balance.difficulties?.[difficulty];
   const rounds = rule?.rounds ?? data.balance.rounds;
-  const tokens = rule && rule.tokensPerRound !== data.balance.tokens.perRound ? ` · 도깨비불 ${rule.tokensPerRound}개` : '';
+  const tokens = rule && rule.tokensPerRound !== data.balance.tokens.perRound ? ` · 라운드마다 도깨비불 ${rule.tokensPerRound}개` : '';
   return `${rounds}라운드 · 약 ${playMinutes(data, rounds)}분 · 적 체력 ${Math.round((rule?.hpScale ?? 1) * 100)}%${tokens}`;
 }
 

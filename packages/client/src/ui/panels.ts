@@ -194,7 +194,8 @@ function itemLineHtml(card: UnitCard, unitId: number | null, shop: ShopView | nu
 }
 
 function itemPopHtml(card: UnitCard, unitId: number, shop: ShopView, tamed: boolean): string {
-  return `<div class="item-pop" role="group" aria-label="아이템 붙이기"><b>아이템 붙이기</b>${attachButtons(shop, unitId, true, tamed)}
+  const none = !shop.items.some(i => i.held > 0) ? '<small class="item-hint">장터(B) 아이템 탭에서 삽니다</small>' : '';
+  return `<div class="item-pop" role="group" aria-label="아이템 붙이기"><b>아이템 붙이기</b>${attachButtons(shop, unitId, true, tamed)}${none}
     ${card.item ? `<small class="item-warn">${esc(card.item.name)} · ${REPLACE_ITEM_TEXT}</small>` : ''}</div>`;
 }
 

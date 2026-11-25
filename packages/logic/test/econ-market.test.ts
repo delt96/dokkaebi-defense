@@ -66,6 +66,17 @@ describe('market in a match and boss drops', () => {
     expect(gradeOf(d3, full.slots[0]!.defId)).toBe(3);
   });
 
+  test('a dev jump past the unlock boss opens the market, as if that boss fell; an earlier jump leaves it shut', () => {
+    const unlock = locked.economy!.market!.openAfterBossRound!;
+    const past = createMatch(locked, 1, [1, 2]);
+    jumpToTick(past, roundStartTick(locked, unlock + 2));
+    expect(past.lanes[1]!.econ!.marketOpen).toBe(true);
+    expect(past.lanes[2]!.econ!.marketOpen).toBe(true);
+    const before = createMatch(locked, 1, [1, 2]);
+    jumpToTick(before, roundStartTick(locked, unlock));
+    expect(before.lanes[1]!.econ!.marketOpen).toBe(false);
+  });
+
   test('a round 20 boss killed after the shared clock enters 21 drops its material and records time in round 20', () => {
     const m = createMatch(d3, 1, [1, 2]);
     jumpToTick(m, roundStartTick(d3, 20));

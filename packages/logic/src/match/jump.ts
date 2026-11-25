@@ -1,6 +1,7 @@
 import type { MatchState } from './types';
 import { waveOf } from '../flow';
 import { roundAtTick, roundStartTick } from './schedule';
+import { openMarketAfterBoss } from '../econ/market';
 
 /**
  * Fast-forwards a match to `tick` with empty lanes (the server's dev-only `devJumpTick` room option and tests); the next stepMatch
@@ -27,6 +28,8 @@ export function jumpToTick(match: MatchState, tick: number): void {
     lane.roundStartTick = match.roundStartTick;
     lane.roundEndTick = match.roundEndTick;
     if (r === 0) continue;
+    // the skipped rounds' bosses count as fallen, so a practice board past the unlock round has its market
+    openMarketAfterBoss(lane, r - 1);
     lane.spawned = waveOf(lane, r).type === 'boss' ? 1 : data.balance.spawnCount;
     if (lane.stats[lane.stats.length - 1]?.round !== r) {
       lane.stats.push({ round: r, hpSpawned: 0, damageDealt: 0, damageInRound: 0, maxEnemies: 0, endEnemies: 0, bossKillSeconds: null });

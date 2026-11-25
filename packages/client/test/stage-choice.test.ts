@@ -109,7 +109,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     renderEntry(root, { onSubmit: async () => {} });
     const labels = Array.from(root.querySelectorAll<HTMLButtonElement>('.entry-difficulty [data-difficulty]')).map(b => b.textContent);
     expect(labels).toEqual(['쉬움', '보통', '어려움', '지옥']);
-    expect(difficultyRuleText('hell')).toBe('70라운드 · 약 45분 · 적 체력 100% · 도깨비불 2개');
+    expect(difficultyRuleText('hell')).toBe('70라운드 · 약 45분 · 적 체력 100% · 라운드마다 도깨비불 2개');
     expect(difficultyRuleText('hard')).toBe('70라운드 · 약 45분 · 적 체력 100%');
     expect(hudModel(createGame(loadGameData('stage3'), 1, 'hell')).roundText).toContain('지옥');
   });
