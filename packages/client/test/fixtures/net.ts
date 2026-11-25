@@ -35,7 +35,7 @@ export function fixtureFull(seats: number[] = [1, 2]): FullMsg {
 
 /** The page elements the battle UI draws into (as in index.html). */
 export const STAGE_HTML = `<div id="win-left" class="win-box"></div><div id="stage"><div id="top"></div><div id="left"></div><div id="lane"></div><div id="right"></div>
-  <div id="bottom"></div><div id="round-banner"></div><div id="modal"></div><div id="alert"></div>
+  <div id="bottom"></div><div id="round-banner" aria-hidden="true"></div><div id="modal"></div><div id="alert"></div>
   <div id="error" hidden><span id="error-message"></span><button id="error-restart" data-action="restart">다시 하기</button></div></div>
   <div id="win-right" class="win-box"></div><div id="screen"></div>`;
 

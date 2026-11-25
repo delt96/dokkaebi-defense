@@ -12,7 +12,7 @@ import { currentWins } from '../fit';
 import { gameAudio } from '../audio/engine';
 import { wireAudioSettings } from '../audio/settings-ui';
 import { playGamblePress, playGambleResult } from '../sfx';
-import { BIRTH_MS, BirthHold, FirstSix, birthBanner, birthSource, type BirthAlert } from './birth';
+import { BIRTH_MS, BirthHold, FirstSix, birthBanner, birthLine, birthSource, type BirthAlert } from './birth';
 import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
@@ -23,13 +23,13 @@ import {
   advanceReveal, gambleHistoryHtml, gambleInfoHtml, gambleRevealHtml, heldCoins, recordGamble,
   revealDisplay, revealResultAt, startReveal, type GambleHistoryEntry, type Reveal, type RevealDisplay,
 } from './gamble';
-import { el, focusedIn, onAction, refocusIn, setHtml } from './dom';
+import { el, esc, focusedIn, onAction, refocusIn, setHtml } from './dom';
 import { helperPopHtml } from './helper';
 import { edgeLevel, renderAlert, renderHud } from './hud';
-import { loopOwner } from './signals';
+import { loopOwner, TopSlot, type SlotItem, type SlotShown } from './signals';
 import { PressConfirm } from './confirm';
 import {
-  activeNotice, boardMarks, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, NO_MARKS, moveStep, nextCombines, nextPick, nextUnitId,
+  activeNotice, boardMarks, hudModel, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, NO_MARKS, moveStep, nextCombines, nextPick, nextUnitId,
   pinnedTarget, rejectText, rowCells, selectedSlot, type DexNav, type MoveInput, type NextScope, type Notice,
 } from './models';
 import { renderBottom, renderRight, soloPanelHtml, unitDetailsHtml, upgradesHtml } from './panels';
@@ -44,6 +44,9 @@ const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
 };
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
+const BANNER_MS = 1800;
+/** The slot's words fade out over this long before their time is up (CSS .out). */
+const SLOT_OUT_MS = 110;
 const CONFIRM_SELL_GRADE = 3;
 /** Economy notices stay a little longer than a refusal. */
 const NOTE_MS = 2500;
@@ -81,7 +84,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let inspectedStack: string | null = null;
   let targetId = readTarget(opts.targetKey);
   let targetFolded = false;
-  let banner: Notice | null = null;
   let noticeNarrow = false;
   // the dex keeps its filters, search and recent searches across openings (and, in localStorage, across visits)
   let dex: DexNav = { ...dexNavStart(), ...loadView() };
@@ -174,11 +176,22 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   const births = new BirthHold();
   const firstSix = new FirstSix();
   const flashUntil = new Map<number, number>();
+  // design ⑲: another player's birth shows on their row only (the row text is drawn from this)
+  const peerBirth = new Map<number, { name: string; hidden: boolean; until: number }>();
+  // design ⑰: the one notice slot over the lane; #round-banner draws what it shows
+  const topSlot = new TopSlot();
+  const slotNote = (text: string, ms = NOTICE_MS, say?: string) => {
+    topSlot.push({ kind: 'note', text, ms, ...(say ? { say } : {}) }, performance.now());
+  };
+  scene.onToast = (text, color) => topSlot.push({ kind: 'note', text, ms: NOTICE_MS, color }, performance.now());
   function showBirth(alert: BirthAlert, mine: boolean): void {
-    scene.showBirth(birthBanner(opts.data ?? driver.state.data, alert, { mine, team: online }));
+    const data = opts.data ?? driver.state.data;
+    const b = birthBanner(data, alert, { mine, team: online });
+    const now = performance.now();
     gameAudio.play('sparkle');
-    if (!mine) gameAudio.play('combineBig');
-    if (online && alert.seat !== undefined) flashUntil.set(alert.seat, performance.now() + BIRTH_MS);
+    if (mine) topSlot.push({ kind: 'birth', birth: b, ms: BIRTH_MS, text: birthLine(b), say: `${birthLine(b)} · ${b.title}` }, now);
+    if (online && alert.seat !== undefined) flashUntil.set(alert.seat, now + BIRTH_MS);
+    if (!mine && alert.seat !== undefined) peerBirth.set(alert.seat, { name: b.title, hidden: !!unitDefFast(data, alert.defId).hidden, until: now + BIRTH_MS });
   }
   function ownBirth(alert: BirthAlert): void {
     const ready = alert.via === 'gamble' ? births.hold(alert) : alert;
@@ -190,12 +203,27 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   }
   driver.onBirthNotice?.((alert, mine) => (mine ? ownBirth(alert) : showBirth(alert, false)));
   const econ = (): EconMine | null => driver.econ?.() ?? null;
-  const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
-  const refuse = (text: string) => { gameAudio.play('error'); say(text); };
+  const say = (text: string, ms = NOTICE_MS) => slotNote(text, ms);
+  // refusals keep the HUD / banner fallback spot until they get their own box over the button
+  const refuse = (text: string) => { gameAudio.play('error'); notice = { text, until: performance.now() + NOTICE_MS }; };
   for (const id of ['econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
     if (document.getElementById(id)) continue;
     const node = document.createElement('div');
     node.id = id;
+    el('stage').append(node);
+  }
+  if (!document.getElementById('slot-row')) {
+    const row = document.createElement('div');
+    row.id = 'slot-row';
+    row.innerHTML = '<div id="gate-near" aria-hidden="true"></div><div id="limit-instant"></div>';
+    el('stage').append(row);
+  }
+  if (!document.getElementById('slot-say')) {
+    const node = document.createElement('div');
+    node.id = 'slot-say';
+    node.className = 'sr-only';
+    node.setAttribute('role', 'status');
+    node.setAttribute('aria-atomic', 'true');
     el('stage').append(node);
   }
   for (const side of SIDES) {
@@ -561,7 +589,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const boss = wave?.type === 'boss' && driver.state.data.enemies.find(e => e.id === wave.boss);
         const reward = event.round > 1 && !driver.readOnly ? `${event.round - 1}라운드 종료 · +${driver.state.data.balance.coins.roundEnd}냥` : '';
         const title = `${event.round}라운드${boss ? ' · 고개 보스: ' + boss.name : ''}`;
-        banner = { text: [reward, title].filter(Boolean).join('\n'), until: performance.now() + 1800 };
+        topSlot.push({ kind: 'banner', text: [reward, title].filter(Boolean).join('\n'), ms: BANNER_MS }, performance.now());
       }
     }
     if (revealEpoch !== driver.laneEpoch) {
@@ -803,15 +831,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         selected, list, idleList, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
       }));
     }
-    // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
-    // lane is full, so the line goes to the notices in the right column instead
     const prompts = renderEcon(view, selected);
-    const bannerText = s.phase === 'ended' ? '' : activeNotice(banner, now) ?? (view ? activeNotice(notice, now) ?? '' : '');
-    const bannerEl = el('round-banner');
-    bannerEl.classList.toggle('low', prompts === 1);
-    const oneLine = bannerText.replace(/\n/g, ' · ');
-    bannerEl.textContent = prompts >= 2 ? '' : prompts === 1 ? oneLine : bannerText;
-    const moved = prompts >= 2 && bannerText ? [oneLine] : [];
+    if (s.phase === 'ended') topSlot.clear();
+    const shownSlot = s.phase === 'ended' ? null : topSlot.current(now, false);
+    const moved = renderSlot(shownSlot, prompts, view && s.phase !== 'ended' ? activeNotice(notice, now) : null, now);
+    renderSlotRow(s, view);
     if (view && driver.readOnly) {
       setHtml(el('right'), `<b class="watch-heading">고개 관전</b><p class="watch-hint">왼쪽에서 살아 있는 고개를 고르세요. 아래 카드로 엽전을 보낼 수 있습니다.</p>`);
     } else {
@@ -883,6 +907,57 @@ ${dex.mine.join()}`;
     shownModal = modal;
     dexListKey = dexShown ? listKey : '';
     hooks.onRender?.();
+  }
+
+  let slotItem: SlotItem | null = null;
+  let slotKey = '';
+  let spoken = '';
+  /**
+   * The top slot (#round-banner): words for banners, fallen notices and toasts; a birth is drawn on the board, so the
+   * box stays empty for it. Prompts over the lane push the words down a row, and with two prompts the band above the
+   * lane is full, so the line goes to the notices in the right column instead (returned). Online, a refusal still
+   * shows here while the slot is free (`fallback`).
+   */
+  function renderSlot(shown: SlotShown | null, prompts: number, fallback: string | null, now: number): string[] {
+    const item = shown?.item ?? null;
+    if (item !== slotItem) {
+      slotItem = item;
+      if (item?.kind === 'birth' && item.birth) scene.showBirth(item.birth);
+    }
+    const words = item ? (item.kind === 'birth' ? '' : item.text) : fallback ?? '';
+    const tail = item && item.kind !== 'birth' ? item.tail ?? '' : '';
+    const oneLine = words.replace(/\n/g, ' · ');
+    const body = prompts >= 2 ? '' : prompts === 1 ? oneLine : words;
+    const box = el('round-banner');
+    box.classList.toggle('low', prompts === 1);
+    box.classList.toggle('out', !!shown && shown.until - now <= SLOT_OUT_MS);
+    const kind = item?.kind ?? (fallback ? 'note' : '');
+    const key = `${kind}|${shown?.start ?? ''}|${body}|${tail}`;
+    if (key !== slotKey) {
+      slotKey = key;
+      for (const k of ['banner', 'fallen', 'note', 'birth']) box.classList.toggle(`k-${k}`, k === kind);
+      const color = item?.color === undefined ? '' : ` style="color:#${item.color.toString(16).padStart(6, '0')}"`;
+      box.innerHTML = body && prompts < 2
+        ? `<span class="slot-text"${color}>${esc(body)}${tail ? `<b class="slot-tail">${esc(tail)}</b>` : ''}</span>`
+        : '';
+    }
+    const sentence = (item ? item.say ?? item.text + tail : fallback ?? '').replace(/\n/g, ' · ');
+    if (sentence !== spoken) {
+      spoken = sentence;
+      el('slot-say').textContent = sentence;
+    }
+    return prompts >= 2 && words ? [oneLine + tail] : [];
+  }
+
+  /** The fixed row under the slot: design ⑤ on its right end (⑬ takes its left). */
+  function renderSlotRow(s: GameState, view: ClientView | null): void {
+    const hud = hudModel(s);
+    // online the stage may show another lane; the line is about my own
+    const mine = !view || view.watching === view.me.seat;
+    const instant = s.phase !== 'ended' && mine && hud.instant && (hud.level === 'danger' || hud.level === 'over');
+    const text = instant ? `${hud.limit + 1}마리면 바로 패배` : '';
+    const node = el('limit-instant');
+    if (node.textContent !== text) node.textContent = text;
   }
 
   /** Draws each side window into its box as a non-modal dialog named by its head title. */
@@ -1062,7 +1137,6 @@ ${dex.mine.join()}`;
     lastSelectedId = null;
     skillOpen = false;
     showAllOne = false;
-    banner = null;
     modal = null;
     sides = NO_SIDES;
     best = null;
@@ -1078,6 +1152,8 @@ ${dex.mine.join()}`;
     births.clear();
     firstSix.reset();
     flashUntil.clear();
+    peerBirth.clear();
+    topSlot.clear();
     marketCell?.remove();
     render();
   }

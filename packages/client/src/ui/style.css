@@ -249,7 +249,16 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .hud .round-block { display: flex; flex-direction: column; line-height: 11px; white-space: nowrap; }
 .hud .round-block .resist { font-size: 10px; color: #c9bfd8; }
 #round-banner, .countdown, #error { position: absolute; text-align: center; pointer-events: none; }
-#round-banner { top: 35px; left: 128px; width: 400px; white-space: pre-line; color: var(--accent); font-size: 13px; font-weight: bold; line-height: 17px; }
+/* design ⑰: the top slot, stage y 26 to 68; fixed size, so a notice coming or going moves nothing */
+#round-banner { top: 26px; left: 128px; width: 400px; height: 42px; display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 13px; font-weight: bold; line-height: 17px; text-shadow: 0 1px 2px #140c18; }
+#round-banner .slot-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-width: 100%; overflow: hidden; white-space: pre-line; }
+#round-banner.k-fallen { color: #ff9482; }
+#round-banner .slot-tail { color: #ff9482; }
+/* the fixed row under the slot, stage y 68 to 82: ⑬ on the left, ⑤ on the right end */
+#slot-row { position: absolute; left: 128px; top: 68px; width: 400px; height: 14px; z-index: 1; pointer-events: none; font-size: 10px; line-height: 14px; }
+#limit-instant { position: absolute; right: 4px; top: 0; color: #ff9482; font-size: 10px; font-weight: bold; white-space: nowrap; text-shadow: 0 1px 2px #140c18; }
+#limit-instant:empty { display: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .countdown { top: 50%; left: 328px; transform: translate(-50%, -50%); background: #32171ef0; border: 1px solid #ff836a; padding: 3px 10px; color: #ffb59f; font-size: 11px; }
 .countdown strong { display: block; color: white; font-size: 29px; }
 .countdown .cut { display: block; font-size: 10px; }
@@ -534,9 +543,17 @@ body.online #econ-bottom { top: 272px; height: 42px; }
 .q.done b { color: #9fe0a8; }
 .q button { min-height: 16px; padding: 0 4px; }
 /* one prompt row over the lane: the banner takes the second row, on one line */
-#round-banner.low { top: 47px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#round-banner.low { top: 47px; height: auto; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#round-banner.low .slot-text { display: inline; }
 /* design ⑯: an open pillar window (x <= 196, x >= 458) leaves the notices the board between them, x 200 to 454 */
 #stage.pillar-open #round-banner { left: 200px; width: 254px; }
+#stage.pillar-open #slot-row { left: 200px; width: 254px; }
+/* the round banner keeps its old stillness; toasts and fallen notices fade in from 4 px above and fade out */
+@media (prefers-reduced-motion: no-preference) {
+  body:not(.fx-reduced) #round-banner:is(.k-note, .k-fallen) .slot-text { animation: slot-in 160ms cubic-bezier(.2, .8, .2, 1); }
+  body:not(.fx-reduced) #round-banner:is(.k-note, .k-fallen).out .slot-text { opacity: 0; transition: opacity 110ms cubic-bezier(.4, 0, 1, 1); }
+}
+@keyframes slot-in { from { opacity: 0; transform: translateY(-4px); } }
 #stage.pillar-open #econ-top { left: 200px; width: 254px; }
 #stage.pillar-open .countdown { left: 327px; max-width: 254px; }
 /* design ⑧: in the pillar layout the chip row stays narrow with the windows closed too, so opening one does not rewrap it */

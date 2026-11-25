@@ -3,7 +3,7 @@ import { FX_KEYS, areaSheet, hitKey, pierceSheet, quarterTurn, statusKey, textur
 import { FX_SHEETS, type FxKey } from './manifest';
 import { FROST_ALPHA, FX_FLAGS, FxBudget, PRIORITY, gradeHex, slowLook, type EnemyStatus, type FxCmd, type FxFlags, type Priority, type ShotStyle } from './plan';
 import { Pool } from './pool';
-import { BIRTH_MS, BirthQueue, birthBand, toastY, type BirthBanner } from '../ui/birth';
+import { BIRTH_MS, BirthQueue, birthBand, birthLine, type BirthBanner } from '../ui/birth';
 
 type Pt = { x: number; y: number };
 
@@ -32,6 +32,8 @@ export interface FxHost {
   pointAt(d: number): Pt;
   width: number;
   height: number;
+  /** The page shows toasts in its notice slot; true means it took this one and the board draws nothing. */
+  toast?(text: string, color: number): boolean;
 }
 
 /** Where toasts and birth bands centre (cx) and how far a band reaches either side (half), in canvas px. */
@@ -53,6 +55,10 @@ export interface StatusView { id: number; defId: string; x: number; y: number; f
 export interface AuraView { id: number; x: number; feet: number }
 
 const ease = (p: number) => 1 - (1 - p) * (1 - p);
+const TOAST_Y = 30;
+const BIRTH_OPEN_MS = 240, BIRTH_CLOSE_MS = 160;
+/** The band's picture (32 px art at 1.25) and the gap before its two lines. */
+const BIRTH_IMG = 40, BIRTH_GAP = 8;
 /** Shot flight times (ms): short, so a far target never leaves a dot hanging in the air. */
 const SHOT_MS = { magical: 170, physical: 130 };
 /** The sheet anchor sits this far below an enemy's centre (sparks fly at its body, debris lands at its feet). */
@@ -79,9 +85,8 @@ export class FxLayer {
   private readonly births = new BirthQueue();
   private shownBirth: BirthBanner | null = null;
   private readonly birthKeys = new Map<BirthBanner, string | null>();
-  private readonly birthWho: Phaser.GameObjects.Text;
+  private readonly birthHead: Phaser.GameObjects.Text;
   private readonly birthTitle: Phaser.GameObjects.Text;
-  private readonly birthSub: Phaser.GameObjects.Text;
   private readonly birthImage: Phaser.GameObjects.Image;
   private readonly recs: Rec[] = [];
   private readonly pool = new Pool<Rec>(
@@ -110,10 +115,9 @@ export class FxLayer {
     const label = { fontFamily: 'sans-serif', fontStyle: 'bold', stroke: '#140c18', strokeThickness: 3, padding: { top: 2 } };
     this.toastText = scene.add.text(host.width / 2, 30, '', { ...label, fontSize: '13px', color: '#ffd28a', align: 'center' }).setOrigin(0.5).setDepth(FX_DEPTH.text).setVisible(false);
     this.bannerText = scene.add.text(host.width / 2, Math.round(host.height * 0.5), '', { ...label, fontSize: '13px', color: '#ffe0d6' }).setOrigin(0.5).setDepth(FX_DEPTH.text).setVisible(false);
-    this.birthWho = scene.add.text(0, 0, '', { ...label, fontSize: '11px', color: '#f3e6c8' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
-    this.birthTitle = scene.add.text(0, 0, '', { ...label, fontSize: '20px', color: '#ffe35a' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
-    this.birthSub = scene.add.text(0, 0, '', { ...label, fontSize: '11px', color: '#d9c79a' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
-    this.birthImage = scene.add.image(0, 0, '__DEFAULT').setDepth(FX_DEPTH.text).setScale(2).setVisible(false);
+    this.birthHead = scene.add.text(0, 0, '', { ...label, fontSize: '10px', color: '#f3e6c8' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
+    this.birthTitle = scene.add.text(0, 0, '', { ...label, fontSize: '16px', color: '#ffe35a' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
+    this.birthImage = scene.add.image(0, 0, '__DEFAULT').setDepth(FX_DEPTH.text).setScale(BIRTH_IMG / 32).setVisible(false);
     this.numberPool = new Pool<Phaser.GameObjects.Text>(
       () => scene.add.text(0, 0, '', { fontFamily: 'sans-serif', fontSize: '11px', color: '#ffe08a', stroke: '#241522', strokeThickness: 2, padding: { top: 2 } }).setOrigin(0.5, 1).setDepth(8),
       t => { t.setVisible(false); },
@@ -315,6 +319,7 @@ export class FxLayer {
   }
 
   toast(text: string, color: number, now: number): void {
+    if (this.host.toast?.(text, color)) return;
     this.toastText.setText(text).setColor(`#${color.toString(16).padStart(6, '0')}`).setVisible(true);
     this.toastStart = now;
     this.toastUntil = now + 1500;
@@ -326,7 +331,7 @@ export class FxLayer {
   }
 
   private hideBirth(): void {
-    for (const o of [this.birthWho, this.birthTitle, this.birthSub, this.birthImage]) o.setVisible(false);
+    for (const o of [this.birthHead, this.birthTitle, this.birthImage]) o.setVisible(false);
   }
 
   private drawBirth(now: number): void {
@@ -337,36 +342,34 @@ export class FxLayer {
     }
     const b = cur.banner;
     const { cx, half: reach } = noticeBand(this.host.width, this.noticeSpan);
-    const { y, half } = birthBand(this.host.height);
+    const { y, half } = birthBand();
     if (this.shownBirth !== b) {
       if (this.shownBirth) this.birthKeys.delete(this.shownBirth);
       this.shownBirth = b;
       const key = this.birthKeys.get(b) ?? null;
-      this.birthWho.setText(b.who);
+      this.birthHead.setText(birthLine(b));
       this.birthTitle.setText(b.title).setColor(`#${b.color.toString(16).padStart(6, '0')}`);
-      this.birthSub.setText(b.sub);
       if (key) this.birthImage.setTexture(key);
       this.birthImage.setVisible(!!key);
-      for (const o of [this.birthWho, this.birthTitle, this.birthSub]) o.setVisible(true);
+      for (const o of [this.birthHead, this.birthTitle]) o.setVisible(true);
       if (this.flags.shake) this.scene.cameras.main.shake(140, 0.003);
     }
     // laid out every frame: a pillar window opening mid-banner moves the centre
-    const textW = Math.max(this.birthWho.width, this.birthTitle.width, this.birthSub.width);
-    const imgW = this.birthImage.visible ? 64 + 10 : 0;
+    const textW = Math.max(this.birthHead.width, this.birthTitle.width);
+    const imgW = this.birthImage.visible ? BIRTH_IMG + BIRTH_GAP : 0;
     const left = Math.round(cx - (imgW + textW) / 2);
-    this.birthImage.setPosition(left + 32, y);
+    this.birthImage.setPosition(left + BIRTH_IMG / 2, y);
     const tx = left + imgW;
-    this.birthWho.setPosition(tx, y - 19);
-    this.birthTitle.setPosition(tx, y);
-    this.birthSub.setPosition(tx, y + 19);
-    const p = (now - cur.start) / BIRTH_MS;
-    const alpha = p > 0.8 ? (1 - p) / 0.2 : 1;
-    const open = ease(Math.min(1, p * 6));
+    this.birthHead.setPosition(tx, y - 9);
+    this.birthTitle.setPosition(tx, y + 8);
+    const t = now - cur.start;
+    const alpha = Math.min(1, (BIRTH_MS - t) / BIRTH_CLOSE_MS);
+    const open = this.budget.reduced ? 1 : ease(Math.min(1, t / BIRTH_OPEN_MS));
     const span = reach * open;
     this.top.fillStyle(0x1c120a, 0.88 * alpha).fillRect(cx - span, y - half, span * 2, half * 2);
     this.top.fillStyle(b.color, 0.18 * alpha).fillRect(cx - span, y - half, span * 2, half * 2);
     this.top.lineStyle(1, b.color, 0.9 * alpha).lineBetween(cx - span, y - half, cx + span, y - half).lineBetween(cx - span, y + half, cx + span, y + half);
-    for (const o of [this.birthWho, this.birthTitle, this.birthSub, this.birthImage]) o.setAlpha(alpha * open);
+    for (const o of [this.birthHead, this.birthTitle, this.birthImage]) o.setAlpha(alpha * open);
   }
 
   banner(text: string, now: number): void {
@@ -514,13 +517,19 @@ export class FxLayer {
     for (const spr of this.frostOn.values()) spr.setAlpha(FROST_ALPHA);
   }
 
+  private toastTop(): number {
+    if (!this.shownBirth) return TOAST_Y;
+    const band = birthBand();
+    return band.y + band.half + 12;
+  }
+
   private drawText(now: number): void {
     this.drawBirth(now);
     if (this.toastText.visible) {
       if (now >= this.toastUntil) this.toastText.setVisible(false);
       else {
         const p = (now - this.toastStart) / 1500;
-        this.toastText.setAlpha(p < 0.12 ? p / 0.12 : p > 0.75 ? (1 - p) / 0.25 : 1).setY(toastY(this.host.height, this.shownBirth !== null) - 6 * ease(Math.min(1, p * 4)));
+        this.toastText.setAlpha(p < 0.12 ? p / 0.12 : p > 0.75 ? (1 - p) / 0.25 : 1).setY(this.toastTop() - 6 * ease(Math.min(1, p * 4)));
       }
     }
     if (this.bannerText.visible) {

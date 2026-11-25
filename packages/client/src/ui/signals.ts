@@ -3,7 +3,8 @@ import type { BirthBanner } from './birth';
 import type { Sides } from './windows';
 
 export type SlotKind = 'countdown' | 'birth' | 'banner' | 'fallen' | 'note';
-export interface SlotItem { kind: Exclude<SlotKind, 'countdown'>; text: string; ms: number; say?: string; tail?: string; birth?: BirthBanner }
+/** `color`: a board toast keeps its own colour (a grade's star, the gamble yellow). */
+export interface SlotItem { kind: Exclude<SlotKind, 'countdown'>; text: string; ms: number; say?: string; tail?: string; birth?: BirthBanner; color?: number }
 export interface SlotShown { kind: SlotKind; item: SlotItem | null; start: number; until: number }
 
 export const SLOT_RANK: Record<SlotKind, number> = { countdown: 1, birth: 2, banner: 3, fallen: 4, note: 5 };

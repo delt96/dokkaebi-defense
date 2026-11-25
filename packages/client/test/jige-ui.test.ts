@@ -137,7 +137,7 @@ describe('R jige swap in solo', () => {
 
   const board = (defId: string, slot: number) => placeUnitForTest(driver.state, defId, slot);
   const frame = (): void => { clock += 150; scene.onFrame?.(); };
-  const hud = () => document.getElementById('top')!.textContent!;
+  const slot = () => document.getElementById('round-banner')!.textContent!;
   const CLOSED = '유닛이 바뀌어 지게 목록을 닫았습니다';
 
   test('when the unit changes the list closes with a notice; a pick that swaps it does not say so', () => {
@@ -155,7 +155,7 @@ describe('R jige swap in solo', () => {
     frame();
     expect(s.slots[2]).toBeNull();
     expect(win().innerHTML).toBe('');
-    expect(hud()).toContain(CLOSED);
+    expect(slot()).toContain(CLOSED);
 
     clock += 5000;
     board(g2, 3);
@@ -167,7 +167,7 @@ describe('R jige swap in solo', () => {
     frame();
     expect(s.slots[3]!.defId).not.toBe(g2);
     expect(win().innerHTML).toBe('');
-    expect(hud()).not.toContain(CLOSED);
+    expect(slot()).not.toContain(CLOSED);
   });
 
   test('typing in the name box is not a hotkey', () => {

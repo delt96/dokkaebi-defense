@@ -163,6 +163,8 @@ export class LaneScene extends Phaser.Scene {
     globalThis.document?.body?.classList.toggle('fx-reduced', on);
   }
 
+  /** Set by the page: toasts go to its notice slot over the lane instead of being drawn on the board. */
+  onToast?: (text: string, color: number) => void;
   private noticeNarrow = false;
   /** Design ⑯: while a pillar window is open, toasts and birth bands keep to the board between the pillars. */
   setNoticeSpan(narrow: boolean): void {
@@ -214,6 +216,11 @@ export class LaneScene extends Phaser.Scene {
       pointAt: d => laneToCanvas(this.lane.pointAt(d)),
       width: CENTER_W,
       height: this.canvasHeight,
+      toast: (text, color) => {
+        if (!this.onToast) return false;
+        this.onToast(text, color);
+        return true;
+      },
     });
     this.fx.setReduced(this.reduceFx);
     this.setNoticeSpan(this.noticeNarrow);
