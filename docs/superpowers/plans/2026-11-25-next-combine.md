@@ -584,7 +584,7 @@ progress: 100%
 - Modify: `docs/superpowers/plans/2026-11-25-next-combine.md`(이 문서 '진행' 절과 frontmatter progress), `docs/superpowers/specs/2026-11-25-next-combine-design.md` '진행 기록', `docs/superpowers/plans/2026-11-25-ui-review-fixes.md` '진행'
 - 코드 변경은 이 작업에서 찾은 잘림·겹침 수정만(찾으면 그 수정과 시험을 따로 커밋)
 
-- [ ] **Step 1: 띄우기** — worktree에서 `npx vite --port 5176 --strictPort`(packages/client, 백그라운드). **5174는 다른 프로젝트(translate)의 Vite가 쓰고 있다. 열지도 끄지도 않는다**. 온라인은 `PORT=2568 npm run dev:server`와 `VITE_SERVER_URL=http://localhost:2568`로 띄운 두 번째 vite(5177). 5173·5174·2567은 쓰지 않는다. 띄운 PID를 적어 둔다.
+- [ ] **Step 1: 띄우기** — worktree에서 `npx vite --port 5176 --strictPort`(packages/client, 백그라운드). 온라인은 `PORT=2568 npm run dev:server`와 `VITE_SERVER_URL=http://localhost:2568`로 띄운 두 번째 vite(5177). 5173·5174·2567은 쓰지 않는다. 띄운 PID를 적어 둔다.
 - [ ] **Step 2: 솔로 세 장면** — claude-in-chrome 새 탭 `http://localhost:5176/solo`, 개발자 콘솔의 `window.__driver`로 판을 만든다(시험 판 + 목표 연자방아).
   - 초반: Z가 디딜방아, 짝 칸이 절구·다듬이방망이(칸 6·7) Z, 짚신 칩 ⇄(바늘·둥구미), 범위 `이 유닛 4 / 전체 11`, 안 고름 W 세 번이 칸 6 → 0 → 7.
   - 후반: 보관함 20종·22기 — '1개 부족' 4줄 + '+N개 더' 펼치기, 보관함 짝 표시, 배율 1에서 줄이 잘리지 않음.
@@ -592,7 +592,7 @@ progress: 100%
 - [ ] **Step 3: 배율** — 창 800×370(배율 1), 1920×953(배율 2), 1920×1080(배율 3)에서 왼쪽 패널 글자·칩 잘림 없음, 고른 유닛 기준 조합 3줄과 묶음 제목 둘이 온전히 보임(배율 1, 실패로 보는 것 1), 하단 안내 줄 '고름' 줄이 624px 안. 지게 창을 열고 개발자 도구로 창 폭을 156·196으로 줄여 두 줄 모양이 잘리지 않음.
 - [ ] **Step 4: 색약 흉내** — Rendering → Emulate vision deficiencies → Deuteranopia에서 2·5등급, 4·6등급 모양이 갈리고 ▲·꺾쇠가 6등급 노랑과 갈리는지.
 - [ ] **Step 5: 온라인 2인 방(두 탭)** — Q 열고 닫기, 도우미 범위 단추·Shift+Q, 하단 카드 키가 솔로와 같은 규칙, 도우미 줄 누르기로 조합.
-- [ ] **Step 6: 정리** — 띄운 프로세스를 트리째 끄고(`taskkill //PID <pid> //T //F`) `netstat -ano | grep LISTENING`으로 5176·5177·2568이 빈 것 확인(5174는 남의 것이라 그대로 둔다), 탭 닫기.
+- [ ] **Step 6: 정리** — 띄운 프로세스를 트리째 끄고(`taskkill //PID <pid> //T //F`) `netstat -ano | grep LISTENING`으로 5176·5177·2568이 빈 것 확인, 탭 닫기.
 - [ ] **Step 7: 기록과 커밋** — 이 문서 맨 아래 '진행'에 확인한 것·못 한 것(예: Firefox, 터치 기기)을 나눠 적고 frontmatter `progress: 100%`. 설계 문서 '진행 기록'과 ui-review-fixes '진행'에 B1 끝 한 줄. `git add`로 그 세 문서만 · `Record the B1 next-combine checks in the browser`
 
 **끝 기준:** 실패로 보는 것 셋(배율 1 조합 수 감소, Z 한 번이 두 번 이상, 판 표시가 더 많은 칸) 중 어느 것도 없음을 확인해 적었다. 확인 못 한 항목은 이유와 함께 적었다.
