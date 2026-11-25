@@ -11,6 +11,7 @@ import { unitDefFast } from './units';
 import { isEvent, isShared } from './stats';
 import { payFirstHit } from './income';
 import { applyBossKnockback } from './bosscontrol';
+import { unitRange } from './upgrades';
 
 /** Auras of the same source and kind count once; the source defaults to the unit's own id. */
 function auraKey(defId: string, e: Effect): string {
@@ -76,7 +77,7 @@ export function vulnOf(state: GameState, enemy: Enemy, damageType: DamageType): 
       for (const e of s.effects) {
         if (e.kind !== 'auraEnemyVuln' || (e.damageType && e.damageType !== damageType)) continue;
         const key = auraKey(def.id, e);
-        if (seen.has(key) || !inRange(state, i, enemy, def.range)) continue;
+        if (seen.has(key) || !inRange(state, i, enemy, unitRange(state, def))) continue;
         v += e.pct;
         seen.add(key);
       }
@@ -379,7 +380,7 @@ export function runPeriodics(state: GameState, slot: number, events: GameEvent[]
       unit.periodic[idx] = toTicks(skill.trigger.seconds) - 1;
       continue;
     }
-    const targets = state.enemies.filter(e => e.hp > 0 && inRange(state, slot, e, def.range));
+    const targets = state.enemies.filter(e => e.hp > 0 && inRange(state, slot, e, unitRange(state, def)));
     if (!targets.length) { unit.periodic[idx] = 0; continue; }
     const damaged: Enemy[] = [];
     for (const eff of skill.effects) {

@@ -1,8 +1,8 @@
 import { difficultySuffix } from './difficulty';
 import {
   attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineLockRound, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
-  upgradeCost, summonOddsForRound, roundResistRange,
-  type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
+  upgradeCost, unitRange, summonOddsForRound, roundResistRange,
+  type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeDef, type UpgradeId,
 } from '@dorandi/logic';
 import { ROLE_LABEL, unitRoles, type RoleTag } from './dex-roles';
 
@@ -442,19 +442,20 @@ export function combineOptions(state: GameState, slot: number): CombineOption[] 
   return options;
 }
 
-const UPGRADE_TEXT: Record<UpgradeId, (p: number) => string> = {
-  physical: p => `물딜 공격력 +${pct(p)}`,
-  magical: p => `마딜 공격력 +${pct(p)}`,
-  polish: p => `1~4등급 공격력 +${pct(p)}`,
+const UPGRADE_TEXT: Record<UpgradeId, (def: UpgradeDef) => string> = {
+  physical: d => `물딜 공격력 +${pct(d.pct ?? 0)}`,
+  magical: d => `마딜 공격력 +${pct(d.pct ?? 0)}`,
+  polish: d => `1~4등급 공격력 +${pct(d.pct ?? 0)}`,
+  range: d => `모든 유닛 사거리 +${d.amount ?? 0}`,
 };
 
 export function upgradeRows(state: GameState): { id: UpgradeId; label: string; level: number; max: number; cost: number | null; effectText: string; affordable: boolean }[] {
   return state.data.upgrades.map(def => {
-    const level = state.upgrades[def.id];
+    const level = state.upgrades[def.id] ?? 0;
     const cost = level >= def.max ? null : upgradeCost(def, level + 1);
     return {
       id: def.id, label: def.label, level, max: def.max, cost,
-      effectText: UPGRADE_TEXT[def.id](def.pct ?? 0),
+      effectText: UPGRADE_TEXT[def.id](def),
       affordable: cost !== null && state.coins >= cost,
     };
   });
@@ -485,7 +486,7 @@ export function unitCard(state: GameState, slot: number): UnitCard | null {
     name: def.name, grade: def.grade, hidden: def.hidden === true, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
     attack: Math.round(unitAttack(def, state.data.balance) * (1 + attackBonus)), attackBonus,
     interval: attackIntervalTicks(def.interval, fast) * state.data.balance.tickMs / 1000, speedBonus: fast,
-    range: def.range, skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, roles: unitRoles(def),
+    range: unitRange(state, def), skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, roles: unitRoles(def),
     sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
   };
 }

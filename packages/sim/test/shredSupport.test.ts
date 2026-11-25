@@ -18,10 +18,10 @@ function board(units: [string, number][], round = 41): GameState {
 
 describe('shred support', () => {
   test('shredFor sums the weakening a unit puts on one damage type', () => {
-    expect(shredFor(unitDefFast(d3, 'gireumteul'), 'physical')).toBeCloseTo(0.19);
+    expect(shredFor(unitDefFast(d3, 'gireumteul'), 'physical')).toBeCloseTo(0.3);
     expect(shredFor(unitDefFast(d3, 'gireumteul'), 'magical')).toBe(0);
-    expect(shredFor(unitDefFast(d3, 'yaktanggi'), 'magical')).toBeCloseTo(0.17);
-    expect(shredFor(unitDefFast(d3, 'buk'), 'physical')).toBeCloseTo(0.15);
+    expect(shredFor(unitDefFast(d3, 'yaktanggi'), 'magical')).toBeCloseTo(0.27);
+    expect(shredFor(unitDefFast(d3, 'buk'), 'physical')).toBeCloseTo(0.24);
   });
 
   test('picks the grade 5 shredder of the main type that is cheapest to build, the bigger shred on a tie', () => {

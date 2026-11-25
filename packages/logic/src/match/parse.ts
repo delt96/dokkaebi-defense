@@ -3,7 +3,7 @@ import type { MatchCommand } from './types';
 import type { WireCommand } from './wire';
 
 const INVALID: MatchCommand = { type: 'invalid' };
-const UPGRADE_IDS: ReadonlySet<string> = new Set<UpgradeId>(['physical', 'magical', 'polish']);
+const UPGRADE_IDS: ReadonlySet<string> = new Set<UpgradeId>(['physical', 'magical', 'polish', 'range']);
 const TOP_KEYS: ReadonlySet<string> = new Set(['seq', 'type', 'args']);
 const MAX_SEAT = 6;
 const MAX_RESULT_LENGTH = 32;

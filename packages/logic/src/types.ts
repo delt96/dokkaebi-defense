@@ -86,8 +86,11 @@ export interface BalanceDef {
  * 0 up to fromRound and `top` from toRound on; each total resist stops at `cap`. Event enemies keep their own resists.
  */
 export interface ResistByRoundDef { fromRound: number; toRound: number; top: number; cap: number }
-export type UpgradeId = 'physical' | 'magical' | 'polish';
-export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number }
+export type UpgradeId = 'physical' | 'magical' | 'polish' | 'range';
+// range stays absent until bought, so stage 1 and 2 state hashes (golden replays) do not move
+export type UpgradeLevels = Record<Exclude<UpgradeId, 'range'>, number> & { range?: number };
+/** `pct`: attack per level (physical, magical, polish). `amount`: cells of range per level for every unit (range). */
+export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number; amount?: number }
 export interface YeoksinStageDef { stage: number; enemy: string; startRound: number; deadlineRound: number; baseHp: number; startIndex: number }
 export interface CoopDef {
   yeoksin: YeoksinStageDef[]; hpPerExtraPlayer: number; staySeconds: number;
@@ -224,7 +227,7 @@ export interface GameState {
   storage?: Unit[];
   summonCounts: Record<string, number>; grade1Summons: number;
   enemies: Enemy[]; fires: GroundFire[];
-  upgrades: Record<UpgradeId, number>;
+  upgrades: UpgradeLevels;
   overLimitTicks: number; helperOpens: number;
   stats: RoundStats[];
   rng: { summon: RngState; combat: RngState };

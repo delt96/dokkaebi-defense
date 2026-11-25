@@ -47,7 +47,7 @@ describe('stage 3 skill text', () => {
     expect(text('jinegaksi')).toContain('맞은 적 모두 받는 물딜 +16% 3초');
     expect(text('cheonnyeonjing')).toContain('받는 물딜 +4% 4초 (최대 5중첩, 모루의 효과와 겹치지 않음)');
     expect(text('mulle')).toBe('3번째 공격마다 한 번 더 공격 / 오라: 주변 1.5칸 물딜 아군 공격 속도 +12%');
-    expect(text('buk')).toContain('오라: 사거리 안 적이 받는 물딜 +15%');
+    expect(text('buk')).toContain('오라: 사거리 안 적이 받는 물딜 +24%');
   });
 
   test('combine cards: auras that vanish, supports carried on, controls lost', () => {
@@ -202,4 +202,17 @@ test('a stage 3 card says which upgrade the unit gets: its own type, never the h
   expect(JSON.stringify(dexEntries(d3))).not.toContain('높은 쪽');
   const d1 = loadGameData();
   expect(unitNotes(d1, unitDefFast(d1, 'sotlid'))).toEqual([]);
+});
+
+test('the stage 3 upgrade window sells range once; the unit card counts it', () => {
+  const s = createGame(d3, 1);
+  const price = d3.upgrades.find(u => u.id === 'range')!.costPerLevel;
+  s.coins = price;
+  expect(upgradeRows(s).at(-1)).toMatchObject({ id: 'range', level: 0, max: 1, cost: price, effectText: '모든 유닛 사거리 +0.5', affordable: true });
+  placeUnitForTest(s, 'gireumteul', 2);
+  expect(unitCard(s, 2)!.range).toBe(1.5);
+  s.upgrades.range = 1;
+  expect(upgradeRows(s).at(-1)).toMatchObject({ level: 1, cost: null });
+  expect(unitCard(s, 2)!.range).toBe(2);
+  expect(upgradeRows(createGame(loadGameData(), 1)).map(r => r.id)).not.toContain('range');
 });

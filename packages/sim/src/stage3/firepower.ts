@@ -228,7 +228,7 @@ export function firepowerRun(
 ): FirepowerRunResult {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
-  const policy: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false, shred: c.shred === true };
+  const policy: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false, shred: c.shred === true, range: c.range === true };
   const driver = new EconDriver(match, SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy)), c.gamble);
   const at = new Map(rounds.filter(r => r <= d.balance.rounds).map(r => [roundStartTick(d, r), r]));
   const bossAt = new Map(bossRounds.map(r => [roundStartTick(d, r), r]));

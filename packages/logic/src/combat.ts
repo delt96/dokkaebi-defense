@@ -10,6 +10,7 @@ import { econBossKill, econEventKill } from './econ/hooks';
 import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnKillExplosions, vulnOf } from './effects';
 import { runIncome } from './income';
+import { unitRange } from './upgrades';
 
 /** `cutsResist` (stage 3 vulnCutsResist): weakening adds to what resistance leaves instead of multiplying it. */
 export function computeHitDamage(a: { attack: number; mult: number; bonus: number; resist: number; vuln: number; cutsResist?: boolean }): number {
@@ -89,7 +90,7 @@ export function inRange(state: GameState, slot: number, enemy: Enemy, range: num
 export function pickTarget(state: GameState, slot: number): Enemy | null {
   const unit = state.slots[slot];
   if (!unit) return null;
-  const range = unitDefFast(state.data, unit.defId).range;
+  const range = unitRange(state, unitDefFast(state.data, unit.defId));
   let best: Enemy | null = null;
   let bestRank = 3;
   for (const e of state.enemies) {

@@ -30,7 +30,7 @@ export {
   computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps, resolveKills,
   roundResistBonus, resistAt, roundResistRange, vulnOf, type ResistRange,
 } from './combat';
-export { upgradeCost } from './upgrades';
+export { unitRange, upgradeCost } from './upgrades';
 export { applyBossKnockback, bossStunGate } from './bosscontrol';
 export * from './hash';
 export * from './match/types';

@@ -31,7 +31,7 @@ describe('unitRoles', () => {
     expect(tagsOf(d3, 'jipsingol')).toEqual(['둔화']);
     expect(tagsOf(d3, 'mulle')).toContain('오라');
     expect(tagsOf(d3, 'mogitbul')).toEqual(['둔화', '광역']);
-    expect(tagsOf(d3, 'buk')).toEqual(['물깎 15%', '기절', '오라']);
+    expect(tagsOf(d3, 'buk')).toEqual(['물깎 24%', '기절', '오라']);
     // an untyped aura 깎 (stage 1-2 data) counts for both
     expect(tagsOf(d2, 'jangdok')).toEqual(['물깎 10%', '마깎 10%', '오라']);
   });

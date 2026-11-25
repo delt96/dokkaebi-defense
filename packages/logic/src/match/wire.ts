@@ -1,4 +1,4 @@
-import type { Difficulty, GameEvent, HitEffect, UpgradeId } from '../types';
+import type { Difficulty, GameEvent, HitEffect, UpgradeLevels } from '../types';
 import type { EconView } from '../econ/view';
 import type { BirthVia } from '../birth';
 import type { Ack, EliminationCause, MatchEvent, MatchResult } from './types';
@@ -25,7 +25,7 @@ export interface EconMine extends EconView {
   team: { streak: number; paid: boolean } | null;
 }
 export interface MineView {
-  tick: number; tokens: number; coins: number; buckwheat: number; upgrades: Record<UpgradeId, number>;
+  tick: number; tokens: number; coins: number; buckwheat: number; upgrades: UpgradeLevels;
   grade1Summons: number; helperOpens: number; supportTokens: number; received: boolean; lastSeq: number;
   open: boolean[]; units: (MineUnitView | null)[]; acks: Ack[]; supportIn: { from: number; coins: number }[];
   /** Stored grade 1-2 units, oldest first; left out until the seat first stores something. */

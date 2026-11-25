@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {
-  STORAGE_MAX_GRADE, availableRecipes, countNormalEnemies, laneOf, loopPos, unitDefFast, type GameEvent, type GameState, type Lane,
+  STORAGE_MAX_GRADE, availableRecipes, countNormalEnemies, laneOf, loopPos, unitDefFast, unitRange, type GameEvent, type GameState, type Lane,
 } from '@dorandi/logic';
 import { selectedSlot } from './ui/models';
 import type { Driver } from './driver';
@@ -299,7 +299,7 @@ export class LaneScene extends Phaser.Scene {
       if (!view) return;
       const cell = view === this.dragging ? canvasToCell(this.lane, view.x, view.y) : slot;
       if (cell !== null && this.state.open[cell]) {
-        const range = unitDefFast(this.state.data, unit.defId).range;
+        const range = unitRange(this.state, unitDefFast(this.state.data, unit.defId));
         if (id === this.selectedId) {
           const center = laneToCanvas(this.lane.cells[cell]!);
           this.coverage.lineStyle(1, 0xffe08a, 0.32).strokeCircle(center.x, center.y, range * CELL);
