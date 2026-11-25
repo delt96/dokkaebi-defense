@@ -30,6 +30,8 @@ const amount = (u: UnitDef) => {
   for (const s of u.skills) for (const e of s.effects) if (isShred(e)) (e as { pct: number }).pct = Math.round((e as { pct: number }).pct * 160) / 100;
 };
 const duration = (u: UnitDef) => { for (const s of u.skills) for (const e of s.effects) if (e.kind === 'vuln') e.seconds *= 4; };
+// 1.5 matches balance.auraRadius; buk already weakens everyone in its range through its aura
+const area = (u: UnitDef) => { for (const s of u.skills) for (const e of s.effects) if (e.kind === 'vuln') e.radius = 1.5; };
 
 /** Matches MELEE_MAX_RANGE in src/bots.ts: melee units stand on edge cells, the rest inside. */
 const MELEE_MAX_RANGE = 2.0;
@@ -48,6 +50,8 @@ const VARIANTS: Record<string, (u: UnitDef, data: GameData) => void> = {
   range: u => { u.range += 1; },
   always: vulnOnEveryHit,
   'amount-duration': u => { amount(u); duration(u); },
+  area,
+  'area-amount-duration': u => { area(u); amount(u); duration(u); },
   // range +1 with the attack cut by the reach it gains, so a lap deals about the same damage
   'range-dps': (u, data) => {
     const gain = meanReach(data, u.range + 1) / meanReach(data, u.range);
