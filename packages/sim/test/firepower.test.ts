@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import { createGame, loadGameData, type GameState } from '@dorandi/logic';
 import { forceRound, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
-import { boardFirepower, firepowerMarkdown, firepowerRun, measureBoard, roundNeed, roundPlay } from '../src/stage3/firepower';
+import {
+  bossPlay, boardFirepower, firepowerCsvRows, firepowerMarkdown, firepowerRun, measureBoard, nextBoss, roundNeed, roundPlay, standOff,
+} from '../src/stage3/firepower';
 import { STANDARD_CONFIGS } from '../src/stage3/econRun';
 
 const d3 = loadGameData('stage3');
@@ -55,12 +57,64 @@ describe('board firepower', () => {
   });
 });
 
+describe('shred', () => {
+  test('is the weakening on the enemy as each hit of its damage type lands, none without hits of that type', () => {
+    expect(standOff(board(41, ['dunggumi', 'dunggumi']), 41).shred).toEqual({ physical: 0, magical: null });
+    // bujipge weakens physical by 0.1, sutdarimi magical by 0.12, each on a chance and for a few seconds
+    const physical = standOff(board(41, ['bujipge', 'bujipge', 'dunggumi']), 41).shred;
+    expect(physical.physical).toBeGreaterThan(0);
+    expect(physical.physical).toBeLessThanOrEqual(0.1);
+    expect(physical.magical).toBeNull();
+    const magical = standOff(board(41, ['sutdarimi', 'sutdarimi', 'dunggumi']), 41).shred;
+    expect(magical.magical).toBeGreaterThan(0);
+    expect(magical.magical).toBeLessThanOrEqual(0.12);
+    expect(magical.physical).toBe(0);
+  });
+
+  test('counts the weakening where the hits land, not over the whole lap of the boss', () => {
+    // cheonnyeonmuseosot puts magical 0.17 for 4 s on every hit; che next to it hits the boss while it is on
+    const r = bossPlay(board(59, ['cheonnyeonmuseosot', 'che']), 60).shred;
+    expect(r.magical).toBeGreaterThan(0.1);
+    expect(r.magical).toBeLessThanOrEqual(0.17);
+    expect(r.physical).toBe(0);
+  });
+});
+
+describe('boss play', () => {
+  test('the next boss is the first boss round after the round, none after the last', () => {
+    expect([nextBoss(d3, 5), nextBoss(d3, 10), nextBoss(d3, 59), nextBoss(d3, 69), nextBoss(d3, 70)]).toEqual([10, 20, 60, 70, null]);
+  });
+
+  test('an empty board leaves the whole boss when its round runs out', () => {
+    const s = board(59, []);
+    expect(bossPlay(s, 60)).toEqual({ boss: 60, killSeconds: null, hpLeftPct: 100, shred: { physical: null, magical: null } });
+    expect([s.round, s.enemies.length]).toEqual([59, 0]);
+  });
+
+  test('a strong board kills the round 10 boss within the round and the weakening on it is kept', () => {
+    const r = bossPlay(board(9, ['bujipge', 'bujipge', 'bujipge', 'dunggumi', 'dunggumi', 'dunggumi', 'dunggumi', 'dunggumi']), 10);
+    expect(r.killSeconds).toBeGreaterThan(0);
+    expect(r.killSeconds).toBeLessThan(75);
+    expect(r.hpLeftPct).toBe(0);
+    expect(r.shred.physical).toBeGreaterThan(0);
+    expect(r.shred.magical).toBeNull();
+  });
+});
+
 describe('measure board', () => {
-  test('names the normal enemy the board is weakest against', () => {
+  test('names the normal enemy the board is weakest against and gives the ratio against each kind', () => {
     const physical = measureBoard(board(41, ['dunggumi', 'dunggumi']), 41);
     expect(physical.weakestEnemy).toBe('geuseundae');
     expect(physical.weakest).toBeLessThan(physical.ratio);
+    expect(Object.keys(physical.alone).sort()).toEqual(['dueoksini', 'geuseundae', 'japgwi']);
+    // round 41 is a japgwi round
+    expect(physical.alone.japgwi).toBe(physical.ratio);
+    expect(physical.alone.geuseundae).toBe(physical.weakest);
     expect(measureBoard(board(41, ['che', 'che']), 41).weakestEnemy).toBe('dueoksini');
+  });
+
+  test('plays the next boss with the board', () => {
+    expect(measureBoard(board(55, []), 55).boss).toEqual({ boss: 60, killSeconds: null, hpLeftPct: 100, shred: { physical: null, magical: null } });
   });
 });
 
@@ -96,6 +150,13 @@ describe('firepower run', () => {
     }
     const md = firepowerMarkdown(rows);
     expect(md).toContain('switch-full-q2');
+    expect(md).toContain('| 라운드 | 적 | 요구 화력 | 배수 | 잡귀 | 약한 적 | 물깎 / 마깎 (무리 · 보스) | 남은 적 | 다음 보스 |');
     expect(md).toContain('| 배수 구간 |');
+    const csv = firepowerCsvRows(rows);
+    expect(Object.keys(csv[0]!)).toEqual(expect.arrayContaining([
+      'vs_japgwi', 'vs_geuseundae', 'vs_dueoksini', 'shredPhysical', 'shredMagical',
+      'boss', 'bossKillSeconds', 'bossHpLeftPct', 'bossShredPhysical', 'bossShredMagical',
+    ]));
+    expect(csv.every(r => Object.values(r).every(v => typeof v !== 'object' || v === null))).toBe(true);
   }, 120_000);
 });

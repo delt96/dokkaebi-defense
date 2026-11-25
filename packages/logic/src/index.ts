@@ -28,7 +28,7 @@ export { availableRecipes, combineLockRound, missingMaterials, recipesUsing, sto
 export { STORAGE_MAX_GRADE, canStore, storedUnits } from './storage';
 export {
   computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps, resolveKills,
-  roundResistBonus, resistAt, roundResistRange, type ResistRange,
+  roundResistBonus, resistAt, roundResistRange, vulnOf, type ResistRange,
 } from './combat';
 export { upgradeCost } from './upgrades';
 export { applyBossKnockback, bossStunGate } from './bosscontrol';

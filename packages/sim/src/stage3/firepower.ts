@@ -1,5 +1,6 @@
 import {
-  createMatch, enemyHp, laneOf, laneSeed, roundStartTick, step, stepMatch, type Enemy, type GameData, type GameState,
+  createMatch, enemyHp, laneOf, laneSeed, roundStartTick, step, stepMatch, TICKS_PER_SECOND, vulnOf,
+  type DamageType, type Enemy, type GameData, type GameEvent, type GameState,
 } from '@dorandi/logic';
 import { forceRound, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { EconDriver } from './econDriver';
@@ -21,11 +22,40 @@ export const normalKinds = (data: GameData): string[] =>
   [...new Set(data.waves.flatMap(w => (w.type === 'normal' ? w.pattern : [])))];
 
 /**
- * Damage per second the board deals in `SECONDS` against `COUNT` enemies of `round` standing evenly spread on the path,
- * taken in turn from `pattern` (the round's own by default); a killed enemy comes back at once in its place.
- * Skills, executes, debuffs, auras and upgrades all count.
+ * Weakening (capped by vulnCap) on the enemy as the board's hits of each damage type land on it, weighed by their
+ * damage; null when no hit of that type landed.
  */
-export function boardFirepower(snapshot: GameState, round: number, pattern?: string[]): number {
+export interface Shred { physical: number | null; magical: number | null }
+
+class ShredMeter {
+  private readonly sum: Record<DamageType, number> = { physical: 0, magical: 0 };
+  private readonly weight: Record<DamageType, number> = { physical: 0, magical: 0 };
+  private readonly typeOf: Map<string, DamageType>;
+  private on = new Map<number, Record<DamageType, number>>();
+  constructor(data: GameData) { this.typeOf = new Map(data.units.map(u => [u.id, u.damageType])); }
+  /** Before a tick: the weakening on each enemy the board may hit. */
+  look(s: GameState, enemies: Enemy[]): void {
+    this.on = new Map(enemies.map(e => [e.id, { physical: vulnOf(s, e, 'physical'), magical: vulnOf(s, e, 'magical') }]));
+  }
+  /** After the tick: that weakening, weighed by the damage of its type that landed. */
+  hits(events: GameEvent[]): void {
+    for (const ev of events) {
+      if (ev.type !== 'damage') continue;
+      const on = this.on.get(ev.enemyId);
+      const type = this.typeOf.get(ev.source);
+      if (!on || !type) continue;
+      this.sum[type] += ev.amount * on[type];
+      this.weight[type] += ev.amount;
+    }
+  }
+  get value(): Shred {
+    const of = (t: DamageType) => (this.weight[t] ? this.sum[t] / this.weight[t] : null);
+    return { physical: of('physical'), magical: of('magical') };
+  }
+}
+
+/** boardFirepower with the weakening the board keeps on the standing enemies. */
+export function standOff(snapshot: GameState, round: number, pattern?: string[]): { dps: number; shred: Shred } {
   const kinds = pattern ?? patternOf(snapshot.data, round) ?? ['japgwi'];
   const s = structuredClone(snapshot);
   forceRound(s, round);
@@ -37,9 +67,11 @@ export function boardFirepower(snapshot: GameState, round: number, pattern?: str
   const ids = spots.map((_, i) => kinds[i % kinds.length]!);
   let mine: Enemy[] = spots.map((d, i) => spawnEnemyForTest(s, ids[i]!, d));
   let dealt = 0;
+  const shred = new ShredMeter(s.data);
   for (let t = 0; t < SECONDS * 20; t++) {
     const before = mine.map(e => e.hp);
-    step(s, []);
+    shred.look(s, mine);
+    shred.hits(step(s, []).events);
     mine = mine.map((e, i) => {
       const alive = e.hp > 0 && s.enemies.includes(e);
       dealt += before[i]! - (alive ? e.hp : 0);
@@ -50,7 +82,50 @@ export function boardFirepower(snapshot: GameState, round: number, pattern?: str
     s.enemies = s.enemies.filter(e => keep.has(e));
     mine.forEach((e, i) => { e.d = spots[i]!; });
   }
-  return dealt / SECONDS;
+  return { dps: dealt / SECONDS, shred: shred.value };
+}
+
+/**
+ * Damage per second the board deals in `SECONDS` against `COUNT` enemies of `round` standing evenly spread on the path,
+ * taken in turn from `pattern` (the round's own by default); a killed enemy comes back at once in its place.
+ * Skills, executes, debuffs, auras and upgrades all count.
+ */
+export function boardFirepower(snapshot: GameState, round: number, pattern?: string[]): number {
+  return standOff(snapshot, round, pattern).dps;
+}
+
+/** The first boss round after `round`, null after the last. */
+export function nextBoss(data: GameData, round: number): number | null {
+  const rounds = data.waves.filter(w => w.type === 'boss' && w.round > round).map(w => w.round);
+  return rounds.length ? Math.min(...rounds) : null;
+}
+
+export interface BossPlay { boss: number; killSeconds: number | null; hpLeftPct: number; shred: Shred }
+
+/**
+ * Plays boss round `bossRound` with the board as the game does: the boss walks the path and takes stuns and knockbacks
+ * under the boss caps. Other enemies are left out. When the boss falls in the round time, the seconds it took.
+ */
+export function bossPlay(snapshot: GameState, bossRound: number): BossPlay {
+  const s = structuredClone(snapshot);
+  s.data.balance.limit = Infinity;
+  delete s.data.balance.limitInstantFromRound;
+  forceRound(s, bossRound);
+  const start = s.tick;
+  const end = s.roundEndTick;
+  const shred = new ShredMeter(s.data);
+  let boss: Enemy | undefined;
+  while (s.tick < end && s.phase === 'round') {
+    shred.look(s, s.enemies);
+    shred.hits(step(s, []).events);
+    s.enemies = s.enemies.filter(e => e.boss);
+    boss ??= s.enemies[0];
+    if (!boss) continue;
+    if (boss.hp <= 0 || !s.enemies.includes(boss)) {
+      return { boss: bossRound, killSeconds: (s.tick - 1 - start) / TICKS_PER_SECOND, hpLeftPct: 0, shred: shred.value };
+    }
+  }
+  return { boss: bossRound, killSeconds: null, hpLeftPct: boss ? (100 * boss.hp) / boss.maxHp : 100, shred: shred.value };
 }
 
 /**
@@ -97,24 +172,36 @@ export function roundPlay(snapshot: GameState, round: number): RoundPlay {
 
 export interface BoardMeasure extends RoundPlay {
   firepower: number; need: number; ratio: number;
-  /** The lowest ratio against a round of one normal enemy kind alone, and that kind. */
+  /** The ratio against a round of each normal enemy kind alone. */
+  alone: Record<string, number>;
+  /** The lowest of `alone`, and its kind. */
   weakest: number; weakestEnemy: string;
+  /** The weakening kept on the standing japgwi, whose physical and magical resists are alike. */
+  shred: Shred;
+  /** The next boss played with the board; null after the last boss. */
+  boss: BossPlay | null;
 }
 
 export function measureBoard(snapshot: GameState, round: number): BoardMeasure {
   const data = snapshot.data;
   const own = patternOf(data, round);
-  const firepower = boardFirepower(snapshot, round);
+  const mixed = standOff(snapshot, round);
   const need = roundNeed(data, round);
+  const alone: Record<string, number> = {};
+  let shred = mixed.shred;
   let weakest = Infinity;
   let weakestEnemy = '';
   for (const kind of normalKinds(data)) {
-    const alone = own?.length === 1 && own[0] === kind
-      ? firepower / need
-      : boardFirepower(snapshot, round, [kind]) / roundNeed(data, round, [kind]);
-    if (alone < weakest) { weakest = alone; weakestEnemy = kind; }
+    const r = own?.length === 1 && own[0] === kind ? mixed : standOff(snapshot, round, [kind]);
+    alone[kind] = r.dps / roundNeed(data, round, [kind]);
+    if (kind === 'japgwi') shred = r.shred;
+    if (alone[kind] < weakest) { weakest = alone[kind]; weakestEnemy = kind; }
   }
-  return { firepower, need, ratio: firepower / need, weakest, weakestEnemy, ...roundPlay(snapshot, round) };
+  const bossRound = nextBoss(data, round);
+  return {
+    firepower: mixed.dps, need, ratio: mixed.dps / need, alone, weakest, weakestEnemy, shred,
+    ...roundPlay(snapshot, round), boss: bossRound === null ? null : bossPlay(snapshot, bossRound),
+  };
 }
 
 export interface FirepowerRow extends BoardMeasure { config: string; bot: string; seed: number; seat: number; round: number }
@@ -158,40 +245,79 @@ const pct = (part: number, all: number) => `${Math.round((100 * part) / all)}%`;
 
 const BANDS: [number, number][] = [[0, 1], [1, 1.5], [1.5, 2], [2, 2.5], [2.5, 3], [3, Infinity]];
 
+/** Rows for toCsvRows: the per-kind ratios, the shred and the boss play spread into plain columns. */
+export function firepowerCsvRows(rows: FirepowerRow[]): Record<string, unknown>[] {
+  return rows.map(({ alone, shred, boss, ...r }) => ({
+    ...r,
+    ...Object.fromEntries(Object.entries(alone).map(([k, v]) => [`vs_${k}`, v])),
+    shredPhysical: shred.physical, shredMagical: shred.magical,
+    boss: boss?.boss ?? null, bossKillSeconds: boss?.killSeconds ?? null, bossHpLeftPct: boss?.hpLeftPct ?? null,
+    bossShredPhysical: boss?.shred.physical ?? null, bossShredMagical: boss?.shred.magical ?? null,
+  }));
+}
+
+const f2 = (x: number) => x.toFixed(2);
+
+function bossCell(xs: FirepowerRow[]): string {
+  const plays = xs.map(r => r.boss).filter((b): b is BossPlay => b !== null);
+  if (!plays.length) return '-';
+  const killed = plays.filter(b => b.killSeconds !== null);
+  const seconds = median(plays.map(b => b.killSeconds ?? Infinity));
+  const how = Number.isFinite(seconds) ? `${seconds.toFixed(0)}초` : `못 잡음 (체력 ${median(plays.map(b => b.hpLeftPct)).toFixed(0)}% 남음)`;
+  return `${plays[0]!.boss}R ${how} · 잡은 판 ${pct(killed.length, plays.length)}`;
+}
+
+function shredCell(xs: FirepowerRow[]): string {
+  const of = (shreds: Shred[]) => (['physical', 'magical'] as const).map(t => {
+    const v = shreds.map(x => x[t]).filter((x): x is number => x !== null);
+    return v.length ? f2(median(v)) : '-';
+  }).join(' / ');
+  const plays = xs.map(r => r.boss).filter((b): b is BossPlay => b !== null);
+  return `${of(xs.map(r => r.shred))} · ${plays.length ? of(plays.map(b => b.shred)) : '-'}`;
+}
+
 /**
- * Per round and config, over the live seats: the median ratio (board firepower / round need), the median ratio against
- * the weakest enemy kind with the kind most often weakest, and the median of the round's spawns left when the board
- * plays the round alone with the share of boards that cleared it. Then, over all rows, how the round play turns out
- * in each ratio band.
+ * One table per config, a row per round over the live seats (medians): the ratio (board firepower / round need), the
+ * ratio against japgwi alone, the weakest kind, the shred on the crowd and on the next boss, the round's spawns left
+ * when the board plays the round alone, and the next boss. Then how the round play turns out in each ratio band.
+ * `data` gives the enemy names; without it the ids show.
  */
-export function firepowerMarkdown(rows: FirepowerRow[]): string {
-  const configs = [...new Set(rows.map(r => r.config))];
-  const rounds = [...new Set(rows.map(r => r.round))].sort((a, b) => a - b);
-  const header = [`| 라운드 | 요구 화력 | ${configs.join(' | ')} |`, `| ---: | ---: | ${configs.map(() => '---:').join(' | ')} |`];
-  const table = (title: string, cell: (xs: FirepowerRow[]) => string) => {
-    const lines = [`### ${title}`, '', ...header];
-    for (const round of rounds) {
-      const need = rows.find(r => r.round === round)!.need;
-      const cells = configs.map(c => {
-        const xs = rows.filter(r => r.round === round && r.config === c);
-        return xs.length ? cell(xs) : '-';
-      });
-      lines.push(`| ${round} | ${need.toFixed(0)} | ${cells.join(' | ')} |`);
-    }
-    return lines.join('\n');
+export function firepowerMarkdown(rows: FirepowerRow[], data?: GameData): string {
+  const name = (id: string) => data?.enemies.find(e => e.id === id)?.name ?? id;
+  const enemyOf = (round: number) => {
+    const p = data ? patternOf(data, round) : null;
+    if (!p) return '-';
+    return new Set(p).size > 1 ? '섞임' : name(p[0]!);
   };
-  const bands = ['### 배수 구간별 라운드 결과 (전체)', '', '| 배수 구간 | 판 수 | 남은 적 중앙값 | 다 잡은 판 |', '| --- | ---: | ---: | ---: |'];
-  for (const [lo, hi] of BANDS) {
-    const xs = rows.filter(r => r.ratio >= lo && r.ratio < hi);
-    if (!xs.length) continue;
-    const label = hi === Infinity ? `${lo} 이상` : `${lo}~${hi}`;
-    bands.push(`| ${label} | ${xs.length} | ${median(xs.map(r => r.left))} | ${pct(xs.filter(r => r.left === 0).length, xs.length)} |`);
+  const out: string[] = [];
+  for (const config of [...new Set(rows.map(r => r.config))]) {
+    const mine = rows.filter(r => r.config === config);
+    const lines = [
+      `### ${config}`, '',
+      '| 라운드 | 적 | 요구 화력 | 배수 | 잡귀 | 약한 적 | 물깎 / 마깎 (무리 · 보스) | 남은 적 | 다음 보스 |',
+      '| ---: | --- | ---: | ---: | ---: | --- | --- | --- | --- |',
+    ];
+    for (const round of [...new Set(mine.map(r => r.round))].sort((a, b) => a - b)) {
+      const xs = mine.filter(r => r.round === round);
+      const japgwi = xs.map(r => r.alone.japgwi).filter((x): x is number => x !== undefined);
+      lines.push([
+        '', round, enemyOf(round), xs[0]!.need.toFixed(0),
+        `${f2(median(xs.map(r => r.ratio)))} (${xs.length})`,
+        japgwi.length ? f2(median(japgwi)) : '-',
+        `${f2(median(xs.map(r => r.weakest)))} ${name(mode(xs.map(r => r.weakestEnemy)))}`,
+        shredCell(xs),
+        `${median(xs.map(r => r.left))} (${pct(xs.filter(r => r.left === 0).length, xs.length)})`,
+        bossCell(xs), '',
+      ].join(' | ').trim());
+    }
+    lines.push('', '| 배수 구간 | 판 수 | 남은 적 중앙값 | 다 잡은 판 |', '| --- | ---: | ---: | ---: |');
+    for (const [lo, hi] of BANDS) {
+      const xs = mine.filter(r => r.ratio >= lo && r.ratio < hi);
+      if (!xs.length) continue;
+      const label = hi === Infinity ? `${lo} 이상` : `${lo}~${hi}`;
+      lines.push(`| ${label} | ${xs.length} | ${median(xs.map(r => r.left))} | ${pct(xs.filter(r => r.left === 0).length, xs.length)} |`);
+    }
+    out.push(lines.join('\n'));
   }
-  return [
-    table('배수 (판 화력 ÷ 요구 화력), 괄호는 잰 자리 수', xs => `${median(xs.map(r => r.ratio)).toFixed(2)} (${xs.length})`),
-    table('약한 적 배수 (한 종류만 나올 때 가장 낮은 배수)', xs => `${median(xs.map(r => r.weakest)).toFixed(2)} ${mode(xs.map(r => r.weakestEnemy))}`),
-    table('혼자 그 라운드를 돌렸을 때 남은 적 (30마리 중), 다 잡은 판', xs =>
-      `${median(xs.map(r => r.left))} · ${pct(xs.filter(r => r.left === 0).length, xs.length)}`),
-    bands.join('\n'),
-  ].join('\n\n');
+  return out.join('\n\n');
 }

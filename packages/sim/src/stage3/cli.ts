@@ -5,7 +5,7 @@ import { isDifficulty, loadGameData, stripEconomy, type GameData } from '@dorand
 import { normalBot } from '../bots';
 import { combineGainAll, parseCombinePlacement, parseUpgradeLevels } from './combineGain';
 import { controlAll } from './control';
-import { firepowerMarkdown, firepowerRun, type FirepowerRow } from './firepower';
+import { firepowerCsvRows, firepowerMarkdown, firepowerRun, type FirepowerRow } from './firepower';
 import { grade6Markdown, grade6Run, type Grade6Row } from './grade6';
 import { combineGainMarkdown, controlMarkdown, toCsvRows } from './report';
 import { targetBot } from './targetBot';
@@ -94,9 +94,9 @@ export function stage3Cli(arg: Arg): void {
     const rows: FirepowerRow[] = [];
     for (const c of configs) for (let seed = 1; seed <= seeds; seed++) rows.push(...firepowerRun(data, seed, c));
     const file = join(out, `firepower-${bots.join('-')}${noDefeat ? '' : '-defeat'}.csv`);
-    writeFileSync(file, toCsvRows(rows));
+    writeFileSync(file, toCsvRows(firepowerCsvRows(rows)));
     console.log(`## board firepower, median of live seats (seeds ${seeds}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
-    console.log(firepowerMarkdown(rows) + '\n');
+    console.log(firepowerMarkdown(rows, data) + '\n');
   }
   if (check === 'r10probe') {
     const seeds = Number(arg('seeds', '20'));
