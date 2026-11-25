@@ -10,10 +10,10 @@ progress: 0%
 
 # 처음 온 사람 설계 (2026-11-25, 계획 B4)
 
-> **상태: 목업 확정 전 · 사용자 확인 필요**
+> **상태: 목업 확정 (2026-11-25, 사용자가 '사용자에게 물을 것'을 모두 권장안으로 확정).** 구현은 B1 → B2 → B3 → B4 순서.
 
 목업: `docs/design/mockups/2026-11-25-first-visit.html`
-확정 목업 경로: (사용자 확인 뒤 적는다)
+확정 목업 경로: `docs/design/mockups/2026-11-25-first-visit.html`
 
 근거: `docs/reviews/2026-11-25-ui-ux-review.md` 5번(P1 "처음 온 사람에게 안내도 출구도 없다"), 화면별 1·2·20번. 계획: `docs/superpowers/plans/2026-11-25-ui-review-fixes.md` B4. 교차 검토(B1~B4)와 ui-ux-pro-max 지침으로 보강했다. 교차 검토에서 정한 것은 모두 **임시 결정(권장안)**이고 사용자 확인 전이다.
 

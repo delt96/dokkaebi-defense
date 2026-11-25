@@ -10,10 +10,10 @@ progress: 0%
 
 # 상태 신호와 연출 설계 (2026-11-25, B3)
 
-**상태: 목업 확정 전 · 사용자 확인 필요**
+> **상태: 목업 확정 (2026-11-25, 사용자가 '사용자에게 물을 것'을 모두 권장안으로 확정).** 구현은 B1 → B2 → B3 → B4 순서.
 
 목업: `docs/design/mockups/2026-11-25-status-signals.html` (사용자 확인 전)
-확정 목업 경로: (확정 뒤 적음)
+확정 목업 경로: `docs/design/mockups/2026-11-25-status-signals.html`
 
 계획: `docs/superpowers/plans/2026-11-25-ui-review-fixes.md`의 B3. 근거: `docs/reviews/2026-11-25-ui-ux-review.md` 우선 문제 1번(위험이 너무 늦게 보인다), 4번(알림이 전투를 가린다), 화면별 3·4·8·9·15·17·18번, 4번 [P2](후반 오라 고리·폭발 효과).
 

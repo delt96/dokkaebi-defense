@@ -10,10 +10,10 @@ progress: 0%
 
 # 다음 조합 한 곳으로 (B1) 설계 (2026-11-25)
 
-> **상태: 목업 확정 전 · 사용자 확인 필요.** 교차 검토(B1~B4)의 임시 결정(권장안)으로 맞춰 둔 판이다. 아래 '사용자에게 물을 것'에 답을 받으면 확정한다.
+> **상태: 목업 확정 (2026-11-25, 사용자가 '사용자에게 물을 것'을 모두 권장안으로 확정).** 구현은 B1 → B2 → B3 → B4 순서.
 
 목업: `docs/design/mockups/2026-11-25-next-combine.html`
-확정 목업: (사용자 확인 뒤 적는다)
+확정 목업 경로: `docs/design/mockups/2026-11-25-next-combine.html`
 근거: `docs/reviews/2026-11-25-ui-ux-review.md` 우선 문제 2, 화면별 4·5·7·10·12. 계획: `docs/superpowers/plans/2026-11-25-ui-review-fixes.md` B1.
 함께 보는 설계: B2 `2026-11-25-window-layout-design.md`(창 배치), B3 `2026-11-25-status-signals-design.md`(상태 신호·연출), B4 `2026-11-25-first-visit-design.md`(처음 온 사람).
 
