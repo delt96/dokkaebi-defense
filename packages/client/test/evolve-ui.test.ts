@@ -14,6 +14,7 @@ const PAIR = d3.recipes.find(r => r.kind === 'tame')!;
 const TAMED = PAIR.materials[0]!;
 const MULT = d3.economy!.tame!.targets.find(t => t.unit === TAMED)!.evolvedMult!;
 const NEEDS = '진화부적을 붙여야 합니다';
+const NEEDS_SHORT = '진화 필요';
 
 function openGame(round = 20): GameState {
   const s = createGame(d3, 3);
@@ -30,7 +31,7 @@ describe('the evolve charm row', () => {
     s.coins = 100; s.buckwheat = 2;
     const r = row(s);
     expect(r.price).toBe('묵 1 · 60냥');
-    expect(r.effectText).toBe('길들인 유닛 하나 진화 · 전용 조합 재료');
+    expect(r.effectText).toBe('무언가를 진화시키는 부적이다.');
     expect(r.blocked).toBeNull();
     expect(shopModel(mineOf(s), s.coins, s.buckwheat)!.find(x => x.id === 'powerCharm')!.price).toBe('150냥');
   });
@@ -89,10 +90,10 @@ describe('combine candidates name the missing evolution', () => {
     s.buckwheat = 5; s.coins = 500;
     placeUnitForTest(s, TAMED, 0);
     placeUnitForTest(s, PAIR.materials[1]!, 1);
-    expect(combineOptions(s, 0).find(o => o.result === PAIR.result)!.short).toBe(NEEDS);
-    expect(helperModel(s).find(h => h.recipe === PAIR.result)!.short).toBe(NEEDS);
+    expect(combineOptions(s, 0).find(o => o.result === PAIR.result)!.short).toBe(NEEDS_SHORT);
+    expect(helperModel(s).find(h => h.recipe === PAIR.result)!.short).toBe(NEEDS_SHORT);
     renderHelper(s, true);
-    expect(document.querySelector('#left .helper')!.textContent).toContain(NEEDS);
+    expect(document.querySelector('#left .helper')!.textContent).toContain(NEEDS_SHORT);
     s.slots[0]!.item = CHARM;
     const ready = combineOptions(s, 0).find(o => o.result === PAIR.result)!;
     expect(ready.short).toBeUndefined();
@@ -101,7 +102,7 @@ describe('combine candidates name the missing evolution', () => {
 });
 
 describe('the card of an evolved unit', () => {
-  test('shows 진화, its share of the attack and the corner letter 진', () => {
+  test('shows 진화 and the corner letter 진 but hides the share', () => {
     const s = openGame();
     placeUnitForTest(s, TAMED, 0).item = CHARM;
     const card = unitCard(s, 0)!;
@@ -109,12 +110,14 @@ describe('the card of an evolved unit', () => {
     expect(card.attack).toBe(Math.round(unitAttack(unitDefFast(d3, TAMED), d3.balance) * MULT));
     expect(itemShort(s, 0)).toBe('진');
     const html = unitPanelHtml(s, 0, { shop: econView(s)!.shop });
-    expect(html).toContain(`공격 ${card.attack} (+${Math.round((MULT - 1) * 100)}% 진화)`);
+    expect(html).toContain(`공격 ${card.attack}`);
+    expect(html).not.toContain('% 진화');
+    expect(html).not.toContain(String(Math.round((MULT - 1) * 100)));
     expect(html).toContain('· 진화');
     document.body.innerHTML = STAGE_HTML;
     renderBottom(s, 0, true, null, 0, false, { shop: econView(s)!.shop, open: false });
     const bottom = document.querySelector('#bottom .card')!.textContent!;
-    expect(bottom).toContain(`(+${Math.round((MULT - 1) * 100)}%)`);
+    expect(bottom).not.toContain(`${Math.round((MULT - 1) * 100)}%`);
     expect(bottom).toContain('진');
   });
 });

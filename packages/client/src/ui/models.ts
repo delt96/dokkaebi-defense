@@ -266,10 +266,11 @@ export function costShortText(state: GameState, recipe: RecipeDef | undefined): 
 }
 
 export const NEEDS_EVOLVE_TEXT = '진화부적을 붙여야 합니다';
+/** Fits the narrow candidate row; the refusal keeps the full sentence. */
+export const NEEDS_EVOLVE_SHORT = '진화 필요';
 
-/** NEEDS_EVOLVE_TEXT while an exclusive recipe's recruit is not evolved, else what the player is short of to pay for it. */
 function blockedText(state: GameState, recipe: RecipeDef | undefined): string | null {
-  return needsEvolve(state, recipe) ? NEEDS_EVOLVE_TEXT : costShortText(state, recipe);
+  return needsEvolve(state, recipe) ? NEEDS_EVOLVE_SHORT : costShortText(state, recipe);
 }
 
 export function selectedSlot(state: GameState, id: number | null): number | null {
@@ -492,10 +493,10 @@ export function itemShort(state: GameState, slot: number): string | null {
   return itemOf(state, slot)?.name.slice(0, 1) ?? null;
 }
 
-/** "+20% 힘 부적" (or "+50% 진화") after an attack or interval figure; empty without that kind of item. */
+/** "+20% 힘 부적" after an attack or interval figure; empty without that kind of item. The evolve share stays hidden (user's choice). */
 export function itemShareText(card: UnitCard, kind: 'attack' | 'speed'): string {
   const share = card.share[kind];
-  return card.item && share ? ` (+${pct(share)} ${card.item.evolved ? '진화' : card.item.name})` : '';
+  return card.item && share && !card.item.evolved ? ` (+${pct(share)} ${card.item.name})` : '';
 }
 
 /** "사거리 2칸 (+0.5 사거리 부적)"; `compact` (the one-line online card) drops the item name. */

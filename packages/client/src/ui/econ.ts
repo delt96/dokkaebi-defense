@@ -45,7 +45,7 @@ export function itemEffectText(effect: ItemEffect, perGame: number | null): stri
     case 'attack': return `유닛 하나 공격력 +${pct(effect.pct)}${once}`;
     case 'speed': return `유닛 하나 공격 속도 +${pct(effect.pct)}${once}`;
     case 'vuln': return `때린 적이 받는 같은 종류 피해 +${pct(effect.pct)} · ${effect.seconds}초${once}`;
-    case 'evolve': return `길들인 유닛 하나 진화 · 전용 조합 재료${once}`;
+    case 'evolve': return '무언가를 진화시키는 부적이다.';
   }
 }
 

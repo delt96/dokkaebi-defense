@@ -51,7 +51,7 @@ describe('effect lines', () => {
       powerCharm: '유닛 하나 공격력 +20%',
       swiftCharm: '유닛 하나 공격 속도 +15%',
       weakCharm: '때린 적이 받는 같은 종류 피해 +10% · 3초',
-      evolveCharm: '길들인 유닛 하나 진화 · 전용 조합 재료',
+      evolveCharm: '무언가를 진화시키는 부적이다.',
     });
     expect(rows.find(r => r.id === 'powerCharm')!.price).toBe(`${price('powerCharm')}냥`);
   });

@@ -267,7 +267,7 @@ test('an exclusive recipe shows in Q once both materials are on the board, and t
   expect(helperModel(s).some(i => i.recipe === 'baekbalbaneulgaksi')).toBe(false);
   placeUnitForTest(s, 'banjitgori', 1);
   s.buckwheat = 1; s.coins = 60;
-  expect(helperModel(s).find(i => i.recipe === 'baekbalbaneulgaksi')).toMatchObject({ name: '백발바늘각시', short: '진화부적을 붙여야 합니다' });
+  expect(helperModel(s).find(i => i.recipe === 'baekbalbaneulgaksi')).toMatchObject({ name: '백발바늘각시', short: '진화 필요' });
   recruit.item = 'evolveCharm';
   expect(helperModel(s).find(i => i.recipe === 'baekbalbaneulgaksi')?.short).toBeUndefined();
   let nav = dexNavStart();

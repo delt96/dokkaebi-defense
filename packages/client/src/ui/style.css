@@ -104,7 +104,7 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .recipe-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; min-height: 0; padding: 2px 3px; text-align: left; }
 span.recipe-row { border: 1px dashed #3d3349; border-radius: 2px; }
 .recipe-top { display: flex; align-items: center; gap: 2px; max-width: 100%; min-height: 14px; line-height: 14px; white-space: nowrap; overflow: hidden; }
-.recipe-top b { font-weight: normal; overflow: hidden; text-overflow: ellipsis; }
+.recipe-top b { font-weight: normal; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; max-width: 100%; }
 .recipe-top .unit-face { width: 14px; height: 14px; border-radius: 2px; }
 .recipe-top .unit-face img { width: 12px; height: 12px; }
 .recipe-top .unit-face .stack-disc { width: 10px; height: 10px; font-size: 7px; }
