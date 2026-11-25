@@ -95,7 +95,8 @@ describe('shared and makeable chips', () => {
   });
 
   test('the online helper names the taking rows in Korean too', () => {
-    const box = dom(helperPopHtml(mockBoardState()));
+    const s = mockBoardState();
+    const box = dom(helperPopHtml(s, nextCombines(s), { unitId: null, scope: 'all', wPick: null, hover: null, showAllOne: false }));
     const titles = Array.from(box.querySelectorAll('.mat-chip[data-taken]'), c => c.getAttribute('title')!);
     expect(titles.length).toBeGreaterThan(0);
     for (const t of titles) expect(t).not.toMatch(/[a-z]/);

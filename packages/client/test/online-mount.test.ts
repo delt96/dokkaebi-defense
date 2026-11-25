@@ -17,12 +17,22 @@ class FakeScene {
 }
 
 let clock = 1000;
+// each test mounts again; the keydown listeners of earlier mounts would still answer and redraw the shared page
+const listeners: [string, EventListenerOrEventListenerObject][] = [];
 beforeEach(() => {
+  const add = window.addEventListener.bind(window);
+  vi.spyOn(window, 'addEventListener').mockImplementation((type: string, fn: EventListenerOrEventListenerObject, o?: boolean | AddEventListenerOptions) => {
+    listeners.push([type, fn]);
+    add(type, fn, o);
+  });
   document.body.innerHTML = STAGE_HTML;
   clock = 1000;
   vi.spyOn(performance, 'now').mockImplementation(() => clock);
 });
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => {
+  for (const [type, fn] of listeners.splice(0)) window.removeEventListener(type, fn);
+  vi.restoreAllMocks();
+});
 
 function mountOnline(full: FullMsg = fixtureFull(), real = false) {
   const room = new FakeRoom();
@@ -156,7 +166,7 @@ describe('online mountUi', () => {
     expect(document.querySelector('#right')!.textContent).toContain('관전');
   });
 
-  test('the online card lists all recipes with three hotkeys and opens details from the overflow line', () => {
+  test('the online card lists only the keyed recipes and opens details from the overflow line', () => {
     const full = fixtureFull();
     ['bujigaengi', 'sotlid', 'horong', 'buchae', 'jipsin'].forEach((defId, i) => {
       full.mine.units[i] = { id: 30 + i, defId };
@@ -165,9 +175,9 @@ describe('online mountUi', () => {
     scene.select(0);
     // online the left panel holds the six lanes, so the unit card stays under the board
     const quick = Array.from(document.querySelectorAll('#bottom [data-action="combine"]'), btn => btn.textContent!.trim());
-    expect(quick).toHaveLength(4);
-    expect(quick.slice(0, 3).map(text => text.slice(0, 3))).toEqual(['[Z]', '[X]', '[C]']);
-    expect(quick[3]).not.toMatch(/^\[/);
+    expect(quick.map(text => text.slice(0, 3))).toEqual(['[Z]', '[X]', '[C]']);
+    expect(document.querySelector('#bottom .recipe-more')!.textContent).toBe('+1개 더');
+    expect(document.querySelector('#bottom')!.textContent).not.toContain('부족');
     expect(document.querySelector('#left .unit-panel')).toBeNull();
     press(document.querySelector('#bottom .recipe-more'));
     const options = document.querySelectorAll('#modal [data-action="combine"]');
@@ -244,5 +254,84 @@ describe('online mountUi', () => {
     press(modal.querySelector('.dex-back'));
     expect(modal.querySelector('.dex-back')).toBeNull();
     expect(modal.querySelectorAll('table.dex tbody tr')).toHaveLength(40);
+  });
+});
+
+describe('online helper and card off the next list', () => {
+  const pop = () => document.querySelector<HTMLElement>('#left .helper-pop');
+  const pressedScope = () => pop()?.querySelector('.scope-btn[aria-pressed="true"]')?.getAttribute('data-arg');
+  /** Seat 1: sotlid at slot 0 and, unless left out, bujigaengi at slot 1 (together 가마솥). */
+  function withUnits(defIds: string[] = ['sotlid', 'bujigaengi']) {
+    const full = fixtureFull();
+    full.mine.units = full.mine.units.map(() => null);
+    defIds.forEach((defId, i) => { full.mine.units[i] = { id: 30 + i, defId }; });
+    return mountOnline(full);
+  }
+
+  test('Q opens on 이 유닛 with a unit selected; Shift+Q flips the scope while it is open and sends nothing', () => {
+    const { room, scene } = withUnits();
+    scene.select(0);
+    key('KeyQ');
+    expect(pressedScope()).toBe('unit');
+    expect(Array.from(pop()!.querySelectorAll('.scope-btn'), b => b.getAttribute('title'))).toEqual(['Shift+Q', 'Shift+Q']);
+    expect(Array.from(pop()!.querySelectorAll('.scope-btn'), b => b.textContent)).toEqual(['이 유닛 1', '전체 1']);
+    key('KeyQ', { shiftKey: true });
+    expect(pressedScope()).toBe('all');
+    key('KeyQ', { shiftKey: true });
+    expect(pressedScope()).toBe('unit');
+    key('KeyQ', { shiftKey: true });
+    expect(room.cmds('helperOpened')).toHaveLength(1);
+    // closing and opening again starts from the selection once more
+    key('KeyQ');
+    expect(pop()).toBeNull();
+    key('KeyQ', { shiftKey: true });
+    expect(pop()).toBeNull();
+    key('KeyQ');
+    expect(pressedScope()).toBe('unit');
+    expect(room.cmds('helperOpened')).toHaveLength(2);
+  });
+
+  test('opened with nothing selected it shows 전체 and 이 유닛 stays off', () => {
+    withUnits();
+    key('KeyQ');
+    expect(pressedScope()).toBe('all');
+    expect(pop()!.querySelector<HTMLButtonElement>('.scope-btn[data-arg="unit"]')!.disabled).toBe(true);
+    key('KeyQ', { shiftKey: true });
+    expect(pressedScope()).toBe('all');
+  });
+
+  test('the rows are the combine buttons under group titles, with the selected unit keyed in 전체 too', () => {
+    const { room, scene } = withUnits();
+    key('KeyQ');
+    expect(pop()!.querySelector('.next-group')).not.toBeNull();
+    expect(pop()!.querySelector('li button, li')).toBeNull();
+    const rows = Array.from(pop()!.querySelectorAll<HTMLElement>('[data-action="combine"]'));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) expect(row.classList.contains('recipe-row')).toBe(true);
+    key('KeyQ');
+    scene.select(0);
+    key('KeyQ');
+    key('KeyQ', { shiftKey: true });
+    const gamasot = pop()!.querySelector<HTMLElement>('[data-recipe="gamasot"]')!;
+    expect(gamasot.textContent!.trimStart().startsWith('[Z]')).toBe(true);
+    press(gamasot);
+    expect(room.cmds('combine')[0]?.args).toMatchObject({ slot: 0, unitId: 30 });
+  });
+
+  test('one ready recipe: the card has the [Z] row only', () => {
+    const { scene } = withUnits();
+    scene.select(0);
+    const quick = Array.from(document.querySelectorAll('#bottom [data-action="combine"]'), b => b.textContent!.trim());
+    expect(quick).toHaveLength(1);
+    expect(quick[0]!.startsWith('[Z]')).toBe(true);
+    expect(document.querySelector('#bottom .recipe-more, #bottom .card-none')).toBeNull();
+  });
+
+  test('nothing ready: the card says so and points at Q, and leaves out the short recipes', () => {
+    const { scene } = withUnits(['sotlid']);
+    scene.select(0);
+    expect(document.querySelector('#bottom .card-none')!.textContent).toBe('지금 가능 없음 · Q 도우미');
+    expect(document.querySelector('#bottom [data-action="combine"], #bottom .combine-missing')).toBeNull();
+    expect(document.querySelector('#bottom')!.textContent).not.toContain('부족');
   });
 });

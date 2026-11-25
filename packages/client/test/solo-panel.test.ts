@@ -96,6 +96,13 @@ describe('solo left panel', () => {
     expect(opened()).toBe(1);
   });
 
+  test('Shift+Q is the online scope key and does nothing solo', () => {
+    scene.select(0);
+    key('KeyQ', { shiftKey: true });
+    expect(pressedScope()).toBe('이 유닛 4');
+    expect(opened()).toBe(0);
+  });
+
   test('Q with nothing selected changes nothing and sends nothing', () => {
     key('KeyQ');
     expect(pressedScope()).toBe('전체 11');

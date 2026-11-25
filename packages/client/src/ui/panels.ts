@@ -117,9 +117,8 @@ export function cardRecipes(state: GameState, selected: number | null, target: s
   };
 }
 
-function compactRecipes(state: GameState, recipes: CombineOption[], unitId: number | null, visible: number, chips: boolean): string {
-  if (!recipes.length) return '';
-  const rows = recipes.map(option => recipeRowHtml(state, option, { unitId, chips })).join('');
+function compactRecipes(state: GameState, recipes: CombineOption[], unitId: number | null, visible: number): string {
+  const rows = recipes.map(option => recipeRowHtml(state, option, { unitId, chips: false })).join('');
   const more = recipes.length - visible;
   return `<div class="card-recipes"><div class="combine-options" data-scroll-key="${unitId}" tabindex="0" aria-label="다음 조합">${rows}</div>
     ${more > 0 ? `<button class="recipe-more" data-action="unitDetails">+${more}개 더</button>` : ''}</div>`;
@@ -166,7 +165,8 @@ export function renderBottom(
     return pick;
   }
   const { unitId, recipes } = pick;
-  const options = compactRecipes(state, recipes, unitId, 2, false);
+  const keyed = recipes.filter(option => option.key);
+  const options = keyed.length ? compactRecipes(state, keyed, unitId, 2) : '<span class="card-none">지금 가능 없음 · Q 도우미</span>';
   setHtml(el('bottom'), `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
         <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}</span>
         <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${attackRangeText(state.data, card.range)}</span></span>
@@ -205,11 +205,13 @@ function soloHeadHtml(state: GameState, slot: number, card: UnitCard, skillOpen:
 
 const IDLE_HEAD = '<div class="nc-head none"><b>다음 할 일</b><span>W로 맨 위 조합 고르기</span><span>그다음 Z로 조합</span></div>';
 
-function scopeHtml(list: NextList, selected: boolean): string {
+/** `online`: Q opens and closes the helper there, so the buttons name Shift+Q and the Q letter is left out. */
+export function scopeHtml(list: NextList, selected: boolean, online = false): string {
   const unit = list.scope === 'unit';
-  return `<div class="nc-scope"><button class="scope-btn" data-action="nextScope" data-arg="unit" aria-pressed="${unit}" title="Q"${selected ? '' : ' disabled'}>`
+  const keyName = online ? 'Shift+Q' : 'Q';
+  return `<div class="nc-scope"><button class="scope-btn" data-action="nextScope" data-arg="unit" aria-pressed="${unit}" title="${keyName}"${selected ? '' : ' disabled'}>`
     + `${selected ? `이 유닛 ${list.counts.unit ?? 0}` : '이 유닛'}</button>`
-    + `<button class="scope-btn" data-action="nextScope" data-arg="all" aria-pressed="${!unit}" title="Q">전체 ${list.counts.all}</button><span class="scope-q">Q</span></div>`;
+    + `<button class="scope-btn" data-action="nextScope" data-arg="all" aria-pressed="${!unit}" title="${keyName}">전체 ${list.counts.all}</button>${online ? '' : '<span class="scope-q">Q</span>'}</div>`;
 }
 
 /** The bottom row: 상세 · 보관 · 판매 with the keys in their titles, or only the second-press sell button of grade 3+. */

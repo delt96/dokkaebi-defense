@@ -97,13 +97,13 @@ describe('recipe rows', () => {
     expect(box.querySelectorAll('.recipe-list .recipe-row .mat-chips').length).toBeGreaterThan(0);
   });
 
-  test('the online bottom card keeps one line: the result face and missing names in words, no chips', () => {
+  test('the online bottom card keeps one line per keyed recipe: the result face, no chips, no short recipes', () => {
     document.body.innerHTML = '<div id="bottom"></div>';
     renderBottom(board(), 1, true);
     const bottom = document.getElementById('bottom')!;
     expect(bottom.querySelector('.recipe-row .unit-face')).not.toBeNull();
     expect(bottom.querySelector('.mat-chips')).toBeNull();
-    expect(bottom.textContent).toContain('부족');
+    expect(bottom.textContent).not.toContain('부족');
   });
 });
 

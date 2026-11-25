@@ -283,8 +283,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         syncSelection(id);
         if (next === scope || (next === 'unit' && id === null)) break;
         scope = next;
-        // the result screen's 도우미 N회 counts how often the whole list was opened
-        if (next === 'all' && !driver.readOnly) driver.queue({ type: 'helperOpened' });
+        // the result screen's 도우미 N회 counts how often the whole list was opened; online it counts opening the helper
+        if (next === 'all' && !online && !driver.readOnly) driver.queue({ type: 'helperOpened' });
         break;
       }
       case 'nextMore': showAllOne = true; break;
@@ -416,6 +416,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   function setHelper(on: boolean): void {
     if (on === helperOpen) return;
     helperOpen = on;
+    if (on) {
+      const id = selectedSlot(driver.state, scene.selectedId) === null ? null : scene.selectedId;
+      syncSelection(id);
+      scope = id === null ? 'all' : 'unit';
+    }
     // the helper and the B panel share the left column
     if (on) econTab = null;
     if (on && !driver.readOnly) driver.queue({ type: 'helperOpened' });
@@ -560,7 +565,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       return;
     }
     if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }
-    if (online && modal === 'settings' && ev.code === 'KeyQ' && driver.state.phase !== 'ended') { act('toggleHelper', ''); return; }
+    if (online && modal === 'settings' && ev.code === 'KeyQ' && !ev.shiftKey && driver.state.phase !== 'ended') { act('toggleHelper', ''); return; }
     // J opens the quest list from preparation on and closes it again; the clock never stops for it
     if (ev.code === 'KeyJ' && driver.state.data.economy && driver.state.phase !== 'ended' && (modal === null || modal === 'quests')) {
       act(modal === 'quests' ? 'closeModal' : 'openQuests', '');
@@ -575,7 +580,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     else if (ev.code === 'KeyE') act('openUpgrades', '');
     else if (ev.code === 'KeyD') act('openDex', '');
     else if (ev.code === 'KeyQ') {
-      if (online) act('toggleHelper', '');
+      // online Q opens and closes the helper, so Shift+Q flips its scope; solo Q is the scope key and Shift+Q does nothing
+      if (online && ev.shiftKey) {
+        if (helperOpen) {
+          syncSelection(scene.selectedId);
+          act('nextScope', scope === 'unit' ? 'all' : 'unit');
+        }
+      }
+      else if (online) act('toggleHelper', '');
+      else if (ev.shiftKey) return;
       else if (selectedSlot(driver.state, scene.selectedId) !== null) {
         syncSelection(scene.selectedId);
         act('nextScope', scope === 'unit' ? 'all' : 'unit');
@@ -635,7 +648,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     el('stage').classList.toggle('has-target', !!el('target-overlay').firstChild);
     if (view && opts.data) {
       renderTop(view, opts.data);
-      renderRows(view, opts.data, helperOpen ? helperPopHtml(s) : '', flashingSeats(now));
+      const helper = helperOpen ? helperPopHtml(s, nextCombines(s, { target: targetId, slot: selected, scope }), {
+        unitId: selected === null ? null : s.slots[selected]?.id ?? null, scope, wPick: wPick?.result ?? null, hover: null, showAllOne,
+      }) : '';
+      renderRows(view, opts.data, helper, flashingSeats(now));
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
