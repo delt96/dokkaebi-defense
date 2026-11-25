@@ -1,6 +1,6 @@
 import { unitDefFast, type GameState } from '@dorandi/logic';
 import type { Lane } from '@dorandi/logic';
-import { GRADE_COLOR, STAGE_W, stageToCell } from '../layout';
+import { GRADE_COLOR, STAGE_W, gradeShape, stageToCell } from '../layout';
 import { esc } from './dom';
 import { storageStacks, storedCombineOptions, unitSkillText } from './models';
 import { typeBadgeHtml } from './badge';
@@ -17,9 +17,10 @@ export function iconHtml(defId: string, name: string, grade: number): string {
   return `<span class="stack-disc" style="background:${GRADE_COLOR[grade]}">${esc(name.slice(0, 1))}</span>`;
 }
 
-/** A small face for the 상세 window and the left card: the sprite, or the grade disc when the unit has none. */
-export function unitFaceHtml(defId: string, name: string, grade: number): string {
-  return `<span class="unit-face" style="--g:${GRADE_COLOR[grade]}">${iconHtml(defId, name, grade)}</span>`;
+/** A small face for the 상세 window and the left card: the sprite, or the grade disc when the unit has none. `shape` adds the board's grade shape at its top left. */
+export function unitFaceHtml(defId: string, name: string, grade: number, shape = false): string {
+  const mark = shape ? `<i class="gshape ${gradeShape(grade)}" style="background:${GRADE_COLOR[grade]}"></i>` : '';
+  return `<span class="unit-face" style="--g:${GRADE_COLOR[grade]}">${iconHtml(defId, name, grade)}${mark}</span>`;
 }
 
 export function storageInfoModel(state: GameState, defId: string | null) {

@@ -122,7 +122,7 @@ test('the card and physical keys combine at the selected slot while the helper u
   const { driver, queue, press, click, panels, select, scene } = mountTestUi(s);
   select(3);
   const card = panels.get('left')!;
-  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}" class="recipe-row">`);
+  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}" class="recipe-row" data-recipe="gamasot">`);
   expect(textOf(card.innerHTML)).toMatch(/\[Z\] 가마솥 [물마]/);
   expect(card.innerHTML).toContain('<b>화로</b> <span class="type-badge');
   expect(card.innerHTML).toContain('class="mat-chip lack" title="호롱 없음"');

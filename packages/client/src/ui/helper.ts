@@ -11,7 +11,7 @@ function helperItems(state: GameState): string {
     ? items.map(i => {
       const pay = i.short ? `<small class="combine-short">${esc(i.short)}</small>` : i.cost ? `<small class="combine-cost">비용 ${esc(i.cost)}</small>` : '';
       const range = attackRangeText(state.data, unitDefFast(state.data, i.recipe).range);
-      return `<li><span class="helper-name" title="사거리 ${range} · ${ATTACK_RANGE_HINT}">${unitFaceHtml(i.recipe, i.name, i.grade)}${esc(i.name)}</span> ${typeBadgeHtml(state.data, i.recipe, true)}<button data-action="combine" data-arg="${esc(i.recipe)}"${i.short ? ` disabled title="${esc(i.short)}"` : ''}>조합</button>${pay}${materialChipsHtml(i.materials)}</li>`;
+      return `<li><span class="helper-name" title="사거리 ${range} · ${ATTACK_RANGE_HINT}">${unitFaceHtml(i.recipe, i.name, i.grade)}${esc(i.name)}</span> ${typeBadgeHtml(state.data, i.recipe, true)}<button data-action="combine" data-arg="${esc(i.recipe)}"${i.short ? ` disabled title="${esc(i.short)}"` : ''}>조합</button>${pay}${materialChipsHtml(i.materials, undefined, id => unitDefFast(state.data, id).name)}</li>`;
     }).join('')
     : '<li class="empty">지금 만들 수 있는 것이 없습니다</li>';
 }

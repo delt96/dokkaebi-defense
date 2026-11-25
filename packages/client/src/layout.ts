@@ -36,6 +36,9 @@ export const GRADE_COLOR: Record<number, string> = {
   1: '#4f9dff', 2: '#4fd27a', 3: '#b07aff', 4: '#ffb347', 5: '#ff4a3a', 6: '#ffe35a',
 };
 
+/** The grade dot's shape (circle, square, diamond) so grades that look alike to colour-blind eyes still differ. */
+export const gradeShape = (grade: number): 'c' | 's' | 'd' => (grade <= 2 ? 'c' : grade <= 4 ? 's' : 'd');
+
 export function computeZoom(w: number, h: number): number {
   const m = Math.min(w / STAGE_W, h / STAGE_H);
   return m >= 2 ? Math.floor(m) : m >= 1.5 ? 1.5 : 1;

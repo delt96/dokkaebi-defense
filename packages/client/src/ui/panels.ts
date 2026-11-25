@@ -4,7 +4,7 @@ import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combine
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
-import { materialChipsHtml } from './chips';
+import { recipeRowHtml } from './next-list';
 import { roleText } from './dex-roles';
 import { pinButton } from './target';
 
@@ -27,30 +27,6 @@ export function renderRight(state: GameState, opts: RightOpts = {}): void {
     ${opts.notices?.length ? `<div class="notices">${opts.notices.map(n => `<div>${esc(n)}</div>`).join('')}</div>` : ''}
     <div class="right-foot">${opts.quests ?? ''}<button class="dex-open" data-action="openDex">도감 (D)</button>
     </div>`);
-}
-
-/**
- * One recipe. With `chips` it takes two lines: the key, result face, name and badge, then the material chips (the grade
- * 5-6 cost at their end). Without (the 44px online card) it stays one line, naming what is missing in words.
- */
-function recipeHtml(state: GameState, option: CombineOption, unitId: number | null, short: boolean, chips = true): string {
-  const badge = typeBadgeHtml(state.data, option.result, short);
-  const face = unitFaceHtml(option.result, option.name, option.grade);
-  const key = option.key ? `[${option.key}] ` : '';
-  const head = (extra: string) => `<span class="recipe-top">${key}${face}<b>${esc(option.name)}</b> ${badge}${extra}</span>`;
-  const mats = chips ? materialChipsHtml(option.materials, option.cost) : '';
-  if (option.missing.length) {
-    const currency = option.short ?? (option.cost ? `비용 ${option.cost}` : '');
-    const missing = `${option.missing.join(', ')} 부족${currency ? ` · ${currency}` : ''}`;
-    const extra = chips ? (option.short ? ` · <span class="combine-short">${esc(option.short)}</span>` : '') : ` · ${esc(missing)}`;
-    return `<span class="recipe-row combine-missing" title="${esc(`${option.name} · ${missing}`)}">${head(extra)}${mats}</span>`;
-  }
-  // every material is there but not the cost: the button stays, disabled, and says what is missing
-  if (option.short) {
-    return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="recipe-row combine-blocked" disabled title="${esc(option.short)}">${head(` · <span class="combine-short">${esc(option.short)}</span>`)}${mats}</button>`;
-  }
-  const cost = option.cost && !chips ? ` · <span class="combine-cost">${esc(option.cost)}</span>` : '';
-  return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="recipe-row"${option.cost ? ` title="비용 ${esc(option.cost)}"` : ''}>${head(cost)}${mats}</button>`;
 }
 
 const notesHtml = (lines: string[]): string => (lines.length ? `<ul class="card-notes">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '');
@@ -94,7 +70,7 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
   const unit = state.slots[selected]!;
   const options = combineOptions(state, selected).map(option => {
     const notes = combineNoteLines(state.data, option.result, true);
-    return `<div class="recipe"><div class="recipe-head">${recipeHtml(state, option, unit.id, false)}${pinButton(option.result, target)}</div>${resultSpecHtml(state, unit.defId, option.result)}${notesHtml(notes)}</div>`;
+    return `<div class="recipe"><div class="recipe-head">${recipeRowHtml(state, option, { unitId: unit.id, fullBadge: true })}${pinButton(option.result, target)}</div>${resultSpecHtml(state, unit.defId, option.result)}${notesHtml(notes)}</div>`;
   });
   const head = `<div class="modal-head ud-head">${unitFaceHtml(unit.defId, card.name, card.grade)}<b class="ud-name">${esc(card.name)}</b>
     <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
@@ -140,7 +116,7 @@ export function cardRecipes(state: GameState, selected: number | null): { unitId
 
 function compactRecipes(state: GameState, recipes: CombineOption[], unitId: number | null, visible: number, chips: boolean): string {
   if (!recipes.length) return '';
-  const rows = recipes.map(option => recipeHtml(state, option, unitId, true, chips)).join('');
+  const rows = recipes.map(option => recipeRowHtml(state, option, { unitId, chips })).join('');
   const more = recipes.length - visible;
   return `<div class="card-recipes"><div class="combine-options" data-scroll-key="${unitId}" tabindex="0" aria-label="다음 조합">${rows}</div>
     ${more > 0 ? `<button class="recipe-more" data-action="unitDetails">+${more}개 더</button>` : ''}</div>`;

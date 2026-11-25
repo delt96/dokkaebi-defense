@@ -88,10 +88,13 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .unit-panel.empty { justify-content: center; text-align: center; color: var(--ink-dim); line-height: 1.5; word-break: keep-all; }
 .unit-panel.empty.compact { justify-content: flex-start; }
 .up-name { display: flex; align-items: center; gap: 4px; font-size: 11px; }
-.unit-face { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 1px solid var(--g); border-radius: 3px; background: rgba(0, 0, 0, .25); }
+.unit-face { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 1px solid var(--g); border-radius: 3px; background: rgba(0, 0, 0, .25); }
 .unit-face img { width: 18px; height: 18px; image-rendering: pixelated; }
 .unit-face .stack-disc { width: 14px; height: 14px; font-size: 8px; }
 .ud-head .unit-face { width: 24px; height: 24px; }
+.gshape { position: absolute; left: -2px; top: -2px; width: 5px; height: 5px; border: 1px solid #000; }
+.gshape.c { border-radius: 50%; }
+.gshape.d { transform: rotate(45deg) scale(.9); }
 .ud-head .unit-face img { width: 22px; height: 22px; }
 .up-sub, .up-stats { color: #bfbbca; }
 .up-stats { display: grid; font-variant-numeric: tabular-nums; }
@@ -104,7 +107,8 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 /* a recipe: key, result face, name and badge, then its material chips with names under them */
 .recipe-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; min-height: 0; padding: 2px 3px; text-align: left; }
 span.recipe-row { border: 1px dashed #3d3349; border-radius: 2px; }
-.recipe-top { display: flex; align-items: center; gap: 2px; max-width: 100%; min-height: 14px; line-height: 14px; white-space: nowrap; overflow: hidden; }
+/* clip, not hidden, so the grade shape hanging 2px off the face's corner is not cut */
+.recipe-top { display: flex; align-items: center; gap: 2px; max-width: 100%; min-height: 14px; line-height: 14px; white-space: nowrap; overflow: hidden; overflow: clip; overflow-clip-margin: 2px; }
 .recipe-top b { font-weight: normal; overflow: hidden; text-overflow: ellipsis; }
 .recipe-top .unit-face { width: 14px; height: 14px; border-radius: 2px; }
 .recipe-top .unit-face img { width: 12px; height: 12px; }
@@ -123,6 +127,25 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .mat-mark { position: absolute; right: -4px; bottom: -4px; font-style: normal; font-size: 8px; line-height: 8px; font-weight: bold; text-shadow: 0 0 2px #000; }
 .mat-chip.have .mat-mark { color: #9fe0a8; }
 .mat-chip.lack .mat-mark { color: #ff9482; }
+.mat-mark svg { display: block; filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000); }
+.mat-chip.share .mat-mark { color: var(--accent); }
+.mat-chip.make .mat-mark { color: var(--ink); }
+.recipe-row.w-pick { box-shadow: 0 0 0 1px var(--accent); }
+.recipe-row.hov { border-color: var(--accent); }
+.recipe-row.peer { outline: 1px dashed var(--accent); outline-offset: -1px; }
+.next-list { display: flex; flex-direction: column; gap: 4px; }
+.next-list > *, .next-one > * { flex: none; }
+.next-one { display: contents; }
+.next-list .combine-missing { color: var(--ink-dim); }
+.next-group { display: flex; align-items: center; gap: 4px; font-size: 10px; line-height: 12px; color: var(--ink-dim); white-space: nowrap; }
+.next-group.target { color: var(--accent); }
+.next-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; color: var(--ink-dim); }
+.next-legend i { display: inline-flex; font-style: normal; }
+.next-legend .lg-share { color: var(--accent); }
+.next-legend .lg-make { color: var(--ink); }
+.next-more { min-height: 24px; font-size: 10px; }
+.next-far, .next-empty { margin: 0; font-size: 10px; line-height: 12px; color: var(--ink-dim); }
+.next-list button:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 .mat-cost { align-self: center; font-size: 8px; color: var(--accent); white-space: nowrap; }
 .recipe-more { width: 100%; min-height: 16px; }
 .recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
