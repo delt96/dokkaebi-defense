@@ -237,7 +237,7 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 
 .hud { font-size: 11px; gap: 8px; }
 .hud .pill { font-size: 10px; font-style: normal; padding: 0 4px; border-radius: 6px; background: #2a2236; color: var(--accent); }
-.hud .boss { color: #ffab99; }
+.hud .boss { color: #ffab99; white-space: nowrap; }
 .hud .enemies .n { font-weight: normal; }
 .hud .enemies.lv-warn .n { font-size: 12px; font-weight: bold; color: #ffb396; }
 .hud .enemies.lv-danger .n, .hud .enemies.lv-over .n { font-size: 13px; font-weight: bold; color: #ff9482; }

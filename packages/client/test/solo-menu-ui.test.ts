@@ -161,6 +161,25 @@ describe('solo menu on the board', () => {
     expect(onRestart).not.toHaveBeenCalled();
   });
 
+  test('the pill shows for the menu pause, the dex pause stays without it', () => {
+    const { frame } = mountSolo();
+    press($('#top [data-action="openMenu"]'));
+    frame();
+    expect($('#top .pill')!.textContent).toBe('멈춤');
+    press($('#modal [data-action="askHome"]'));
+    frame();
+    expect($('#top .pill')!.textContent).toBe('멈춤');
+    key('Escape');
+    key('Escape');
+    frame();
+    expect($('#modal')!.innerHTML).toBe('');
+    expect($('#top .pill')).toBeNull();
+    key('KeyD');
+    frame();
+    expect($('#modal')!.innerHTML).not.toBe('');
+    expect($('#top .pill')).toBeNull();
+  });
+
   test('P pause survives the menu and a confirm round trip (review focus 3)', () => {
     const { driver, frame } = mountSolo();
     key('KeyP');

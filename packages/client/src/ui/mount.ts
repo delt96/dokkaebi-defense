@@ -1092,7 +1092,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderRows(view, opts.data, helperFrame === 'win' ? '' : helper, rowMarks(view, now));
       renderAlert(s, alertOpts);
     } else {
-      renderHud(s, userPaused, alertOpts);
+      renderHud(s, pause.pill, alertOpts);
       setHtml(el('left'), s.phase === 'ended' ? '' : infoHtml || soloPanelHtml(s, {
         selected, list, idleList, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
       }));

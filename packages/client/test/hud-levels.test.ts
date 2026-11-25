@@ -81,6 +81,34 @@ describe('solo HUD in three steps', () => {
     expect($('#top .gauge-text')!.textContent).toBe('장승 무너짐');
   });
 
+  test('the top bar shortens the boss and drops the 장승 word only where the design says', () => {
+    renderHud(withBoss(10, 31), false);
+    expect($('#top .boss')!.textContent).toBe('보스 체력 18400 / 24000');
+    expect($('#top .boss')!.title).toBe('보스 체력 18400 / 24000');
+    renderHud(withBoss(10, 58), false);
+    expect($('#top .boss')!.textContent).toBe('보스 18400');
+    expect($('#top .boss')!.title).toBe('보스 체력 18400 / 24000');
+    expect($('#top .gauge-text')).toBeNull();
+    renderHud(withBoss(10, 63), false);
+    expect($('#top .boss')!.textContent).toBe('보스 체력 18400 / 24000');
+    expect($('#top .gauge-text')!.textContent).toBe('장승 무너짐');
+    const last = Array.from($('#top .hud')!.children).slice(-2);
+    expect(last.map(c => c.classList.contains('settings-open'))).toEqual([true, false]);
+    expect(last[1]!.classList.contains('menu-btn')).toBe(true);
+  });
+
+  test('no living boss, no boss label in the bar', () => {
+    renderHud(withEnemies(31), false);
+    expect($('#top .boss')).toBeNull();
+  });
+
+  test('the second argument draws the pill', () => {
+    renderHud(withEnemies(31), true);
+    expect($('#top .time .pill')!.textContent).toBe('멈춤');
+    renderHud(withEnemies(31), false);
+    expect($('#top .pill')).toBeNull();
+  });
+
   test.each([[30, []], [48, ['warn']], [58, ['danger']], [63, ['on']]] as const)('the edge at %i: %j', (n, classes) => {
     renderAlert(withEnemies(n));
     expect(Array.from($('#alert')!.classList)).toEqual(classes);
