@@ -9,7 +9,11 @@ import { expandTree, remainingNeed, targetBot } from './targetBot';
  * `jige`: spend held 지게 on missing materials (off: hold them; the grant rolls are the same either way).
  * `hunts`: summon 격파 targets the board can kill (missing: off).
  */
-export interface EconPolicy { quests: boolean; tame: boolean; jige?: boolean; hunts?: boolean }
+export interface EconPolicy {
+  quests: boolean; tame: boolean; jige?: boolean; hunts?: boolean;
+  /** Build and keep a grade 5 shredder of the main type next to the dealers (missing: off). */
+  shred?: boolean;
+}
 export type TargetBot = Bot & { currentTarget(): string | null };
 
 const MAX_TAMED = 2;
@@ -101,7 +105,7 @@ export function questCommands(state: GameState, _target: string | null): Command
  * One 지게 swap per decision: the highest-grade missing material of the target that a 지게 can give, taken from a
  * board unit of the same grade the target does not keep (outside its tree, or a spare copy).
  */
-export function jigeCommands(state: GameState, target: string | null): Command[] {
+export function jigeCommands(state: GameState, target: string | null, protect: ReadonlySet<number> = new Set()): Command[] {
   if (!target || !state.econ || state.econ.jige < 1) return [];
   const { missing, kept } = remainingNeed(state, target);
   const tree = expandTree(state.data, target);
@@ -113,7 +117,7 @@ export function jigeCommands(state: GameState, target: string | null): Command[]
   for (const def of wanted) {
     for (let i = 0; i < state.slots.length; i++) {
       const u = state.slots[i];
-      if (!u || unitDefFast(state.data, u.defId).grade !== def.grade || u.defId === def.id) continue;
+      if (!u || protect.has(i) || unitDefFast(state.data, u.defId).grade !== def.grade || u.defId === def.id) continue;
       const n = (used.get(u.defId) ?? 0) + 1;
       if (tree.has(u.defId) && n <= (kept.get(u.defId) ?? 0)) { used.set(u.defId, n); continue; }
       if (!jigeCandidates(state.data, u.defId).some(c => c.id === def.id)) continue;

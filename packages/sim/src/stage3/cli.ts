@@ -86,10 +86,11 @@ export function stage3Cli(arg: Arg): void {
     const seeds = Number(arg('seeds', '10'));
     const bots = arg('bot', 'switch,synergy,target').split(',');
     const noDefeat = arg('defeat', 'on') !== 'on';
+    const shred = arg('shred', 'off') === 'on';
     const configs = bots.map(b => {
       const c = STANDARD_CONFIGS.find(x => x.name === `${b}-full-q2`);
       if (!c) throw new Error(`--bot ${b}: no ${b}-full-q2 config`);
-      return { ...c, noDefeat };
+      return { ...c, noDefeat, shred, name: shred ? `${c.name}-shred` : c.name };
     });
     const rows: FirepowerRow[] = [];
     const bosses: BossRow[] = [];
@@ -100,7 +101,7 @@ export function stage3Cli(arg: Arg): void {
         bosses.push(...run.bosses);
       }
     }
-    const file = join(out, `firepower-${bots.join('-')}${noDefeat ? '' : '-defeat'}.csv`);
+    const file = join(out, `firepower-${bots.join('-')}${noDefeat ? '' : '-defeat'}${shred ? '-shred' : ''}.csv`);
     writeFileSync(file, toCsvRows(firepowerCsvRows(rows)));
     writeFileSync(file.replace(/\.csv$/, '-boss.csv'), toCsvRows(bossCsvRows(bosses)));
     console.log(`## board firepower, median of live seats (seeds ${seeds}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);

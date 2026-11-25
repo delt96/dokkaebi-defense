@@ -19,6 +19,8 @@ export interface EconConfig {
   /** 격파 targets in the rules and summoned by the bots (missing: on). */
   hunts?: boolean;
   gamble?: boolean;
+  /** Bots build and keep a grade 5 shredder (missing: off). */
+  shred?: boolean;
 }
 export interface EconRow {
   seed: number; config: string; bot: string; seat: number; finished: boolean; teamOutcome: string; endRound: number;
@@ -117,7 +119,7 @@ function dropTimedOutBosses(match: MatchState): void {
 export function econMatchRun(data: GameData, seed: number, c: EconConfig): { rows: EconRow[]; yeoksinSeconds: (number | null)[] } {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
-  const policy: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false };
+  const policy: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false, shred: c.shred === true };
   const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
   const driver = new EconDriver(match, bots, c.gamble);
   const finalTick = roundStartTick(d, Math.min(COMPARE_ROUND, d.balance.rounds));
