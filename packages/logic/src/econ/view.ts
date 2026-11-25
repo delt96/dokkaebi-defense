@@ -1,8 +1,9 @@
-import type { EconState, GameState, RejectReason, TameTargetDef } from '../types';
+import type { EconState, GameState, ItemEffect, RejectReason, TameTargetDef } from '../types';
 import { marketView, type MarketView } from './market';
 import { tameChance, tameCheck, tameReadyTick } from './tame';
 import { toTicks } from '../flow';
 import { huntCheck, huntCoins, huntHp, huntSeat } from './hunts';
+import { buyBlock } from './shop';
 
 export type EconMarketView = MarketView;
 
@@ -26,6 +27,13 @@ export interface EconHuntView {
   why: RejectReason | null;
 }
 
+/** One charm on sale: `held` waits to be attached, `bought` counts toward `perGame`; `why` is buyBlock's answer now. */
+export interface ShopItemView {
+  id: string; name: string; coins: number; effect: ItemEffect; held: number; bought: number; perGame: number | null;
+  why: RejectReason | null;
+}
+export interface ShopView { items: ShopItemView[] }
+
 /** Lane economy as the screen needs it. Holds no rng state; ticks are absolute so the value only changes on real changes. */
 export interface EconView {
   market: EconMarketView | null;
@@ -38,6 +46,7 @@ export interface EconView {
   tame: EconTameView[];
   /** This seat's settled and running quest records (one per quest). */
   questResults: EconState['questResults'];
+  shop: ShopView | null;
 }
 
 function deadlineOf(state: GameState, enemyId: number): number {
@@ -80,6 +89,19 @@ function huntsPart(state: GameState): EconHuntView[] {
   });
 }
 
+function shopPart(state: GameState): ShopView | null {
+  const shop = state.data.economy?.shop;
+  const econ = state.econ;
+  if (!shop || !econ) return null;
+  return {
+    items: shop.items.map(i => ({
+      id: i.id, name: i.name, coins: i.coins, effect: { ...i.effect },
+      held: econ.items?.[i.id] ?? 0, bought: econ.itemsBought?.[i.id] ?? 0, perGame: i.perGame ?? null,
+      why: buyBlock(state, i.id),
+    })),
+  };
+}
+
 /** The lane's economy for the screen, or null without an economy (stage 1-2). */
 export function econView(state: GameState): EconView | null {
   const econ = state.econ;
@@ -95,5 +117,6 @@ export function econView(state: GameState): EconView | null {
     events: econ.events.map(e => ({ ...e })),
     tame: tamePart(state),
     questResults: structuredClone(econ.questResults),
+    shop: shopPart(state),
   };
 }

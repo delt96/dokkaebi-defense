@@ -19,13 +19,18 @@ const yeoksinEnemyId = (stage: number): number => -stage;
 
 // ---------- building ----------
 
+function unitOf(u: Unit): UnitView {
+  return u.item === undefined ? { id: u.id, defId: u.defId } : { id: u.id, defId: u.defId, item: u.item };
+}
+
 function unitsOf(lane: GameState): (UnitView | null)[] {
-  return lane.slots.map(u => (u ? { id: u.id, defId: u.defId } : null));
+  return lane.slots.map(u => (u ? unitOf(u) : null));
 }
 
 /** The owner's units with their book cost; only stage 3 lanes keep one, so 20-round messages stay as they were. */
 function mineUnitOf(lane: GameState, u: Unit): MineUnitView {
-  return lane.econ && u.cost !== undefined ? { id: u.id, defId: u.defId, cost: u.cost } : { id: u.id, defId: u.defId };
+  const cost = lane.econ && u.cost !== undefined ? { cost: u.cost } : {};
+  return { id: u.id, defId: u.defId, ...cost, ...(u.item !== undefined && { item: u.item }) };
 }
 
 function mineUnitsOf(lane: GameState): (MineUnitView | null)[] {
@@ -149,7 +154,7 @@ function boardKey(lane: GameState): string {
   let key = '';
   for (let i = 0; i < lane.slots.length; i++) {
     const u = lane.slots[i];
-    key += (lane.open[i] ? 'o' : 'x') + (u ? `${u.id}:${u.defId}` : '') + ',';
+    key += (lane.open[i] ? 'o' : 'x') + (u ? `${u.id}:${u.defId}${u.item === undefined ? '' : `:${u.item}`}` : '') + ',';
   }
   return key;
 }
@@ -161,7 +166,7 @@ function mineKey(match: MatchState, seat: number, econ: EconMine | undefined): s
     lane.tokens, lane.coins, lane.buckwheat, lane.upgrades, lane.grade1Summons, lane.helperOpens,
     st.supportTokens, st.receivedThisRound, st.lastSeq,
   ]) + boardKey(lane) + (lane.econ ? `$${lane.slots.map(u => u?.cost ?? '').join(',')}` : '')
-    + (lane.storage ? `|${lane.storage.map(u => `${u.id}:${u.defId}:${u.cost ?? ''}`).join(',')}|` : '') + (econ ? JSON.stringify(econ) : '');
+    + (lane.storage ? `|${lane.storage.map(u => `${u.id}:${u.defId}:${u.cost ?? ''}:${u.item ?? ''}`).join(',')}|` : '') + (econ ? JSON.stringify(econ) : '');
 }
 
 function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {
@@ -181,6 +186,7 @@ function laneEventOf(match: MatchState, e: GameEvent): LaneEvent | null {
     case 'flee': return { t: 'flee', id: e.enemyId };
     case 'grow': return { t: 'grow', id: e.enemyId, hp: e.hp };
     case 'jigeSwap': case 'questReward': case 'tame': case 'tameTry': case 'hunt': case 'gambleCoins': case 'gambleUnit':
+    case 'itemBought': case 'itemAttached':
       return { t: 'note', ev: structuredClone(e) };
     default: return null;
   }

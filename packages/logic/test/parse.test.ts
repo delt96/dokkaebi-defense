@@ -59,6 +59,39 @@ describe('parseClientCommand', () => {
   });
 });
 
+describe('item commands', () => {
+  const parse = (type: string, args: unknown) => parseClientCommand({ seq: 1, type, args })!.cmd;
+  test('buyItem and attachItem parse with their unit id', () => {
+    expect(parse('buyItem', { item: 'powerCharm' })).toEqual({ type: 'buyItem', item: 'powerCharm' });
+    expect(parse('attachItem', { item: 'powerCharm', slot: 3, unitId: 7 })).toEqual({ type: 'attachItem', item: 'powerCharm', slot: 3, unitId: 7 });
+  });
+  test('bad item arguments are invalid', () => {
+    const long = 'x'.repeat(33);
+    const bad: [string, unknown][] = [
+      ['buyItem', {}], ['buyItem', { item: 3 }], ['buyItem', { item: '' }], ['buyItem', { item: long }],
+      ['buyItem', { item: 'powerCharm', slot: 1 }],
+      ['attachItem', { item: 'powerCharm', slot: 3 }],
+      ['attachItem', { item: 'powerCharm', slot: 24, unitId: 7 }], ['attachItem', { item: 'powerCharm', slot: -1, unitId: 7 }],
+      ['attachItem', { item: 'powerCharm', slot: 1.5, unitId: 7 }], ['attachItem', { item: 'powerCharm', slot: 3, unitId: 1.5 }],
+      ['attachItem', { item: 'powerCharm', slot: 3, unitId: null }], ['attachItem', { item: 'powerCharm', slot: 3, unitId: '7' }],
+      ['attachItem', { item: 'powerCharm', slot: 3, unitId: 7, seat: 2 }],
+      ['attachItem', { slot: 3, unitId: 7 }], ['attachItem', { item: 5, slot: 3, unitId: 7 }],
+      ['attachItem', { item: '', slot: 3, unitId: 7 }], ['attachItem', { item: long, slot: 3, unitId: 7 }],
+    ];
+    for (const [type, args] of bad) expect(parse(type, args)).toEqual({ type: 'invalid' });
+  });
+  test('toWire sends the unit seen at the slot and round-trips', () => {
+    const s = createGame(loadGameData('stage3'), 1);
+    const u = placeUnitForTest(s, 'jipsin', 2);
+    expect(toWire({ type: 'attachItem', item: 'swiftCharm', slot: 2 }, s))
+      .toEqual({ type: 'attachItem', args: { item: 'swiftCharm', slot: 2, unitId: u.id } });
+    expect(toWire({ type: 'buyItem', item: 'swiftCharm' })).toEqual({ type: 'buyItem', args: { item: 'swiftCharm' } });
+    for (const cmd of [{ type: 'buyItem', item: 'weakCharm' }, { type: 'attachItem', item: 'weakCharm', slot: 2, unitId: u.id }] as const) {
+      expect(parseClientCommand({ seq: 1, ...toWire(cmd) })!.cmd).toEqual(cmd);
+    }
+  });
+});
+
 test('delivery inputs are rejected on current rules', () => {
   for (const [type, args] of [['transferOffer', { target: 2, slot: 1, unitId: 4 }],
     ['transferAccept', { offerId: 1, slot: 2 }], ['transferDecline', { offerId: 1 }]] as const) {

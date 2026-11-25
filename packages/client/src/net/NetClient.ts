@@ -158,6 +158,7 @@ export class NetClient {
         };
       case 'sell':
       case 'store':
+      case 'attachItem':
         return { ...cmd, unitId: cmd.unitId ?? idAt(cmd.slot) };
       case 'combine':
         return cmd.slot === undefined ? cmd : { ...cmd, unitId: cmd.unitId ?? idAt(cmd.slot) };

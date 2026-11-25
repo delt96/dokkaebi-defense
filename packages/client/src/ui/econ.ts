@@ -1,5 +1,5 @@
 import {
-  jigeCandidates, toTicks, type ClientView, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
+  jigeCandidates, shopItem, toTicks, type ClientView, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
 } from '@dorandi/logic';
 import { esc } from './dom';
 import { unitSkillText } from './models';
@@ -13,6 +13,7 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
 /** Keeps a name and its mark (or a label and its number) on one line in the narrow panel. */
 const NBSP = ' ';
 const nameOf = (data: GameData, id: string): string => data.units.find(u => u.id === id)?.name ?? data.enemies.find(e => e.id === id)?.name ?? id;
+const itemName = (data: GameData, id: string): string => shopItem(data, id)?.name ?? id;
 const secondsOf = (data: GameData, ticks: number): number => Math.max(0, Math.ceil((ticks * data.balance.tickMs) / 1000));
 
 // ---------- market ----------
@@ -417,6 +418,11 @@ export function noteText(ev: EconNote, data: GameData): string | null {
       if (ev.success) return null;
       return `길들이기 실패 · ${[ev.buckwheat ? `묵 ${ev.buckwheat}` : '', ev.coins ? `${ev.coins}냥` : '', ev.tokens ? `불 ${ev.tokens}` : ''].filter(Boolean).join(' · ')}을 잃었습니다`;
     case 'tame': return `길들이기 성공 · ${withJosa(nameOf(data, ev.defId), '이/가')} 우리 편이 됐습니다`;
+    case 'itemBought': return `${withJosa(itemName(data, ev.item), '을/를')} 샀습니다`;
+    case 'itemAttached': {
+      const put = `${nameOf(data, ev.defId)}에 ${withJosa(itemName(data, ev.item), '을/를')} 붙였습니다`;
+      return ev.replaced ? `${put} · ${withJosa(itemName(data, ev.replaced), '은/는')} 사라졌습니다` : put;
+    }
     case 'hunt': {
       const name = `${nameOf(data, ev.enemy)} ${ev.level}단계`;
       if (ev.outcome === 'fled') return `${name}가 달아났습니다`;

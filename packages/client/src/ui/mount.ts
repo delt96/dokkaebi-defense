@@ -43,7 +43,12 @@ const NOTICE_MS = 1500;
 const CONFIRM_SELL_GRADE = 3;
 /** Economy notices stay a little longer than a refusal. */
 const NOTE_MS = 2500;
-const NOTE_TYPES: ReadonlySet<string> = new Set(['jigeSwap', 'questReward', 'tame', 'tameTry', 'hunt']);
+const NOTE_TYPES: ReadonlySet<string> = new Set(['jigeSwap', 'questReward', 'tame', 'tameTry', 'hunt', 'itemBought', 'itemAttached']);
+
+/** The economy message for a solo or streamed event, or null for events that show none. */
+export function econNoteText(event: GameEvent, data: GameData): string | null {
+  return NOTE_TYPES.has(event.type) ? noteText(event as EconNote, data) : null;
+}
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void; onHome?: () => void }
 
@@ -448,8 +453,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         gameAudio.play('dice');
         drew = true;
       }
-      if (!NOTE_TYPES.has(event.type) || driver.readOnly) continue;
-      const text = noteText(event as EconNote, driver.state.data);
+      if (driver.readOnly) continue;
+      const text = econNoteText(event, driver.state.data);
       if (text) say(text, NOTE_MS);
     }
     for (const r of rejected) {

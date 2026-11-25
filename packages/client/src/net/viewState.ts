@@ -19,7 +19,10 @@ export function viewToGameState(
   const mine = view.mine;
   const ownLane = view.watching === view.me.seat;
   // the own units carry their book cost from `mine` (stage 3); another lane's never do
-  const toUnit = (u: MineUnitView) => ({ id: u.id, defId: u.defId, cooldown: 0, attackCount: 0, periodic: [], ...(u.cost !== undefined && { cost: u.cost }) });
+  const toUnit = (u: MineUnitView) => ({
+    id: u.id, defId: u.defId, cooldown: 0, attackCount: 0, periodic: [],
+    ...(u.cost !== undefined && { cost: u.cost }), ...(u.item !== undefined && { item: u.item }),
+  });
   return {
     data,
     ...(data.balance.difficulties && { difficulty: view.difficulty ?? 'normal' }),

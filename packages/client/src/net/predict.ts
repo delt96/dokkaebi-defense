@@ -1,4 +1,4 @@
-import type { UnitView } from '@dorandi/logic';
+import { pickStored, type UnitView } from '@dorandi/logic';
 
 /** A command sent to the server that has no ack yet (wire form plus seq). */
 export interface PendingCmd { seq: number; type: string; args?: Record<string, unknown> }
@@ -29,16 +29,16 @@ export function predictUnits(server: (UnitView | null)[], open: boolean[], pendi
 }
 
 /**
- * The server's storage less the units that pending take-outs and sales will remove (the newest of each kind, as
- * the rules pick). A pending store adds nothing here: its unit stays on the board, faded, until the server answers.
+ * The server's storage less the units that pending take-outs and sales will remove, picked by the same rule the
+ * server uses (pickStored). A pending store adds nothing here: its unit stays on the board, faded, until the server answers.
  */
 export function predictStorage(server: UnitView[] | undefined, pending: PendingCmd[]): UnitView[] | undefined {
   if (!server) return undefined;
   const units = server.slice();
   for (const cmd of pending) {
     if (cmd.type !== 'retrieve' && cmd.type !== 'sellStored') continue;
-    const defId = cmd.args?.defId;
-    for (let i = units.length - 1; i >= 0; i--) if (units[i]!.defId === defId) { units.splice(i, 1); break; }
+    const at = pickStored(units, cmd.args?.defId);
+    if (at >= 0) units.splice(at, 1);
   }
   return units;
 }

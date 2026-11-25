@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  applyCommand, buyBlock, combineEatsItem, createGame, itemOf, jigeCandidates, loadGameData, pickStored, shopItem,
+  applyCommand, buyBlock, combineEatsItem, createGame, econView, itemOf, jigeCandidates, loadGameData, pickStored, shopItem,
   storedMaterials, validateData, type GameData, type GameEvent, type GameState, type RejectReason, type Unit,
 } from '../src';
 import { makeData, placeUnitForTest, withoutMarketLock } from '../src/testing';
@@ -397,5 +397,32 @@ describe('combine and storage use the copy without an item first', () => {
     ok(s, { type: 'combine', result: 'dunggumi', slot: 8 });
     expect(ids(s)).toEqual([[0, 9, 'dunggumi', null], [3, 7, 'bitjaru', null], [6, 8, 'jipsingol', null], [8, 11, 'dunggumi', null]]);
     expect(storedIdsOf(s)).toEqual([]);
+  });
+});
+
+describe('the shop view', () => {
+  test('the shop view lists price, held, bought and why', () => {
+    const s = game();
+    placeUnitForTest(s, 'jipsin', 0);
+    s.coins = 0;
+    const row = (id: string) => econView(s)!.shop!.items.find(i => i.id === id)!;
+    expect(econView(s)!.shop!.items.map(i => i.id)).toEqual(d3.economy!.shop!.items.map(i => i.id));
+    const power = shopItem(d3, 'powerCharm')!;
+    expect(row('powerCharm')).toEqual({
+      id: 'powerCharm', name: power.name, coins: power.coins, effect: power.effect, held: 0, bought: 0, perGame: null, why: 'noCoins',
+    });
+    expect(row('rangeCharm')).toMatchObject({ perGame: 1, why: 'noCoins' });
+    buy(s, 'rangeCharm');
+    expect(row('rangeCharm')).toMatchObject({ held: 1, bought: 1, why: 'itemLimit' });
+    expect(applyCommand(s, { type: 'attachItem', item: 'rangeCharm', slot: 0 }, [])).toBeNull();
+    expect(row('rangeCharm')).toMatchObject({ held: 0, bought: 1, why: 'itemLimit' });
+    s.coins = price('powerCharm');
+    expect(row('powerCharm').why).toBeNull();
+  });
+
+  test('a locked market says so; no shop data means no shop view', () => {
+    expect(econView(game(locked))!.shop!.items.every(i => i.why === 'marketLocked')).toBe(true);
+    const bare = makeData(d => { delete d.economy!.shop; }, 'stage3');
+    expect(econView(createGame(bare, 1))!.shop).toBeNull();
   });
 });

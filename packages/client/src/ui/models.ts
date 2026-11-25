@@ -330,6 +330,9 @@ const REJECT_TEXT: Record<string, string> = {
   nothingToStore: '보관할 1·2등급 유닛이 없습니다',
   notStored: '보관함에 없는 유닛입니다',
   slotTaken: '그 칸에는 이미 유닛이 있습니다',
+  // item shop
+  noItem: '가진 부적이 없습니다',
+  itemLimit: '이 부적은 한 판에 살 수 있는 만큼 다 샀습니다',
 };
 
 export function rejectText(reason: string): string | null {
