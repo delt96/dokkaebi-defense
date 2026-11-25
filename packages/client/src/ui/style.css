@@ -80,13 +80,30 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .panel-title { width: 100%; text-align: left; }
 .panel-title em { color: var(--accent); font-style: normal; float: right; }
 .helper { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow: auto; }
-/* solo: the selected unit's card; alone it fills the panel, under the helper it keeps to the lower part and scrolls */
-.unit-panel { display: flex; flex-direction: column; gap: 3px; min-height: 0; overflow: auto; }
-.unit-panel:only-child { flex: 1; }
-.unit-panel > * { flex: none; }
-.unit-panel.compact { flex: none; max-height: 62%; border-top: 1px solid var(--panel-edge); padding-top: 3px; }
-.unit-panel.empty { justify-content: center; text-align: center; color: var(--ink-dim); line-height: 1.5; word-break: keep-all; }
-.unit-panel.empty.compact { justify-content: flex-start; }
+/* solo left panel: head, scope row, the list taking the rest, then 지게 and the actions at the bottom */
+.solo-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+.solo-panel > * { flex: none; }
+.solo-panel > .nc-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+/* the same 54px with or without a unit, so W moving the selection never shifts the list; the 1px under the skill line
+   keeps it 5px from the scope buttons */
+.nc-head { height: 54px; padding-bottom: 1px; display: flex; flex-direction: column; gap: 1px; font-size: 10px; line-height: 12px; overflow: hidden; }
+.nc-head .hrow { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
+.nc-head .t { display: flex; flex-direction: column; min-width: 0; }
+.nc-head .l1 { display: flex; align-items: center; gap: 3px; min-width: 0; line-height: 11px; white-space: nowrap; }
+.nc-head .l1 b { font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.nc-head .sub, .nc-head .dimt { color: #bfbbca; white-space: nowrap; }
+.nc-head.none { justify-content: center; color: var(--ink-dim); line-height: 13px; }
+.nc-head.none b { color: var(--ink); font-size: 11px; }
+.skill-line { margin-top: auto; display: flex; align-items: center; gap: 2px; width: 100%; height: 16px; min-height: 16px; padding: 0 2px; color: var(--ink-dim); background: transparent; border-color: transparent; text-align: left; }
+.skill-line span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-line svg { flex: none; color: var(--accent); }
+.skill-line[aria-expanded="true"] svg { transform: rotate(90deg); }
+.nc-skill { margin: 0; padding: 0 0 0 10px; color: var(--ink-dim); line-height: 1.4; word-break: keep-all; }
+.nc-scope { display: flex; align-items: center; gap: 8px; height: 24px; }
+.scope-btn { flex: 1; min-width: 0; min-height: 24px; padding: 0 2px; color: var(--ink-dim); white-space: nowrap; }
+.scope-btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.scope-q { flex: none; color: var(--ink-dim); }
+.solo-panel button:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 .up-name { display: flex; align-items: center; gap: 4px; font-size: 11px; }
 .unit-face { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 1px solid var(--g); border-radius: 3px; background: rgba(0, 0, 0, .25); }
 .unit-face img { width: 18px; height: 18px; image-rendering: pixelated; }
@@ -96,12 +113,10 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .gshape.c { border-radius: 50%; }
 .gshape.d { transform: rotate(45deg) scale(.9); }
 .ud-head .unit-face img { width: 22px; height: 22px; }
-.up-sub, .up-stats { color: #bfbbca; }
-.up-stats { display: grid; font-variant-numeric: tabular-nums; }
+.up-sub { color: #bfbbca; }
 .up-skill { margin: 0; color: var(--ink-dim); line-height: 1.4; word-break: keep-all; }
-.up-skill.compact { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-recipes { min-width: 0; }
-.card-recipes .combine-options { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; max-height: 92px; scrollbar-width: thin; }
+.card-recipes .combine-options { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; scrollbar-width: thin; }
 .card-recipes .combine-options > * { flex: none; }
 .card-recipes .combine-missing { color: var(--ink-dim); }
 /* a recipe: key, result face, name and badge, then its material chips with names under them */
@@ -146,15 +161,19 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .next-more { min-height: 24px; font-size: 10px; }
 .next-far, .next-empty { margin: 0; font-size: 10px; line-height: 12px; color: var(--ink-dim); }
 .next-list button:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+/* inside the scrolled solo list an outline outside the row would be cut at the panel's edges */
+.nc-list button:focus-visible { outline-offset: -2px; }
 .mat-cost { align-self: center; font-size: 8px; color: var(--accent); white-space: nowrap; }
 .recipe-more { width: 100%; min-height: 16px; }
 .recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .pin-btn { flex: none; min-height: 15px; padding: 0 4px; }
 .pin-btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
-.up-jige { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
-.up-actions { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; }
-.up-actions button { flex: 1 0 auto; }
-.unit-panel.compact .up-actions { margin-top: 0; }
+.up-jige { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+.up-jige .jige-held { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.up-jige button { flex: none; padding: 0 4px; }
+/* one row: the keys are in the titles and the help line, so 상세 · 보관 · 판매 +N냥 fit the 120px */
+.up-actions { display: flex; gap: 3px; }
+.up-actions button { flex: 1 1 auto; min-width: 0; min-height: 24px; padding: 0 3px; white-space: nowrap; }
 .helper li { display: flex; align-items: center; gap: 3px; padding: 2px 0; }
 .helper li button { margin-left: auto; min-height: 18px; }
 .helper .empty { color: var(--ink-dim); }
@@ -661,7 +680,6 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 
 /* R 지게 바꾸기 */
 .jige-held { color: var(--accent); align-self: center; white-space: nowrap; }
-.jige-note { flex-basis: 100%; color: var(--ink-dim); font-size: 8px; line-height: 1.2; word-break: keep-all; }
 #storage .stack-swap { position: absolute; top: 0; right: 0; width: 11px; height: 11px; min-height: 0; padding: 0; border-radius: 50%; font-size: 6px; line-height: 9px; text-align: center; color: #10233a; background: #7fb2e5; border: 1px solid #2a5a8a; opacity: 0.85; }
 #storage .stack-swap:hover:not([disabled]) { opacity: 1; border-color: #e0f0ff; }
 #storage .stack-swap[disabled] { opacity: 0.35; }

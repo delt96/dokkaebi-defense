@@ -1,10 +1,10 @@
 import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeInfoText, upgradeRows, type CombineOption } from './models';
+import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeInfoText, upgradeRows, type CombineOption, type NextList, type UnitCard } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
-import { recipeRowHtml } from './next-list';
+import { nextListHtml, recipeRowHtml } from './next-list';
 import { roleText } from './dex-roles';
 import { pinButton } from './target';
 
@@ -139,14 +139,15 @@ function storeButton(state: GameState, selected: number, unitId: number | null):
     ? `<button data-action="store" data-arg="${unitId}" title="보관함에 넣기 (${STORE_KEY})">보관(${STORE_KEY})</button>` : '';
 }
 
-function jigeHtml(state: GameState, selected: number, unitId: number | null, jige: number | undefined): string {
+/** `explain` puts what a 지게 does in the button title (the solo panel keeps the row to one line). */
+function jigeHtml(state: GameState, selected: number, unitId: number | null, jige: number | undefined, explain = false): string {
   return jige !== undefined && unitId !== null && jigeCandidates(state.data, state.slots[selected]!.defId).length > 0
-    ? `<span class="jige-held" title="지게는 장터 묵 보따리에서 3% 확률로 함께 나옵니다">보유 지게 ${jige}개</span><button data-action="jigeOpen" data-arg="board:${unitId}"${jige < 1 ? ' disabled' : ''}>R 지게 바꾸기</button>` : '';
+    ? `<span class="jige-held" title="지게는 장터 묵 보따리에서 3% 확률로 함께 나옵니다">보유 지게 ${jige}개</span><button data-action="jigeOpen" data-arg="board:${unitId}"${explain ? ' title="지게: 같은 등급의 다른 유닛으로 바꿉니다"' : ''}${jige < 1 ? ' disabled' : ''}>R 지게 바꾸기</button>` : '';
 }
 
 /**
  * Online: the selected unit's one-line card under the board, or the help line (null hotkeys = 단축키 안내 줄 off).
- * Solo shows the card in the left panel (unitPanelHtml) and only the help line here.
+ * Solo shows the card in the left panel (soloPanelHtml) and only the help line here.
  */
 export function renderBottom(state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number, sellArmed = false) {
   const pick = cardRecipes(state, selected);
@@ -172,25 +173,60 @@ export function renderBottom(state: GameState, selected: number | null, online =
   return pick;
 }
 
+const OPEN_SVG = '<svg viewBox="0 0 6 8" width="6" height="8" aria-hidden="true" focusable="false"><polygon points="0,0 6,4 0,8" fill="currentColor"/></svg>';
+
 /**
- * Solo: the selected unit's card for the left panel. Alone it shows the whole skill text; `compact` (the helper list
- * sits above it) cuts the skill to two lines. With nothing selected it says how to fill it.
+ * Solo left panel. `list` is the next list in the panel's scope; `idleList` (the settings row) shows it with nothing
+ * selected. `skillOpen` unfolds the skill text under the head; `showAllOne` the one-short group of 전체.
  */
-export function unitPanelHtml(state: GameState, selected: number | null, opts: { compact?: boolean; jige?: number; sellArmed?: boolean } = {}): string {
-  const card = selected === null ? null : unitCard(state, selected);
-  if (!card) return '<div class="unit-panel empty">유닛을 누르면 여기에 정보가 나옵니다</div>';
-  const { unitId, recipes } = cardRecipes(state, selected);
-  const options = compactRecipes(state, recipes, unitId, 2, true);
-  const details = state.data.balance.extendedCombat ? '<button data-action="unitDetails">상세(Tab)</button>' : '';
-  const jige = jigeHtml(state, selected!, unitId, opts.jige);
-  return `<div class="unit-panel${opts.compact ? ' compact' : ''}">
-    <div class="up-name">${unitFaceHtml(state.slots[selected!]!.defId, card.name, card.grade)}<b>${esc(card.name)}</b></div>
-    <div class="up-sub">${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}</div>
-    <div class="up-stats"><span>공격 ${card.attack} · ${card.interval}초마다</span><span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(state.data, card.range)}</span></div>
-    <p class="up-skill${opts.compact ? ' compact' : ''}" title="${esc(card.skillText)}">${esc(card.skillText)}</p>
-    ${options}
-    ${jige ? `<div class="up-jige">${jige}<small class="jige-note">지게: 같은 등급의 다른 유닛으로 바꿉니다</small></div>` : ''}
-    <div class="up-actions">${details}${storeButton(state, selected!, unitId)}${sellButton(unitId, card.sellPrice, opts.sellArmed === true)}</div></div>`;
+export interface SoloPanelOpts {
+  selected: number | null; list: NextList; idleList: boolean;
+  wPick: string | null; hover: string | null; showAllOne: boolean; skillOpen: boolean;
+  jige?: number; sellArmed?: boolean;
+}
+
+function soloHeadHtml(state: GameState, slot: number, card: UnitCard, skillOpen: boolean): string {
+  const defId = state.slots[slot]!.defId;
+  const lines = card.skillText ? card.skillText.split(' / ') : [];
+  const skill = lines.length
+    ? `<button class="skill-line" data-action="skillOpen" aria-expanded="${skillOpen}" title="${esc(card.skillText)}"><span>${esc(lines[0]!)}</span>${OPEN_SVG}</button>`
+    : '<span class="skill-line none">특수 능력 없음</span>';
+  const head = `<div class="nc-head"><div class="hrow">${unitFaceHtml(defId, card.name, card.grade, true)}<div class="t">`
+    + `<div class="l1"><b>${esc(card.name)}</b>${typeBadgeHtml(state.data, defId, true)}<span class="sub">${card.grade}등급</span></div>`
+    + `<div class="dimt">공격 ${card.attack} · ${card.interval}초마다</div></div></div>`
+    + `<div class="dimt" title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(state.data, card.range)}</div>${skill}</div>`;
+  return skillOpen && lines.length ? `${head}<ul class="nc-skill">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : head;
+}
+
+const IDLE_HEAD = '<div class="nc-head none"><b>다음 할 일</b><span>W로 맨 위 조합 고르기</span><span>그다음 Z로 조합</span></div>';
+
+function scopeHtml(list: NextList, selected: boolean): string {
+  const unit = list.scope === 'unit';
+  return `<div class="nc-scope"><button class="scope-btn" data-action="nextScope" data-arg="unit" aria-pressed="${unit}" title="Q"${selected ? '' : ' disabled'}>`
+    + `${selected ? `이 유닛 ${list.counts.unit ?? 0}` : '이 유닛'}</button>`
+    + `<button class="scope-btn" data-action="nextScope" data-arg="all" aria-pressed="${!unit}" title="Q">전체 ${list.counts.all}</button><span class="scope-q">Q</span></div>`;
+}
+
+/** The bottom row: 상세 · 보관 · 판매 with the keys in their titles, or only the second-press sell button of grade 3+. */
+function soloActionsHtml(state: GameState, slot: number, unitId: number, price: number, armed: boolean): string {
+  if (armed) return `<div class="up-actions"><button data-action="sell" title="S" data-arg="${unitId}" class="armed">한 번 더 누르면 판매 +${price}냥</button></div>`;
+  const details = state.data.balance.extendedCombat ? '<button data-action="unitDetails" title="Tab">상세</button>' : '';
+  const store = storable(state, slot) ? `<button data-action="store" data-arg="${unitId}" title="${STORE_KEY}">보관</button>` : '';
+  return `<div class="up-actions">${details}${store}<button data-action="sell" data-arg="${unitId}" title="S">판매 +${price}냥</button></div>`;
+}
+
+export function soloPanelHtml(state: GameState, opts: SoloPanelOpts): string {
+  const slot = opts.selected;
+  const card = slot === null ? null : unitCard(state, slot);
+  const unitId = slot === null ? null : state.slots[slot]?.id ?? null;
+  const head = card && slot !== null ? soloHeadHtml(state, slot, card, opts.skillOpen) : IDLE_HEAD;
+  if (!card && !opts.idleList) return `<div class="solo-panel">${head}</div>`;
+  const listHtml = nextListHtml(state, opts.list, { unitId, wPick: opts.wPick, hover: opts.hover, showAllOne: opts.showAllOne });
+  const list = `<div class="nc-list" data-scroll-key="${opts.list.scope}:${unitId ?? ''}">${listHtml}</div>`;
+  if (!card || slot === null || unitId === null) return `<div class="solo-panel">${head}${scopeHtml(opts.list, false)}${list}</div>`;
+  const jige = jigeHtml(state, slot, unitId, opts.jige, true);
+  return `<div class="solo-panel">${head}${scopeHtml(opts.list, true)}${list}`
+    + `${jige ? `<div class="up-jige">${jige}</div>` : ''}${soloActionsHtml(state, slot, unitId, card.sellPrice, opts.sellArmed === true)}</div>`;
 }
 
 export function upgradesHtml(state: GameState): string {

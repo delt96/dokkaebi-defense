@@ -23,13 +23,14 @@ import {
   revealDisplay, revealResultAt, startReveal, type GambleHistoryEntry, type Reveal,
 } from './gamble';
 import { el, onAction, setHtml } from './dom';
-import { helperPopHtml, renderHelper } from './helper';
+import { helperPopHtml } from './helper';
 import { renderAlert, renderHud } from './hud';
 import { PressConfirm } from './confirm';
 import {
-  activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, nextUnitId, pinnedTarget, rejectText, selectedSlot, type DexNav, type Notice,
+  activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, nextCombines, nextUnitId, pinnedTarget, rejectText, selectedSlot,
+  type DexNav, type NextScope, type Notice,
 } from './models';
-import { renderBottom, renderRight, unitDetailsHtml, unitPanelHtml, upgradesHtml } from './panels';
+import { renderBottom, renderRight, soloPanelHtml, unitDetailsHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
 import { readHelpLine, settingsHtml, writeHelpLine } from './settings';
 import { STORE_ALL_KEY, STORE_KEY, storageHtml, storageInfoHtml, storageInfoModel, wireStorage } from './storage';
@@ -76,7 +77,21 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   const dexSearched = (term: string) => { dexRecent = addRecent(dexRecent, term); saveRecent(dexRecent); };
   // the list the dex scroll position belongs to: a new filter or search starts at the top
   let dexListKey = '';
+  // online: the helper over the six rows (Q)
   let helperOpen = false;
+  // solo left panel: the list scope follows the selection (see syncSelection); idleList is the settings row
+  let scope: NextScope = 'all';
+  let idleList = true;
+  let skillOpen = false;
+  let showAllOne = false;
+  let lastSelectedId: number | null = null;
+  function syncSelection(id: number | null): void {
+    if (id === lastSelectedId) return;
+    lastSelectedId = id;
+    scope = id === null ? 'all' : 'unit';
+    skillOpen = false;
+    showAllOne = false;
+  }
   // solo: P pauses until P again; the open dex pauses on top of that without touching the P state
   let userPaused = false;
   // the hotkey line under the board (단축키 안내 줄 in the settings window)
@@ -257,9 +272,21 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         driver.queue({ type: 'tame', enemyId: t.enemyId });
         break;
       }
-      // Q and the online helper title flip it; the settings row sets it. Neither closes a window.
-      case 'toggleHelper': setHelper(!helperOpen); break;
-      case 'setHelper': setHelper(arg === 'on'); break;
+      // online Q and the helper title flip it; the settings row sets it (solo: the list with nothing selected). Neither closes a window.
+      case 'toggleHelper': if (online) setHelper(!helperOpen); break;
+      case 'setHelper': if (online) setHelper(arg === 'on'); else idleList = arg === 'on'; break;
+      case 'nextScope': {
+        const next: NextScope = arg === 'unit' ? 'unit' : 'all';
+        const id = selectedSlot(driver.state, scene.selectedId) === null ? null : scene.selectedId;
+        syncSelection(id);
+        if (next === scope || (next === 'unit' && id === null)) break;
+        scope = next;
+        // the result screen's 도우미 N회 counts how often the whole list was opened
+        if (next === 'all' && !driver.readOnly) driver.queue({ type: 'helperOpened' });
+        break;
+      }
+      case 'nextMore': showAllOne = true; break;
+      case 'skillOpen': skillOpen = !skillOpen; break;
       // the gear stays above the settings window, so a second press closes it
       case 'openSettings': modal = modal === 'settings' ? null : 'settings'; break;
       case 'support': opts.actions?.support(); break;
@@ -269,6 +296,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'forfeit': opts.actions?.forfeit(); modal = null; break;
       case 'unitDetails': modal = 'unitDetails'; break;
       case 'openDex': dex = { ...dex, back: [], focus: null, open: [], unfold: [] }; modal = 'dex'; break;
+      case 'dexOpen':
+        dex = { ...dexGo(driver.state.data, { ...dex, back: [], focus: null, open: [], unfold: [] }, arg, arg, driver.state), back: [] };
+        modal = 'dex';
+        break;
       case 'dexFilter':
         dex = { ...dex, filter: arg, ...typedNow() };
         break;
@@ -369,14 +400,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (action === 'dexReset') el('modal').querySelector<HTMLButtonElement>('.dex-chips [aria-pressed="true"]')?.focus();
     if (action === 'dexTree') el('modal').querySelector<HTMLButtonElement>(`.dex-tree-toggle[data-arg="${arg}"]`)?.focus({ preventScroll: true });
     if (action === 'dexFold') el('modal').querySelector<HTMLButtonElement>(`.dex-fold[data-arg="${arg}"]`)?.focus({ preventScroll: true });
-    if ((action === 'dexGo' || action === 'dexBack') && dex.focus) {
+    const focusRow = (action === 'dexGo' || action === 'dexBack' || action === 'dexOpen') && dex.focus !== null;
+    if (focusRow && dex.focus) {
       revealDexRow(dex.focus);
       // the pressed link is gone with the redraw: keep the keyboard in the dex
       const row = el('modal').querySelector<HTMLElement>(`tr[data-dex-id="${dex.focus}"]`);
       (el('modal').querySelector<HTMLButtonElement>('.dex-back') ?? row?.querySelector<HTMLButtonElement>('button'))?.focus({ preventScroll: true });
       dex = { ...dex, focus: null };
     }
-    if (modal && modal !== previousModal) (el('modal').querySelector<HTMLButtonElement>('[data-autofocus]') ?? el('modal').querySelector<HTMLButtonElement>('button'))?.focus();
+    if (modal && modal !== previousModal && !focusRow) (el('modal').querySelector<HTMLButtonElement>('[data-autofocus]') ?? el('modal').querySelector<HTMLButtonElement>('button'))?.focus();
   };
 
   function setHelper(on: boolean): void {
@@ -526,7 +558,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       return;
     }
     if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }
-    if (modal === 'settings' && ev.code === 'KeyQ' && driver.state.phase !== 'ended') { act('toggleHelper', ''); return; }
+    if (online && modal === 'settings' && ev.code === 'KeyQ' && driver.state.phase !== 'ended') { act('toggleHelper', ''); return; }
     // J opens the quest list from preparation on and closes it again; the clock never stops for it
     if (ev.code === 'KeyJ' && driver.state.data.economy && driver.state.phase !== 'ended' && (modal === null || modal === 'quests')) {
       act(modal === 'quests' ? 'closeModal' : 'openQuests', '');
@@ -540,7 +572,13 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (ev.code === 'KeyE') act('openUpgrades', '');
     else if (ev.code === 'KeyD') act('openDex', '');
-    else if (ev.code === 'KeyQ') act('toggleHelper', '');
+    else if (ev.code === 'KeyQ') {
+      if (online) act('toggleHelper', '');
+      else if (selectedSlot(driver.state, scene.selectedId) !== null) {
+        syncSelection(scene.selectedId);
+        act('nextScope', scope === 'unit' ? 'all' : 'unit');
+      }
+    }
     else if (ev.code === `Key${STORE_ALL_KEY}`) act('storeAll', '');
     else if (ev.code === 'KeyB' && driver.state.data.economy?.market) act('toggleMarket', '');
     else if (ev.code === 'KeyT' && driver.state.data.economy?.tame) act('tame', '');
@@ -569,6 +607,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (!online) driver.paused = userPaused || (modal === 'dex' && s.phase !== 'ended');
     const selected = selectedSlot(s, scene.selectedId);
     if (selected === null) scene.selectedId = null;
+    syncSelection(scene.selectedId);
     const held = s.data.economy?.market ? econ()?.jige : undefined;
     // the unit an open R list was opened on moved, sold or the lane changed: the list goes, nothing is sent
     if (modal === 'jige' && (!jigeList || jigeStale(jigeList))) { modal = null; jigeList = null; }
@@ -588,7 +627,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      renderHelper(s, helperOpen, s.phase === 'ended' ? '' : infoHtml || unitPanelHtml(s, selected, { compact: helperOpen, jige: held, sellArmed: sellArmed(s, selected) }));
+      const list = nextCombines(s, { target: targetId, slot: selected, scope });
+      setHtml(el('left'), s.phase === 'ended' ? '' : infoHtml || soloPanelHtml(s, {
+        selected, list, idleList, wPick: null, hover: null, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
+      }));
     }
     // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
     // lane is full, so the line goes to the notices in the right column instead
@@ -634,7 +676,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: helperOpen, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected, targetId) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus, huntRows(econ()!, s)) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected, targetId) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus, huntRows(econ()!, s)) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
@@ -779,6 +821,10 @@ ${dex.mine.join()}`;
     writeTarget(opts.targetKey, null);
     targetFolded = false;
     helperOpen = false;
+    scope = 'all';
+    lastSelectedId = null;
+    skillOpen = false;
+    showAllOne = false;
     banner = null;
     modal = null;
     best = null;

@@ -9,8 +9,11 @@ const GEAR_SVG = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="t
 /** The gear at the right end of the top bar (online just before 메뉴); it opens the settings window. */
 export const SETTINGS_BUTTON = `<button class="settings-open" data-action="openSettings" aria-label="설정" title="설정">${GEAR_SVG}</button>`;
 
-/** `speed` is solo only; without it the row is left out. `help`: the hotkey line under the board. */
-export interface SettingsOpts { helper: boolean; reducedFx: boolean; help: boolean; speed?: number }
+/**
+ * `speed` is solo only; without it the row is left out. `help`: the hotkey line under the board. `solo`: the helper row
+ * then sets whether the left panel shows the whole list with nothing selected.
+ */
+export interface SettingsOpts { helper: boolean; reducedFx: boolean; help: boolean; speed?: number; solo?: boolean }
 
 const HELP_LINE_KEY = 'dorandi.helpLine';
 
@@ -37,6 +40,6 @@ const onOff = (action: string, on: boolean): string => choiceHtml(action, 'on', 
 export function settingsHtml(opts: SettingsOpts): string {
   const speed = opts.speed === undefined ? '' : rowHtml('speed', '배속', SPEEDS.map(n => choiceHtml('speed', String(n), `${n}×`, opts.speed === n)).join(''));
   return `<div class="modal settings-pop" role="dialog" aria-label="설정"><div class="modal-head">설정 <button data-action="closeModal">닫기</button></div>
-    ${rowHtml('helper', '조합 도우미', onOff('setHelper', opts.helper))}${speed}${rowHtml('fx', '화면 효과', choiceHtml('setFx', 'off', '보통', !opts.reducedFx) + choiceHtml('setFx', 'on', '줄임', opts.reducedFx))}${rowHtml('help', '단축키 안내 줄', onOff('setHelp', opts.help))}
+    ${rowHtml('helper', opts.solo ? '고르지 않았을 때 전체 목록' : '조합 도우미', onOff('setHelper', opts.helper))}${speed}${rowHtml('fx', '화면 효과', choiceHtml('setFx', 'off', '보통', !opts.reducedFx) + choiceHtml('setFx', 'on', '줄임', opts.reducedFx))}${rowHtml('help', '단축키 안내 줄', onOff('setHelp', opts.help))}
     ${audioSettingsHtml()}</div>`;
 }

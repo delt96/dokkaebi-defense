@@ -115,7 +115,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('the card and physical keys combine at the selected slot while the helper uses the default slot', () => {
+test('the card and physical keys combine at the selected slot while the whole list (nothing selected) uses the default slot', () => {
   const s = createGame(data, 1);
   placeUnitForTest(s, 'sotlid', 0);
   const chosen = placeUnitForTest(s, 'bujigaengi', 3);
@@ -129,12 +129,13 @@ test('the card and physical keys combine at the selected slot while the helper u
   expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
   click('left', `gamasot@${chosen.id}`);
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
-  press('KeyQ');
+  press('Escape');
   expect(panels.get('left')!.innerHTML).toContain('data-arg="gamasot"');
   click('left', 'gamasot');
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot' });
 
   driver.reset(s);
+  select(3);
   queue.mockClear();
   press('KeyZ', { ctrlKey: true });
   press('KeyZ', { altKey: true });
@@ -216,9 +217,11 @@ test('moving then combining before a render selects the result', () => {
   expect(panels.get('left')!.innerHTML).toContain('<b>가마솥</b>');
 });
 
-test('paused helper opens are counted on resume and discarded on restart', () => {
+test('paused helper opens (Q to 전체 on a selected unit) are counted on resume and discarded on restart', () => {
   const s = createGame(data, 1);
-  const { driver, press, ui } = mountTestUi(s);
+  placeUnitForTest(s, 'sotlid', 0);
+  const { driver, press, select, ui } = mountTestUi(s);
+  select(0);
   press('KeyP');
   for (let i = 0; i < 4; i++) press('KeyQ');
   press('KeyP');

@@ -234,9 +234,9 @@ describe('J list and the quest box', () => {
     expect(queued).toEqual([{ type: 'hunt', enemy: 'ev_oenun' }]);
   });
 
-  test('opening Q leaves the box and D where they are', () => {
+  test('the whole list in the left panel and Q leave the box and D where they are', () => {
     keydown(window, { code: 'KeyQ' });
-    expect(document.querySelector('#left .helper li')).not.toBeNull();
+    expect(document.querySelector('#left .nc-list')).not.toBeNull();
     const box = document.querySelector('#right .right-foot .quest-box')!;
     expect(box.textContent).toContain('살림 한 벌');
     press(document.querySelector('#right .dex-open'));

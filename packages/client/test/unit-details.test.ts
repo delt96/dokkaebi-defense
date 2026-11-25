@@ -2,11 +2,11 @@
 import { describe, expect, test } from 'vitest';
 import { createGame, loadGameData, type GameData } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
-import { combineOptions, unitCard, unitNotes } from '../src/ui/models';
+import { combineOptions, nextCombines, unitCard, unitNotes } from '../src/ui/models';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { unitDetailsHtml, unitPanelHtml } from '../src/ui/panels';
+import { soloPanelHtml, unitDetailsHtml } from '../src/ui/panels';
 
 const d1 = loadGameData();
 const d3 = loadGameData('stage3');
@@ -89,8 +89,10 @@ describe('unit face', () => {
     const state = createGame(d3, 1);
     placeUnitForTest(state, drawn.id, 0);
     const host = document.createElement('div');
-    host.innerHTML = unitPanelHtml(state, 0);
-    expect(host.querySelector('.up-name .unit-face img')).not.toBeNull();
+    host.innerHTML = soloPanelHtml(state, {
+      selected: 0, list: nextCombines(state, { slot: 0 }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false,
+    });
+    expect(host.querySelector('.nc-head .unit-face img')).not.toBeNull();
 
     const plain = d3.units.find(u => !hasSprite(u.id));
     if (plain) {

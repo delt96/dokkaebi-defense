@@ -2,9 +2,8 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
-import { combineOptions, helperModel } from '../src/ui/models';
-import { renderHelper } from '../src/ui/helper';
-import { renderBottom, unitDetailsHtml, unitPanelHtml } from '../src/ui/panels';
+import { combineOptions, nextCombines } from '../src/ui/models';
+import { renderBottom, soloPanelHtml, unitDetailsHtml } from '../src/ui/panels';
 import { setHtml } from '../src/ui/dom';
 import { typeBadgeHtml } from '../src/ui/badge';
 
@@ -23,7 +22,7 @@ describe('type badge', () => {
     expect(typeBadgeHtml(data, physical.id)).toContain('class="type-badge physical"');
   });
 
-  test('modal, bottom card and helper rows show each result type', () => {
+  test('modal, bottom card and the solo list show each result type', () => {
     const s = createGame(data, 1);
     placeUnitForTest(s, 'sotlid', 0);
     placeUnitForTest(s, 'bujigaengi', 1);
@@ -35,16 +34,20 @@ describe('type badge', () => {
     const modal = unitDetailsHtml(s, 0);
     expect(types(modal)).toEqual([own, ...expected]);
 
-    // solo the card is in the left panel, online under the board
-    setHtml(document.getElementById('left')!, unitPanelHtml(s, 0));
-    expect(types(document.getElementById('left')!.innerHTML)).toEqual([own, ...expected]);
-    expect(document.querySelectorAll('#left .combine-options .type-badge').length).toBe(expected.length);
-    document.querySelectorAll('#left .combine-options .type-badge').forEach(b => expect(b.textContent).toHaveLength(1));
+    // solo the unit is in the left panel, online under the board; the panel draws the rows of the next list
+    const solo = (slot: number | null) => soloPanelHtml(s, {
+      selected: slot, list: nextCombines(s, { slot }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false,
+    });
+    const rowTypes = (slot: number | null) => nextCombines(s, { slot }).rows.map(r => unitDefFast(data, r.result).damageType);
+    setHtml(document.getElementById('left')!, solo(0));
+    expect(types(document.getElementById('left')!.innerHTML)).toEqual([own, ...rowTypes(0)]);
+    expect(document.querySelectorAll('#left .nc-list .type-badge').length).toBe(rowTypes(0).length);
+    document.querySelectorAll('#left .nc-list .type-badge').forEach(b => expect(b.textContent).toHaveLength(1));
     renderBottom(s, 0, true);
     expect(types(document.getElementById('bottom')!.innerHTML)[0]).toBe(own);
 
-    renderHelper(s, true);
-    expect(types(document.getElementById('left')!.innerHTML)).toEqual(helperModel(s).map(i => unitDefFast(data, i.recipe).damageType));
+    setHtml(document.getElementById('left')!, solo(null));
+    expect(types(document.getElementById('left')!.innerHTML)).toEqual(rowTypes(null));
   });
 
   test('both types appear across the recipe results', () => {
