@@ -45,6 +45,6 @@ export function press(node: Element | null): void {
   node.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
 }
 
-export function key(code: string): void {
-  window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true }));
+export function key(code: string, init: KeyboardEventInit = {}): void {
+  window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true, ...init }));
 }

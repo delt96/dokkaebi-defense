@@ -27,7 +27,7 @@ import { helperPopHtml } from './helper';
 import { renderAlert, renderHud } from './hud';
 import { PressConfirm } from './confirm';
 import {
-  activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, nextCombines, nextUnitId, pinnedTarget, rejectText, selectedSlot,
+  activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, nextCombines, nextPick, nextUnitId, pinnedTarget, rejectText, selectedSlot,
   type DexNav, type NextScope, type Notice,
 } from './models';
 import { renderBottom, renderRight, soloPanelHtml, unitDetailsHtml, upgradesHtml } from './panels';
@@ -85,6 +85,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let skillOpen = false;
   let showAllOne = false;
   let lastSelectedId: number | null = null;
+  // the row W picked and the unit it selected for it; any other selection drops it (render)
+  let wPick: { result: string; unitId: number } | null = null;
   function syncSelection(id: number | null): void {
     if (id === lastSelectedId) return;
     lastSelectedId = id;
@@ -590,7 +592,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     }
     else if (ev.code === 'KeyW') {
       ev.preventDefault();
-      scene.selectedId = nextUnitId(driver.state, scene.selectedId);
+      const s = driver.state;
+      const pick = ev.shiftKey ? null : nextPick(s, nextCombines(s, { target: targetId }), wPick?.result ?? null);
+      const id = pick ? s.slots[pick.slot]?.id ?? null : null;
+      if (pick && id !== null) {
+        scene.selectedId = id;
+        wPick = { result: pick.result, unitId: id };
+      } else {
+        scene.selectedId = nextUnitId(s, scene.selectedId);
+        wPick = null;
+      }
       render();
     }
     else if ((ev.code === 'KeyS' || ev.code === 'Delete') && card?.unitId != null) act('sell', String(card.unitId));
@@ -607,6 +618,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (!online) driver.paused = userPaused || (modal === 'dex' && s.phase !== 'ended');
     const selected = selectedSlot(s, scene.selectedId);
     if (selected === null) scene.selectedId = null;
+    if (wPick && scene.selectedId !== wPick.unitId) wPick = null;
     syncSelection(scene.selectedId);
     const held = s.data.economy?.market ? econ()?.jige : undefined;
     // the unit an open R list was opened on moved, sold or the lane changed: the list goes, nothing is sent
@@ -629,7 +641,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderHud(s, driver.paused, activeNotice(notice, now));
       const list = nextCombines(s, { target: targetId, slot: selected, scope });
       setHtml(el('left'), s.phase === 'ended' ? '' : infoHtml || soloPanelHtml(s, {
-        selected, list, idleList, wPick: null, hover: null, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
+        selected, list, idleList, wPick: wPick?.result ?? null, hover: null, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
       }));
     }
     // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
@@ -659,7 +671,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else if (online && info) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), infoHtml);
-    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected));
+    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected), targetId);
     setHtml(el('storage'), storageVisible() ? storageHtml(s, held, defId => confirm.armed(`sellStored:${defId}`, now), info ? info.defId : null) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window

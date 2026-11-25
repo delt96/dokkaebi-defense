@@ -148,7 +148,7 @@ describe('solo help line and unit card', () => {
     expect(card.querySelector('.skill-line')).not.toBeNull();
     expect(left().textContent).not.toContain('다음 할 일');
     expect(bottom().querySelector('[data-action="sell"], .unit-info')).toBeNull();
-    expect(bottom().textContent).toContain('Space 소환');
+    expect(bottom().textContent).toContain('Z/X/C 조합(판에 짝 표시)');
     press(card.querySelector('[data-action="unitDetails"]'));
     expect(modal().querySelector('.unit-details')).not.toBeNull();
   });

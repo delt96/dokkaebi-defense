@@ -68,7 +68,7 @@ const sectionHtml = (title: string, body: string): string => `<section class="ud
 export function unitDetailsHtml(state: GameState, selected: number, target: string | null = null): string {
   const card = unitCard(state, selected)!;
   const unit = state.slots[selected]!;
-  const options = combineOptions(state, selected).map(option => {
+  const options = combineOptions(state, selected, target).map(option => {
     const notes = combineNoteLines(state.data, option.result, true);
     return `<div class="recipe"><div class="recipe-head">${recipeRowHtml(state, option, { unitId: unit.id, fullBadge: true })}${pinButton(option.result, target)}</div>${resultSpecHtml(state, unit.defId, option.result)}${notesHtml(notes)}</div>`;
   });
@@ -90,27 +90,30 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
 
 /**
  * What the help line can name: a selected unit (and whether it fits in storage), stage 3's quests (J) and 지게 (R), the solo pause (P).
- * `empty`: no unit on the board yet, so the line opens with how to summon.
+ * `empty`: no unit on the board yet, so the line opens with how to summon. `online`: Q opens the helper there instead of
+ * flipping the scope. `moving`: the selected unit waits for the cell to move to.
  */
-export interface HelpContext { selected?: boolean; storable?: boolean; quests?: boolean; jige?: boolean; pause?: boolean; empty?: boolean }
+export interface HelpContext { selected?: boolean; storable?: boolean; quests?: boolean; jige?: boolean; pause?: boolean; empty?: boolean; online?: boolean; moving?: boolean }
 
 /**
  * The hotkey help line under the board (the 단축키 안내 줄 setting hides it). With a unit selected it lists what that unit takes;
  * otherwise the board-wide keys. `hotkeys`: extra keys (stage 3 adds the market).
  */
 export function helpLineHtml(hotkeys?: string, ctx: HelpContext = {}): string {
-  const keys = ctx.selected
-    ? ['Z/X/C 조합', 'S 판매', ...(ctx.storable ? [`${STORE_KEY} 보관`] : []), ...(ctx.jige ? ['R 지게'] : []), 'Tab 상세', 'W 다음 유닛', 'Space 소환', 'Esc 선택 해제']
-    : [ctx.empty ? 'Space나 뚝딱!으로 유닛을 뽑으세요.' : '유닛을 눌러 선택하고 끌어서 옮기세요.', 'W 다음 유닛', 'Space 소환', 'E 강화', 'D 도감', 'Q 도우미', `${STORE_ALL_KEY} 1·2등급 보관`,
-      ...(hotkeys ? [hotkeys] : []), ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : [])];
+  const keys = ctx.moving
+    ? ['옮길 칸을 누르세요', 'Esc 취소']
+    : ctx.selected
+    ? ['Z/X/C 조합(판에 짝 표시)', 'S 판매', ...(ctx.storable ? [`${STORE_KEY} 보관`] : []), ...(ctx.jige ? ['R 지게'] : []), 'Tab 상세', 'M 옮기기', 'W 다음 조합', 'Esc 해제']
+    : [...(ctx.empty ? ['Space나 뚝딱!으로 유닛을 뽑으세요.'] : []), 'W 다음 조합 고르기', 'Space 소환', 'E 강화', 'D 도감', ctx.online ? 'Q 도우미' : 'Q 이 유닛/전체',
+      `${STORE_ALL_KEY} 1·2등급 보관`, ...(hotkeys ? [hotkeys] : []), ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : [])];
   return `<div class="card hint">${keys.map(esc).join(' · ')}</div>`;
 }
 
-/** The selected unit and the recipes its card offers (Z/X/C press them). */
-export function cardRecipes(state: GameState, selected: number | null): { unitId: number | null; recipes: CombineOption[] } {
+/** The selected unit and the recipes its card offers (Z/X/C press them), in the next-list order for `target`. */
+export function cardRecipes(state: GameState, selected: number | null, target: string | null = null): { unitId: number | null; recipes: CombineOption[] } {
   return {
     unitId: selected === null ? null : state.slots[selected]?.id ?? null,
-    recipes: selected === null ? [] : combineOptions(state, selected),
+    recipes: selected === null ? [] : combineOptions(state, selected, target),
   };
 }
 
@@ -149,11 +152,13 @@ function jigeHtml(state: GameState, selected: number, unitId: number | null, jig
  * Online: the selected unit's one-line card under the board, or the help line (null hotkeys = 단축키 안내 줄 off).
  * Solo shows the card in the left panel (soloPanelHtml) and only the help line here.
  */
-export function renderBottom(state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number, sellArmed = false) {
-  const pick = cardRecipes(state, selected);
+export function renderBottom(
+  state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number, sellArmed = false, target: string | null = null,
+) {
+  const pick = cardRecipes(state, selected, target);
   const card = online && selected !== null ? unitCard(state, selected) : null;
   const help = hotkeys === null ? '' : helpLineHtml(hotkeys, {
-    selected: selected !== null && !!state.slots[selected], storable: storable(state, selected), quests: !!state.data.economy, jige: !!state.data.economy?.market, pause: !online,
+    selected: selected !== null && !!state.slots[selected], storable: storable(state, selected), quests: !!state.data.economy, jige: !!state.data.economy?.market, pause: !online, online,
     empty: state.slots.every(u => !u),
   });
   if (!card) {

@@ -168,7 +168,7 @@ describe('market hotkey', () => {
     keydown(window, { code: 'KeyB' });
     expect(panel()).toBe('');
     expect(document.querySelector('[data-action="toggleMarket"]')).toBeNull();
-    expect(document.getElementById('bottom')!.textContent).toBe('Space나 뚝딱!으로 유닛을 뽑으세요. · W 다음 유닛 · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · P 멈춤');
+    expect(document.getElementById('bottom')!.textContent).toBe('Space나 뚝딱!으로 유닛을 뽑으세요. · W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · P 멈춤');
   });
 
   test('B opens and closes the market; the help line names it', () => {

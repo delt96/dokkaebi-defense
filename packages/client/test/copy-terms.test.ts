@@ -223,14 +223,14 @@ describe('spirit card', () => {
 describe('first help line', () => {
   test('an empty board starts with how to summon', () => {
     expect(helpLineHtml(undefined, { empty: true })).toContain('Space나 뚝딱!으로 유닛을 뽑으세요.');
-    expect(helpLineHtml(undefined, {})).toContain('유닛을 눌러 선택하고 끌어서 옮기세요.');
+    expect(helpLineHtml(undefined, {}).startsWith('<div class="card hint">W 다음 조합 고르기')).toBe(true);
     document.body.innerHTML = '<div id="bottom"></div>';
     const s = createGame(d1, 1);
     renderBottom(s, null, false);
     expect(document.getElementById('bottom')!.textContent!.startsWith('Space나 뚝딱!으로 유닛을 뽑으세요.')).toBe(true);
     placeUnitForTest(s, 'sotlid', 0);
     renderBottom(s, null, false);
-    expect(document.getElementById('bottom')!.textContent!.startsWith('유닛을 눌러 선택하고')).toBe(true);
+    expect(document.getElementById('bottom')!.textContent!.startsWith('W 다음 조합 고르기')).toBe(true);
   });
 });
 

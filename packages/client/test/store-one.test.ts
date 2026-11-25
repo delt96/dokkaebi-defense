@@ -40,7 +40,7 @@ describe('the selected unit card stores grades 1-2 one at a time', () => {
     expect(document.querySelector('#bottom [data-action="store"]')?.textContent).toBe('보관(A)');
     renderBottom(s, 0, false, 'B 장터');
     expect(document.getElementById('bottom')!.textContent).toBe(
-      'Z/X/C 조합 · S 판매 · A 보관 · R 지게 · Tab 상세 · W 다음 유닛 · Space 소환 · Esc 선택 해제');
+      'Z/X/C 조합(판에 짝 표시) · S 판매 · A 보관 · R 지게 · Tab 상세 · M 옮기기 · W 다음 조합 · Esc 해제');
     renderBottom(s, 1, false, 'B 장터');
     expect(document.getElementById('bottom')!.textContent).not.toContain('A 보관');
   });
