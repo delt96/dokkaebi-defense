@@ -95,7 +95,7 @@ export function stage3Cli(arg: Arg): void {
     for (const c of configs) for (let seed = 1; seed <= seeds; seed++) rows.push(...firepowerRun(data, seed, c));
     const file = join(out, `firepower-${bots.join('-')}${noDefeat ? '' : '-defeat'}.csv`);
     writeFileSync(file, toCsvRows(rows));
-    console.log(`## board firepower / round need, median of live seats (seeds ${seeds}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
+    console.log(`## board firepower, median of live seats (seeds ${seeds}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
     console.log(firepowerMarkdown(rows) + '\n');
   }
   if (check === 'r10probe') {
