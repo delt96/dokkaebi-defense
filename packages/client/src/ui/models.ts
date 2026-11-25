@@ -660,11 +660,16 @@ function markMaterials(top: RecipeNode[], reserve: (node: RecipeNode) => boolean
 }
 
 type MaterialLocation = 'board' | 'storage' | 'missing';
-/** `ready`: not owned, but every material it still needs is on the board or in storage, so it can be combined now. */
-export interface TargetNode { id: string; name: string; grade: number; location: MaterialLocation; ready: boolean; children: TargetNode[] }
+/**
+ * `ready`: not owned, but every material it still needs is on the board or in storage, so it can be combined now.
+ * `blocked`: those materials are all there, but `pay` cannot cover the combine or its round has not come ("20라운드부터").
+ */
+export interface TargetNode {
+  id: string; name: string; grade: number; location: MaterialLocation; ready: boolean; blocked: string | null; children: TargetNode[];
+}
 
 export function pinnedTarget(
-  data: GameData, id: string, board: readonly ({ defId: string } | null)[], storage: readonly { defId: string }[] = [],
+  data: GameData, id: string, board: readonly ({ defId: string } | null)[], storage: readonly { defId: string }[] = [], pay?: GameState,
 ): TargetNode | null {
   const tree = materialTree(data, id);
   if (!tree) return null;
@@ -679,8 +684,9 @@ export function pinnedTarget(
   const display = (node: RecipeNode): TargetNode => {
     const location = locations.get(node) ?? 'missing';
     const children = node.children.filter(child => child.mark !== 'covered').map(display);
-    const ready = location === 'missing' && children.length > 0 && children.every(child => child.location !== 'missing');
-    return { id: node.id, name: node.name, grade: node.grade, location, ready, children };
+    const onHand = location === 'missing' && children.length > 0 && children.every(child => child.location !== 'missing');
+    const blocked = onHand && pay ? blockedText(pay, data.recipes.find(r => r.result === node.id)) : null;
+    return { id: node.id, name: node.name, grade: node.grade, location, ready: onHand && blocked === null, blocked, children };
   };
   return display(tree);
 }

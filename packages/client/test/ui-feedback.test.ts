@@ -194,3 +194,29 @@ test('the pinned tree names whose material a deeper node is', () => {
     expect(deep.getAttribute('title')).toMatch(/^새끼줄의 재료 · /);
   });
 });
+
+test('a target whose materials are all on hand but which cannot be paid or is still shut says why instead of makeable now', () => {
+  const state = createGame(d3, 1);
+  placeUnitForTest(state, 'meok', 0);
+  placeUnitForTest(state, 'jige', 1);
+  state.buckwheat = 0;
+  expect(pinnedTarget(d3, 'top', state.slots, state.storage, state)).toMatchObject({ ready: false, blocked: '메밀묵 1개 모자람' });
+  state.buckwheat = 1;
+  expect(pinnedTarget(d3, 'top', state.slots, state.storage, state)).toMatchObject({ ready: true, blocked: null });
+
+  const tame = createGame(d3, 1);
+  placeUnitForTest(tame, 'jinegaksi', 0);
+  placeUnitForTest(tame, 'banjitgori', 1);
+  tame.buckwheat = 5;
+  tame.coins = 500;
+  expect(pinnedTarget(d3, 'baekbalbaneulgaksi', tame.slots, tame.storage, tame)).toMatchObject({ ready: false, blocked: '20라운드부터' });
+
+  state.buckwheat = 0;
+  return import('../src/ui/target').then(({ targetHtml }) => {
+    document.body.innerHTML = '<div id="t"></div>';
+    const root = document.getElementById('t')!;
+    root.innerHTML = targetHtml(pinnedTarget(d3, 'top', state.slots, state.storage, state)!, false);
+    expect(root.querySelector('.target-ready')).toBeNull();
+    expect(root.querySelector('.target-blocked')!.textContent).toBe('재료 다 있음 · 메밀묵 1개 모자람');
+  });
+});

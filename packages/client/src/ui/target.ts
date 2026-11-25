@@ -23,6 +23,7 @@ const LOCATION = { board: '진영에 있음', storage: '보관함에 있음', mi
 // the board and the storage differ by shape too, not only by their green and blue
 const MARK = { board: '✓', storage: '▣', missing: '✗' } as const;
 const READY = '지금 조합 가능';
+const blockedLine = (node: TargetNode) => (node.blocked ? `재료 다 있음 · ${node.blocked}` : null);
 const gradeStyle = (grade: number) => `style="--g:${GRADE_COLOR[grade] ?? 'var(--ink)'}"`;
 
 /**
@@ -33,8 +34,10 @@ const gradeStyle = (grade: number) => `style="--g:${GRADE_COLOR[grade] ?? 'var(-
 function materials(nodes: TargetNode[], parent: TargetNode, depth: number): string {
   if (!nodes.length) return '';
   return `<ul class="target-level target-depth-${Math.min(depth, 3)}" ${gradeStyle(parent.grade)}>${nodes.map(node => {
-    const title = `${depth === 1 ? '바로 넣는 재료' : `${parent.name}의 재료`} · ${node.name} ${node.grade}등급 · ${LOCATION[node.location]}${node.ready ? ` · ${READY}` : ''}`;
-    return `<li${node.ready ? ' class="ready"' : ''}><div class="target-material target-${node.location}" title="${esc(title)}"><i>${MARK[node.location]}</i><b ${gradeStyle(node.grade)}>${esc(node.name)}</b></div>${node.ready ? `<small class="target-ready">${READY}</small>` : ''}${materials(node.children, node, depth + 1)}</li>`;
+    const blocked = blockedLine(node);
+    const title = `${depth === 1 ? '바로 넣는 재료' : `${parent.name}의 재료`} · ${node.name} ${node.grade}등급 · ${LOCATION[node.location]}${node.ready ? ` · ${READY}` : blocked ? ` · ${blocked}` : ''}`;
+    const line = node.ready ? `<small class="target-ready">${READY}</small>` : blocked ? `<small class="target-blocked">${esc(blocked)}</small>` : '';
+    return `<li${node.ready ? ' class="ready"' : ''}><div class="target-material target-${node.location}" title="${esc(title)}"><i>${MARK[node.location]}</i><b ${gradeStyle(node.grade)}>${esc(node.name)}</b></div>${line}${materials(node.children, node, depth + 1)}</li>`;
   }).join('')}</ul>`;
 }
 
@@ -42,5 +45,5 @@ export function targetHtml(node: TargetNode, folded: boolean): string {
   const owned = node.location === 'board' ? '보유 · 진영' : node.location === 'storage' ? '보유 · 보관함' : '';
   return `<div class="target-head"><button data-action="foldTarget" aria-expanded="${!folded}" title="${esc(`${node.name} ${node.grade}등급`)}">${folded ? '▸' : '▾'} <b ${gradeStyle(node.grade)}>${esc(node.name)}</b></button>
     <button data-action="clearTarget" aria-label="목표 해제">×</button></div>
-    ${folded ? '' : `<div class="target-scroll" data-scroll-key="${esc(node.id)}">${owned ? `<div class="target-owned">${owned}</div>` : `${node.ready ? `<div class="target-ready">${READY}</div>` : ''}<div class="target-legend"><span class="legend-board">${MARK.board}진영</span> <span class="legend-storage">${MARK.storage}보관</span> <span class="legend-missing">${MARK.missing}없음</span></div>${materials(node.children, node, 1)}`}</div>`}`;
+    ${folded ? '' : `<div class="target-scroll" data-scroll-key="${esc(node.id)}">${owned ? `<div class="target-owned">${owned}</div>` : `${node.ready ? `<div class="target-ready">${READY}</div>` : node.blocked ? `<div class="target-blocked">${esc(blockedLine(node)!)}</div>` : ''}<div class="target-legend"><span class="legend-board">${MARK.board}진영</span> <span class="legend-storage">${MARK.storage}보관</span> <span class="legend-missing">${MARK.missing}없음</span></div>${materials(node.children, node, 1)}`}</div>`}`;
 }

@@ -576,7 +576,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (!info) inspectedStack = null;
     const infoHtml = info ? storageInfoHtml(s, info) : '';
     const target = targetId && pinnedTarget(
-      s.data, targetId, driver.readOnly && view ? view.mine.units : s.slots, driver.readOnly && view ? view.mine.storage : s.storage,
+      s.data, targetId, driver.readOnly && view ? view.mine.units : s.slots, driver.readOnly && view ? view.mine.storage : s.storage, s,
     );
     setHtml(el('target-overlay'), target && s.phase !== 'ended' ? targetHtml(target, targetFolded) : '');
     el('stage').classList.toggle('has-target', !!el('target-overlay').firstChild);
