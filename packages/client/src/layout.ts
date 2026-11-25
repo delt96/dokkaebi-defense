@@ -40,6 +40,7 @@ export const GRADE_COLOR: Record<number, string> = {
 export const gradeShape = (grade: number): 'c' | 's' | 'd' => (grade <= 2 ? 'c' : grade <= 4 ? 's' : 'd');
 
 export function computeZoom(w: number, h: number): number {
+  // Integer from 2x up; the 1.5 step keeps 960-1279px windows off 1x.
   const m = Math.min(w / STAGE_W, h / STAGE_H);
   return m >= 2 ? Math.floor(m) : m >= 1.5 ? 1.5 : 1;
 }
@@ -50,6 +51,56 @@ export function stagePlacement(w: number, h: number): { zoom: number; left: numb
     zoom,
     left: Math.max(0, Math.floor((w - STAGE_W * zoom) / 2)),
     top: Math.max(0, Math.floor((h - STAGE_H * zoom) / 2)),
+  };
+}
+
+/** x, y: screen px of the box's top-left corner. w, h: window px, before the window zoom. */
+export interface WinBox { x: number; y: number; w: number; h: number }
+export type WinPlace = 'outside' | 'inside';
+export interface ScreenLayout {
+  zoom: number; left: number; top: number;
+  wins: WinPlace; winZoom: number; winLeft: WinBox; winRight: WinBox;
+  outerZoom: number;
+}
+
+export const WIN_MIN = 150;
+export const WIN_GAP = 4;
+export const WIN_MAX = 196;
+export const PILLAR_LEFT = { x: 0, w: 196 } as const;
+export const PILLAR_RIGHT = { x: 458, w: 182 } as const;
+const PILLAR_H = STAGE_H - TOP_H - BOTTOM_H;
+const ONLINE_PILLAR_H = STAGE_H - TOP_H - ONLINE_BOTTOM_H;
+
+export function outerZoom(boardZoom: number): number {
+  return Math.max(1, Math.floor((boardZoom * 0.75) / 0.25) * 0.25);
+}
+
+export function screenLayout(w: number, h: number, opts: { band?: number; online?: boolean } = {}): ScreenLayout {
+  const band = opts.band ?? 0;
+  const base = stagePlacement(w, h);
+  const zoom = band > 0 ? Math.min(base.zoom, (h - band) / STAGE_H) : base.zoom;
+  const left = Math.max(0, Math.floor((w - STAGE_W * zoom) / 2));
+  const top = Math.floor(Math.max(0, h - band - STAGE_H * zoom) / 2);
+  const y = top + TOP_H * zoom;
+  const outer = outerZoom(base.zoom);
+
+  const candidates = [zoom];
+  for (let z = Math.ceil(zoom) - 1; z >= 2; z--) candidates.push(z);
+  const winZoom = candidates.find((z) => left / z >= WIN_MIN + WIN_GAP);
+  if (winZoom !== undefined) {
+    const winW = Math.min(WIN_MAX, left / winZoom - WIN_GAP);
+    const winH = ((STAGE_H - TOP_H) * zoom) / winZoom;
+    return {
+      zoom, left, top, wins: 'outside', winZoom, outerZoom: outer,
+      winLeft: { x: left - (winW + WIN_GAP) * winZoom, y, w: winW, h: winH },
+      winRight: { x: left + STAGE_W * zoom + WIN_GAP * winZoom, y, w: winW, h: winH },
+    };
+  }
+  const pillarH = opts.online ? ONLINE_PILLAR_H : PILLAR_H;
+  return {
+    zoom, left, top, wins: 'inside', winZoom: zoom, outerZoom: outer,
+    winLeft: { x: left + PILLAR_LEFT.x * zoom, y, w: PILLAR_LEFT.w, h: pillarH },
+    winRight: { x: left + PILLAR_RIGHT.x * zoom, y, w: PILLAR_RIGHT.w, h: pillarH },
   };
 }
 
