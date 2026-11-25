@@ -39,7 +39,7 @@ export function lobbyModel(msg: LobbyMsg): LobbyModel {
 }
 
 /** `copy` resolves true only when the clipboard took the address. */
-export interface LobbyActions { ready(v: boolean): void; start(): void; copy(): Promise<boolean>; difficulty?(d: Difficulty): void }
+export interface LobbyActions { ready(v: boolean): void; start(): void; leave(): void; copy(): Promise<boolean>; difficulty?(d: Difficulty): void }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -64,7 +64,12 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
       setTimeout(() => { copy.textContent = TEXT.copy; }, 1500);
     });
   });
-  box.append(copy);
+  const leave = el('button', undefined, TEXT.leave);
+  leave.type = 'button';
+  leave.addEventListener('click', () => actions.leave());
+  const tools = el('div', 'lobby-tools');
+  tools.append(copy, leave);
+  box.append(tools);
   if (link !== undefined) {
     const field = el('input', 'entry-input lobby-link');
     field.type = 'text';
@@ -92,26 +97,25 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
     li.append(el('span', 'lobby-name', r.text));
     if (r.host) li.append(el('em', undefined, TEXT.host));
     if (r.me) li.append(el('em', undefined, TEXT.me));
-    if (!r.empty) li.append(el('span', r.ready ? 'lobby-state on' : 'lobby-state', r.ready ? TEXT.ready : TEXT.waiting));
+    if (r.showState) li.append(el('span', r.ready ? 'lobby-state on' : 'lobby-state', r.ready ? TEXT.ready : TEXT.waiting));
     list.append(li);
   }
   box.append(list);
 
-  const ready = el('button', 'big', m.myReady ? TEXT.unreadyBtn : TEXT.readyBtn);
-  ready.type = 'button';
-  ready.addEventListener('click', () => actions.ready(!m.myReady));
   const controls = el('div', 'screen-actions');
-  box.append(controls);
-  controls.append(ready);
-
   if (m.isHost) {
     const start = el('button', 'big', TEXT.start);
     start.type = 'button';
     start.disabled = !m.canStart;
     start.addEventListener('click', () => actions.start());
     controls.append(start);
+  } else {
+    const ready = el('button', m.myReady ? 'big secondary' : 'big', m.myReady ? TEXT.unreadyBtn : TEXT.readyBtn);
+    ready.type = 'button';
+    ready.addEventListener('click', () => actions.ready(!m.myReady));
+    controls.append(ready);
   }
-  if (m.hint) box.append(el('div', 'lobby-hint', m.hint));
+  box.append(controls, el('div', 'lobby-hint lobby-start-hint', m.hint));
   if (notice) box.append(el('div', 'entry-error', notice));
   root.append(box);
 }

@@ -294,3 +294,70 @@ describe('online app: the room link in the ready room', () => {
     expect([field.selectionStart, field.selectionEnd]).toEqual([7, 16]);
   });
 });
+
+describe('online app: leaving the ready room (design 3-2, 3-3)', () => {
+  test('leaving the lobby goes back to a new-room start screen with a 4 s note (review focus 2)', async () => {
+    const replace = vi.spyOn(history, 'replaceState');
+    saveSession('r1', { name: '하나' });
+    const room = new FakeRoom('r1');
+    join.mockResolvedValueOnce(room);
+    startOnline({ roomId: 'r1' });
+    screen().querySelector('input')!.value = '하나';
+    screen().querySelector('form')!.dispatchEvent(new Event('submit'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(join).toHaveBeenLastCalledWith('r1', { name: '하나' });
+    saveSession('r1', { key: 'k0', name: '하나' });
+    room.emit('lobby', { roomId: 'r1', you: 2, hostSeat: 1, seats: [{ seat: 1, name: '가', ready: false }, { seat: 2, name: '하나', ready: false }] });
+    Array.from(screen().querySelectorAll('button')).find(b => b.textContent === TEXT.leave)!.click();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(room.left).toBe(1);
+    expect(replace).toHaveBeenLastCalledWith(null, '', '/');
+    expect(sessionStorage.getItem('dorandi:room:r1')).toBeNull();
+    const submit = screen().querySelector('button[type="submit"]');
+    expect(submit?.textContent).toBe(TEXT.create);
+    expect(screen().querySelector('[data-difficulty]')).not.toBeNull();
+    expect(screen().querySelector('.entry-invite')).toBeNull();
+    const toast = document.querySelector('.screen-toast');
+    expect(toast?.textContent).toBe(TEXT.left);
+    expect(toast?.getAttribute('role')).toBe('status');
+    expect(screen().contains(toast)).toBe(false);
+
+    // the old link's consented close can arrive late; the start screen stays as it is
+    room.close(4000);
+    expect(screen().textContent).not.toContain(TEXT.connectFail);
+    expect(screen().querySelector('button[type="submit"]')?.textContent).toBe(TEXT.create);
+
+    await vi.advanceTimersByTimeAsync(3999);
+    expect(document.querySelector('.screen-toast')).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(document.querySelector('.screen-toast')).toBeNull();
+    replace.mockRestore();
+  });
+
+  test('a room made after leaving is not disturbed by the old link closing late', async () => {
+    const room = new FakeRoom('r1');
+    join.mockResolvedValueOnce(room);
+    startOnline({ roomId: 'r1' });
+    screen().querySelector('input')!.value = '하나';
+    screen().querySelector('form')!.dispatchEvent(new Event('submit'));
+    await vi.advanceTimersByTimeAsync(0);
+    room.emit('lobby', { roomId: 'r1', you: 2, hostSeat: 1, seats: [{ seat: 1, name: '가', ready: false }, { seat: 2, name: '하나', ready: false }] });
+    Array.from(screen().querySelectorAll('button')).find(b => b.textContent === TEXT.leave)!.click();
+    await vi.advanceTimersByTimeAsync(0);
+
+    let resolveCreate!: (r: FakeRoom) => void;
+    create.mockReturnValueOnce(new Promise(r => { resolveCreate = r; }) as never);
+    screen().querySelector('input')!.value = '하나';
+    screen().querySelector('form')!.dispatchEvent(new Event('submit'));
+    expect(screen().textContent).toBe(TEXT.connecting);
+    room.close(4000);
+    expect(screen().textContent).toBe(TEXT.connecting);
+    const next = new FakeRoom('r2');
+    resolveCreate(next);
+    await vi.advanceTimersByTimeAsync(0);
+    next.emit('lobby', { roomId: 'r2', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: false }] });
+    expect(screen().querySelector('.lobby')).not.toBeNull();
+  });
+});
+

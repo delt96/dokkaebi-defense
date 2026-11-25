@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, expect, test, vi } from 'vitest';
 import { gameAudio, installAudioInput } from '../src/audio/engine';
-import { NICKNAME_MAX, normalizeNickname } from '@dorandi/logic';
+import { NICKNAME_MAX, normalizeNickname, type LobbyMsg } from '@dorandi/logic';
 import { renderEntry } from '../src/online/entry';
-import { lobbyModel } from '../src/online/lobby';
+import { lobbyModel, renderLobby, type LobbyActions } from '../src/online/lobby';
 import { joinErrorText, TEXT } from '../src/online/text';
 import { difficultyRuleText } from '../src/ui/difficulty';
 import { firstVisitRules } from '../src/ui/first-visit';
@@ -163,3 +163,70 @@ describe('entry and lobby', () => {
     vi.restoreAllMocks();
   });
 });
+
+describe('the ready room buttons (design 3-2, 3-5, 3-6, 3-7)', () => {
+  const seats = (...r: boolean[]) => r.map((ready, i) => ({ seat: i + 1, name: `p${i + 1}`, ready }));
+  const lobby = (you: number, ...r: boolean[]): LobbyMsg => ({ roomId: 'r', you, hostSeat: 1, seats: seats(...r), stage: 'stage3', difficulty: 'normal' });
+  const noop: LobbyActions = { ready() {}, start() {}, copy: async () => true, leave() {} };
+  const draw = (msg: LobbyMsg, actions: Partial<LobbyActions> = {}) => {
+    const root = document.createElement('div');
+    renderLobby(root, msg, { ...noop, ...actions });
+    return root;
+  };
+  const bigs = (root: HTMLElement) => Array.from(root.querySelectorAll<HTMLButtonElement>('.screen-actions button'));
+  const hint = (root: HTMLElement) => root.querySelector('.lobby-hint.lobby-start-hint');
+
+  test('the host has one gold 시작, lit once every guest is ready', () => {
+    const waiting = draw(lobby(1, false, false));
+    const [start, ...rest] = bigs(waiting);
+    expect(rest).toHaveLength(0);
+    expect(start!.textContent).toBe(TEXT.start);
+    expect(start!.classList.contains('big')).toBe(true);
+    expect(start!.classList.contains('secondary')).toBe(false);
+    expect(start!.disabled).toBe(true);
+    expect(hint(waiting)?.textContent).toBe('모두 준비하면 시작할 수 있습니다 · 0/1명 준비');
+    const rows = waiting.querySelectorAll('.lobby-row');
+    expect(rows[0]!.querySelector('.lobby-state')).toBeNull();
+    expect(rows[1]!.querySelector('.lobby-state')?.textContent).toBe(TEXT.waiting);
+
+    const alone = draw(lobby(1, false));
+    expect(bigs(alone).map(b => [b.textContent, b.disabled])).toEqual([[TEXT.start, false]]);
+    expect(hint(alone)?.textContent).toBe('혼자 시작합니다 · 시작하면 더 들어올 수 없습니다');
+
+    const full = draw(lobby(1, false, true, true, true, true, true));
+    expect(bigs(full).map(b => b.disabled)).toEqual([false]);
+    expect(hint(full)).not.toBeNull();
+    expect(hint(full)!.textContent).toBe('');
+  });
+
+  test('the host start button calls start, never ready', () => {
+    const calls: string[] = [];
+    const root = draw(lobby(1, false), { start: () => calls.push('start'), ready: () => calls.push('ready') });
+    bigs(root)[0]!.click();
+    expect(calls).toEqual(['start']);
+  });
+
+  test('a guest readies with gold 준비 and backs out with a plain 준비 취소', () => {
+    const picks: boolean[] = [];
+    const before = draw(lobby(2, false, false), { ready: v => picks.push(v) });
+    expect(bigs(before).map(b => [b.textContent, b.classList.contains('secondary')])).toEqual([[TEXT.readyBtn, false]]);
+    bigs(before)[0]!.click();
+    const after = draw(lobby(2, false, true), { ready: v => picks.push(v) });
+    expect(bigs(after).map(b => [b.textContent, b.classList.contains('secondary')])).toEqual([[TEXT.unreadyBtn, true]]);
+    bigs(after)[0]!.click();
+    expect(picks).toEqual([true, false]);
+    expect(after.textContent).not.toContain(TEXT.start);
+    expect(hint(after)?.textContent).toBe('');
+    expect(after.textContent).toContain(TEXT.modeHostOnly);
+  });
+
+  test('나가기 sits by 링크 복사 and calls leave', () => {
+    let left = 0;
+    const root = draw(lobby(1, false), { leave: () => { left++; } });
+    const tools = root.querySelector('.lobby-tools')!;
+    expect(Array.from(tools.children).map(c => c.textContent)).toEqual([TEXT.copy, TEXT.leave]);
+    tools.querySelector<HTMLButtonElement>('button:last-child')!.click();
+    expect(left).toBe(1);
+  });
+});
+

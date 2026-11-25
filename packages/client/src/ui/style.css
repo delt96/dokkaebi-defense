@@ -318,7 +318,6 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .screen-box { width: min(360px, 100% - 32px); margin-block: auto; padding: 20px 0; display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
 .screen-actions { display: flex; gap: 8px; }
 .screen-actions > button { flex: 1; }
-.screen-actions > .big:last-child:not(:only-child) { background: #2a2236; color: var(--ink); border-color: #574a65; }
 .lobby .screen-title { grid-column: 1; text-align: left; margin: 0; }
 .lobby { display: grid; width: min(400px, 100% - 32px); grid-template-columns: 1fr auto; align-items: center; }
 .lobby > .lobby-rows, .lobby > .screen-actions, .lobby > .lobby-hint, .lobby > .entry-error, .lobby > .lobby-modes, .lobby > .lobby-link { grid-column: 1 / -1; }
@@ -355,6 +354,11 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .lobby-state { color: var(--ink-dim); font-size: 13px; }
 .lobby-state.on { color: var(--accent); }
 .lobby-hint { color: var(--ink-dim); font-size: 13px; text-align: center; }
+.lobby-tools { display: flex; gap: 8px; }
+/* kept even when empty so the start button does not jump as the hint comes and goes */
+.lobby-start-hint { min-height: 18px; }
+.lobby .big:disabled { cursor: not-allowed; }
+.screen-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 11; zoom: var(--outer-zoom, 1); padding: 6px 12px; font-size: 13px; color: var(--ink); background: var(--panel); border: 1px solid var(--panel-edge); }
 .lobby-modes { display: flex; align-items: center; gap: 6px; }
 .lobby-mode-label { color: var(--ink-dim); font-size: 13px; white-space: nowrap; }
 .entry-difficulty { display: flex; align-items: center; justify-content: center; gap: 6px; }

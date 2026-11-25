@@ -28,7 +28,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     expect(lobbyModel(msg({ stage: 'stage3' })).stage).toBe('stage3');
     const picks: string[] = [];
     const root = document.createElement('div');
-    renderLobby(root, msg({ stage: 'stage3' }), { ready: () => {}, start: () => {}, copy: async () => true, difficulty: d => picks.push(d) });
+    renderLobby(root, msg({ stage: 'stage3' }), { ready: () => {}, start: () => {}, leave: () => {}, copy: async () => true, difficulty: d => picks.push(d) });
     expect(root.querySelector('.lobby-mode, [data-stage]')).toBeNull();
     expect(root.textContent).not.toContain('20라운드');
     expect(root.textContent).not.toContain('시험판');
@@ -37,7 +37,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     expect(picks).toEqual(['hard']);
 
     const guest = document.createElement('div');
-    renderLobby(guest, msg({ you: 2, stage: 'stage3' }), { ready: () => {}, start: () => {}, copy: async () => true });
+    renderLobby(guest, msg({ you: 2, stage: 'stage3' }), { ready: () => {}, start: () => {}, leave: () => {}, copy: async () => true });
     const gb = Array.from(guest.querySelectorAll<HTMLButtonElement>('[data-difficulty]'));
     expect(gb).toHaveLength(3);
     expect(gb.every(b => b.disabled)).toBe(true);
@@ -46,7 +46,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
 
   test('lobby: a 20-round room made by an old client says so and offers no switch', () => {
     const root = document.createElement('div');
-    renderLobby(root, msg(), { ready: () => {}, start: () => {}, copy: async () => true });
+    renderLobby(root, msg(), { ready: () => {}, start: () => {}, leave: () => {}, copy: async () => true });
     expect(root.querySelector('button.lobby-mode, [data-stage], [data-difficulty]')).toBeNull();
     expect(root.querySelector('.lobby-modes')?.textContent).toBe('20라운드 방');
   });
@@ -107,7 +107,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     const message = msg({ stage: 'stage3', you: 2, difficulty: 'easy' });
     expect(lobbyModel(message).difficulty).toBe('easy');
     const root = document.createElement('div');
-    renderLobby(root, message, { ready() {}, start() {}, async copy() { return true; } });
+    renderLobby(root, message, { ready() {}, start() {}, leave() {}, async copy() { return true; } });
     expect(root.querySelector<HTMLButtonElement>('[data-difficulty="easy"]')?.disabled).toBe(true);
     expect(hudModel(createGame(loadGameData('stage3'), 1, 'easy')).roundText).toContain('쉬움');
   });

@@ -92,3 +92,17 @@ describe('online result hierarchy', () => {
     expect(teamResultModel(old, names, d2).credit).toBe('역신 피해 1위 가 3,000');
   });
 });
+
+describe('gold is the next step on the result screens (design 3-6)', () => {
+  test('the second result button is the plain secondary one', () => {
+    const solo = soloResult('defeat', 7);
+    expect(solo.querySelector('[data-action="home"]')?.classList.contains('secondary')).toBe(true);
+    expect(solo.querySelector('[data-action="restart"]')?.classList.contains('secondary')).toBe(false);
+
+    const root = document.createElement('div');
+    renderResult(root, result, names, d2, { rematch() {}, leave() {} }, { opened: null, rematching: false });
+    const buttons = Array.from(root.querySelectorAll<HTMLButtonElement>('.screen-actions button'));
+    expect(buttons.map(b => [b.textContent, b.classList.contains('secondary')])).toEqual([['다시 하기', false], ['나가기', true]]);
+  });
+});
+

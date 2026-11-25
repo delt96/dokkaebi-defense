@@ -131,7 +131,7 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
   again.addEventListener('click', () => { if (ui.rematching || ui.closed) return; ui.rematching = true; actions.rematch(); redraw(); });
   const leave = document.createElement('button');
   leave.type = 'button';
-  leave.className = 'big';
+  leave.className = 'big secondary';
   leave.textContent = '나가기';
   leave.addEventListener('click', () => actions.leave());
   const controls = div('screen-actions');

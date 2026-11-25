@@ -21,6 +21,8 @@ export const TEXT = {
   soundSettings: '소리 설정',
   copy: '링크 복사',
   copied: '복사했습니다',
+  leave: '나가기',
+  left: '방을 나왔습니다',
   copyByHand: '자동으로 복사하지 못했습니다. 아래 주소를 복사해 보내세요',
   linkLabel: '방 주소',
   host: '방장',

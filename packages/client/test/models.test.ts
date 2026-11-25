@@ -353,7 +353,7 @@ test('the solo result offers 다시 하기 and a way back to the first screen', 
   s.result = { outcome: 'defeat', reason: 'limit', round: 3 };
   const html = resultHtml(s, null);
   expect(html).toContain('data-action="restart"');
-  expect(html).toContain('<button class="big" data-action="home">처음 화면으로</button>');
+  expect(html).toContain('<button class="big secondary" data-action="home">처음 화면으로</button>');
   click('modal', '', 'home');
   expect(home).toHaveBeenCalledOnce();
   expect(restart).not.toHaveBeenCalled();
