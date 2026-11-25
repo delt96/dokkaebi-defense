@@ -1,6 +1,6 @@
 import { difficultySuffix } from './difficulty';
 import {
-  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineLockRound, countNormalEnemies, missingMaterials, storedMaterials, availableRecipes, unitDefFast,
+  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineLockRound, combinePlan, countNormalEnemies, missingMaterials, storedMaterials, availableRecipes, unitDefFast,
   upgradeCost, summonOddsForRound, roundResistRange,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
@@ -380,8 +380,11 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
  */
 export interface HelperItem { recipe: string; name: string; grade: number; materials: Material[]; cost?: string; short?: string; stored?: number }
 
-/** A recipe material as the chips draw it; `have` is false for the copies the board and storage cannot cover. */
-export interface Material { id: string; name: string; grade: number; have: boolean }
+/**
+ * A recipe material as the chips draw it; `have` is false for the copies the board and storage cannot cover.
+ * `mark` 'share': the rows in `takenBy` (top first) use this copy up before this row; 'make': a ready recipe yields this missing material.
+ */
+export interface Material { id: string; name: string; grade: number; have: boolean; mark?: 'share' | 'make'; takenBy?: string[] }
 
 /** `missingIds` is what missingMaterials returns: the last copies of a material are the missing ones. */
 export function materialsOf(state: GameState, result: string, missingIds: readonly string[]): Material[] {
@@ -398,7 +401,7 @@ export function materialsOf(state: GameState, result: string, missingIds: readon
   });
 }
 
-const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
+const COMBINE_KEYS: readonly ComboKey[] = ['Z', 'X', 'C'];
 
 /** `short` describes any currency shortfall. */
 export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
@@ -450,6 +453,28 @@ function targetDepths(state: GameState, target: string | null): Map<string, numb
   return depths;
 }
 
+/** Ready rows take their materials from the board and storage top down; a copy left with nothing to take is 'share'. */
+function markShares(state: GameState, rows: readonly NextRow[]): void {
+  const left = new Map<string, number>();
+  for (const u of state.slots) if (u) left.set(u.defId, (left.get(u.defId) ?? 0) + 1);
+  for (const u of state.storage ?? []) left.set(u.defId, (left.get(u.defId) ?? 0) + 1);
+  const takers = new Map<string, string[]>();
+  for (const row of rows) {
+    if (!ready(row)) continue;
+    for (const m of row.materials) {
+      const n = left.get(m.id) ?? 0;
+      if (n > 0) {
+        left.set(m.id, n - 1);
+        const by = takers.get(m.id) ?? [];
+        if (!by.includes(row.result)) takers.set(m.id, [...by, row.result]);
+      } else {
+        m.mark = 'share';
+        m.takenBy = (takers.get(m.id) ?? []).filter(r => r !== row.result);
+      }
+    }
+  }
+}
+
 /** The one "what to combine next" list the helper, the unit panel, the keys and the board marks all read. */
 export function nextCombines(state: GameState, opts: NextOpts = {}): NextList {
   const slot = opts.slot ?? null;
@@ -482,12 +507,77 @@ export function nextCombines(state: GameState, opts: NextOpts = {}): NextList {
   groups.one.sort((a, b) => unmakeable(a) - unmakeable(b) || byGrade(a, b));
 
   const rows = [...groups.target, ...groups.ready, ...groups.one];
+  markShares(state, rows);
+  for (const row of rows) {
+    if (row.missing.length !== 1) continue;
+    for (const m of row.materials) if (!m.have && makeable.has(m.id)) m.mark = 'make';
+  }
   if (unitDef !== null) {
     let next = 0;
     for (const row of rows) if (row.uses && ready(row)) row.key = COMBINE_KEYS[next++] ?? null;
   }
   const target = opts.target && tableOrder.has(opts.target) ? { id: opts.target, name: unitDefFast(state.data, opts.target).name } : null;
   return { scope, rows, far: groups.far, counts: { unit: unitDef === null ? null : unit, all }, target };
+}
+
+export type ComboKey = 'Z' | 'X' | 'C';
+/** What the board draws from the next list: `triangles` (first one breathes), the selected unit's partner cells and stacks, the hovered row's cells. */
+export interface BoardMarks {
+  triangles: number[];
+  pairs: { slot: number; key: ComboKey }[];
+  stored: { defId: string; key: ComboKey }[];
+  focus: number[] | null;
+}
+export const NO_MARKS: BoardMarks = { triangles: [], pairs: [], stored: [], focus: null };
+
+/** Ready rows whose result lands on a board slot; a recipe made only from storage has no slot to mark or pick. */
+function boardReady(state: GameState, list: NextList): { result: string; slot: number }[] {
+  const out: { result: string; slot: number }[] = [];
+  for (const row of list.rows) {
+    if (!ready(row)) continue;
+    const slot = combinePlan(state, row.result)?.resultSlot ?? null;
+    if (slot !== null) out.push({ result: row.result, slot });
+  }
+  return out;
+}
+
+export function boardMarks(state: GameState, list: NextList, slot: number | null): BoardMarks {
+  if (slot === null) {
+    const triangles: number[] = [];
+    for (const r of boardReady(state, list)) {
+      if (triangles.length >= 3) break;
+      if (!triangles.includes(r.slot)) triangles.push(r.slot);
+    }
+    return { triangles, pairs: [], stored: [], focus: null };
+  }
+  const pairs: BoardMarks['pairs'] = [];
+  const stored: BoardMarks['stored'] = [];
+  const storage = state.storage ?? [];
+  for (const row of list.rows) {
+    if (!row.key) continue;
+    const plan = combinePlan(state, row.result, slot);
+    if (!plan) continue;
+    for (const i of plan.board) if (i !== slot && !pairs.some(p => p.slot === i)) pairs.push({ slot: i, key: row.key });
+    for (const j of plan.stored) {
+      const defId = storage[j]!.defId;
+      if (!stored.some(s => s.defId === defId)) stored.push({ defId, key: row.key });
+    }
+  }
+  pairs.sort((a, b) => a.slot - b.slot);
+  return { triangles: [], pairs, stored, focus: null };
+}
+
+/** Board cells the combine command would take for `result`, the selected slot left out. */
+export function rowCells(state: GameState, result: string, slot: number | null): number[] {
+  return (combinePlan(state, result, slot ?? undefined)?.board ?? []).filter(i => i !== slot);
+}
+
+/** W: the ready row after `after` in list order (wrapping), with the slot its result lands on. */
+export function nextPick(state: GameState, list: NextList, after: string | null): { result: string; slot: number } | null {
+  const picks = boardReady(state, list);
+  if (!picks.length) return null;
+  const at = after === null ? -1 : picks.findIndex(p => p.result === after);
+  return picks[at < 0 ? 0 : (at + 1) % picks.length]!;
 }
 
 const plainOption = ({ group: _g, uses: _u, ...option }: NextRow): CombineOption => option;
