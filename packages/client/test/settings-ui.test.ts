@@ -41,7 +41,9 @@ describe('solo settings window', () => {
 
   test('the gear sits at the right end of the top bar, not in the right panel', () => {
     expect(gear().getAttribute('aria-label')).toBe('설정');
-    expect(document.querySelector('#top')!.lastElementChild!.lastElementChild).toBe(gear());
+    // design B4 5-1: the gear, then 메뉴 at the end of the row
+    expect(document.querySelector('#top')!.lastElementChild!.lastElementChild).toBe(gear().nextElementSibling);
+    expect(gear().nextElementSibling!.getAttribute('data-action')).toBe('openMenu');
     expect(document.querySelector('#right [data-action="openSettings"]')).toBeNull();
   });
 

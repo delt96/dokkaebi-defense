@@ -24,7 +24,7 @@ export function renderHud(state: GameState, userPaused: boolean, alert: AlertOpt
       ${boss ? `<span class="boss">보스 체력 ${boss.hp} / ${boss.maxHp}</span>` : ''}
       <span class="enemies lv-${m.level}">내 잡귀 <b class="n">${m.count}</b> / ${m.limit}${tail}</span>
       <span class="gauge lv-${m.level}" title="장승: ${m.crack}"><i style="width:${Math.round(m.danger * 100)}%"></i></span>${m.crackShown ? `<span class="gauge-text${m.danger > 0.66 ? ' bad' : ''}">장승 ${m.crack}</span>` : ''}
-      ${SETTINGS_BUTTON}
+      ${SETTINGS_BUTTON}<button class="menu-btn" data-action="openMenu">메뉴</button>
     </div>`);
   renderAlert(state, alert);
 }

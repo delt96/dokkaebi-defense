@@ -41,7 +41,8 @@ import { resultHtml } from './result';
 import { readHelpLine, settingsHtml, writeHelpLine } from './settings';
 import { STORE_ALL_KEY, STORE_KEY, storageHtml, storageInfoHtml, storageInfoModel, wireStorage } from './storage';
 import { readTarget, targetHtml, writeTarget } from './target';
-import { closeSide, coveredIds, escStep, NO_SIDES, openSide, rightBarHtml, sidesLocked, toggleSide, type Side, type SideWin, type Sides } from './windows';
+import { closeSide, coveredIds, escStep, NO_SIDES, openSide, rightBarHtml, sidesLocked, soloPause, toggleSide, type Side, type SideWin, type Sides } from './windows';
+import { soloMenuHtml } from './solo-menu';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
   Digit1: 'physical', Digit2: 'magical', Digit3: 'polish',
@@ -157,7 +158,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let wasOver = false;
   // the hotkey line under the board (단축키 안내 줄 in the settings window)
   let helpLine = readHelpLine();
-  let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | null = null;
+  let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | 'restartAsk' | 'homeAsk' | null = null;
   let sides: Sides = NO_SIDES;
   // design ⑫: the end scene runs once, when this screen sees the game end; a screen mounted on an ended game (a rejoin) skips it
   const endScene = new EndScene();
@@ -564,6 +565,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'supportTo': opts.actions?.support(Number(arg)); break;
       case 'watch': opts.actions?.watch(Number(arg)); break;
       case 'openMenu': modal = 'menu'; break;
+      case 'askRestart': modal = 'restartAsk'; break;
+      case 'askHome': modal = 'homeAsk'; break;
+      case 'menuBack': modal = 'menu'; break;
       case 'askForfeit': modal = 'forfeit'; break;
       case 'forfeit': opts.actions?.forfeit(); modal = null; break;
       case 'unitDetails': sides = openSide(sides, 'details'); break;
@@ -681,7 +685,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       dex = { ...dex, focus: null };
     }
     if (focusSide) refocusOpener(focusSide, previousSides);
-    if (modal && modal !== previousModal && !focusRow) (el('modal').querySelector<HTMLButtonElement>('[data-autofocus]') ?? el('modal').querySelector<HTMLButtonElement>('button'))?.focus();
+    // back from a confirm window the focus goes to the button that asked
+    const asked = action === 'menuBack' ? el('modal').querySelector<HTMLButtonElement>(`[data-action="${previousModal === 'homeAsk' ? 'askHome' : 'askRestart'}"]`) : null;
+    if (modal && modal !== previousModal && !focusRow) (asked ?? el('modal').querySelector<HTMLButtonElement>('[data-autofocus]') ?? el('modal').querySelector<HTMLButtonElement>('button'))?.focus();
   };
 
   function focusedSide(): Side | null {
@@ -871,7 +877,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       // the end scene first, then a locking window, then the last side window opened, then a waiting move, then the selection
       const step = escStep({ scene: sceneRunning, locking: modal !== null, sidesLocked: locked(), sides });
       if (step === 'scene') skipScene();
-      else if (step === 'locking') act('closeModal', '');
+      else if (step === 'locking') act(modal === 'restartAsk' || modal === 'homeAsk' ? 'menuBack' : 'closeModal', '');
       else if (step === 'left' || step === 'right') act('closeWin', step);
       else {
         if (!isMoving()) inspectedStack = null;
@@ -976,6 +982,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       endScene.start(kind, endSceneText(kind, kind === 'gate' && v ? STAGE_NAME[v.gate.stage] : undefined), now);
       sceneRunning = true;
       if (modal === 'dex') dexRemember();
+      // design 5-2-3: the closed window takes its focus with it (an online menu stays open while the clock runs)
+      const active = document.activeElement as HTMLElement | null;
+      if (modal && active && el('modal').contains(active)) active.blur();
       modal = null;
     }
     const on = ended && endScene.active(now);
@@ -1021,8 +1030,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (modal === 'dex') dexRemember();
       modal = null;
     }
-    // commands wait for ticks, so only the dex (which sends none) stops the clock
-    if (!online) driver.paused = userPaused || (modal === 'dex' && s.phase !== 'ended');
+    // commands wait for ticks, so only the windows that send none (dex, menu) stop the clock
+    const pause = soloPause({ userPaused, modal, ended: s.phase === 'ended', portrait: false });
+    if (!online) driver.paused = pause.paused;
     const selected = selectedSlot(s, scene.selectedId);
     if (selected === null) scene.selectedId = null;
     if (wPick && scene.selectedId !== wPick.unitId) wPick = null;
@@ -1144,7 +1154,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     placeRefusal(now, false);
     placeCoinFloat(now);
     const cover = el('pause-cover');
-    const coverOn = !online && userPaused && s.phase !== 'ended';
+    const coverOn = !online && pause.cover;
     if (cover.hidden === coverOn) cover.hidden = !coverOn;
     const covered = coveredNow(wins);
     const leftCovered = covered.includes('left');
@@ -1179,7 +1189,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen() : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : !online && (modal === 'menu' || modal === 'restartAsk' || modal === 'homeAsk') ? soloMenuHtml(modal) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen() : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
