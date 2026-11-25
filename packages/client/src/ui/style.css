@@ -335,12 +335,12 @@ body.online #bottom .card .recipe-more { margin: 0; }
 #econ-panel { position: absolute; right: 0; top: 24px; width: 214px; height: 308px; z-index: 1; }
 body.online #econ-panel { height: 292px; }
 #econ-panel:empty, #econ-top:empty, #econ-bottom:empty { display: none; }
-.econ-panel { height: 100%; background: var(--panel); border: 1px solid #82663f; font-size: 9px; line-height: 11px; }
-.econ-head { display: flex; align-items: center; justify-content: space-between; gap: 3px; padding: 1px 4px; }
+.econ-panel { display: flex; flex-direction: column; height: 100%; background: var(--panel); border: 1px solid #82663f; font-size: 9px; line-height: 11px; }
+.econ-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 3px; padding: 1px 4px; }
 .econ-head b { color: var(--accent); font-size: 12px; }
 .gamble-wallet { color: var(--accent); font-size: 9px; white-space: nowrap; }
 .econ-head .econ-close { min-height: 15px; padding: 0 3px; font-size: 9px; }
-.econ-body { padding: 0 4px 2px; display: grid; gap: 1px; }
+.econ-body { min-height: 0; overflow: auto; padding: 0 4px 2px; display: grid; gap: 1px; }
 .gamble-refill { color: #c9bdd3; font-size: 8px; line-height: 9px; white-space: nowrap; }
 .gamble-products, .gamble-group { display: grid; gap: 1px; }
 .gamble-group { padding: 1px 4px; background: #241b30; border: 1px solid #473653; }
@@ -688,7 +688,7 @@ button[data-action="sell"].armed { color: #ffb396; border-color: var(--danger); 
 @media (min-width: 1280px) and (min-height: 720px) { #screen > * { zoom: 1.25; } }
 @media (min-width: 1920px) and (min-height: 1080px) { #screen > * { zoom: 1.5; } }
 /* stage 3 item shop: the market tabs, the item rows, the unit card's item line and the online 아이템 ▾ list */
-.econ-tabs { display: flex; gap: 3px; padding: 0 4px 2px; }
+.econ-tabs { flex-shrink: 0; display: flex; gap: 3px; padding: 0 4px 2px; }
 .econ-tabs button { flex: 1; min-height: 15px; padding: 0 3px; font-size: 9px; }
 .econ-tabs button.on { color: var(--accent); border-color: var(--accent); }
 .shop-rows { display: grid; gap: 2px; }

@@ -53,7 +53,6 @@ export function predictStorage(server: UnitView[] | undefined, pending: PendingC
   return units;
 }
 
-/** The held charms less the ones pending attaches will use. */
 export function predictShop(server: ShopView, pending: PendingCmd[]): ShopView {
   const used = new Map<string, number>();
   for (const cmd of pending) {

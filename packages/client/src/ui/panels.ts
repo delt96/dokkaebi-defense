@@ -1,4 +1,4 @@
-import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type EconMine, type GameState } from '@dorandi/logic';
+import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type GameState, type ShopView } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import {
   ATTACK_RANGE_HINT, EATS_ITEM_TEXT, REPLACE_ITEM_TEXT, attackRangeText, baseSpec, cardRangeText, combineNoteLines, combineOptions, itemShareText, rightModel,
@@ -57,11 +57,13 @@ function recipeHtml(state: GameState, option: CombineOption, unitId: number | nu
   return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="recipe-row"${option.cost ? ` title="비용 ${esc(option.cost)}"` : ''}>${head(cost)}${mats}</button>`;
 }
 
+const itemShare = (card: UnitCard, kind: 'attack' | 'speed'): string => (itemShareText(card, kind) ? ` (+${Math.round(card.share[kind] * 100)}%)` : '');
+
 const notesHtml = (lines: string[]): string => (lines.length ? `<ul class="card-notes">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '');
 
-/** A stat cell of the 상세 window; `bonus` is the upgrade/aura part as a fraction, shown only when there is one. */
+/** A stat cell of the 상세 window; `bonus` is the upgrade/aura/item part as a fraction, shown only when there is one. */
 function statHtml(label: string, value: string, bonus = 0, bonusLabel = '', hint = ''): string {
-  const extra = bonus > 0 ? ` <span class="ud-bonus" title="강화·오라 포함">${bonusLabel}+${Math.round(bonus * 100)}%</span>` : '';
+  const extra = bonus > 0 ? ` <span class="ud-bonus" title="강화·오라·아이템 포함">${bonusLabel}+${Math.round(bonus * 100)}%</span>` : '';
   return `<div class="ud-stat"${hint ? ` title="${esc(hint)}"` : ''}><dt>${label}</dt><dd>${value}${extra}</dd></div>`;
 }
 
@@ -104,7 +106,7 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
     <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
     <button class="ud-close" data-action="closeModal">Tab·Esc 닫기</button></div>`;
   const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', cardRangeText(state.data, card).replace('사거리 ', ''), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>
-    ${card.item ? `<p class="ud-item">아이템 ${esc(card.item.name)}${esc(itemShareText(card, 'attack') || itemShareText(card, 'speed'))}</p>` : ''}`;
+    ${card.item ? `<p class="ud-item">아이템 ${esc(card.item.name)}${itemShare(card, 'attack') || itemShare(card, 'speed')}</p>` : ''}`;
   const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
   const lines = card.skillText ? card.skillText.split(' / ') : [];
   const skill = lines.length ? `<ul class="ud-lines">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="ud-empty">특수 능력 없음</p>';
@@ -170,9 +172,6 @@ function jigeHtml(state: GameState, selected: number, unitId: number | null, jig
     ? `<span class="jige-held" title="지게는 장터 묵 보따리에서 3% 확률로 함께 나옵니다">보유 지게 ${jige}개</span><button data-action="jigeOpen" data-arg="board:${unitId}"${jige < 1 ? ' disabled' : ''}>R 지게 바꾸기</button>` : '';
 }
 
-/** The item shop as the server's (or the solo lane's) economy view has it; null without a shop. */
-export type ShopView = NonNullable<EconMine['shop']>;
-
 /** One 붙이기 button per held kind; the unit id rides along so a moved board never gets the item on another unit. */
 function attachButtons(shop: ShopView, unitId: number, menu: boolean): string {
   return shop.items.filter(i => menu || i.held > 0).map(i => i.held > 0
@@ -183,7 +182,6 @@ function attachButtons(shop: ShopView, unitId: number, menu: boolean): string {
 /** Something is held, or the market is open to buy (every item is marketLocked until then). */
 const shopLive = (shop: ShopView) => shop.items.some(i => i.held > 0 || i.why !== 'marketLocked');
 
-/** Solo left card: the attached item, a 붙이기 per held kind and the replace warning. */
 function itemLineHtml(card: UnitCard, unitId: number | null, shop: ShopView | null | undefined): string {
   if (!shop || unitId === null || (!card.item && !shopLive(shop))) return '';
   const buttons = attachButtons(shop, unitId, false);
@@ -191,13 +189,11 @@ function itemLineHtml(card: UnitCard, unitId: number | null, shop: ShopView | nu
   return `<div class="up-item"><span><b>아이템</b> ${card.item ? esc(card.item.name) : '없음'}</span>${buttons}${hint}</div>`;
 }
 
-/** Online: the 아이템 ▾ list over the one-line card. */
 function itemPopHtml(card: UnitCard, unitId: number, shop: ShopView): string {
   return `<div class="item-pop" role="group" aria-label="아이템 붙이기"><b>아이템 붙이기</b>${attachButtons(shop, unitId, true)}
     ${card.item ? `<small class="item-warn">${esc(card.item.name)} · ${REPLACE_ITEM_TEXT}</small>` : ''}</div>`;
 }
 
-/** The shop view and whether the online 아이템 ▾ list is open on this card. */
 export interface CardItems { shop: ShopView | null; open: boolean }
 
 /**
@@ -217,10 +213,9 @@ export function renderBottom(state: GameState, selected: number | null, online =
   const { unitId, recipes } = pick;
   const options = compactRecipes(state, recipes, unitId, 2, false);
   const shop = items?.shop && unitId !== null && (card.item || shopLive(items.shop)) ? items.shop : null;
-  const share = (kind: 'attack' | 'speed') => (itemShareText(card, kind) ? ` (+${Math.round(card.share[kind] * 100)}%)` : '');
   setHtml(el('bottom'), `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
         <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}${card.item ? ` <span class="item-tag" title="${esc(card.item.name)}">${esc(card.item.short)}</span>` : ''}</span>
-        <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack}${share('attack')} · ${card.interval}초마다${share('speed')} · ${esc(cardRangeText(state.data, card, true))}</span></span>
+        <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack}${itemShare(card, 'attack')} · ${card.interval}초마다${itemShare(card, 'speed')} · ${esc(cardRangeText(state.data, card, true))}</span></span>
         ${options}
         <button data-action="unitDetails">상세(Tab)</button>
         ${shop ? `<button data-action="itemMenu" data-arg="${unitId}" aria-expanded="${items!.open}" class="item-menu">아이템 ▾</button>` : ''}

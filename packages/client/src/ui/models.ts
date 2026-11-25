@@ -482,7 +482,6 @@ export interface UnitCard {
   share: { attack: number; speed: number; range: number };
 }
 
-/** The corner letter of the item on the unit in `slot`, or null. */
 export function itemShort(state: GameState, slot: number): string | null {
   return itemOf(state, slot)?.name.slice(0, 1) ?? null;
 }

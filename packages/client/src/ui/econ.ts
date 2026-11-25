@@ -18,7 +18,6 @@ const secondsOf = (data: GameData, ticks: number): number => Math.max(0, Math.ce
 
 // ---------- market ----------
 
-/** `shop`: the item tab's rows, left out where the data has no shop. */
 export interface MarketModel {
   jige: GambleJige; gamble?: GambleModel; shop?: ShopRow[];
 }
@@ -37,7 +36,6 @@ export function marketModel(econ: EconMine, state: GameState): MarketModel | nul
 
 // ---------- item shop ----------
 
-/** One item tab row. `done`: a per-game item bought up (the button reads 삼); `blocked` says why it cannot be bought now. */
 export interface ShopRow { id: string; name: string; effectText: string; price: string; held: number; blocked: string | null; done: boolean }
 
 export function itemEffectText(effect: ItemEffect, perGame: number | null): string {
@@ -46,7 +44,7 @@ export function itemEffectText(effect: ItemEffect, perGame: number | null): stri
     case 'range': return `유닛 하나 사거리 +${effect.amount}${once}`;
     case 'attack': return `유닛 하나 공격력 +${pct(effect.pct)}${once}`;
     case 'speed': return `유닛 하나 공격 속도 +${pct(effect.pct)}${once}`;
-    case 'vuln': return `때린 적이 받는 피해 +${pct(effect.pct)} · ${effect.seconds}초${once}`;
+    case 'vuln': return `때린 적이 받는 같은 종류 피해 +${pct(effect.pct)} · ${effect.seconds}초${once}`;
   }
 }
 
@@ -63,11 +61,11 @@ function shopHtml(rows: ShopRow[], readOnly: boolean): string {
   const list = rows.map(r => {
     const why = readOnly ? '관전 중에는 살 수 없어요' : r.blocked;
     const label = r.done ? '삼' : '사기';
-    const reasonId = `shop-why-${esc(r.id)}`;
+    const reasonId = why && !r.done ? `shop-why-${esc(r.id)}` : null;
     return `<div class="shop-row"><span class="shop-name"><b>${esc(r.name)}</b><small>${esc(r.effectText)}</small></span>
       <span class="shop-price">${esc(r.price)}</span><button type="button" class="shop-buy" data-action="buyItem" data-arg="${esc(r.id)}" data-market-focus="item-${esc(r.id)}"
-      aria-label="${esc(`${r.name} · ${r.price} · ${label}`)}"${why ? ` aria-describedby="${reasonId}"` : ''}${r.done || why ? ' disabled' : ''}>${label}</button>
-      ${why && !r.done ? `<span class="gamble-why" id="${reasonId}">${esc(why)}</span>` : ''}</div>`;
+      aria-label="${esc(`${r.name} · ${r.price} · ${label}`)}"${reasonId ? ` aria-describedby="${reasonId}"` : ''}${r.done || why ? ' disabled' : ''}>${label}</button>
+      ${reasonId ? `<span class="gamble-why" id="${reasonId}">${esc(why!)}</span>` : ''}</div>`;
   }).join('');
   const held = rows.map(r => `${esc(r.name)}${NBSP}${r.held}`).join(' · ');
   return `<div class="shop-rows">${list}</div><div class="shop-held">들고 있는 아이템: ${held}</div>`;

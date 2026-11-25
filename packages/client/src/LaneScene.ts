@@ -289,7 +289,7 @@ export class LaneScene extends Phaser.Scene {
     for (const view of this.units.values()) {
       if (!view.visible) continue;
       this.overlay.fillStyle(view.gradeColor, view.alpha);
-      // grade at the top-left corner; the combine dot takes the top-right
+      // grade at the top-left corner; the combine dot and item letter go right (syncItemTag)
       const corner = 12 * this.lane.pitch * view.scaleY;
       this.overlay.fillCircle(view.x - corner, view.y - corner, 2 * view.scaleY);
     }

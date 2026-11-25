@@ -24,7 +24,7 @@ export function itemBonus(state: GameState, slot: number, kind: 'attack' | 'spee
   return effect?.kind === kind ? effect.pct : 0;
 }
 
-/** Leaves vulnCaster alone: a weak charm must not arm another unit's kill explosion. */
+// Not via applyStatus: setting vulnCaster would let a charm-only weakening arm the holder's onVulnKillExplode.
 export function applyItemVuln(state: GameState, slot: number, target: Enemy): void {
   const effect = itemOf(state, slot)?.effect;
   if (effect?.kind !== 'vuln' || target.hp <= 0) return;

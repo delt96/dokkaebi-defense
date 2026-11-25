@@ -127,7 +127,7 @@ function pickMaterials(state: GameState, recipe: RecipeDef, slot?: number): Mate
   return { used, stored, resultSlot: finalSlot, replacedSlot, eatsItem };
 }
 
-/** How many of a recipe's materials would come out of storage (board units are used first). */
+/** How many of a recipe's materials would come out of storage (bare copies first; within each, board before storage). */
 export function storedMaterials(state: GameState, result: string, slot?: number): number {
   const recipe = state.data.recipes.find(r => r.result === result);
   if (!recipe || !state.storage?.length) return 0;

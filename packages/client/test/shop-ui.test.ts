@@ -11,7 +11,7 @@ import { blockedText } from '../src/ui/gamble';
 import { renderHelper } from '../src/ui/helper';
 import { combineOptions, helperModel, itemShort, rejectText, storedCombineOptions, unitCard } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
-import { unitPanelHtml } from '../src/ui/panels';
+import { unitDetailsHtml, unitPanelHtml } from '../src/ui/panels';
 import { storageInfoHtml, storageInfoModel } from '../src/ui/storage';
 import { press, STAGE_HTML } from './fixtures/net';
 
@@ -50,7 +50,7 @@ describe('effect lines', () => {
       rangeCharm: '유닛 하나 사거리 +0.5 · 한 판 1번',
       powerCharm: '유닛 하나 공격력 +20%',
       swiftCharm: '유닛 하나 공격 속도 +15%',
-      weakCharm: '때린 적이 받는 피해 +10% · 3초',
+      weakCharm: '때린 적이 받는 같은 종류 피해 +10% · 3초',
     });
     expect(rows.find(r => r.id === 'powerCharm')!.price).toBe(`${price('powerCharm')}냥`);
   });
@@ -80,6 +80,16 @@ describe('blocked text', () => {
     expect(buy.disabled).toBe(true);
     expect(buy.textContent!.trim()).toBe('삼');
     expect(box.querySelector<HTMLButtonElement>('[data-action="buyItem"][data-arg="powerCharm"]')!.disabled).toBe(false);
+  });
+  test('watching, a bought-up row points at no reason while the others point at the shown one', () => {
+    const s = openGame();
+    s.econ!.itemsBought = { rangeCharm: 1 };
+    const box = document.createElement('div');
+    box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, true, 'items');
+    const done = box.querySelector<HTMLButtonElement>('[data-action="buyItem"][data-arg="rangeCharm"]')!;
+    expect(done.hasAttribute('aria-describedby')).toBe(false);
+    const other = box.querySelector<HTMLButtonElement>('[data-action="buyItem"][data-arg="powerCharm"]')!;
+    expect(box.querySelector(`#${other.getAttribute('aria-describedby')}`)!.textContent).toBe('관전 중에는 살 수 없어요');
   });
   test('a locked market names the boss', () => {
     const s = openGame();
@@ -128,6 +138,15 @@ describe('the unit card shows the item and its share', () => {
     const line = html.match(/공격 \d+[^<]*/)![0];
     expect(line).toContain(`공격 ${card.attack}`);
     expect(line).toContain('+20% 힘 부적');
+  });
+  test('the 상세 item line names the charm once with its share, and the bonus title counts items', () => {
+    const s = openGame();
+    placeUnitForTest(s, ranged.id, 0).item = 'powerCharm';
+    const box = document.createElement('div');
+    box.innerHTML = unitDetailsHtml(s, 0);
+    const line = box.querySelector('.ud-item')!.textContent!;
+    expect(line).toBe('아이템 힘 부적 (+20%)');
+    expect(box.querySelector('.ud-bonus')!.getAttribute('title')).toBe('강화·오라·아이템 포함');
   });
   test('swift charm shows its share and the tick-rounded interval', () => {
     const s = openGame();

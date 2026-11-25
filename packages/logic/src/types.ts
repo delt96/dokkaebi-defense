@@ -158,7 +158,7 @@ export interface GambleDef {
 export type ItemEffect =
   | { kind: 'range'; amount: number } | { kind: 'attack'; pct: number } | { kind: 'speed'; pct: number }
   | { kind: 'vuln'; pct: number; seconds: number };
-/** `perGame`: how many one game may buy, held and attached together; missing means no limit. */
+/** `perGame` limits purchases (`itemsBought`): a charm later sold, combined away or lost to a jige still counts. */
 export interface ShopItemDef { id: string; name: string; coins: number; perGame?: number; effect: ItemEffect }
 export interface EconomyDef {
   startingBuckwheat: number;
@@ -198,8 +198,9 @@ export interface EconState {
   tameReady: { enemyId: number; tick: number }[];
   /** One record per quest this seat met, kept after the round moves on. */
   questResults: Partial<Record<QuestId, QuestRecord>>;
-  /** Shop items held but not attached, and bought this game, by item id; absent until the first purchase. */
+  /** Shop items held but not attached, by item id; absent until the first purchase. */
   items?: Record<string, number>;
+  /** Shop items bought this game, by item id, never lowered; absent until the first purchase. */
   itemsBought?: Record<string, number>;
 }
 
