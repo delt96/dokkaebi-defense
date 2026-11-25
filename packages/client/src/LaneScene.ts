@@ -922,6 +922,10 @@ export class LaneScene extends Phaser.Scene {
     this.fx?.birth(b, this.hasTexture(b.defId) ? b.defId : null);
   }
 
+  hideBirth(): void {
+    this.fx?.clearBirths();
+  }
+
   showGambleNotice(text: string): void {
     this.fx?.toast(text, 0xffd28a, this.time.now);
   }

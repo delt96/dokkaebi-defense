@@ -18,6 +18,7 @@ class FakeScene {
   onEvents(): void {}
   showGambleResult(): void {}
   showBirth(): void {}
+  hideBirth(): void {}
   setNoticeSpan = vi.fn();
 }
 
@@ -203,6 +204,16 @@ test('the cover sits under the locking windows, the end scene and the error box'
     return Number(found.at(-1));
   };
   expect([z('#pause-cover'), z('#modal'), z('#end-scene'), z('#error')]).toEqual([3, 4, 5, 6]);
+});
+
+test('the cover centres its title and button on whole pixels: free height is even', () => {
+  const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/ui/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel: string) => css.split('}').filter(r => r.split('{')[0]!.trim() === sel).map(r => r.split('{')[1]).join(';');
+  const px = (body: string, prop: string) => Number(new RegExp(`(?:^|[;\\s])${prop}:\\s*(\\d+)px`).exec(body)?.[1]);
+  const cover = rule('#pause-cover');
+  const used = px(rule('#pause-cover .pause-title'), 'line-height') + px(cover, 'gap') + px(rule('#pause-cover button'), 'height');
+  expect(Number.isFinite(used)).toBe(true);
+  expect((px(cover, 'height') - used) % 2).toBe(0);
 });
 
 test('Esc does not lift a P pause', () => {

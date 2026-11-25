@@ -18,7 +18,7 @@ export interface Arrival { text: string; seconds: number; urgent: boolean }
 
 const TICKS_PER_SECOND = 20;
 export const CAUSE_TEXT: Record<EliminationCause, string> = { limit: '잡귀 한도', boss: '고개 보스', forfeit: '포기', disconnect: '단절' };
-/** The elimination cause stays on the row for 3 seconds before it says plain "탈락·넋". */
+/** The elimination cause stays on the row for 3 seconds before it says plain "탈락" (넋 is already in the count place). */
 const CAUSE_TICKS = 60;
 const NOTICE_MS = 3000;
 const SEATS = 6;
@@ -45,7 +45,7 @@ const isOffline = (r: RowView): boolean => !r.connected && r.reconnectTicksLeft 
 function statusOf(view: ClientView, data: GameData, r: RowView, level: LimitLevel | null, returned: boolean): string {
   if (r.status === 'spirit') {
     const recent = r.cause !== null && r.eliminatedTick !== null && view.clock.tick - r.eliminatedTick < CAUSE_TICKS;
-    return recent ? `탈락·${CAUSE_TEXT[r.cause!]}` : '탈락·넋';
+    return recent ? `탈락·${CAUSE_TEXT[r.cause!]}` : '탈락';
   }
   if (level === 'over') return `초과 ${secondsOf(limitTicks(data) - r.overLimitTicks)}초`;
   if (level === 'danger') return '위험';

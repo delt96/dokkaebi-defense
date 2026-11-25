@@ -25,6 +25,7 @@ class FakeScene {
   showGambleResult(): void {}
   showGambleNotice(): void {}
   showBirth = vi.fn();
+  hideBirth = vi.fn();
   setNoticeSpan = vi.fn();
 }
 
@@ -88,7 +89,7 @@ function mountOnline() {
     frame(2000);
   };
   const atTick = (tick: number): void => { view().clock = { ...view().clock, tick }; frame(); };
-  return { net, scene, frame, view, deadlineRound, atTick };
+  return { room, net, scene, frame, view, deadlineRound, atTick };
 }
 
 describe('online gate signals on screen', () => {
@@ -152,6 +153,24 @@ describe('online gate signals on screen', () => {
     frame();
     expect($('#round-banner .gate-countdown')).toBeNull();
     expect(slotText()).toContain('★ 귀교 목수');
+  });
+
+  test('the countdown takes the band of my birth off the board and it comes back whole afterwards', () => {
+    const { room, scene, view, frame, deadlineRound, atTick } = mountOnline();
+    deadlineRound();
+    room.emit('notice', { kind: 'birth', seat: 1, name: '하나', defId: 'jumadeung', unitId: 3, via: 'combine', firstSix: false });
+    atTick(DEADLINE - 220);
+    expect(scene.showBirth).toHaveBeenCalledTimes(1);
+    expect(scene.hideBirth).not.toHaveBeenCalled();
+    atTick(DEADLINE - 200);
+    expect($('#round-banner .gate-countdown')).not.toBeNull();
+    expect(scene.hideBirth).toHaveBeenCalledTimes(1);
+    view().yeoksin = null;
+    frame();
+    frame();
+    expect($('#round-banner .gate-countdown')).toBeNull();
+    expect(scene.showBirth).toHaveBeenCalledTimes(2);
+    expect(scene.hideBirth.mock.invocationCallOrder[0]!).toBeLessThan(scene.showBirth.mock.invocationCallOrder[1]!);
   });
 
   test('the countdown speaks at 10 and 5 only', () => {

@@ -346,6 +346,13 @@ export class FxLayer {
     this.births.push(b);
   }
 
+  clearBirths(): void {
+    this.births.clear();
+    this.birthKeys.clear();
+    this.shownBirth = null;
+    this.hideBirth();
+  }
+
   private hideBirth(): void {
     for (const o of [this.birthHead, this.birthTitle, this.birthImage]) o.setVisible(false);
   }
@@ -435,10 +442,7 @@ export class FxLayer {
     this.bannerUntil = 0;
     this.toastText.setVisible(false);
     this.bannerText.setVisible(false);
-    this.births.clear();
-    this.birthKeys.clear();
-    this.shownBirth = null;
-    this.hideBirth();
+    this.clearBirths();
     for (const g of [this.ground, this.status, this.air, this.top]) g.clear();
   }
 

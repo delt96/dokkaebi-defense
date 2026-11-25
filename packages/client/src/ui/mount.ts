@@ -1207,6 +1207,8 @@ ${dex.mine.join()}`;
   function renderSlot(shown: SlotShown | null, prompts: number, now: number, countdown: { c: GateCountdown; pulse: boolean; leaving: boolean } | null): string[] {
     const item = shown?.item ?? null;
     if (item !== slotItem) {
+      // a countdown can push a birth off before its time; the band it handed the scene must go with it
+      if (slotItem?.kind === 'birth') scene.hideBirth();
       slotItem = item;
       if (item?.kind === 'birth' && item.birth) scene.showBirth(item.birth);
     }

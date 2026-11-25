@@ -46,7 +46,7 @@ describe('online rows', () => {
     expect(r.map(x => x.offline)).toEqual([false, false, true, true, false, false]);
     expect(r[0]!.title).toBe('1 가 · 나'); expect(r[4]!.count).toBe('넋'); expect(r[5]!.title).toBe('빈 고개');
     expect(r[1]!.progress).toBeCloseTo(120 / 240, 9);
-    expect(rowsModel(viewWith({ ...o, tick: 5011 }), data)[4]!.status).toBe('탈락·넋');
+    expect(rowsModel(viewWith({ ...o, tick: 5011 }), data)[4]!.status).toBe('탈락');
   });
   test('the lone survivor is the current lane, without the next-lane label', () => {
     const view = viewWith({ me: 1, rows: [row({}), row({ seat: 2, status: 'spirit' })],
@@ -191,7 +191,7 @@ describe('online row levels', () => {
   });
   test('spirit row reads 넋 in the count place', () => {
     const r = rowsModel(withRow(2, { status: 'spirit', count: 61, cause: 'limit', eliminatedTick: 1000 }), data)[1]!;
-    expect(r).toMatchObject({ count: '넋', spirit: true, level: null, status: '탈락·넋' });
+    expect(r).toMatchObject({ count: '넋', spirit: true, level: null, status: '탈락' });
     expect(rowsModel(withRow(2, {}), data)[1]!.spirit).toBe(false);
   });
   test('a lane that came back reads 돌아옴 unless a warning outranks it', () => {

@@ -20,6 +20,7 @@ class FakeScene {
   onEvents(): void {}
   showGambleResult(): void {}
   showBirth(): void {}
+  hideBirth(): void {}
   setNoticeSpan = vi.fn();
   select(slot: number | null): void { this.selectCb?.(slot); }
 }

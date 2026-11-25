@@ -23,6 +23,7 @@ class FakeScene {
   showGambleResult(): void {}
   showGambleNotice(): void {}
   showBirth = vi.fn();
+  hideBirth = vi.fn();
   setNoticeSpan = vi.fn();
 }
 

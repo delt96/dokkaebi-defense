@@ -21,6 +21,7 @@ class FakeScene {
   showGambleResult(): void {}
   showGambleNotice(): void {}
   showBirth = vi.fn();
+  hideBirth = vi.fn();
   setNoticeSpan = vi.fn();
 }
 
@@ -175,5 +176,24 @@ describe('online left rows', () => {
     frame();
     expect(statusOf(3)).toBe('위험');
     expect(rowOf(3).classList.contains('birth-flash')).toBe(true);
+  });
+});
+
+describe('a spirit watching a lane over the limit', () => {
+  test('the edge countdown runs on the watched lane, not on my own zeroed row', () => {
+    const { frame, view, setRow, fall } = mountOnline();
+    frame();
+    fall(1);
+    const v = view();
+    const e = v.lane.enemies.find(x => !x.boss)!;
+    const b = data.balance;
+    v.watching = 2;
+    v.lane = { ...v.lane, enemies: Array.from({ length: b.limit + 3 }, (_, i) => ({ ...e, id: 10_000 + i })) };
+    const ticks = Math.round(2000 / b.tickMs);
+    setRow(2, { count: b.limit + 3, overLimitTicks: ticks });
+    frame();
+    const box = $('#alert')!;
+    expect(box.classList.contains('on')).toBe(true);
+    expect(box.querySelector('strong')!.textContent).toBe(`${Math.ceil(b.limitSeconds - 2)}초`);
   });
 });
