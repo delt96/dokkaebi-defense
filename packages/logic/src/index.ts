@@ -25,7 +25,9 @@ export {
   enemySpeed, waveOf, toTicks, TICKS_PER_SECOND, enemyDefFast,
 } from './flow';
 export { rollSummon, chooseSlot, pityPick, unitDefFast } from './units';
-export { availableRecipes, combineLockRound, missingMaterials, recipesUsing, storedMaterials } from './combine';
+export {
+  availableRecipes, combineLockRound, combinePlan, missingMaterials, recipesUsing, storedMaterials, type CombinePlan,
+} from './combine';
 export { STORAGE_MAX_GRADE, canStore, storedUnits } from './storage';
 export {
   computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps, resolveKills,

@@ -79,6 +79,47 @@ export function pickResultSlot(state: GameState, slots: number[]): number {
   return best;
 }
 
+/** board: slot indexes the combine takes (resultSlot among them when it is a material); stored: storage indexes. */
+export interface CombinePlan { resultSlot: number | null; board: number[]; stored: number[] }
+
+/** The units a combine would take, without looking at its cost or lock round. */
+export function combinePlan(state: GameState, result: string, slot?: number): CombinePlan | null {
+  const recipe = state.data.recipes.find(r => r.result === result);
+  if (!recipe) return null;
+  if (slot !== undefined) {
+    const chosen = state.slots[slot];
+    if (!chosen || !recipe.materials.includes(chosen.defId)) return null;
+  }
+  if (missingFrom(state, recipe.materials).length) return null;
+
+  // the result takes a board material's place; with no board material it needs a free slot
+  let resultSlot: number | null = slot ?? null;
+  if (resultSlot === null) {
+    const materialSlots = state.slots
+      .map((u, i) => (u && recipe.materials.includes(u.defId) ? i : -1))
+      .filter(i => i >= 0);
+    if (materialSlots.length) resultSlot = pickResultSlot(state, materialSlots);
+  }
+
+  // board units first, so a board that holds everything combines exactly as before storage existed
+  const used = new Set<number>();
+  const stored = new Set<number>();
+  const storage = state.storage ?? [];
+  for (const m of recipe.materials) {
+    if (resultSlot !== null && !used.has(resultSlot) && state.slots[resultSlot]!.defId === m) { used.add(resultSlot); continue; }
+    let found = false;
+    for (let i = state.slots.length - 1; i >= 0; i--) {
+      if (i === resultSlot || used.has(i)) continue;
+      if (state.slots[i]?.defId === m) { used.add(i); found = true; break; }
+    }
+    if (found) continue;
+    for (let j = storage.length - 1; j >= 0; j--) {
+      if (!stored.has(j) && storage[j]!.defId === m) { stored.add(j); break; }
+    }
+  }
+  return { resultSlot, board: [...used], stored: [...stored] };
+}
+
 registerCommand('combine', (state, cmd, events) => {
   if (cmd.type !== 'combine') return 'unknown';
   const chosen = cmd.slot === undefined ? null : state.slots[cmd.slot];
@@ -92,41 +133,18 @@ registerCommand('combine', (state, cmd, events) => {
   const short = costShortfall(state, recipe);
   if (short) return short;
 
-  // the result takes a board material's place; with no board material it needs a free slot
-  let resultSlot: number | null | undefined = cmd.slot;
-  if (resultSlot === undefined) {
-    const materialSlots = state.slots
-      .map((u, i) => (u && recipe.materials.includes(u.defId) ? i : -1))
-      .filter(i => i >= 0);
-    if (materialSlots.length) resultSlot = pickResultSlot(state, materialSlots);
-  }
-
-  // board units first, so a board that holds everything combines exactly as before storage existed
-  const used = new Set<number>();
-  const stored = new Set<number>();
+  const plan = combinePlan(state, cmd.result, cmd.slot)!;
   const storage = state.storage ?? [];
-  for (const m of recipe.materials) {
-    if (resultSlot !== undefined && !used.has(resultSlot) && state.slots[resultSlot]!.defId === m) { used.add(resultSlot); continue; }
-    let found = false;
-    for (let i = state.slots.length - 1; i >= 0; i--) {
-      if (i === resultSlot || used.has(i)) continue;
-      if (state.slots[i]?.defId === m) { used.add(i); found = true; break; }
-    }
-    if (found) continue;
-    for (let j = storage.length - 1; j >= 0; j--) {
-      if (!stored.has(j) && storage[j]!.defId === m) { stored.add(j); break; }
-    }
-  }
-  const replacedUnitId = resultSlot === undefined ? -1 : state.slots[resultSlot]!.id;
-  if (resultSlot === undefined) resultSlot = chooseSlot(state, unitDefFast(state.data, recipe.result));
+  const replacedUnitId = plan.resultSlot === null ? -1 : state.slots[plan.resultSlot]!.id;
+  const resultSlot = plan.resultSlot ?? chooseSlot(state, unitDefFast(state.data, recipe.result));
   if (resultSlot === null) return 'noSlot';
   if (recipe.cost?.buckwheat) state.buckwheat -= recipe.cost.buckwheat;
   if (recipe.cost?.coins) state.coins -= recipe.cost.coins;
   let cost = 0;
-  for (const i of used) cost += state.slots[i]!.cost ?? 0;
-  for (const j of stored) cost += storage[j]!.cost ?? 0;
-  for (const i of used) state.slots[i] = null;
-  if (stored.size) state.storage = storage.filter((_, j) => !stored.has(j));
+  for (const i of plan.board) cost += state.slots[i]!.cost ?? 0;
+  for (const j of plan.stored) cost += storage[j]!.cost ?? 0;
+  for (const i of plan.board) state.slots[i] = null;
+  if (plan.stored.length) state.storage = storage.filter((_, j) => !plan.stored.includes(j));
   const unit = addUnit(state, recipe.result, resultSlot, events);
   if (state.econ) unit.cost = cost;
   events.push({ type: 'combine', replacedUnitId, unitId: unit.id, defId: unit.defId, slot: resultSlot });
