@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createGame, laneOf, loadGameData, type Effect, type GameData, type UnitDef } from '@dorandi/logic';
+import { createGame, laneOf, loadGameData, shopItem, type Effect, type GameData, type UnitDef } from '@dorandi/logic';
 import { STANDARD_CONFIGS } from '../src/stage3/econRun';
-import { bossCsvRows, firepowerCsvRows, firepowerRun, type BossRow, type FirepowerRow } from '../src/stage3/firepower';
+import { bossCsvRows, firepowerCsvRows, firepowerRun, type BossRow, type FirepowerRow, type ItemRow } from '../src/stage3/firepower';
 import { toCsvRows } from '../src/stage3/report';
 
 function arg(name: string, fallback: string): string {
@@ -73,28 +73,39 @@ const bot = arg('bot', 'switch');
 const seeds = Number(arg('seeds', '30'));
 const shred = arg('shred', 'off') === 'on';
 const out = arg('out', 'sim-out/shred-variants');
-const range = arg('range', 'off') === 'on';
-const price = arg('price', '');
 const data = variantData(loadGameData('stage3'), variant);
-if (price) data.upgrades.find(u => u.id === 'range')!.costPerLevel = Number(price);
+const item = arg('item', '');
+if (!item && process.argv.includes('--price')) throw new Error('--price needs --item <id>');
+const shop = item ? shopItem(data, item) : undefined;
+if (item && !shop) throw new Error(`--item ${item}: one of ${data.economy?.shop?.items.map(i => i.id).join(', ')}`);
+const price = shop ? Number(arg('price', String(shop.coins))) : 0;
+if (shop) {
+  if (!Number.isInteger(price) || price <= 0) throw new Error(`--price ${price}: a positive whole number`);
+  shop.coins = price;
+}
 if (arg('show', 'off') === 'on') {
   for (const id of SHREDDERS) console.log(JSON.stringify(data.units.find(u => u.id === id)));
   process.exit(0);
 }
 const base = STANDARD_CONFIGS.find(x => x.name === `${bot}-full-q2`)!;
-const tag = range ? `-range${price || data.upgrades.find(u => u.id === 'range')!.costPerLevel}` : '';
-const c = { ...base, noDefeat: false, shred, range, name: `${base.name}${shred ? '-shred' : ''}${tag}-${variant}` };
+const c = {
+  ...base, noDefeat: false, shred, ...(shop ? { item } : {}),
+  name: `${base.name}${shred ? '-shred' : ''}-${variant}${shop ? `-${item}${price}` : ''}`,
+};
 const rows: FirepowerRow[] = [];
 const bosses: BossRow[] = [];
+const items: ItemRow[] = [];
 for (let seed = 1; seed <= seeds; seed++) {
   const run = firepowerRun(data, seed, c, [59]);
   rows.push(...run.rows);
   bosses.push(...run.bosses);
+  items.push(...run.items);
 }
 mkdirSync(out, { recursive: true });
 const file = join(out, `${c.name}.csv`);
 writeFileSync(file, toCsvRows(firepowerCsvRows(rows)));
 writeFileSync(file.replace(/\.csv$/, '-boss.csv'), toCsvRows(bossCsvRows(bosses)));
+writeFileSync(file.replace(/\.csv$/, '-items.csv'), toCsvRows(items));
 const killed = (b: number) => bosses.filter(x => x.boss === b && x.actual === 'killed').length;
 const reached = (b: number) => bosses.filter(x => x.boss === b).length;
 console.log(`${c.name}: reached 60R ${reached(60)}, killed 60R ${killed(60)}, reached 70R ${reached(70)}, cleared ${killed(70)} (of ${seeds * 6})`);

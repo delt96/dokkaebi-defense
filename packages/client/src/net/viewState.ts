@@ -1,11 +1,11 @@
-import { enemyDistanceAt, type ClientView, type GameData, type GameState, type MineUnitView, type UpgradeLevels } from '@dorandi/logic';
+import { enemyDistanceAt, type ClientView, type GameData, type GameState, type MineUnitView, type UpgradeId } from '@dorandi/logic';
 
 function slowOf(data: GameData, defId: string, speed: number): { pct: number; ticks: number } | null {
   const base = data.enemies.find(d => d.id === defId)?.speed ?? 0;
   return speed > 0 && base > 0 && speed < base - 1e-9 ? { pct: 1 - speed / base, ticks: 1 } : null;
 }
 
-const NO_UPGRADES: UpgradeLevels = { physical: 0, magical: 0, polish: 0 };
+const NO_UPGRADES: Record<UpgradeId, number> = { physical: 0, magical: 0, polish: 0 };
 
 /**
  * The server's display state in GameState shape, so LaneScene and the 1-player panels can read it.
@@ -19,7 +19,10 @@ export function viewToGameState(
   const mine = view.mine;
   const ownLane = view.watching === view.me.seat;
   // the own units carry their book cost from `mine` (stage 3); another lane's never do
-  const toUnit = (u: MineUnitView) => ({ id: u.id, defId: u.defId, cooldown: 0, attackCount: 0, periodic: [], ...(u.cost !== undefined && { cost: u.cost }) });
+  const toUnit = (u: MineUnitView) => ({
+    id: u.id, defId: u.defId, cooldown: 0, attackCount: 0, periodic: [],
+    ...(u.cost !== undefined && { cost: u.cost }), ...(u.item !== undefined && { item: u.item }),
+  });
   return {
     data,
     ...(data.balance.difficulties && { difficulty: view.difficulty ?? 'normal' }),

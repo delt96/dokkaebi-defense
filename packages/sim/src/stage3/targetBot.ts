@@ -1,10 +1,10 @@
 import {
-  availableRecipes, createRng, deriveSeed, nextInt, unitAttack, unitDefFast,
+  availableRecipes, createRng, deriveSeed, isTamedKind, nextInt, unitAttack, unitDefFast,
   type Command, type DamageType, type GameData, type GameState,
 } from '@dorandi/logic';
-import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, rangeUpgrade, summonAll } from '../bots';
+import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
 import {
-  betterTarget, huntCommands, jigeCommands, questCommands, remainingValue, reserveCoins, tameCommands, type EconPolicy, type TargetBot,
+  betterTarget, coinsSpent, evolveCommands, huntCommands, itemCommands, jigeCommands, questCommands, remainingValue, reserveCoins, tameCommands, type EconPolicy, type TargetBot,
 } from './econBot';
 import { lacksShred, pickShredSupport, shredPlacement } from './shred';
 import { auraPlacement, mainType, supportSlots, synergyScore, synergyUpgrade } from './synergy';
@@ -53,6 +53,24 @@ export function remainingNeed(
     }
   }
   return { missing, kept };
+}
+
+/** The tamed recruits an exclusive result is made from. */
+function recruitOf(state: GameState, result: string): string[] {
+  return (state.data.recipes.find(r => r.result === result && r.kind === 'tame')?.materials ?? []).filter(m => isTamedKind(state.data, m));
+}
+
+/**
+ * Once the evolve charm is on sale: the first exclusive recipe whose recruit is on the board, whose result is not, and
+ * which lacks no more grade-1 value than `target` does.
+ */
+function exclusiveToChase(state: GameState, target: string): string | null {
+  const charm = state.data.economy?.shop?.items.find(i => i.effect.kind === 'evolve');
+  if (!charm || state.round < (charm.fromRound ?? 0)) return null;
+  const holds = (id: string) => state.slots.some(u => u?.defId === id);
+  const limit = remainingValue(state, target);
+  return state.data.recipes.find(r => r.kind === 'tame' && !holds(r.result) && recruitOf(state, r.result).some(holds)
+    && remainingValue(state, r.result) <= limit)?.result ?? null;
 }
 
 /** Slots of the `n` strongest units outside the target tree (kept for boss fights). */
@@ -128,6 +146,9 @@ export function targetBot(
   let support: string | null = null;
   /** The grade 6 target set aside while the shredder is built. */
   let paused: string | null = null;
+  /** The exclusive result chased for a tamed recruit, and the target set aside meanwhile. */
+  let exclusive: string | null = null;
+  let resume: string | null = null;
 
   const nextTarget = (state: GameState): void => {
     if (opts.targets) {
@@ -153,7 +174,19 @@ export function targetBot(
       decisions++;
       if (target === null && decisions === 1) nextTarget(state);
       const holds = (id: string) => state.slots.some(u => u?.defId === id);
-      if (target !== null && target === support && holds(support)) {
+      if (exclusive !== null && (holds(exclusive) || !recruitOf(state, exclusive).some(holds))) {
+        if (resume) setTarget(state, resume);
+        else nextTarget(state);
+        exclusive = null;
+        resume = null;
+      }
+      if (policy?.tame && exclusive === null && target !== support && target !== null) {
+        const pick = exclusiveToChase(state, target);
+        if (pick) { exclusive = pick; resume = target; setTarget(state, pick); }
+      }
+      if (exclusive !== null) {
+        // the exclusive result is chased until held or its recruit is gone
+      } else if (target !== null && target === support && holds(support)) {
         if (paused) setTarget(state, paused);
         else nextTarget(state);
         paused = null;
@@ -163,11 +196,11 @@ export function targetBot(
       }
       if (support !== null && target !== support && !holds(support)) support = null;
       const shredMain = mainType(state, paused ?? target);
-      if (shredOn && support === null && target !== null && state.round >= SHRED_FROM && lacksShred(state, shredMain)) {
+      if (shredOn && support === null && exclusive === null && target !== null && state.round >= SHRED_FROM && lacksShred(state, shredMain)) {
         const pick = pickShredSupport(state, shredMain);
         if (pick) { support = pick; paused = target; setTarget(state, pick); }
       }
-      const building = target !== null && target === support;
+      const building = target !== null && (target === support || target === exclusive);
       if (building) {
         // no retargeting until the shredder is held
       } else if (opts.synergy && target !== null && state.round !== lastRound && decisions > 1) {
@@ -203,6 +236,8 @@ export function targetBot(
       const protect = policy ? strongestOutside(state, tree, BOSS_GUARD) : new Set<number>();
       if (main) for (const i of supportSlots(state, tree, main, SUPPORT_GUARD)) protect.add(i);
       if (reservedSlot >= 0) protect.add(reservedSlot);
+      // a recruit is kept for its exclusive recipe
+      if (policy?.tame) state.slots.forEach((u, i) => { if (u && isTamedKind(state.data, u.defId)) protect.add(i); });
       if (emptyOpenSlots(state).length === 0 && state.tokens > 0 && !recipe) {
         const sell = sellCandidate(state, tree, kept, protect, main);
         if (sell !== null) { cmds.push({ type: 'sell', slot: sell }, { type: 'summon' }); }
@@ -213,14 +248,17 @@ export function targetBot(
         if (policy.jige) cmds.push(...jigeCommands(state, target, reservedSlot >= 0 ? new Set([reservedSlot]) : new Set()));
         if (policy.quests) cmds.push(...questCommands(state, target));
         if (policy.hunts) cmds.push(...huntCommands(state, target));
-        if (policy.tame) cmds.push(...tameCommands(state, target));
+        if (policy.tame) cmds.push(...tameCommands(state, target), ...evolveCommands(state, target, reserved));
       }
 
       const keep = reserveCoins(state, target);
-      // the range policy saves for the range upgrade before any other upgrade
-      const savingForRange = policy?.range === true && rangeUpgrade(state, Infinity) !== null;
-      const up = savingForRange ? rangeUpgrade(state, state.coins - keep)
-        : main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
+      let holdCoins = false;
+      if (policy?.item) {
+        const it = itemCommands(state, policy.item, keep + coinsSpent(state, cmds));
+        cmds.push(...it.commands);
+        holdCoins = it.saving || it.commands.length > 0;
+      }
+      const up = holdCoins ? null : main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
       if (up) cmds.push({ type: 'upgrade', id: up });
       const fix = placementFix(state);
       const shredMove = reservedSlot >= 0 && decisions % 4 === 1 ? shredPlacement(state, reservedSlot, shredMain) : null;

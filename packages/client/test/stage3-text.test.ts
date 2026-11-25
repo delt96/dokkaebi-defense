@@ -203,16 +203,3 @@ test('a stage 3 card says which upgrade the unit gets: its own type, never the h
   const d1 = loadGameData();
   expect(unitNotes(d1, unitDefFast(d1, 'sotlid'))).toEqual([]);
 });
-
-test('the stage 3 upgrade window sells range once; the unit card counts it', () => {
-  const s = createGame(d3, 1);
-  const price = d3.upgrades.find(u => u.id === 'range')!.costPerLevel;
-  s.coins = price;
-  expect(upgradeRows(s).at(-1)).toMatchObject({ id: 'range', level: 0, max: 1, cost: price, effectText: '모든 유닛 사거리 +0.5', affordable: true });
-  placeUnitForTest(s, 'gireumteul', 2);
-  expect(unitCard(s, 2)!.range).toBe(1.5);
-  s.upgrades.range = 1;
-  expect(upgradeRows(s).at(-1)).toMatchObject({ level: 1, cost: null });
-  expect(unitCard(s, 2)!.range).toBe(2);
-  expect(upgradeRows(createGame(loadGameData(), 1)).map(r => r.id)).not.toContain('range');
-});

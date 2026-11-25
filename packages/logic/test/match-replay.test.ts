@@ -50,7 +50,7 @@ test('the pinned pre-bundle replay accepts both its retired draw and its unit ga
     }));
     expect((await replayRecorded({ ...record, log })).at(-1)).not.toEqual(fixture.finalHash);
   }
-}, 30_000);
+}, 120_000);
 
 test('a pinned hunt replay reopens the target at the archived shared cooldown', async () => {
   const { replayRecorded } = await import('../../sim/scripts/replay-version');

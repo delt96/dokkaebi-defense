@@ -1,4 +1,4 @@
-import type { Difficulty, GameEvent, HitEffect, UpgradeLevels } from '../types';
+import type { Difficulty, GameEvent, HitEffect, UpgradeId } from '../types';
 import type { EconView } from '../econ/view';
 import type { BirthVia } from '../birth';
 import type { Ack, EliminationCause, MatchEvent, MatchResult } from './types';
@@ -6,7 +6,8 @@ import type { Ack, EliminationCause, MatchEvent, MatchResult } from './types';
 // Server -> browser message names: 'lobby', 'full', 'tick', 'lane', 'mine', 'result' and the room notice 'notice'.
 // Browser -> server: 'cmd' (WireCommand), 'ready' { ready }, 'start', 'watch' { seat }, 'rematch', 'resync'.
 
-export interface UnitView { id: number; defId: string }
+/** `item` is left out on a unit without one, so boards without items keep their message shape. */
+export interface UnitView { id: number; defId: string; item?: string }
 /** A unit in the owner's own `mine`: stage 3 adds its book cost (0 included); other seats never see it. */
 export interface MineUnitView extends UnitView { cost?: number }
 export interface EnemyView { id: number; defId: string; hp: number; maxHp: number; boss: boolean; shared: boolean; d: number; t: number; speed: number }
@@ -25,7 +26,7 @@ export interface EconMine extends EconView {
   team: { streak: number; paid: boolean } | null;
 }
 export interface MineView {
-  tick: number; tokens: number; coins: number; buckwheat: number; upgrades: UpgradeLevels;
+  tick: number; tokens: number; coins: number; buckwheat: number; upgrades: Record<UpgradeId, number>;
   grade1Summons: number; helperOpens: number; supportTokens: number; received: boolean; lastSeq: number;
   open: boolean[]; units: (MineUnitView | null)[]; acks: Ack[]; supportIn: { from: number; coins: number }[];
   /** Stored grade 1-2 units, oldest first; left out until the seat first stores something. */
@@ -51,7 +52,7 @@ export type LaneEvent =
   // stage 3 only: an event enemy runs off or grows, and economy results the lane's owner is told about
   | { t: 'flee'; id: number } | { t: 'grow'; id: number; hp: number } | { t: 'note'; ev: EconNote };
 /** Economy results streamed for messages on the owner's screen (purchases, rewards, requests, taming). */
-export type EconNote = Extract<GameEvent, { type: 'jigeSwap' | 'questReward' | 'tame' | 'tameTry' | 'hunt' | 'gambleCoins' | 'gambleUnit' }>;
+export type EconNote = Extract<GameEvent, { type: 'jigeSwap' | 'questReward' | 'tame' | 'tameTry' | 'hunt' | 'gambleCoins' | 'gambleUnit' | 'itemBought' | 'itemAttached' }>;
 export interface LaneBatch { tick: number; events: LaneEvent[] }
 export interface LaneMsg { n: number; seat: number; batches: LaneBatch[] }
 export type MineMsg = MineView;

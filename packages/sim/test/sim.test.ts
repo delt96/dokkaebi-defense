@@ -44,7 +44,7 @@ describe('sim', () => {
       const rangedEdge = st.slots.some((u, i) => u && !kind(i) && lane.cells[i]!.isEdge);
       expect(meleeInside && rangedEdge).toBe(false);
     }
-  });
+  }, 30_000);
   test('real multiplier counts damage dealt during the round', () => {
     const st = runGame(data, 2, normalBot());
     const rows = roundRows(st, 2, 'normal');

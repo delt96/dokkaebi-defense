@@ -48,12 +48,12 @@ const gradeText = (result: number | 'hidden') => result === 0 ? '꽝' : result =
 const percent = (chance: number) => `${+(chance * 100).toFixed(4)}%`;
 const remaining = (left: number, limit: number) => `남은 횟수 ${left}/${limit}`;
 
-function blockedText(why: RejectReason | null, price: number, balance: number, fromRound?: number): string | null {
+export function blockedText(why: RejectReason | null, price: number, balance: number, fromRound?: number): string | null {
   switch (why) {
     case null: return null;
     case 'marketLocked': return '10라운드 보스 격파 후';
     case 'marketClosed': return '1라운드부터';
-    case 'gambleRound': return `${fromRound}라운드부터`;
+    case 'gambleRound': case 'itemTooEarly': return `${fromRound}라운드부터`;
     case 'gambleLimit': return '이번 라운드 몫을 다 씀';
     case 'noSlot': return '진영 한 칸 비우기';
     case 'noCoins': return `엽전 ${Math.max(0, price - balance)}냥 부족`;

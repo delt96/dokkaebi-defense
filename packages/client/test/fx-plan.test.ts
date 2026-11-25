@@ -1,4 +1,4 @@
-import { createGame, laneOf, loadGameData, type GameEvent, type GameState, type UnitDef } from '@dorandi/logic';
+import { createGame, laneOf, loadGameData, shopItem, type GameEvent, type GameState, type UnitDef } from '@dorandi/logic';
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { describe, expect, test } from 'vitest';
 import {
@@ -266,6 +266,35 @@ describe('statuses from state', () => {
     const e = spawnEnemyForTest(s, 'japgwi', 1);
     const cmds = planEvents([{ type: 'attack', unitId: u.id, enemyId: e.id }], planFromState(s, new Map()));
     expect(kinds(cmds)).toEqual(['shot']);
+  });
+
+  test('two identical casters pulse with their own range when one holds the range charm', () => {
+    const stage3 = loadGameData('stage3');
+    const s = createGame(stage3, 1);
+    const meok = stage3.units.find(u => u.id === 'meok')!;
+    const charm = shopItem(stage3, 'rangeCharm')!.effect;
+    const amount = charm.kind === 'range' ? charm.amount : NaN;
+    const lane = laneOf(s);
+    const away = (slot: number, d: number) => Math.hypot(lane.cells[slot]!.x - lane.pointAt(d).x, lane.cells[slot]!.y - lane.pointAt(d).y);
+    const spot = (ok: (d: number) => boolean) => {
+      for (let k = 0; k < lane.perimeter * 200; k++) if (ok(k / 200)) return k / 200;
+      throw new Error('no spot');
+    };
+    const a = placeUnitForTest(s, 'meok', 0);
+    const b = placeUnitForTest(s, 'meok', 5);
+    a.item = 'rangeCharm';
+    const far = spawnEnemyForTest(s, 'japgwi', spot(d => away(0, d) > meok.range + 0.05 && away(0, d) <= meok.range + amount - 0.05 && away(5, d) > meok.range + amount));
+    const near = spawnEnemyForTest(s, 'japgwi', spot(d => away(5, d) <= meok.range - 0.05));
+    const events: GameEvent[] = [
+      { type: 'damage', enemyId: far.id, amount: 50, source: 'meok' },
+      { type: 'damage', enemyId: near.id, amount: 50, source: 'meok' },
+    ];
+    const pulses = planEvents(events, planFromState(s, new Map())).filter(c => c.kind === 'pulse');
+    expect(pulses).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: 'pulse', unitId: a.id, radius: meok.range + amount }),
+      expect.objectContaining({ kind: 'pulse', unitId: b.id, radius: meok.range }),
+    ]));
+    expect(pulses).toHaveLength(2);
   });
 });
 

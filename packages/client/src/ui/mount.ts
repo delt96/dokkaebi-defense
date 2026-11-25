@@ -1,5 +1,5 @@
 import {
-  birthOf, laneOf, unitDefFast, type ClientView, type EconMine, type EconNote, type GameData, type GameEvent, type GameState, type GambleCommand, type QuestId, type UpgradeId,
+  birthOf, laneOf, pickStored, unitDefFast, type ClientView, type EconMine, type EconNote, type GameData, type GameEvent, type GameState, type GambleCommand, type QuestId, type UpgradeId,
 } from '@dorandi/logic';
 import { SPEEDS, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
@@ -16,7 +16,7 @@ import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, tameButtonHtml, marketModel, noteText, questChips, tameModel,
-  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type JigeList, type MarketModel,
+  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type JigeList, type MarketModel, type MarketTab,
 } from './econ';
 import {
   advanceReveal, gambleHistoryHtml, gambleInfoHtml, gambleRevealHtml, heldCoins, recordGamble,
@@ -36,14 +36,19 @@ import { STORE_ALL_KEY, STORE_KEY, storageHtml, storageInfoHtml, storageInfoMode
 import { readTarget, targetHtml, writeTarget } from './target';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
-  Digit1: 'physical', Digit2: 'magical', Digit3: 'polish', Digit4: 'range',
+  Digit1: 'physical', Digit2: 'magical', Digit3: 'polish',
 };
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
 const CONFIRM_SELL_GRADE = 3;
 /** Economy notices stay a little longer than a refusal. */
 const NOTE_MS = 2500;
-const NOTE_TYPES: ReadonlySet<string> = new Set(['jigeSwap', 'questReward', 'tame', 'tameTry', 'hunt']);
+const NOTE_TYPES: ReadonlySet<string> = new Set(['jigeSwap', 'questReward', 'tame', 'tameTry', 'hunt', 'itemBought', 'itemAttached']);
+
+/** The economy message for a solo or streamed event, or null for events that show none. */
+export function econNoteText(event: GameEvent, data: GameData): string | null {
+  return NOTE_TYPES.has(event.type) ? noteText(event as EconNote, data) : null;
+}
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void; onHome?: () => void }
 
@@ -53,7 +58,7 @@ const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'set
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
   'summon', 'convert', 'combine', 'sell', 'upgrade', 'gambleCoins', 'gambleUnit', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
-  'store', 'storeAll', 'retrieve', 'sellStored',
+  'store', 'storeAll', 'retrieve', 'sellStored', 'buyItem', 'attachItem',
 ]);
 const PRESS_MS = 120;
 
@@ -89,8 +94,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let jigeList: JigeList | null = null;
   let best: { id: string; grade: number } | null = null;
   let notice: Notice | null = null;
-  // stage 3 economy: the B panel (null = closed)
-  let econTab: 'market' | null = null;
+  // stage 3 economy: the B panel and its tab (null = closed)
+  let econTab: MarketTab | null = null;
+  // online: the unit whose 아이템 ▾ list is open under the board
+  let itemMenuId: number | null = null;
   let reveal: Reveal | null = null;
   let revealEpoch = driver.laneEpoch;
   // S on grade 3+ and T take a second press within 2 seconds
@@ -237,7 +244,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         if (econTab) helperOpen = false;
         else marketCell?.remove();
         break;
-      case 'econTab': econTab = 'market'; helperOpen = false; break;
+      case 'econTab': econTab = arg === 'items' ? 'items' : 'market'; helperOpen = false; break;
+      case 'buyItem': if (arg) driver.queue({ type: 'buyItem', item: arg }); break;
+      case 'attachItem': {
+        const [item = '', target] = arg.split('@');
+        const unitId = Number(target);
+        const slot = selectedSlot(driver.state, unitId);
+        itemMenuId = null;
+        if (item && slot !== null) driver.queue({ type: 'attachItem', item, slot, unitId });
+        break;
+      }
+      case 'itemMenu': itemMenuId = itemMenuId === Number(arg) ? null : Number(arg); break;
       case 'econClose': econTab = null; break;
       case 'marketCell': markMarketCell(Number(arg)); break;
       case 'gambleCoins': gamble({ type: 'gambleCoins', stake: Number(arg) }); break;
@@ -305,7 +322,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const e = econ();
         const [zone, ref = ''] = arg.split(':');
         const s = driver.state;
-        const index = zone === 'board' ? selectedSlot(s, Number(ref)) ?? -1 : (s.storage ?? []).findIndex(u => u.defId === ref);
+        const index = zone === 'board' ? selectedSlot(s, Number(ref)) ?? -1 : pickStored(s.storage ?? [], ref);
         const unit = (zone === 'board' ? s.slots : s.storage ?? [])[index];
         if (!e || !unit || (zone !== 'board' && zone !== 'storage')) break;
         if (e.jige < 1) { refuse(rejectText('noJige') ?? ''); break; }
@@ -351,6 +368,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (action === 'toggleMarket' || action === 'econClose') {
       const selector = '[data-action="toggleMarket"]';
       (drawer.firstElementChild ? drawer : el('right')).querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+    }
+    if (action === 'itemMenu' || action === 'attachItem') {
+      const unitId = action === 'itemMenu' ? arg : arg.split('@')[1];
+      const menuButton = el('bottom').querySelector<HTMLElement>(`[data-action="itemMenu"][data-arg="${unitId}"]`);
+      const first = itemMenuId !== null ? el('bottom').querySelector<HTMLElement>('.item-pop [data-action="attachItem"]') : null;
+      (first ?? menuButton)?.focus({ preventScroll: true });
     }
     if (action === 'dexRole' || action === 'dexMine' || action === 'dexAdv') {
       el('modal').querySelector<HTMLButtonElement>(`[data-action="${action}"]${action === 'dexAdv' ? '' : `[data-arg="${arg}"]`}`)?.focus();
@@ -448,8 +471,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         gameAudio.play('dice');
         drew = true;
       }
-      if (!NOTE_TYPES.has(event.type) || driver.readOnly) continue;
-      const text = noteText(event as EconNote, driver.state.data);
+      if (driver.readOnly) continue;
+      const text = econNoteText(event, driver.state.data);
       if (text) say(text, NOTE_MS);
     }
     for (const r of rejected) {
@@ -513,10 +536,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       return;
     }
     if (modal === 'upgrades') {
-      // the window never pauses anything; E toggles it and 1-4 buy only while it is open (4 only where the stage sells range)
+      // the window never pauses anything; E toggles it and 1-3 buy only while it is open
       const open = UPGRADE_KEYS[ev.code];
       if (ev.code === 'KeyE') act('closeModal', '');
-      else if (open && driver.state.data.upgrades.some(u => u.id === open)) act('upgrade', open);
+      else if (open) act('upgrade', open);
       return;
     }
     if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }
@@ -564,6 +587,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const selected = selectedSlot(s, scene.selectedId);
     if (selected === null) scene.selectedId = null;
     const held = s.data.economy?.market ? econ()?.jige : undefined;
+    // held items come from the shop view: the online drawn state has no econ
+    const shop = econ()?.shop ?? null;
+    if (itemMenuId !== null && (selected === null || s.slots[selected]?.id !== itemMenuId)) itemMenuId = null;
     // the unit an open R list was opened on moved, sold or the lane changed: the list goes, nothing is sent
     if (modal === 'jige' && (!jigeList || jigeStale(jigeList))) { modal = null; jigeList = null; }
     const now = performance.now();
@@ -582,7 +608,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      renderHelper(s, helperOpen, s.phase === 'ended' ? '' : infoHtml || unitPanelHtml(s, selected, { compact: helperOpen, jige: held, sellArmed: sellArmed(s, selected) }));
+      renderHelper(s, helperOpen, s.phase === 'ended' ? '' : infoHtml || unitPanelHtml(s, selected, { compact: helperOpen, jige: held, sellArmed: sellArmed(s, selected), shop }));
     }
     // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
     // lane is full, so the line goes to the notices in the right column instead
@@ -611,7 +637,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else if (online && info) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), infoHtml);
-    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected));
+    } else {
+      displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected), {
+        shop: driver.readOnly ? null : shop, open: itemMenuId !== null,
+      });
+    }
     setHtml(el('storage'), storageVisible() ? storageHtml(s, held) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
@@ -712,7 +742,7 @@ ${dex.mine.join()}`;
     shownMarket = e && econTab ? marketModel(e, s) : null;
     const active = document.activeElement as HTMLElement | null;
     const focus = active && drawer.contains(active) ? active.dataset.marketFocus : undefined;
-    setHtml(drawer, shownMarket ? econPanelHtml(shownMarket, display, driver.readOnly) : '');
+    setHtml(drawer, shownMarket ? econPanelHtml(shownMarket, display, driver.readOnly, econTab ?? 'market') : '');
     // the drawer covers the lane's right edge, where the pinned recipe sits; the class moves it beside the drawer
     el('stage').classList.toggle('market-open', drawer.firstElementChild !== null);
     const wallet = drawer.querySelector('.gamble-wallet');
@@ -778,6 +808,7 @@ ${dex.mine.join()}`;
     best = null;
     notice = null;
     econTab = null;
+    itemMenuId = null;
     reveal = null;
     confirm.clear();
     userPaused = false;

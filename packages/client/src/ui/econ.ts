@@ -1,10 +1,10 @@
 import {
-  jigeCandidates, toTicks, type ClientView, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
+  jigeCandidates, shopItem, toTicks, type ClientView, type ItemEffect, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
 } from '@dorandi/logic';
 import { esc } from './dom';
 import { unitSkillText } from './models';
 import { withJosa } from './josa';
-import { gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
+import { blockedText, gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
 
 // Stage 3 economy on screen: the market panel (B), the T button under a target's health bar and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
@@ -13,21 +13,66 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
 /** Keeps a name and its mark (or a label and its number) on one line in the narrow panel. */
 const NBSP = ' ';
 const nameOf = (data: GameData, id: string): string => data.units.find(u => u.id === id)?.name ?? data.enemies.find(e => e.id === id)?.name ?? id;
+const itemName = (data: GameData, id: string): string => shopItem(data, id)?.name ?? id;
 const secondsOf = (data: GameData, ticks: number): number => Math.max(0, Math.ceil((ticks * data.balance.tickMs) / 1000));
 
 // ---------- market ----------
 
 export interface MarketModel {
-  jige: GambleJige; gamble?: GambleModel;
+  jige: GambleJige; gamble?: GambleModel; shop?: ShopRow[];
 }
+export type MarketTab = 'market' | 'items';
 
 export function marketModel(econ: EconMine, state: GameState): MarketModel | null {
   const m = econ.market;
   if (!m) return null;
+  const shop = shopModel(econ, state.coins, state.buckwheat);
   return {
     ...(m.gamble && { gamble: gambleModel(m.gamble, state.coins, state.buckwheat) }),
     jige: { chance: m.jigeChance, held: econ.jige, maxGrade: state.data.economy?.market?.maxSwapGrade ?? 4 },
+    ...(shop && { shop }),
   };
+}
+
+// ---------- item shop ----------
+
+export interface ShopRow { id: string; name: string; effectText: string; price: string; held: number; blocked: string | null; done: boolean }
+
+export function itemEffectText(effect: ItemEffect, perGame: number | null): string {
+  const once = perGame === null ? '' : ` · 한 판 ${perGame}번`;
+  switch (effect.kind) {
+    case 'range': return `유닛 하나 사거리 +${effect.amount}${once}`;
+    case 'attack': return `유닛 하나 공격력 +${pct(effect.pct)}${once}`;
+    case 'speed': return `유닛 하나 공격 속도 +${pct(effect.pct)}${once}`;
+    case 'vuln': return `때린 적이 받는 같은 종류 피해 +${pct(effect.pct)} · ${effect.seconds}초${once}`;
+    case 'evolve': return `길들인 유닛 하나 진화 · 전용 조합 재료${once}`;
+  }
+}
+
+/** `coins` / `buckwheat`: solo the lane's state, online the seat's from its MineView. */
+export function shopModel(econ: EconMine, coins: number, buckwheat: number): ShopRow[] | null {
+  if (!econ.shop) return null;
+  return econ.shop.items.map(i => ({
+    id: i.id, name: i.name, effectText: itemEffectText(i.effect, i.perGame), price: `${i.buckwheat ? `묵 ${i.buckwheat} · ` : ''}${i.coins}냥`, held: i.held,
+    blocked: i.why === 'itemLimit' ? null
+      : i.why === 'noBuckwheat' ? blockedText(i.why, i.buckwheat ?? 0, buckwheat)
+      : blockedText(i.why, i.coins, coins, i.fromRound),
+    done: i.why === 'itemLimit',
+  }));
+}
+
+function shopHtml(rows: ShopRow[], readOnly: boolean): string {
+  const list = rows.map(r => {
+    const why = readOnly ? '관전 중에는 살 수 없어요' : r.blocked;
+    const label = r.done ? '삼' : '사기';
+    const reasonId = why && !r.done ? `shop-why-${esc(r.id)}` : null;
+    return `<div class="shop-row"><span class="shop-name"><b>${esc(r.name)}</b><small>${esc(r.effectText)}</small></span>
+      <span class="shop-price">${esc(r.price)}</span><button type="button" class="shop-buy" data-action="buyItem" data-arg="${esc(r.id)}" data-market-focus="item-${esc(r.id)}"
+      aria-label="${esc(`${r.name} · ${r.price} · ${label}`)}"${reasonId ? ` aria-describedby="${reasonId}"` : ''}${r.done || why ? ' disabled' : ''}>${label}</button>
+      ${reasonId ? `<span class="gamble-why" id="${reasonId}">${esc(why!)}</span>` : ''}</div>`;
+  }).join('');
+  const held = rows.map(r => `${esc(r.name)}${NBSP}${r.held}`).join(' · ');
+  return `<div class="shop-rows">${list}</div><div class="shop-held">들고 있는 아이템: ${held}</div>`;
 }
 
 // ---------- jige swap (R) ----------
@@ -417,6 +462,11 @@ export function noteText(ev: EconNote, data: GameData): string | null {
       if (ev.success) return null;
       return `길들이기 실패 · ${[ev.buckwheat ? `묵 ${ev.buckwheat}` : '', ev.coins ? `${ev.coins}냥` : '', ev.tokens ? `불 ${ev.tokens}` : ''].filter(Boolean).join(' · ')}을 잃었습니다`;
     case 'tame': return `길들이기 성공 · ${withJosa(nameOf(data, ev.defId), '이/가')} 우리 편이 됐습니다`;
+    case 'itemBought': return `${withJosa(itemName(data, ev.item), '을/를')} 샀습니다`;
+    case 'itemAttached': {
+      const put = `${nameOf(data, ev.defId)}에 ${withJosa(itemName(data, ev.item), '을/를')} 붙였습니다`;
+      return ev.replaced ? `${put} · ${withJosa(itemName(data, ev.replaced), '은/는')} 사라졌습니다` : put;
+    }
     case 'hunt': {
       const name = `${nameOf(data, ev.enemy)} ${ev.level}단계`;
       if (ev.outcome === 'fled') return `${name}가 달아났습니다`;
@@ -431,15 +481,21 @@ const button = (action: string, arg: string, label: string, disabled = false, cl
   `<button data-action="${action}" data-arg="${esc(arg)}"${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
 
 /** The B drawer leaves the board and both unit-card positions visible. */
-export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay | null = null, readOnly = false): string {
+export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay | null = null, readOnly = false, tab: MarketTab = 'market'): string {
+  const items = tab === 'items' && !!market?.shop;
   const head = `<div class="econ-head"><b>장터</b><span class="gamble-wallet"></span>
-    ${market?.gamble ? '<span class="gamble-refill" aria-label="매 라운드 횟수가 다시 차요">라운드마다 충전</span>' : ''}
+    ${market?.gamble && !items ? '<span class="gamble-refill" aria-label="매 라운드 횟수가 다시 차요">라운드마다 충전</span>' : ''}
     <button type="button" data-action="toggleMarket" data-market-focus="close" class="econ-close" aria-label="장터 닫기 (B)">닫기 B</button></div>`;
-  const body = market?.gamble ? `<div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
+  const tabButton = (id: MarketTab, label: string) => {
+    const on = (id === 'items') === items;
+    return `<button type="button" data-action="econTab" data-arg="${id}" data-market-focus="tab-${id}" aria-pressed="${on}"${on ? ' class="on"' : ''}>${label}</button>`;
+  };
+  const tabs = market?.shop ? `<div class="econ-tabs">${tabButton('market', '뽑기')}${tabButton('items', '아이템')}</div>` : '';
+  const body = items ? shopHtml(market!.shop!, readOnly) : market?.gamble ? `<div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
     <div class="gamble-info" id="gamble-info" aria-live="polite"></div>
     <div class="gamble-result"></div><section class="gamble-history" aria-label="최근 장터 결과"></section>`
     : market ? `<div>보유 지게 ${market.jige.held}개</div>` : '';
-  return `<section class="econ-panel" aria-label="장터">${head}<div class="econ-body">${body}</div></section>`;
+  return `<section class="econ-panel" aria-label="장터">${head}${tabs}<div class="econ-body">${body}</div></section>`;
 }
 
 /** The T button under the target's health bar (placed by mount from the scene's bar anchor). */

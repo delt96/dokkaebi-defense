@@ -1,8 +1,8 @@
 import { difficultySuffix } from './difficulty';
 import {
-  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineLockRound, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
-  upgradeCost, unitRange, summonOddsForRound, roundResistRange,
-  type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeDef, type UpgradeId,
+  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineEatsItem, countNormalEnemies, evolveMult, itemOf, needsEvolve, missingMaterials, recipesUsing,
+  storedMaterials, unitDefFast, upgradeCost, unitRange, summonOddsForRound, roundResistRange,
+  type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 import { ROLE_LABEL, unitRoles, type RoleTag } from './dex-roles';
 
@@ -41,6 +41,10 @@ export interface SkillCtx {
  */
 export const attackRangeText = (data: GameData, range: number): string =>
   `${Math.round((range / laneOf({ data }).pitch) * 10) / 10}칸`;
+/** Under a combine that uses up a unit's item (combineEatsItem with the same arguments the button sends). */
+export const EATS_ITEM_TEXT = '아이템이 사라집니다';
+/** Under the attach buttons of a unit that already has an item: the old one is lost, never returned. */
+export const REPLACE_ITEM_TEXT = '붙이면 지금 아이템은 사라집니다';
 export const ATTACK_RANGE_HINT = '칸 가운데에서 적까지 잰 직선거리입니다. 유닛을 고르면 닿는 길이 노랗게 보입니다.';
 
 /** Who a status lands on (stage 3 `radius` / `area`); empty for the plain target. */
@@ -261,10 +265,11 @@ export function costShortText(state: GameState, recipe: RecipeDef | undefined): 
   return parts.length ? `${parts.join(', ')} 모자람` : null;
 }
 
-/** "20라운드부터" while a recipe is shut until a round, else what the player is short of to pay for it. */
+export const NEEDS_EVOLVE_TEXT = '진화부적을 붙여야 합니다';
+
+/** NEEDS_EVOLVE_TEXT while an exclusive recipe's recruit is not evolved, else what the player is short of to pay for it. */
 function blockedText(state: GameState, recipe: RecipeDef | undefined): string | null {
-  const from = combineLockRound(state, recipe);
-  return from !== null ? `${from}라운드부터` : costShortText(state, recipe);
+  return needsEvolve(state, recipe) ? NEEDS_EVOLVE_TEXT : costShortText(state, recipe);
 }
 
 export function selectedSlot(state: GameState, id: number | null): number | null {
@@ -324,12 +329,17 @@ const REJECT_TEXT: Record<string, string> = {
   tameCondition: '길들이기 조건이 풀렸습니다',
   cooldown: '아직 다시 시도할 수 없습니다',
   noJige: '지게가 없습니다',
-  tameLocked: '길들인 유닛 조합은 아직 열리지 않았습니다',
+  notEvolved: NEEDS_EVOLVE_TEXT,
   // storage
   notStorable: '1·2등급만 보관할 수 있습니다',
   nothingToStore: '보관할 1·2등급 유닛이 없습니다',
   notStored: '보관함에 없는 유닛입니다',
   slotTaken: '그 칸에는 이미 유닛이 있습니다',
+  // item shop
+  noItem: '가진 부적이 없습니다',
+  itemLimit: '이 부적은 한 판에 살 수 있는 만큼 다 샀습니다',
+  itemTooEarly: '아직 팔지 않는 부적입니다',
+  notTamed: '진화부적은 길들인 유닛에만 붙습니다',
 };
 
 export function rejectText(reason: string): string | null {
@@ -366,7 +376,7 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
  * `cost` is set on recipes with a cost (stage 3 grades 5 and 6), `short` when every material is there but the cost is not,
  * `stored` when some materials would come out of storage (how many).
  */
-export interface HelperItem { recipe: string; name: string; grade: number; materials: Material[]; cost?: string; short?: string; stored?: number }
+export interface HelperItem { recipe: string; name: string; grade: number; materials: Material[]; cost?: string; short?: string; stored?: number; eatsItem?: true }
 
 /** A recipe material as the chips draw it; `have` is false for the copies the board and storage cannot cover. */
 export interface Material { id: string; name: string; grade: number; have: boolean }
@@ -398,6 +408,7 @@ export function helperModel(state: GameState): HelperItem[] {
     const stored = storedMaterials(state, recipe.result);
     out.push({
       recipe: recipe.result, name: def.name, grade: def.grade, materials: materialsOf(state, recipe.result, missing), ...(cost ? { cost } : {}), ...(short ? { short } : {}), ...(stored ? { stored } : {}),
+      ...(combineEatsItem(state, recipe.result) && { eatsItem: true as const }),
     });
   }
   return out;
@@ -406,9 +417,10 @@ export function helperModel(state: GameState): HelperItem[] {
 const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
 
 /** `short` describes any currency shortfall. */
-export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
+export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string; eatsItem?: true }
 
-function optionsFor(state: GameState, recipes: { result: string; missing: string[] }[]): CombineOption[] {
+/** `slot`: the cell the option's button sends (none for storage and the helper), as combineEatsItem takes it. */
+function optionsFor(state: GameState, recipes: { result: string; missing: string[] }[], slot?: number): CombineOption[] {
   return recipes.map(({ result, missing }): CombineOption => {
     const { name, grade } = unitDefFast(state.data, result);
     const recipe = state.data.recipes.find(r => r.result === result);
@@ -421,6 +433,7 @@ function optionsFor(state: GameState, recipes: { result: string; missing: string
       key: null,
       ...(cost ? { cost } : {}),
       ...(short ? { short } : {}),
+      ...(combineEatsItem(state, result, slot) && { eatsItem: true as const }),
     };
   });
 }
@@ -435,27 +448,26 @@ export function storedCombineOptions(state: GameState, defId: string): CombineOp
 }
 
 export function combineOptions(state: GameState, slot: number): CombineOption[] {
-  const options = optionsFor(state, recipesUsing(state, slot));
+  const options = optionsFor(state, recipesUsing(state, slot), slot);
   options.sort((a, b) => Number(ready(b)) - Number(ready(a)) || a.missing.length - b.missing.length);
   let nextKey = 0;
   for (const option of options) if (ready(option)) option.key = COMBINE_KEYS[nextKey++] ?? null;
   return options;
 }
 
-const UPGRADE_TEXT: Record<UpgradeId, (def: UpgradeDef) => string> = {
-  physical: d => `물딜 공격력 +${pct(d.pct ?? 0)}`,
-  magical: d => `마딜 공격력 +${pct(d.pct ?? 0)}`,
-  polish: d => `1~4등급 공격력 +${pct(d.pct ?? 0)}`,
-  range: d => `모든 유닛 사거리 +${d.amount ?? 0}`,
+const UPGRADE_TEXT: Record<UpgradeId, (p: number) => string> = {
+  physical: p => `물딜 공격력 +${pct(p)}`,
+  magical: p => `마딜 공격력 +${pct(p)}`,
+  polish: p => `1~4등급 공격력 +${pct(p)}`,
 };
 
 export function upgradeRows(state: GameState): { id: UpgradeId; label: string; level: number; max: number; cost: number | null; effectText: string; affordable: boolean }[] {
   return state.data.upgrades.map(def => {
-    const level = state.upgrades[def.id] ?? 0;
+    const level = state.upgrades[def.id];
     const cost = level >= def.max ? null : upgradeCost(def, level + 1);
     return {
       id: def.id, label: def.label, level, max: def.max, cost,
-      effectText: UPGRADE_TEXT[def.id](def),
+      effectText: UPGRADE_TEXT[def.id](def.pct ?? 0),
       affordable: cost !== null && state.coins >= cost,
     };
   });
@@ -468,6 +480,30 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
 export interface UnitCard {
   name: string; grade: number; hidden: boolean; typeText: '물딜' | '마딜'; skillText: string; notes: string[]; usedIn: string[]; roles: RoleTag[];
   attack: number; attackBonus: number; interval: number; speedBonus: number; range: number; sellPrice: number;
+  /**
+   * The attached stage 3 item; `short` is the board's corner letter, `evolved` marks the evolve charm.
+   * `share` is its part of attackBonus / speedBonus / range (for the evolve charm, its multiplier less 1).
+   */
+  item: { id: string; name: string; short: string; evolved?: true } | null;
+  share: { attack: number; speed: number; range: number };
+}
+
+export function itemShort(state: GameState, slot: number): string | null {
+  return itemOf(state, slot)?.name.slice(0, 1) ?? null;
+}
+
+/** "+20% 힘 부적" (or "+50% 진화") after an attack or interval figure; empty without that kind of item. */
+export function itemShareText(card: UnitCard, kind: 'attack' | 'speed'): string {
+  const share = card.share[kind];
+  return card.item && share ? ` (+${pct(share)} ${card.item.evolved ? '진화' : card.item.name})` : '';
+}
+
+/** "사거리 2칸 (+0.5 사거리 부적)"; `compact` (the one-line online card) drops the item name. */
+export function cardRangeText(data: GameData, card: UnitCard, compact = false): string {
+  const base = `사거리 ${attackRangeText(data, card.range)}`;
+  if (!card.item || !card.share.range) return base;
+  const amount = Math.round((card.share.range / laneOf({ data }).pitch) * 10) / 10;
+  return compact ? `${base}(+${amount})` : `${base} (+${amount} ${card.item.name})`;
 }
 
 export function unitCard(state: GameState, slot: number): UnitCard | null {
@@ -482,11 +518,18 @@ export function unitCard(state: GameState, slot: number): UnitCard | null {
   }
   const attackBonus = damageBonus(state, slot);
   const fast = speedBonus(state, slot);
+  const item = itemOf(state, slot);
+  const effect = item?.effect;
   return {
+    item: item ? { id: item.id, name: item.name, short: item.name.slice(0, 1), ...(effect?.kind === 'evolve' && { evolved: true as const }) } : null,
+    share: {
+      attack: effect?.kind === 'attack' ? effect.pct : effect?.kind === 'evolve' ? evolveMult(state, slot) - 1 : 0, speed: effect?.kind === 'speed' ? effect.pct : 0,
+      range: effect?.kind === 'range' ? effect.amount : 0,
+    },
     name: def.name, grade: def.grade, hidden: def.hidden === true, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
     attack: Math.round(unitAttack(def, state.data.balance) * (1 + attackBonus)), attackBonus,
     interval: attackIntervalTicks(def.interval, fast) * state.data.balance.tickMs / 1000, speedBonus: fast,
-    range: unitRange(state, def), skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, roles: unitRoles(def),
+    range: unitRange(state, slot), skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, roles: unitRoles(def),
     sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
   };
 }

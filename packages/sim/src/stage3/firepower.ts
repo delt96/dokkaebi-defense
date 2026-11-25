@@ -4,8 +4,7 @@ import {
 } from '@dorandi/logic';
 import { forceRound, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { EconDriver } from './econDriver';
-import type { EconPolicy } from './econBot';
-import { configData, makeBot, SEATS, type EconConfig } from './econRun';
+import { configData, econPolicy, makeBot, SEATS, type EconConfig } from './econRun';
 
 /** Normal rounds just after each boss and in between, where the board of a run is measured. */
 export const FIREPOWER_ROUNDS = [5, 11, 15, 21, 25, 31, 35, 41, 45, 51, 55, 59, 61, 65, 69];
@@ -214,7 +213,17 @@ export interface BossRow extends BossPlay {
   actualKillSeconds: number | null;
 }
 
-export interface FirepowerRunResult { rows: FirepowerRow[]; bosses: BossRow[] }
+/**
+ * What one seat did with the config's shop item over the run: purchases, attachments, and the unit kind the first
+ * attachment went on with that kind's range (null: never attached). Read from events, since an eliminated seat's
+ * board is emptied.
+ */
+export interface ItemRow {
+  config: string; bot: string; seed: number; seat: number; item: string | null;
+  bought: number; attached: number; firstDefId: string | null; firstRange: number | null;
+}
+
+export interface FirepowerRunResult { rows: FirepowerRow[]; bosses: BossRow[]; items: ItemRow[] }
 
 const bossRoundsOf = (data: GameData) => data.waves.filter(w => w.type === 'boss').map(w => w.round);
 
@@ -228,14 +237,16 @@ export function firepowerRun(
 ): FirepowerRunResult {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
-  const policy: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false, shred: c.shred === true, range: c.range === true };
-  const driver = new EconDriver(match, SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy)), c.gamble);
+  const driver = new EconDriver(match, SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), econPolicy(c))), c.gamble);
   const at = new Map(rounds.filter(r => r <= d.balance.rounds).map(r => [roundStartTick(d, r), r]));
   const bossAt = new Map(bossRounds.map(r => [roundStartTick(d, r), r]));
   const bossEnd = (r: number) => roundStartTick(d, r) + Math.round(d.balance.bossRoundSeconds * TICKS_PER_SECOND);
   const last = Math.max(-1, ...at.keys(), ...bossRounds.map(bossEnd));
   const rows: FirepowerRow[] = [];
   const bosses: BossRow[] = [];
+  const items = new Map<number, ItemRow>(SEATS.map(seat => [seat, {
+    config: c.name, bot: c.bot, seed, seat, item: c.item ?? null, bought: 0, attached: 0, firstDefId: null, firstRange: null,
+  }]));
   while (match.result === null && match.tick <= last) {
     // the lanes are still in the round before here: the round to measure is passed on, not read from them
     const round = at.get(match.tick);
@@ -246,13 +257,23 @@ export function firepowerRun(
       if (round !== undefined) rows.push({ config: c.name, bot: c.bot, seed, seat, round, ...measureBoard(lane, round) });
       if (boss !== undefined) bosses.push({ config: c.name, bot: c.bot, seed, seat, ...bossPlay(lane, boss), actual: null, actualKillSeconds: null });
     }
-    stepMatch(match, driver.inputs());
+    const res = stepMatch(match, driver.inputs());
+    for (const seat of SEATS) {
+      const rec = items.get(seat)!;
+      for (const ev of res.lanes[seat]?.events ?? []) {
+        if (ev.type === 'itemBought' && ev.item === c.item) rec.bought++;
+        else if (ev.type === 'itemAttached' && ev.item === c.item) {
+          rec.attached++;
+          if (rec.firstDefId === null) { rec.firstDefId = ev.defId; rec.firstRange = d.units.find(u => u.id === ev.defId)!.range; }
+        }
+      }
+    }
   }
   for (const b of bosses) {
     b.actual = match.seats[b.seat]!.bosses[b.boss]?.status ?? null;
     b.actualKillSeconds = b.actual === 'killed' ? match.lanes[b.seat]!.stats.find(x => x.round === b.boss)?.bossKillSeconds ?? null : null;
   }
-  return { rows, bosses };
+  return { rows, bosses, items: [...items.values()] };
 }
 
 /** Rows for toCsvRows with the shred spread into plain columns. */

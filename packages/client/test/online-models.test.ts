@@ -6,6 +6,10 @@ import { noteSupport, rightNotices, rowsModel, topModel, watchSupport } from '..
 import { renderRows, renderTop } from '../src/online/panels';
 import { NetClient } from '../src/net/NetClient';
 import { FakeRoom, fixtureFull } from './fixtures/net';
+import { viewToGameState } from '../src/net/viewState';
+import { noteText } from '../src/ui/econ';
+import { rejectText } from '../src/ui/models';
+import { econNoteText } from '../src/ui/mount';
 
 const data = loadGameData('stage2');
 
@@ -116,6 +120,40 @@ describe('online rows', () => {
     expect(left.textContent).toContain('가나다라마바사아');
     expect(top.querySelectorAll('.line')).toHaveLength(2);
     expect(top.textContent).toContain('역신 첫째 탈 7,950 / 8,800');
+  });
+});
+
+describe('items in the online view', () => {
+  const d3 = loadGameData('stage3');
+  test('own units and other lanes keep their item in the drawn state', () => {
+    const v = viewWith({ me: 1, rows: [row({}), row({ seat: 2 })] });
+    const own = viewToGameState(v, d3, [{ id: 4, defId: 'jipsin', cost: 0, item: 'powerCharm' }, { id: 5, defId: 'jipsin' }], 0);
+    expect(own.slots[0]!.item).toBe('powerCharm');
+    expect('item' in own.slots[1]!).toBe(false);
+    const other = viewWith({ me: 1, watching: 2, rows: [row({}), row({ seat: 2 })] });
+    other.lane.units = [null, { id: 9, defId: 'dunggumi', item: 'weakCharm' }];
+    expect(viewToGameState(other, d3, other.lane.units, 0).slots[1]!.item).toBe('weakCharm');
+  });
+  test('stored units keep their item', () => {
+    const v = viewWith({ me: 1, rows: [row({})] });
+    const s = viewToGameState(v, d3, [], 0, [{ id: 4, defId: 'jipsin', item: 'swiftCharm' }]);
+    expect(s.storage![0]!.item).toBe('swiftCharm');
+  });
+  test('item notes and refusals have Korean text, solo and online', () => {
+    const bought = { type: 'itemBought', item: 'powerCharm' } as const;
+    const attached = { type: 'itemAttached', item: 'swiftCharm', unitId: 3, defId: 'jipsin', replaced: 'powerCharm' } as const;
+    const name = (id: string) => d3.economy!.shop!.items.find(i => i.id === id)!.name;
+    const unit = d3.units.find(u => u.id === 'jipsin')!.name;
+    expect(noteText(bought, d3)).toContain(name('powerCharm'));
+    expect(noteText(attached, d3)).toContain(name('swiftCharm'));
+    expect(noteText(attached, d3)).toContain(unit);
+    expect(noteText(attached, d3)).toContain(name('powerCharm'));
+    expect(noteText({ ...attached, replaced: null }, d3)).not.toContain(name('powerCharm'));
+    expect(econNoteText(bought, d3)).toBe(noteText(bought, d3));
+    expect(econNoteText(attached, d3)).toBe(noteText(attached, d3));
+    expect(econNoteText({ type: 'kill', enemyId: 1 } as never, d3)).toBeNull();
+    expect(rejectText('noItem')).not.toBeNull();
+    expect(rejectText('itemLimit')).not.toBeNull();
   });
 });
 

@@ -86,11 +86,8 @@ export interface BalanceDef {
  * 0 up to fromRound and `top` from toRound on; each total resist stops at `cap`. Event enemies keep their own resists.
  */
 export interface ResistByRoundDef { fromRound: number; toRound: number; top: number; cap: number }
-export type UpgradeId = 'physical' | 'magical' | 'polish' | 'range';
-// range stays absent until bought, so stage 1 and 2 state hashes (golden replays) do not move
-export type UpgradeLevels = Record<Exclude<UpgradeId, 'range'>, number> & { range?: number };
-/** `pct`: attack per level (physical, magical, polish). `amount`: cells of range per level for every unit (range). */
-export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number; amount?: number }
+export type UpgradeId = 'physical' | 'magical' | 'polish';
+export interface UpgradeDef { id: UpgradeId; label: string; max: number; costPerLevel: number; pct?: number }
 export interface YeoksinStageDef { stage: number; enemy: string; startRound: number; deadlineRound: number; baseHp: number; startIndex: number }
 export interface CoopDef {
   yeoksin: YeoksinStageDef[]; hpPerExtraPlayer: number; staySeconds: number;
@@ -120,6 +117,8 @@ export interface QuestRecord { outcome: QuestOutcome; reward: { coins: number; b
 export interface TameTargetDef {
   enemy: string; unit: string; cost: { buckwheat?: number; coins?: number; tokens?: number };
   needs?: 'slowed' | { vulnSource: string; stacks: number };
+  /** Damage multiplier of this recruit while it wears an `evolve` item. */
+  evolvedMult?: number;
 }
 /**
  * A repeatable 격파 target: summoned into the caller's own lane from `fromRound`, it must die within the time limit.
@@ -158,6 +157,11 @@ export interface GambleDef {
     tables: Record<'small' | 'big', GambleTableDef> & { coin?: GambleTableDef };
   };
 }
+export type ItemEffect =
+  | { kind: 'range'; amount: number } | { kind: 'attack'; pct: number } | { kind: 'speed'; pct: number }
+  | { kind: 'vuln'; pct: number; seconds: number } | { kind: 'evolve' };
+/** `perGame` limits purchases (`itemsBought`): a charm later sold, combined away or lost to a jige still counts. `buckwheat` is paid with `coins`. */
+export interface ShopItemDef { id: string; name: string; coins: number; buckwheat?: number; fromRound?: number; perGame?: number; effect: ItemEffect }
 export interface EconomyDef {
   startingBuckwheat: number;
   ledger: { tokenValue: number; totalCap: number; ratio: number };
@@ -174,8 +178,8 @@ export interface EconomyDef {
   shadow?: { round: number; enemy: string; growSeconds: number; grownHp: number; coins: number; grownCoins: number };
   hunts?: HuntsDef;
   /** hpBands: ascending inclusive upper bounds of remaining HP / max HP, the last one 1. */
-  /** `combineFromRound`: exclusive (tame) recipes are refused before this round. */
-  tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[]; combineFromRound?: number };
+  tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[] };
+  shop?: { items: ShopItemDef[] };
 }
 export interface EconState {
   rng: { jige: RngState; drop: RngState; tame: RngState; gambleCoins?: RngState; gambleUnit?: RngState };
@@ -195,6 +199,10 @@ export interface EconState {
   tameReady: { enemyId: number; tick: number }[];
   /** One record per quest this seat met, kept after the round moves on. */
   questResults: Partial<Record<QuestId, QuestRecord>>;
+  /** Shop items held but not attached, by item id; absent until the first purchase. */
+  items?: Record<string, number>;
+  /** Shop items bought this game, by item id, never lowered; absent until the first purchase. */
+  itemsBought?: Record<string, number>;
 }
 
 export interface RngState { s: number }
@@ -203,6 +211,7 @@ export interface Unit {
   chargeTicks?: number; charged?: boolean; streak?: { enemyId: number; count: number };
   neighborHits?: number; neighborLockUntil?: number; explodeReadyTick?: number;
   cost?: number;
+  item?: string;
 }
 export interface Vuln { pct: number; damageType: DamageType | 'all'; ticks: number; stacks: number }
 export interface Dot { remaining: number; pulsesLeft: number; nextPulse: number }
@@ -227,7 +236,7 @@ export interface GameState {
   storage?: Unit[];
   summonCounts: Record<string, number>; grade1Summons: number;
   enemies: Enemy[]; fires: GroundFire[];
-  upgrades: UpgradeLevels;
+  upgrades: Record<UpgradeId, number>;
   overLimitTicks: number; helperOpens: number;
   stats: RoundStats[];
   rng: { summon: RngState; combat: RngState };
@@ -243,7 +252,8 @@ export type Command =
   | GambleCommand
   | { type: 'hunt'; enemy: string } | { type: 'tame'; enemyId: number }
   | { type: 'store'; slot: number; unitId?: number } | { type: 'storeAll' }
-  | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string };
+  | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string }
+  | { type: 'buyItem'; item: string } | { type: 'attachItem'; item: string; slot: number; unitId?: number };
 export type GambleCommand = { type: 'gambleCoins'; stake: number } | { type: 'gambleUnit'; table: GambleTable };
 export type GambleEvent =
   | { type: 'gambleCoins'; stake: number; multiplier: number; payout: number }
@@ -254,8 +264,9 @@ export type GambleEvent =
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
   | 'marketClosed' | 'marketLocked' | 'gambleRound' | 'gambleLimit' | 'huntClosed' | 'huntOut' | 'noTarget' | 'tameCondition'
-  | 'cooldown' | 'noJige' | 'tameLocked'
-  | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
+  | 'cooldown' | 'noJige' | 'notEvolved'
+  | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken'
+  | 'itemLimit' | 'noItem' | 'itemTooEarly' | 'notTamed';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 
 export type GameEvent =
@@ -276,5 +287,7 @@ export type GameEvent =
   | { type: 'tameTry'; enemyId: number; defId: string; chance: number; success: boolean; buckwheat: number; coins: number; tokens: number }
   | { type: 'grow'; enemyId: number; hp: number } | { type: 'flee'; enemyId: number }
   /** A 격파 target of `level` died in time (paid) or ran out of time (nothing). */
-  | { type: 'hunt'; enemy: string; level: number; outcome: 'won' | 'fled'; coins: number; buckwheat: number };
+  | { type: 'hunt'; enemy: string; level: number; outcome: 'won' | 'fled'; coins: number; buckwheat: number }
+  | { type: 'itemBought'; item: string }
+  | { type: 'itemAttached'; item: string; unitId: number; defId: string; replaced: string | null };
 export interface StepResult { events: GameEvent[]; rejected: { command: Command; reason: RejectReason }[] }

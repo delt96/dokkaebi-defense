@@ -20,7 +20,7 @@ describe('every stage on the 6 x 4 board', () => {
     const d = loadGameData(stage);
     const s = createGame(d, 1);
     expect([s.slots.length, s.open.filter(Boolean).length, laneOf(s).pitch, laneOf(s).perimeter]).toEqual([24, 24, 1, 24]);
-    expect(d.upgrades.map(u => u.id)).toEqual(stage === 'stage3' ? ['physical', 'magical', 'polish', 'range'] : ['physical', 'magical', 'polish']);
+    expect(d.upgrades.map(u => u.id)).toEqual(['physical', 'magical', 'polish']);
     s.coins = 1000;
     expect(step(s, [{ type: 'upgrade', id: 'slots' as never }]).rejected[0]!.reason).toBe('unknown');
     expect(s.coins).toBe(1000);

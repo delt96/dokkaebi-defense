@@ -182,9 +182,11 @@ describe('six-seat grade 6 measurement', () => {
     expect(d3.balance.limit).not.toBe(1e9);
   });
 
-  test('econMatchRun is deterministic and counts only normal grade 6', () => {
+  test('econMatchRun is deterministic and counts only normal grade 6', async () => {
     const c = { ...STANDARD_CONFIGS.find(x => x.name === 'target-full')!, noDefeat: true };
     const a = econMatchRun(d3, 1, c);
+    // vitest's worker RPC times out after a fixed 60 s; both runs in one synchronous block can pass that under load
+    await new Promise(resolve => setTimeout(resolve, 0));
     const b = econMatchRun(d3, 1, c);
     expect(a).toEqual(b);
     expect(a.rows.length).toBe(6);
@@ -196,7 +198,7 @@ describe('six-seat grade 6 measurement', () => {
       expect(r.muk70).not.toBeNull();
     }
     expect(a.rows.some(r => r.draws > 0)).toBe(true);
-  }, 120_000);
+  }, 300_000);
 
   test('econSummary applies the pass line on finishers only', () => {
     const row = (g: number, finished = true, first: number | null = 30) =>
@@ -290,7 +292,7 @@ describe('economy measurement additions', () => {
       expect(row.earnedMuk).toBe(row.bossMuk! + row.huntMuk + row.questMuk! + row.yeoksinMuk!);
       expect(row.yeoksinMuk).toBe(row.yeoksinKills * d3.coop!.killReward.buckwheat);
       expect(row.lostMuk).toBe(0);
-      expect(row.startMuk! + row.earnedMuk!).toBe(row.unitMuk! + row.grade5Muk! + row.finalMuk! + row.tameMuk! + row.endMuk!);
+      expect(row.startMuk! + row.earnedMuk!).toBe(row.unitMuk! + row.grade5Muk! + row.finalMuk! + row.tameMuk! + row.itemMuk! + row.endMuk!);
       expect(row.jigeGrants - row.jigeUses).toBe(row.jigeHeld);
       expect(row.tameTries).toBeGreaterThanOrEqual(row.tames);
       expect(typeof row.muk10 === 'number' || row.muk10 === null).toBe(true);

@@ -1,5 +1,5 @@
 import {
-  dist, laneOf, unitAttack, unitDefFast, type Command, type DamageType, type GameState, type UnitDef,
+  dist, laneOf, unitAttack, unitDefFast, unitRange, type Command, type DamageType, type GameState, type UnitDef,
 } from '@dorandi/logic';
 import { remainingValue } from './econBot';
 
@@ -45,14 +45,13 @@ export function shredPlacement(state: GameState, slot: number, main: DamageType)
   const lane = laneOf(state);
   const points = Array.from({ length: PATH_SAMPLES }, (_, k) => lane.pointAt(((k + 0.5) * lane.perimeter) / PATH_SAMPLES));
   const reach = (cell: number, range: number) => points.map(p => dist(lane.cells[cell]!, p) <= range + 1e-9);
-  const shredder = unitDefFast(state.data, state.slots[slot]!.defId);
   const dealers = state.slots.flatMap((u, i) => {
     if (!u || i === slot) return [];
     const def = unitDefFast(state.data, u.defId);
-    return def.damageType === main ? [{ i, attack: unitAttack(def, state.data.balance), reach: reach(i, def.range) }] : [];
+    return def.damageType === main ? [{ i, attack: unitAttack(def, state.data.balance), reach: reach(i, unitRange(state, i)) }] : [];
   });
   const score = (at: number) => {
-    const mine = reach(at, shredder.range);
+    const mine = reach(at, unitRange(state, slot));
     let v = 0;
     for (const d of dealers) {
       if (d.i === at) continue;
