@@ -4,6 +4,16 @@
 
 브랜치 `ui-review-fixes` (worktree `../dokkaebi-ui-fixes`). main에는 사용자 승인 없이 올리지 않는다.
 
+## 진행 (2026-11-25)
+
+- **A줄 끝:** A1 `51ca65e` `4a5bbbc`, A2 `2906359`, A3 `6d5ca20`, A4 `90557eb`, 검토 수정 `14987d9` `d7ebdb9`. 전체 시험 1096개 통과, typecheck 통과.
+  - 건너뛴 것: A4-4 '가장 많이 막은 사람'(결과에 처치 수 기록이 없음). 넘긴 것: 보관함 지게 R 단추가 잡는 영역 오른쪽 위를 가리는 문제(칸 배치를 바꿔야 해서 B1/B2로).
+  - 확인 못 한 것: 온라인 화면(대기실 링크 실패 칸, 소리 팝업, 넋 문구, 팀 결과)은 happy-dom 시험과 코드로만 확인. 배율 1 전체 화면, Firefox.
+  - 참고: `sim.test.ts` 두 시험이 병렬 부하가 크면 5초 제한에 걸린다(단독 0.8·1.8초). 이번 변경과 무관.
+- **B줄 설계·목업 완료, 사용자 확인 대기:** ui-ux-pro-max 지침 대조와 두 차례 교차 검토를 거쳤다. 네 문서의 층 순서·초점 색·Q 키·지게 줄 값·범례를 한 가지로 맞췄다.
+  - `docs/superpowers/specs/2026-11-25-{next-combine,window-layout,status-signals,first-visit}-design.md`
+  - `docs/design/mockups/2026-11-25-{next-combine,window-layout,status-signals,first-visit}.html`
+
 ## 두 줄로 나눈다
 
 - **바로 고치는 줄 (A):** 화면 구성은 그대로 두고 고치는 것. 차례로 구현·시험·커밋한다.
