@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createGame, laneOf, loadGameData, shopItem, type Effect, type GameData, type UnitDef } from '@dorandi/logic';
+import { createGame, isDifficulty, laneOf, loadGameData, shopItem, type Effect, type GameData, type UnitDef } from '@dorandi/logic';
 import { STANDARD_CONFIGS } from '../src/stage3/econRun';
 import { bossCsvRows, firepowerCsvRows, firepowerRun, type BossRow, type FirepowerRow, type ItemRow } from '../src/stage3/firepower';
 import { toCsvRows } from '../src/stage3/report';
@@ -74,6 +74,10 @@ const seeds = Number(arg('seeds', '30'));
 const shred = arg('shred', 'off') === 'on';
 const out = arg('out', 'sim-out/shred-variants');
 const data = variantData(loadGameData('stage3'), variant);
+const difficulty = arg('difficulty', data.balance.defaultDifficulty ?? 'normal');
+if (!isDifficulty(difficulty)) throw new Error('--difficulty easy|normal|hard|hell');
+const difficultyTag = difficulty === data.balance.defaultDifficulty ? '' : `-${difficulty}`;
+data.balance.defaultDifficulty = difficulty;
 const item = arg('item', '');
 if (!item && process.argv.includes('--price')) throw new Error('--price needs --item <id>');
 const shop = item ? shopItem(data, item) : undefined;
@@ -90,7 +94,7 @@ if (arg('show', 'off') === 'on') {
 const base = STANDARD_CONFIGS.find(x => x.name === `${bot}-full-q2`)!;
 const c = {
   ...base, noDefeat: false, shred, ...(shop ? { item } : {}),
-  name: `${base.name}${shred ? '-shred' : ''}-${variant}${shop ? `-${item}${price}` : ''}`,
+  name: `${base.name}${shred ? '-shred' : ''}-${variant}${shop ? `-${item}${price}` : ''}${difficultyTag}`,
 };
 const rows: FirepowerRow[] = [];
 const bosses: BossRow[] = [];
