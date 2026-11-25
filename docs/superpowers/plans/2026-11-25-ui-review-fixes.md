@@ -13,6 +13,7 @@
 - **B줄 설계·목업 완료, 사용자 확인 대기:** ui-ux-pro-max 지침 대조와 두 차례 교차 검토를 거쳤다. 네 문서의 층 순서·초점 색·Q 키·지게 줄 값·범례를 한 가지로 맞췄다.
   - `docs/superpowers/specs/2026-11-25-{next-combine,window-layout,status-signals,first-visit}-design.md`
   - `docs/design/mockups/2026-11-25-{next-combine,window-layout,status-signals,first-visit}.html`
+- **B1 끝:** `e9cfba0`~`b752790`, 브라우저 확인 중 찾은 지게 줄 잘림 수정 `6bdc919`. 실패로 보는 것 셋 없음. 확인한 것·못 한 것은 `docs/superpowers/plans/2026-11-25-next-combine.md` '진행'.
 
 ## 두 줄로 나눈다
 
