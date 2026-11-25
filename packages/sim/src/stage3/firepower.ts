@@ -1,6 +1,6 @@
 import {
   createMatch, enemyHp, laneOf, laneSeed, roundStartTick, step, stepMatch, TICKS_PER_SECOND, vulnOf,
-  type DamageType, type Enemy, type GameData, type GameEvent, type GameState,
+  type BossStatus, type DamageType, type Enemy, type GameData, type GameEvent, type GameState,
 } from '@dorandi/logic';
 import { forceRound, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { EconDriver } from './econDriver';
@@ -208,7 +208,9 @@ export interface FirepowerRow extends BoardMeasure { config: string; bot: string
 
 export interface BossRow extends BossPlay {
   config: string; bot: string; seed: number; seat: number;
-  /** When the seat killed this boss in the run itself; null when it did not. */
+  /** What the seat did with this boss in the run itself (killed, tamed, failed); null when the run never got to it. */
+  actual: BossStatus | null;
+  /** When the seat killed it in the run; null unless killed. */
   actualKillSeconds: number | null;
 }
 
@@ -242,11 +244,14 @@ export function firepowerRun(
       if (!match.seats[seat]!.alive) continue;
       const lane = match.lanes[seat]!;
       if (round !== undefined) rows.push({ config: c.name, bot: c.bot, seed, seat, round, ...measureBoard(lane, round) });
-      if (boss !== undefined) bosses.push({ config: c.name, bot: c.bot, seed, seat, ...bossPlay(lane, boss), actualKillSeconds: null });
+      if (boss !== undefined) bosses.push({ config: c.name, bot: c.bot, seed, seat, ...bossPlay(lane, boss), actual: null, actualKillSeconds: null });
     }
     stepMatch(match, driver.inputs());
   }
-  for (const b of bosses) b.actualKillSeconds = match.lanes[b.seat]!.stats.find(x => x.round === b.boss)?.bossKillSeconds ?? null;
+  for (const b of bosses) {
+    b.actual = match.seats[b.seat]!.bosses[b.boss]?.status ?? null;
+    b.actualKillSeconds = b.actual === 'killed' ? match.lanes[b.seat]!.stats.find(x => x.round === b.boss)?.bossKillSeconds ?? null : null;
+  }
   return { rows, bosses };
 }
 
@@ -353,8 +358,8 @@ export function firepowerMarkdown(rows: FirepowerRow[], data?: GameData, bosses:
       lines.push(`| ${label} | ${xs.length} | ${median(xs.map(r => r.left))} | ${pct(xs.filter(r => r.left === 0).length, xs.length)} |`);
     }
     if (theirs.length) lines.push(
-      '', '보스 라운드가 시작할 때의 판으로 그 보스를 돌린 결과와, 같은 자리가 실제 판에서 그 보스를 잡은 비율.', '',
-      '| 보스 | 체력 | 잡은 판 | 처치 시간 | 못 잡은 판 남은 체력 | 물깎 / 마깎 | 실제로 잡은 판 |',
+      '', '보스 라운드가 시작할 때의 판으로 그 보스를 돌린 결과와, 같은 자리가 실제 판에서 그 보스를 잡거나 길들인 비율.', '',
+      '| 보스 | 체력 | 잡은 판 | 처치 시간 | 못 잡은 판 남은 체력 | 물깎 / 마깎 | 실제 잡음 / 길들임 |',
       '| ---: | ---: | ---: | ---: | ---: | --- | ---: |',
     );
     for (const boss of [...new Set(theirs.map(b => b.boss))].sort((a, b) => a - b)) {
@@ -366,7 +371,7 @@ export function firepowerMarkdown(rows: FirepowerRow[], data?: GameData, bosses:
         killed.length ? `${median(killed.map(b => b.killSeconds!)).toFixed(0)}초` : '-',
         missed.length ? `${median(missed.map(b => b.hpLeftPct)).toFixed(0)}%` : '-',
         shredOf(xs.map(b => b.shred)),
-        pct(xs.filter(b => b.actualKillSeconds !== null).length, xs.length), '',
+        `${pct(xs.filter(b => b.actual === 'killed').length, xs.length)} / ${pct(xs.filter(b => b.actual === 'tamed').length, xs.length)}`, '',
       ].join(' | ').trim());
     }
     out.push(lines.join('\n'));

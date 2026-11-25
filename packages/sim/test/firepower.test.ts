@@ -172,12 +172,13 @@ describe('boss at its round', () => {
       expect(b.killSeconds === null ? b.hpLeftPct > 0 : b.killSeconds > 0 && b.killSeconds <= 75).toBe(true);
       expect(b.actualKillSeconds === null || (b.actualKillSeconds > 0 && b.actualKillSeconds <= 75)).toBe(true);
     }
-    // the run went on through the boss round, so whether each seat killed it is known
-    expect(bosses.some(b => b.actualKillSeconds !== null)).toBe(true);
+    // every seat lived on past round 10, so each killed the boss or tamed it (jinegaksi can be tamed)
+    expect(bosses.every(b => b.actual === 'killed' || b.actual === 'tamed')).toBe(true);
+    for (const b of bosses) expect(b.actualKillSeconds === null).toBe(b.actual !== 'killed');
     const md = firepowerMarkdown([], d3, bosses);
-    expect(md).toContain('| 보스 | 체력 | 잡은 판 | 처치 시간 | 못 잡은 판 남은 체력 | 물깎 / 마깎 | 실제로 잡은 판 |');
+    expect(md).toContain('| 보스 | 체력 | 잡은 판 | 처치 시간 | 못 잡은 판 남은 체력 | 물깎 / 마깎 | 실제 잡음 / 길들임 |');
     expect(md).toContain('| 10 | 5000 |');
     const csv = bossCsvRows(bosses);
-    expect(Object.keys(csv[0]!)).toEqual(expect.arrayContaining(['boss', 'killSeconds', 'shredPhysical', 'shredMagical', 'actualKillSeconds']));
+    expect(Object.keys(csv[0]!)).toEqual(expect.arrayContaining(['boss', 'killSeconds', 'shredPhysical', 'shredMagical', 'actual', 'actualKillSeconds']));
   }, 120_000);
 });
