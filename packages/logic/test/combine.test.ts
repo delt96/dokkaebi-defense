@@ -109,6 +109,7 @@ describe('exclusive recipes combine like any grade 6', () => {
       const [a, b] = r.materials as [string, string];
       const ua = placeUnitForTest(s, a, 0);
       ua.cost = 0;
+      ua.item = 'evolveCharm';
       placeUnitForTest(s, b, 1);
       for (let i = 2; i < s.slots.length; i++) placeUnitForTest(s, 'jipsin', i);
       s.buckwheat = 1; s.coins = 60;
@@ -124,28 +125,13 @@ describe('exclusive recipes combine like any grade 6', () => {
     }
   });
 
-  test('exclusive recipes open at round 20: refused and left out of the available list before it', () => {
-    expect(d3.economy!.tame!.combineFromRound).toBe(20);
-    for (const r of PAIRS) {
-      const s = createGame(d3, 1);
-      forceRound(s, 19);
-      r.materials.forEach((id, i) => placeUnitForTest(s, id, i));
-      s.buckwheat = 1; s.coins = 60;
-      expect(availableRecipes(s)).not.toContain(r.result);
-      expect(step(s, [{ type: 'combine', result: r.result }]).rejected.map(x => x.reason)).toEqual(['tameLocked']);
-      forceRound(s, 20);
-      expect(availableRecipes(s)).toContain(r.result);
-      expect(step(s, [{ type: 'combine', result: r.result }]).rejected).toEqual([]);
-    }
-  });
-
   test('a missing recruit, a missing partner or a short fee is refused', () => {
     const r = PAIRS[0]!;
     const [a, b] = r.materials as [string, string];
     for (const [have, bw, coins, reason] of [[[a], 1, 60, 'missingMaterials'], [[b], 1, 60, 'missingMaterials'], [[a, b], 1, 59, 'noCoins'], [[a, b], 0, 60, 'noBuckwheat']] as const) {
       const s = createGame(d3, 1);
       forceRound(s, 20);
-      have.forEach((id, i) => placeUnitForTest(s, id, i));
+      have.forEach((id, i) => { const u = placeUnitForTest(s, id, i); if (id === a) u.item = 'evolveCharm'; });
       s.buckwheat = bw; s.coins = coins;
       expect(step(s, [{ type: 'combine', result: r.result }]).rejected.map(x => x.reason)).toEqual([reason]);
     }

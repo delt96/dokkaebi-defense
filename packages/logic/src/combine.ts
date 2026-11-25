@@ -1,7 +1,8 @@
-import type { GameState, RecipeDef } from './types';
+import type { GameState, RecipeDef, Unit } from './types';
 import { registerCommand } from './registry';
 import { addUnit, chooseSlot, unitDefFast } from './units';
 import { onCollectionCombine } from './econ/quests';
+import { isEvolved, isTamedKind } from './econ/shop';
 
 /** Units a combine can use: the board units, then the stored ones. */
 function ownedCounts(state: GameState): Map<string, number> {
@@ -27,10 +28,24 @@ export function missingMaterials(state: GameState, result: string): string[] {
   return recipe ? missingFrom(state, recipe.materials) : [];
 }
 
-/** The round an exclusive (tame) recipe opens at while it is still shut, else null. */
-export function combineLockRound(state: GameState, recipe: RecipeDef | undefined): number | null {
-  const from = state.data.economy?.tame?.combineFromRound;
-  return recipe?.kind === 'tame' && from !== undefined && state.round < from ? from : null;
+/** An exclusive (tame) recipe takes its recruit only as an evolved copy. */
+const needsEvolved = (state: GameState, recipe: RecipeDef, m: string): boolean => recipe.kind === 'tame' && isTamedKind(state.data, m);
+
+/** Whether `u` can stand in for material `m` of `recipe`. */
+function fits(state: GameState, recipe: RecipeDef, u: Unit | null | undefined, m: string): boolean {
+  return !!u && u.defId === m && (!needsEvolved(state, recipe, m) || isEvolved(state.data, u));
+}
+
+/** Every material is owned but a recruit an exclusive recipe takes has no evolved copy. */
+export function needsEvolve(state: GameState, recipe: RecipeDef | undefined): boolean {
+  if (recipe?.kind !== 'tame' || missingFrom(state, recipe.materials).length) return false;
+  const units = [...state.slots, ...(state.storage ?? [])];
+  for (const m of new Set(recipe.materials)) {
+    if (!needsEvolved(state, recipe, m)) continue;
+    const want = recipe.materials.filter(x => x === m).length;
+    if (units.filter(u => fits(state, recipe, u, m)).length < want) return true;
+  }
+  return false;
 }
 
 function costShortfall(state: GameState, recipe: RecipeDef): 'noBuckwheat' | 'noCoins' | null {
@@ -58,11 +73,13 @@ function pickMaterials(state: GameState, recipe: RecipeDef, slot?: number): Mate
   const storage = state.storage ?? [];
   const bare = (u: { item?: string } | null | undefined) => !!u && !u.item;
   const clicked = slot === undefined ? undefined : state.slots[slot];
+  const ok = (u: Unit | null | undefined, m: string) => fits(state, recipe, u, m);
 
-  let resultSlot: number | undefined = clicked && bare(clicked) ? slot : undefined;
+  const clickedFits = recipe.kind !== 'tame' || recipe.materials.some(m => ok(clicked, m));
+  let resultSlot: number | undefined = clicked && bare(clicked) && clickedFits ? slot : undefined;
   if (resultSlot === undefined) {
     const materialSlots = state.slots
-      .map((u, i) => (bare(u) && recipe.materials.includes(u!.defId) ? i : -1))
+      .map((u, i) => (bare(u) && recipe.materials.some(m => ok(u, m)) ? i : -1))
       .filter(i => i >= 0);
     if (materialSlots.length) resultSlot = pickResultSlot(state, materialSlots);
   }
@@ -71,15 +88,15 @@ function pickMaterials(state: GameState, recipe: RecipeDef, slot?: number): Mate
   const stored = new Set<number>();
   const unfilled: string[] = [];
   for (const m of recipe.materials) {
-    if (resultSlot !== undefined && !used.has(resultSlot) && state.slots[resultSlot]!.defId === m) { used.add(resultSlot); continue; }
+    if (resultSlot !== undefined && !used.has(resultSlot) && ok(state.slots[resultSlot], m)) { used.add(resultSlot); continue; }
     let found = false;
     for (let i = state.slots.length - 1; i >= 0 && !found; i--) {
       if (i === resultSlot || used.has(i)) continue;
       const u = state.slots[i];
-      if (bare(u) && u!.defId === m) { used.add(i); found = true; }
+      if (bare(u) && ok(u, m)) { used.add(i); found = true; }
     }
     for (let j = storage.length - 1; j >= 0 && !found; j--) {
-      if (!stored.has(j) && bare(storage[j]) && storage[j]!.defId === m) { stored.add(j); found = true; }
+      if (!stored.has(j) && bare(storage[j]) && ok(storage[j], m)) { stored.add(j); found = true; }
     }
     if (!found) unfilled.push(m);
   }
@@ -87,13 +104,13 @@ function pickMaterials(state: GameState, recipe: RecipeDef, slot?: number): Mate
   const equippedUsed: number[] = [];
   for (const m of unfilled) {
     let found = false;
-    if (slot !== undefined && clicked?.item && !used.has(slot) && clicked.defId === m) { used.add(slot); equippedUsed.push(slot); found = true; }
+    if (slot !== undefined && clicked?.item && !used.has(slot) && ok(clicked, m)) { used.add(slot); equippedUsed.push(slot); found = true; }
     for (let i = state.slots.length - 1; i >= 0 && !found; i--) {
       const u = state.slots[i];
-      if (!used.has(i) && u?.item && u.defId === m) { used.add(i); equippedUsed.push(i); found = true; }
+      if (!used.has(i) && u?.item && ok(u, m)) { used.add(i); equippedUsed.push(i); found = true; }
     }
     for (let j = storage.length - 1; j >= 0 && !found; j--) {
-      if (!stored.has(j) && storage[j]!.item && storage[j]!.defId === m) { stored.add(j); found = true; }
+      if (!stored.has(j) && storage[j]!.item && ok(storage[j], m)) { stored.add(j); found = true; }
     }
   }
 
@@ -108,7 +125,7 @@ function pickMaterials(state: GameState, recipe: RecipeDef, slot?: number): Mate
     // full board: trade a used stored copy for an equipped board copy of the same kind so the result has a slot
     const storedKinds = new Set([...stored].map(j => storage[j]!.defId));
     const swaps = state.slots
-      .map((u, i) => (u?.item && !used.has(i) && storedKinds.has(u.defId) ? i : -1))
+      .map((u, i) => (u?.item && !used.has(i) && storedKinds.has(u.defId) && ok(u, u.defId) ? i : -1))
       .filter(i => i >= 0);
     if (swaps.length) {
       const at = slot !== undefined && swaps.includes(slot) ? slot : pickResultSlot(state, swaps);
@@ -121,9 +138,11 @@ function pickMaterials(state: GameState, recipe: RecipeDef, slot?: number): Mate
     }
   }
 
+  // the evolve charm an exclusive recipe requires is spent on purpose, not lost by surprise
+  const surprise = (u: Unit) => !!u.item && !needsEvolved(state, recipe, u.defId);
   let eatsItem = false;
-  for (const i of used) if (state.slots[i]!.item) eatsItem = true;
-  for (const j of stored) if (storage[j]!.item) eatsItem = true;
+  for (const i of used) if (surprise(state.slots[i]!)) eatsItem = true;
+  for (const j of stored) if (surprise(storage[j]!)) eatsItem = true;
   return { used, stored, resultSlot: finalSlot, replacedSlot, eatsItem };
 }
 
@@ -137,7 +156,7 @@ export function storedMaterials(state: GameState, result: string, slot?: number)
 /** Whether this combine (with the same arguments the combine command gets) would use a unit that has an item. */
 export function combineEatsItem(state: GameState, result: string, slot?: number): boolean {
   const recipe = state.data.recipes.find(r => r.result === result);
-  if (!recipe || missingFrom(state, recipe.materials).length) return false;
+  if (!recipe || missingFrom(state, recipe.materials).length || needsEvolve(state, recipe)) return false;
   if (slot !== undefined) {
     const chosen = state.slots[slot];
     if (!chosen || !recipe.materials.includes(chosen.defId)) return false;
@@ -148,7 +167,7 @@ export function combineEatsItem(state: GameState, result: string, slot?: number)
 
 export function availableRecipes(state: GameState): string[] {
   return state.data.recipes
-    .filter(r => missingMaterials(state, r.result).length === 0 && combineLockRound(state, r) === null && costShortfall(state, r) === null)
+    .filter(r => missingMaterials(state, r.result).length === 0 && !needsEvolve(state, r) && costShortfall(state, r) === null)
     .map(r => r.result);
 }
 
@@ -177,7 +196,7 @@ registerCommand('combine', (state, cmd, events) => {
   if (!recipe) return 'unknown';
   if (chosen && !recipe.materials.includes(chosen.defId)) return 'missingMaterials';
   if (missingFrom(state, recipe.materials).length) return 'missingMaterials';
-  if (combineLockRound(state, recipe) !== null) return 'tameLocked';
+  if (needsEvolve(state, recipe)) return 'notEvolved';
   const short = costShortfall(state, recipe);
   if (short) return short;
 

@@ -27,9 +27,12 @@ export interface EconHuntView {
   why: RejectReason | null;
 }
 
-/** One charm on sale: `held` waits to be attached, `bought` counts toward `perGame`; `why` is buyBlock's answer now. */
+/**
+ * One charm on sale: `held` waits to be attached, `bought` counts toward `perGame`; `why` is buyBlock's answer now.
+ * `buckwheat` (paid with the coins) and `fromRound` are there only on items that have them.
+ */
 export interface ShopItemView {
-  id: string; name: string; coins: number; effect: ItemEffect; held: number; bought: number; perGame: number | null;
+  id: string; name: string; coins: number; buckwheat?: number; fromRound?: number; effect: ItemEffect; held: number; bought: number; perGame: number | null;
   why: RejectReason | null;
 }
 export interface ShopView { items: ShopItemView[] }
@@ -95,7 +98,8 @@ function shopPart(state: GameState): ShopView | null {
   if (!shop || !econ) return null;
   return {
     items: shop.items.map(i => ({
-      id: i.id, name: i.name, coins: i.coins, effect: { ...i.effect },
+      id: i.id, name: i.name, coins: i.coins, ...(i.buckwheat && { buckwheat: i.buckwheat }), ...(i.fromRound && { fromRound: i.fromRound }),
+      effect: { ...i.effect },
       held: econ.items?.[i.id] ?? 0, bought: econ.itemsBought?.[i.id] ?? 0, perGame: i.perGame ?? null,
       why: buyBlock(state, i.id),
     })),

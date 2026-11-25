@@ -43,18 +43,17 @@
   "ssireum": { "round": 32, "enemy": "ev_ssireum", "seconds": 20, "buckwheat": 1 },
   "shadow": { "round": 43, "enemy": "ev_shadow", "growSeconds": 10, "grownHp": 16000, "coins": 5, "grownCoins": 10 },
   "tame": {
-    "combineFromRound": 20,
     "hpBands": [
       { "upTo": 0.15, "chance": 0.7 }, { "upTo": 0.3, "chance": 0.5 }, { "upTo": 0.5, "chance": 0.35 },
       { "upTo": 0.75, "chance": 0.25 }, { "upTo": 1, "chance": 0.1 }
     ],
     "failureHealPct": 0.25, "cooldownSeconds": 5,
     "targets": [
-      { "enemy": "jinegaksi", "unit": "jinegaksi", "cost": { "coins": 30 } },
-      { "enemy": "ev_soebap", "unit": "bulgasari", "cost": { "buckwheat": 2, "coins": 65 }, "needs": { "vulnSource": "moru", "stacks": 5 } },
-      { "enemy": "gangcheori", "unit": "gangcheori", "cost": { "buckwheat": 2, "coins": 75 }, "needs": "slowed" },
-      { "enemy": "ev_ssireum", "unit": "ssireumdokkaebi", "cost": { "buckwheat": 2, "coins": 90 } },
-      { "enemy": "ev_shadow", "unit": "eoduksini", "cost": { "buckwheat": 2, "coins": 105 } }
+      { "enemy": "jinegaksi", "unit": "jinegaksi", "cost": { "coins": 30 }, "evolvedMult": 1.5 },
+      { "enemy": "ev_soebap", "unit": "bulgasari", "cost": { "buckwheat": 2, "coins": 65 }, "needs": { "vulnSource": "moru", "stacks": 5 }, "evolvedMult": 1.5 },
+      { "enemy": "gangcheori", "unit": "gangcheori", "cost": { "buckwheat": 2, "coins": 75 }, "needs": "slowed", "evolvedMult": 1.5 },
+      { "enemy": "ev_ssireum", "unit": "ssireumdokkaebi", "cost": { "buckwheat": 2, "coins": 90 }, "evolvedMult": 1.5 },
+      { "enemy": "ev_shadow", "unit": "eoduksini", "cost": { "buckwheat": 2, "coins": 105 }, "evolvedMult": 1.5 }
     ]
   },
   "shop": {
@@ -62,7 +61,8 @@
       { "id": "rangeCharm", "name": "사거리 부적", "coins": 300, "perGame": 1, "effect": { "kind": "range", "amount": 0.5 } },
       { "id": "powerCharm", "name": "힘 부적", "coins": 150, "effect": { "kind": "attack", "pct": 0.2 } },
       { "id": "swiftCharm", "name": "날쌘 부적", "coins": 150, "effect": { "kind": "speed", "pct": 0.15 } },
-      { "id": "weakCharm", "name": "약화 부적", "coins": 150, "effect": { "kind": "vuln", "pct": 0.1, "seconds": 3 } }
+      { "id": "weakCharm", "name": "약화 부적", "coins": 150, "effect": { "kind": "vuln", "pct": 0.1, "seconds": 3 } },
+      { "id": "evolveCharm", "name": "진화부적", "coins": 60, "buckwheat": 1, "fromRound": 20, "effect": { "kind": "evolve" } }
     ]
   }
 }

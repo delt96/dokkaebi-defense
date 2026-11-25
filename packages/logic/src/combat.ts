@@ -10,7 +10,7 @@ import { econBossKill, econEventKill } from './econ/hooks';
 import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnKillExplosions, vulnOf } from './effects';
 import { runIncome } from './income';
-import { itemBonus, unitRange } from './econ/shop';
+import { evolveMult, itemBonus, unitRange } from './econ/shop';
 
 /** `cutsResist` (stage 3 vulnCutsResist): weakening adds to what resistance leaves instead of multiplying it. */
 export function computeHitDamage(a: { attack: number; mult: number; bonus: number; resist: number; vuln: number; cutsResist?: boolean }): number {
@@ -44,7 +44,10 @@ export function damageBonus(state: GameState, slot: number): number {
   const def = unitDefFast(state.data, unit.defId);
   const polish = def.grade <= 4 ? upgradePct(state, 'polish') : 0;
   // a unit gets only its own damage type's upgrade, whatever its materials were
-  return upgradePct(state, def.damageType) + polish + auraAttackPower(state, slot) + itemBonus(state, slot, 'attack');
+  const sum = upgradePct(state, def.damageType) + polish + auraAttackPower(state, slot) + itemBonus(state, slot, 'attack');
+  const mult = evolveMult(state, slot);
+  // (1 + sum) * 1 - 1 is not always sum in floating point: unevolved units keep the plain sum so hashes do not move
+  return mult === 1 ? sum : (1 + sum) * mult - 1;
 }
 
 /** The resistance added in `round` by resistByRound: 0 without it or up to fromRound, then linear to top at toRound. */

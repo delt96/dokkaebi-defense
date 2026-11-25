@@ -16,9 +16,9 @@ const validOdds = (rows: unknown): rows is { result: unknown; chance: number }[]
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const positive = (n: unknown): boolean => typeof n === 'number' && Number.isFinite(n) && n > 0;
-const EFFECT_KEYS: Record<string, string[]> = { range: ['amount'], attack: ['pct'], speed: ['pct'], vuln: ['pct', 'seconds'] };
+const EFFECT_KEYS: Record<string, string[]> = { range: ['amount'], attack: ['pct'], speed: ['pct'], vuln: ['pct', 'seconds'], evolve: [] };
 
-function validShop(shop: unknown): boolean {
+function validShop(shop: unknown, rounds: number): boolean {
   if (!isObject(shop) || !Array.isArray(shop.items)) return false;
   const ids = new Set<string>();
   for (const item of shop.items as unknown[]) {
@@ -26,6 +26,8 @@ function validShop(shop: unknown): boolean {
     if (typeof item.id !== 'string' || !item.id || ids.has(item.id)) return false;
     ids.add(item.id);
     if (!positiveInt(item.coins) || (item.perGame !== undefined && !positiveInt(item.perGame))) return false;
+    if (item.buckwheat !== undefined && !positiveInt(item.buckwheat)) return false;
+    if (item.fromRound !== undefined && !(positiveInt(item.fromRound) && Number(item.fromRound) <= rounds)) return false;
     const keys = typeof item.effect.kind === 'string' && Object.hasOwn(EFFECT_KEYS, item.effect.kind) ? EFFECT_KEYS[item.effect.kind]! : null;
     if (!keys || !keys.every(k => positive((item.effect as Record<string, unknown>)[k]))) return false;
   }
@@ -118,17 +120,17 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     if (!sorted || b[b.length - 1]!.upTo !== 1 || !b.every(x => x.chance >= 0 && x.chance <= 1)) errors.push('invalid tame hpBands');
     if (!(tame.failureHealPct >= 0 && tame.failureHealPct <= 1)) errors.push('invalid tame failureHealPct');
     if (!(tame.cooldownSeconds > 0)) errors.push('invalid tame cooldownSeconds');
-    if (tame.combineFromRound !== undefined && !(Number.isInteger(tame.combineFromRound) && tame.combineFromRound >= 1 && tame.combineFromRound <= data.balance.rounds)) {
-      errors.push('invalid tame combine round');
-    }
+    const items = eco?.shop?.items;
+    const evolves = Array.isArray(items) && items.some(i => i?.effect?.kind === 'evolve');
     for (const t of tame.targets) {
+      if ((evolves || t.evolvedMult !== undefined) && !positive(t.evolvedMult)) errors.push(`invalid tame evolvedMult: ${t.unit}`);
       if (!Object.values(t.cost).every(n => Number.isInteger(n) && n! >= 0)) errors.push(`invalid tame cost: ${t.enemy}`);
       if (!data.units.some(u => u.id === t.unit)) errors.push(`unknown tame unit: ${t.unit}`);
     }
   }
 
   const shop = eco?.shop;
-  if (shop !== undefined && !validShop(shop)) errors.push('invalid shop');
+  if (shop !== undefined && !validShop(shop, data.balance.rounds)) errors.push('invalid shop');
 
   const warnings: string[] = [];
   const bands = data.balance.summonOddsByRound;

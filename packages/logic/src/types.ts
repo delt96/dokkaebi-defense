@@ -117,6 +117,8 @@ export interface QuestRecord { outcome: QuestOutcome; reward: { coins: number; b
 export interface TameTargetDef {
   enemy: string; unit: string; cost: { buckwheat?: number; coins?: number; tokens?: number };
   needs?: 'slowed' | { vulnSource: string; stacks: number };
+  /** Damage multiplier of this recruit while it wears an `evolve` item. */
+  evolvedMult?: number;
 }
 /**
  * A repeatable 격파 target: summoned into the caller's own lane from `fromRound`, it must die within the time limit.
@@ -157,9 +159,12 @@ export interface GambleDef {
 }
 export type ItemEffect =
   | { kind: 'range'; amount: number } | { kind: 'attack'; pct: number } | { kind: 'speed'; pct: number }
-  | { kind: 'vuln'; pct: number; seconds: number };
-/** `perGame`: how many one game may buy, held and attached together; missing means no limit. */
-export interface ShopItemDef { id: string; name: string; coins: number; perGame?: number; effect: ItemEffect }
+  | { kind: 'vuln'; pct: number; seconds: number } | { kind: 'evolve' };
+/**
+ * `perGame`: how many one game may buy, held and attached together; missing means no limit.
+ * `buckwheat` is paid with `coins`; `fromRound`: not sold before this round.
+ */
+export interface ShopItemDef { id: string; name: string; coins: number; buckwheat?: number; fromRound?: number; perGame?: number; effect: ItemEffect }
 export interface EconomyDef {
   startingBuckwheat: number;
   ledger: { tokenValue: number; totalCap: number; ratio: number };
@@ -176,8 +181,7 @@ export interface EconomyDef {
   shadow?: { round: number; enemy: string; growSeconds: number; grownHp: number; coins: number; grownCoins: number };
   hunts?: HuntsDef;
   /** hpBands: ascending inclusive upper bounds of remaining HP / max HP, the last one 1. */
-  /** `combineFromRound`: exclusive (tame) recipes are refused before this round. */
-  tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[]; combineFromRound?: number };
+  tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[] };
   shop?: { items: ShopItemDef[] };
 }
 export interface EconState {
@@ -262,9 +266,9 @@ export type GambleEvent =
 export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSlot' | 'missingMaterials' | 'noCoins' | 'noBuckwheat' | 'maxed' | 'unknown'
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
   | 'marketClosed' | 'marketLocked' | 'gambleRound' | 'gambleLimit' | 'huntClosed' | 'huntOut' | 'noTarget' | 'tameCondition'
-  | 'cooldown' | 'noJige' | 'tameLocked'
+  | 'cooldown' | 'noJige' | 'notEvolved'
   | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken'
-  | 'itemLimit' | 'noItem';
+  | 'itemLimit' | 'noItem' | 'itemTooEarly' | 'notTamed';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 
 export type GameEvent =

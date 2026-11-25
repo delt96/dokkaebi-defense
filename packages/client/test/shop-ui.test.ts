@@ -44,13 +44,14 @@ function storeForTest(s: GameState, defId: string, item?: string): Unit {
 
 describe('effect lines', () => {
   test('each charm says what it does', () => {
-    const rows = shopModel(mineOf(openGame()), 0)!;
+    const rows = shopModel(mineOf(openGame()), 0, 0)!;
     const text = Object.fromEntries(rows.map(r => [r.id, r.effectText]));
     expect(text).toEqual({
       rangeCharm: '유닛 하나 사거리 +0.5 · 한 판 1번',
       powerCharm: '유닛 하나 공격력 +20%',
       swiftCharm: '유닛 하나 공격 속도 +15%',
       weakCharm: '때린 적이 받는 피해 +10% · 3초',
+      evolveCharm: '길들인 유닛 하나 진화 · 전용 조합 재료',
     });
     expect(rows.find(r => r.id === 'powerCharm')!.price).toBe(`${price('powerCharm')}냥`);
   });
@@ -59,10 +60,10 @@ describe('effect lines', () => {
 describe('blocked text', () => {
   test('short coins name the shortfall, the market reuses the same words', () => {
     const s = openGame();
-    const a = shopModel(mineOf(s), 0)!.find(r => r.id === 'powerCharm')!;
-    const b = shopModel(mineOf(s), 40)!.find(r => r.id === 'powerCharm')!;
+    const a = shopModel(mineOf(s), 0, 0)!.find(r => r.id === 'powerCharm')!;
+    const b = shopModel(mineOf(s), 40, 0)!.find(r => r.id === 'powerCharm')!;
     s.coins = 0;
-    const why = shopModel(mineOf(s), 0)!.find(r => r.id === 'powerCharm')!;
+    const why = shopModel(mineOf(s), 0, 0)!.find(r => r.id === 'powerCharm')!;
     expect(why.blocked).toBe(`엽전 ${price('powerCharm')}냥 부족`);
     expect(why.blocked).toBe(blockedText('noCoins', price('powerCharm'), 0));
     expect(a.blocked).not.toBe(b.blocked);
@@ -72,7 +73,7 @@ describe('blocked text', () => {
     const s = openGame();
     s.coins = 9999;
     s.econ!.itemsBought = { rangeCharm: 1 };
-    const row = shopModel(mineOf(s), s.coins)!.find(r => r.id === 'rangeCharm')!;
+    const row = shopModel(mineOf(s), s.coins, 0)!.find(r => r.id === 'rangeCharm')!;
     expect(row.done).toBe(true);
     const box = document.createElement('div');
     box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, false, 'items');
@@ -85,7 +86,7 @@ describe('blocked text', () => {
     const s = openGame();
     s.econ!.marketOpen = false;
     s.coins = 9999;
-    expect(shopModel(mineOf(s), s.coins)!.every(r => r.blocked === '10라운드 보스 격파 후')).toBe(true);
+    expect(shopModel(mineOf(s), s.coins, 0)!.every(r => r.blocked === '10라운드 보스 격파 후')).toBe(true);
   });
   test('the item tab lists rows and the held count line', () => {
     const s = openGame();
