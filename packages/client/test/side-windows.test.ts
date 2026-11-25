@@ -174,6 +174,32 @@ describe('solo side windows', () => {
     expect(box.inert).toBe(false);
   });
 
+  test('P hides the pillar windows under the board and frees the panels they covered until it lifts', () => {
+    const { s, scene } = mountSolo();
+    placeUnitForTest(s, s.data.units.find(u => u.grade === 1)!.id, 0);
+    scene.select(0);
+    press($('#left [data-action="unitDetails"]'));
+    key('KeyE');
+    const stage = $('#stage')!;
+    expect(['#left', '#storage', '#right', '#target-overlay'].map(id => $(id)!.inert)).toEqual([true, true, true, true]);
+    expect(scene.storageCovered).toBe(true);
+    expect(stage.classList.contains('pillar-open')).toBe(true);
+    key('KeyP');
+    expect($('#win-left')!.classList.contains('locked')).toBe(true);
+    expect($('#win-right')!.classList.contains('locked')).toBe(true);
+    expect(['#left', '#storage', '#right', '#target-overlay'].map(id => $(id)!.inert)).toEqual([false, false, false, false]);
+    expect(scene.storageCovered).toBe(false);
+    expect(stage.classList.contains('pillar-open')).toBe(false);
+    expect(scene.setNoticeSpan.mock.calls).toEqual([[true], [false]]);
+    key('KeyP');
+    expect($('#win-left .unit-details')).not.toBeNull();
+    expect(upgrades()).not.toBeNull();
+    expect(['#left', '#storage', '#right', '#target-overlay'].map(id => $(id)!.inert)).toEqual([true, true, true, true]);
+    expect(scene.storageCovered).toBe(true);
+    expect(stage.classList.contains('pillar-open')).toBe(true);
+    expect(scene.setNoticeSpan.mock.calls).toEqual([[true], [false], [true]]);
+  });
+
   test('P pause: digit keys and window buttons send nothing', () => {
     const { sent } = mountSolo();
     key('KeyE');

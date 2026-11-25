@@ -71,6 +71,16 @@ test('style.css scales outer screens and the band by --outer-zoom, not by window
   const rule = (sel: string) => bare.split('}').find(r => r.split('{')[0]!.trim() === sel)?.split('{')[1];
   expect(rule('.win-box')).toMatch(/position: fixed;.*z-index: 5;.*transform-origin: top left/s);
   expect(rule('.win-box:empty')).toContain('display: none');
-  expect(rule('.win-box.locked')).toContain('z-index: -1');
+  // a negative z-index slides a box under body's own black background too, so only the pillar box (hidden under the board) gets it
+  expect(rule('.win-box.locked') ?? '').not.toContain('z-index');
+  expect(rule('.win-box.locked.inside')).toContain('z-index: -1');
   expect(rule('.win-box.locked.outside')).toContain('opacity: .4');
+  expect(rule('.win-box.locked.outside')).not.toContain('z-index');
+});
+
+test('style.css keeps window text at 10px and window buttons at 24px for the shared pieces drawn inside', () => {
+  const bare = readFileSync(resolve(here, '../src/ui/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = (sel: string) => bare.split('}').filter(r => r.split('{')[0]!.split(',').map(x => x.trim()).includes(sel)).map(r => r.split('{')[1]).join(';');
+  for (const sel of ['.win .type-badge', '.win .role-tag', '.win .mat-chip small']) expect(rules(sel)).toContain('font-size: 10px');
+  for (const sel of ['.win .pin-btn', '.win .gamble-inspect']) expect(rules(sel)).toContain('min-height: 24px');
 });

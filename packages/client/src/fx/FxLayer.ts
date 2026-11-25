@@ -34,13 +34,20 @@ export interface FxHost {
   height: number;
 }
 
-/** An enemy's status as drawn: `feet` is the bottom of its sprite, `scale` the sprite's scale. */
 /** Where toasts and birth bands centre (cx) and how far a band reaches either side (half), in canvas px. */
 export function noticeBand(hostWidth: number, span: { x: number; w: number } | null): { cx: number; half: number } {
   if (!span) return { cx: hostWidth / 2, half: hostWidth / 2 };
   return { cx: span.x + span.w / 2, half: span.w / 2 };
 }
 
+/** The boss band, slid in from the left `slide` (0..1) of the way, and the two warning marks near its ends. */
+export function bossBand(hostWidth: number, span: { x: number; w: number } | null, slide: number): { cx: number; x0: number; x1: number; marks: [number, number] } {
+  const { cx, half } = noticeBand(hostWidth, span);
+  const x0 = cx - half, x1 = cx + half;
+  return { cx, x0, x1: x0 + (x1 - x0) * slide, marks: [x0 + 18, x1 - 18] };
+}
+
+/** An enemy's status as drawn: `feet` is the bottom of its sprite, `scale` the sprite's scale. */
 export interface StatusView { id: number; defId: string; x: number; y: number; feet: number; scale: number; r: number; status: EnemyStatus }
 /** A unit standing in an ally aura (feet = bottom of its sprite). */
 export interface AuraView { id: number; x: number; feet: number }
@@ -135,7 +142,9 @@ export class FxLayer {
 
   setNoticeSpan(span: { x: number; w: number } | null): void {
     this.noticeSpan = span;
-    this.toastText.setX(noticeBand(this.host.width, span).cx).setWordWrapWidth(span ? span.w : null);
+    const { cx } = noticeBand(this.host.width, span);
+    this.toastText.setX(cx).setWordWrapWidth(span ? span.w : null);
+    this.bannerText.setX(cx);
   }
 
   setReduced(on: boolean): void {
@@ -520,12 +529,12 @@ export class FxLayer {
         const p = (now - this.bannerStart) / 1400;
         const alpha = p > 0.8 ? (1 - p) / 0.2 : 1;
         const slide = ease(Math.min(1, p * 8));
-        const w = this.host.width;
+        const { x0, x1, marks } = bossBand(this.host.width, this.noticeSpan, slide);
         const y = this.bannerText.y;
-        this.top.fillStyle(0x2a060c, 0.82 * alpha).fillRect(0, y - 12, w * slide, 24);
-        this.top.lineStyle(1, 0xff5a4a, 0.9 * alpha).lineBetween(0, y - 12, w * slide, y - 12).lineBetween(0, y + 12, w * slide, y + 12);
+        this.top.fillStyle(0x2a060c, 0.82 * alpha).fillRect(x0, y - 12, x1 - x0, 24);
+        this.top.lineStyle(1, 0xff5a4a, 0.9 * alpha).lineBetween(x0, y - 12, x1, y - 12).lineBetween(x0, y + 12, x1, y + 12);
         this.top.fillStyle(0xff5a4a, alpha);
-        for (const cx of [18, w - 18]) this.top.fillTriangle(cx - 5, y + 5, cx + 5, y + 5, cx, y - 6);
+        for (const cx of marks) this.top.fillTriangle(cx - 5, y + 5, cx + 5, y + 5, cx, y - 6);
         this.bannerText.setAlpha(alpha * slide);
       }
     }

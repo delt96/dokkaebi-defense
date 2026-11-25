@@ -136,6 +136,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     portrait: false,
     failed: driver.failed,
   });
+  // a lock hides the pillar boxes under the board, so the panels under them are in view and live again
+  const coveredNow = (wins: WinPlace) => locked() ? [] : coveredIds(wins, sides);
   // the J list row to bring into view (a chip or a box line opened it); shownQuest is the row last scrolled to
   let questFocus: QuestId | 'hunts' | null = null;
   let shownQuest: QuestId | 'hunts' | null = null;
@@ -490,7 +492,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   for (const side of SIDES) onAction(el(`win-${side}`), (a, g) => { if (!locked()) act(a, g); });
   // the storage column belongs to the own living lane; it takes presses while no locking window is open and no pillar covers it
   const storageVisible = () => !driver.readOnly && driver.state.phase !== 'ended';
-  const storageLive = () => storageVisible() && !driver.failed && modal === null && !coveredIds(currentWins(), sides).includes('storage');
+  const storageLive = () => storageVisible() && !driver.failed && modal === null && !coveredNow(currentWins()).includes('storage');
   wireStorage(el('storage'), el('stage'), () => laneOf(driver.state), (defId, slot) => act('retrieve', `${defId}@${slot}`), defId => {
     inspectedStack = defId;
     scene.selectedId = null;
@@ -826,7 +828,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const lockOpen = modal !== null || soloResult;
     const wins = currentWins();
     renderSides(s, wins, selected, helperWin);
-    const covered = coveredIds(wins, sides);
+    const covered = coveredNow(wins);
     const leftCovered = covered.includes('left');
     // design ⑤: a pillar over the left panel leaves no focus behind it, or Space would press the hidden button
     if (leftCovered) {

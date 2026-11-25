@@ -246,7 +246,8 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 /* side-window boxes sit outside #stage: above the board (no z-index) and under #screen (10) and #conn-band (20) */
 .win-box { position: fixed; z-index: 5; transform-origin: top left; }
 .win-box:empty { display: none; }
-.win-box.locked { z-index: -1; }
+/* a negative z-index also slides a box under body's own black background, so only the pillar box (meant to be hidden) gets one */
+.win-box.locked.inside { z-index: -1; }
 .win-box.locked.outside { opacity: .4; }
 /* side windows (design ⑨): 10px text, 12px key numbers, 24px buttons, 8px between buttons; the body scrolls, text is not cut */
 .win { height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--accent); font-size: 10px; line-height: 13px; }
@@ -262,6 +263,10 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .win-body > * { flex: none; }
 .win :is(button, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .win .upgrade-info { margin: 0; word-break: keep-all; }
+/* shared pieces drawn smaller on the panels are brought up to the window minimum here only */
+.win .type-badge, .win .role-tag, .win .mat-chip small { font-size: 10px; line-height: 12px; }
+.win .mat-chip { max-width: 44px; }
+.win .pin-btn, .win .gamble-inspect { min-height: 24px; }
 .up-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; padding: 3px 4px; border: 1px solid var(--panel-edge); }
 .up-line { word-break: keep-all; }
 .up-line .upgrade-key { font-weight: bold; color: var(--accent); }

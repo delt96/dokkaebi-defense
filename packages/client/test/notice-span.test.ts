@@ -2,7 +2,7 @@ import { createGame, loadGameData } from '@dorandi/logic';
 import { expect, test, vi } from 'vitest';
 import { GameDriver } from '../src/driver';
 import { LaneScene } from '../src/LaneScene';
-import { noticeBand } from '../src/fx/FxLayer';
+import { bossBand, noticeBand } from '../src/fx/FxLayer';
 import { CENTER_X, NOTICE_SPAN } from '../src/layout';
 
 vi.mock('phaser', () => ({ default: { Scene: class {}, Loader: { File: class {} } } }));
@@ -10,6 +10,13 @@ vi.mock('phaser', () => ({ default: { Scene: class {}, Loader: { File: class {} 
 test('noticeBand centres on the whole canvas, or on the narrowed span', () => {
   expect(noticeBand(400, null)).toEqual({ cx: 200, half: 200 });
   expect(noticeBand(400, { x: 72, w: 254 })).toEqual({ cx: 199, half: 127 });
+});
+
+test('the boss band slides across the whole canvas, or only across the narrowed span', () => {
+  expect(bossBand(400, null, 1)).toEqual({ cx: 200, x0: 0, x1: 400, marks: [18, 382] });
+  expect(bossBand(400, null, 0.5)).toEqual({ cx: 200, x0: 0, x1: 200, marks: [18, 382] });
+  expect(bossBand(400, { x: 72, w: 254 }, 1)).toEqual({ cx: 199, x0: 72, x1: 326, marks: [90, 308] });
+  expect(bossBand(400, { x: 72, w: 254 }, 0.5)).toEqual({ cx: 199, x0: 72, x1: 199, marks: [90, 308] });
 });
 
 test('the narrowed span is stage x 200 to 454, handed to the effects in canvas px', () => {
