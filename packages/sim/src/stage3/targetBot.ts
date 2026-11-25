@@ -60,12 +60,17 @@ function recruitOf(state: GameState, result: string): string[] {
   return (state.data.recipes.find(r => r.result === result && r.kind === 'tame')?.materials ?? []).filter(m => isTamedKind(state.data, m));
 }
 
-/** Once the evolve charm is on sale: the first exclusive recipe whose recruit is on the board and whose result is not. */
-function exclusiveToChase(state: GameState): string | null {
+/**
+ * Once the evolve charm is on sale: the first exclusive recipe whose recruit is on the board, whose result is not, and
+ * which lacks no more grade-1 value than `target` does.
+ */
+function exclusiveToChase(state: GameState, target: string): string | null {
   const charm = state.data.economy?.shop?.items.find(i => i.effect.kind === 'evolve');
   if (!charm || state.round < (charm.fromRound ?? 0)) return null;
   const holds = (id: string) => state.slots.some(u => u?.defId === id);
-  return state.data.recipes.find(r => r.kind === 'tame' && !holds(r.result) && recruitOf(state, r.result).some(holds))?.result ?? null;
+  const limit = remainingValue(state, target);
+  return state.data.recipes.find(r => r.kind === 'tame' && !holds(r.result) && recruitOf(state, r.result).some(holds)
+    && remainingValue(state, r.result) <= limit)?.result ?? null;
 }
 
 /** Slots of the `n` strongest units outside the target tree (kept for boss fights). */
@@ -176,7 +181,7 @@ export function targetBot(
         resume = null;
       }
       if (policy?.tame && exclusive === null && target !== support && target !== null) {
-        const pick = exclusiveToChase(state);
+        const pick = exclusiveToChase(state, target);
         if (pick) { exclusive = pick; resume = target; setTarget(state, pick); }
       }
       if (exclusive !== null) {

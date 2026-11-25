@@ -86,6 +86,16 @@ describe('a taming bot chases the exclusive recipe from round 20', () => {
     expect(unitDefFast(d3, bot.currentTarget()!).hidden).toBeFalsy();
   });
 
+  test('a target closer to done than the exclusive result is kept', () => {
+    const near = d3.recipes.find(r => r.result === freeOfPair)!;
+    const s = board(21);
+    s.slots[1] = null;
+    near.materials.forEach((m, i) => placeUnitForTest(s, m, 4 + i));
+    const bot = targetBot(1, { policy, targets: [freeOfPair] });
+    bot.decide(s);
+    expect(bot.currentTarget()).toBe(freeOfPair);
+  });
+
   test('a recruit that is gone ends the chase', () => {
     const { s, bot } = decide(21);
     s.slots[0] = null;
