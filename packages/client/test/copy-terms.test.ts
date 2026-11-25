@@ -138,7 +138,7 @@ describe('upgrades', () => {
     const info = upgradeInfoText(s);
     expect(info).toContain('저항 물리');
     expect(info).toContain('내 물딜 2기 · 마딜 1기');
-    expect(upgradesHtml(s)).toContain('내 물딜 2기 · 마딜 1기');
+    expect(upgradesHtml(s, 'inside', 0)).toContain('내 물딜 2기 · 마딜 1기');
     const early = createGame(d1, 1);
     expect(upgradeInfoText(early)).toBe('내 물딜 0기 · 마딜 0기');
   });

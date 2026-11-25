@@ -1,5 +1,5 @@
 import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type GameState } from '@dorandi/logic';
-import { GRADE_COLOR } from '../layout';
+import { GRADE_COLOR, type WinPlace } from '../layout';
 import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeInfoText, upgradeRows, type CombineOption, type NextList, type UnitCard } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
@@ -7,6 +7,7 @@ import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
 import { nextListHtml, recipeRowHtml } from './next-list';
 import { roleText } from './dex-roles';
 import { pinButton } from './target';
+import { rightBarHtml, winHeadHtml } from './windows';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `quests`: the 60-round quest box, laid at the
  * bottom above the dex button; the settings gear sits under both. */
@@ -239,11 +240,13 @@ export function soloPanelHtml(state: GameState, opts: SoloPanelOpts): string {
     + `${jige ? `<div class="up-jige">${jige}</div>` : ''}${soloActionsHtml(state, slot, unitId, card.sellPrice, opts.sellArmed === true)}</div>`;
 }
 
-export function upgradesHtml(state: GameState): string {
-  const rows = upgradeRows(state).map((r, i) => `
-    <tr><td class="upgrade-key">${i + 1}</td><td>${esc(r.label)}</td><td>${r.level} / ${r.max}</td><td>${esc(r.effectText)}</td>
-    <td><button data-action="upgrade" data-arg="${r.id}" ${r.affordable ? '' : 'disabled'}>${r.cost === null ? '최대' : `${r.cost}냥`}</button></td></tr>`).join('');
-  return `<div class="modal"><div class="modal-head">강화 · 엽전 ${state.coins}냥 <button data-action="closeModal">E·Esc 닫기</button></div>
-    <p class="upgrade-info">${esc(upgradeInfoText(state))}</p>
-    <table class="upgrades"><tbody>${rows}</tbody></table></div>`;
+export function upgradesHtml(state: GameState, wins: WinPlace, heldCoins: number): string {
+  const items = upgradeRows(state).map((r, i) => `<div class="up-item">`
+    + `<div class="up-line"><span class="upgrade-key">${i + 1}</span> ${esc(r.label)} <b>${r.level} / ${r.max}</b></div>`
+    + `<div class="up-effect">${esc(r.effectText)}</div>`
+    + `<button data-action="upgrade" data-arg="${r.id}"${r.affordable ? '' : ' disabled'}>${r.cost === null ? '최대' : `${r.cost}냥`}</button></div>`).join('');
+  const wallet = wins === 'outside' ? `<span class="win-wallet">엽전 <b>${esc(state.coins - heldCoins)}</b></span>` : '';
+  return winHeadHtml({ side: 'right', titleHtml: '강화 (E)', extraHtml: wallet, closeLabel: '강화 닫기 (E)' })
+    + (wins === 'inside' ? rightBarHtml(state, heldCoins) : '')
+    + `<div class="win-body"><p class="upgrade-info">${esc(upgradeInfoText(state))}</p>${items}</div>`;
 }

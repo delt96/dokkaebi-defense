@@ -243,6 +243,26 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .win-box:empty { display: none; }
 .win-box.locked { z-index: -1; }
 .win-box.locked.outside { opacity: .4; }
+/* side windows (design ⑨): 10px text, 12px key numbers, 24px buttons, 8px between buttons; the body scrolls, text is not cut */
+.win { height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--accent); font-size: 10px; line-height: 13px; }
+.win-head { flex: none; display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 2px 3px 2px 6px; border-bottom: 1px solid var(--panel-edge); white-space: nowrap; }
+.win-title { font-size: 11px; font-weight: bold; color: var(--accent); }
+.win-close { margin-left: auto; min-height: 24px; }
+.win-wallet b, .win-money b { font-size: 12px; color: var(--accent); }
+.win-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 6px 0; }
+.win-summon { flex: none; min-height: 24px; font-weight: bold; color: var(--accent); background: #3a2a1a; border-color: var(--accent); white-space: nowrap; }
+.win-money { flex: 1; min-width: 0; text-align: right; line-height: 15px; }
+.win-money .nw { white-space: nowrap; }
+.win-body { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 8px; padding: 6px; }
+.win-body > * { flex: none; }
+.win :is(button, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.win .upgrade-info { margin: 0; word-break: keep-all; }
+.up-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; padding: 3px 4px; border: 1px solid var(--panel-edge); }
+.up-line { word-break: keep-all; }
+.up-line .upgrade-key { font-weight: bold; color: var(--accent); }
+.up-line b { font-size: 12px; }
+.up-effect { grid-column: 1; color: #c9bdd3; word-break: keep-all; }
+.up-item button { grid-column: 2; grid-row: 1 / span 2; min-height: 24px; font-size: 12px; font-weight: bold; white-space: nowrap; }
 .screen-box { width: min(360px, 100% - 32px); margin-block: auto; padding: 20px 0; display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
 .screen-actions { display: flex; gap: 8px; }
 .screen-actions > button { flex: 1; }

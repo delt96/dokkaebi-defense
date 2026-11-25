@@ -7,7 +7,8 @@ import { rightNotices } from '../online/models';
 import { renderRows, renderTop } from '../online/panels';
 import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
-import { cellCorner, cellPx, CENTER_X, CENTER_Y } from '../layout';
+import { cellCorner, cellPx, CENTER_X, CENTER_Y, type WinPlace } from '../layout';
+import { currentWins } from '../fit';
 import { gameAudio } from '../audio/engine';
 import { wireAudioSettings } from '../audio/settings-ui';
 import { playGamblePress, playGambleResult } from '../sfx';
@@ -35,6 +36,7 @@ import { resultHtml } from './result';
 import { readHelpLine, settingsHtml, writeHelpLine } from './settings';
 import { STORE_ALL_KEY, STORE_KEY, storageHtml, storageInfoHtml, storageInfoModel, wireStorage } from './storage';
 import { readTarget, targetHtml, writeTarget } from './target';
+import { closeSide, coveredIds, escStep, NO_SIDES, sidesLocked, toggleSide, type Side, type SideWin, type Sides } from './windows';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
   Digit1: 'physical', Digit2: 'magical', Digit3: 'polish',
@@ -57,6 +59,9 @@ const GAME_ACTIONS: ReadonlySet<string> = new Set([
   'store', 'storeAll', 'retrieve', 'sellStored', 'sellStack',
 ]);
 const PRESS_MS = 120;
+const SIDES: readonly Side[] = ['left', 'right'];
+/** The panel button that opens each side window; a window closed from inside gives the focus back to it. */
+const OPENERS: Partial<Record<SideWin, string>> = { upgrades: '#right [data-action="openUpgrades"]' };
 
 /** Online screens also read the server view for the scoreboard and the two-line top bar. */
 export interface OnlineActions { support(): void; watch(seat: number): void; forfeit(): void }
@@ -115,7 +120,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let userPaused = false;
   // the hotkey line under the board (단축키 안내 줄 in the settings window)
   let helpLine = readHelpLine();
-  let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | 'jige' | 'quests' | 'settings' | null = null;
+  // TODO: drop 'unitDetails', 'jige' and 'quests' once they move to the side windows (B2 Tasks 5 and 7); until then they lock the board
+  let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | 'unitDetails' | 'jige' | 'quests' | null = null;
+  let sides: Sides = NO_SIDES;
+  const locked = () => sidesLocked({
+    locking: modal !== null || (!online && driver.state.phase === 'ended'),
+    paused: !online && userPaused,
+    scene: driver.state.phase === 'ended',
+    portrait: false,
+    failed: driver.failed,
+  });
   // the J list row to bring into view (a chip or a box line opened it)
   let questFocus: QuestId | 'hunts' | null = null;
   let shownModal: string | null = null;
@@ -171,6 +185,13 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     node.id = id;
     el('stage').append(node);
   }
+  for (const side of SIDES) {
+    if (document.getElementById(`win-${side}`)) continue;
+    const node = document.createElement('div');
+    node.id = `win-${side}`;
+    node.className = 'win-box';
+    el('stage').insertAdjacentElement(side === 'left' ? 'beforebegin' : 'afterend', node);
+  }
   const drawer = el('econ-panel');
 
   function inspectMarket(event: Event): void {
@@ -217,6 +238,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (driver.failed && action !== 'restart' && action !== 'home') return;
     if (driver.readOnly && GAME_ACTIONS.has(action)) return;
     const previousModal = modal;
+    const previousSides = sides;
+    const focusSide = focusedSide();
     switch (action) {
       case 'summon':
         // online the press shows at once; the driver does not send it when no summon is left
@@ -349,7 +372,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'dexBack': dex = dexBack(dex); break;
       case 'dexTree': dex = dexToggle(dex, arg); break;
       case 'dexFold': dex = dexFold(dex, arg); break;
-      case 'openUpgrades': modal = 'upgrades'; break;
+      case 'openUpgrades': sides = toggleSide(sides, 'upgrades'); break;
+      case 'closeWin': if (arg === 'left' || arg === 'right') sides = closeSide(sides, arg); break;
       case 'openQuests':
         if (!econ()) break;
         questFocus = (arg || null) as QuestId | 'hunts' | null;
@@ -427,8 +451,23 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       (el('modal').querySelector<HTMLButtonElement>('.dex-back') ?? row?.querySelector<HTMLButtonElement>('button'))?.focus({ preventScroll: true });
       dex = { ...dex, focus: null };
     }
+    if (focusSide) refocusOpener(focusSide, previousSides);
     if (modal && modal !== previousModal && !focusRow) (el('modal').querySelector<HTMLButtonElement>('[data-autofocus]') ?? el('modal').querySelector<HTMLButtonElement>('button'))?.focus();
   };
+
+  function focusedSide(): Side | null {
+    const active = document.activeElement;
+    if (!active || active === document.body) return null;
+    return SIDES.find(side => document.getElementById(`win-${side}`)?.contains(active)) ?? null;
+  }
+  /** The focus was in a side window that is now closed: hand it to the panel button that opens it, unless that is covered. */
+  function refocusOpener(side: Side, before: Sides): void {
+    const was = before[side];
+    const selector = was && !sides[side] ? OPENERS[was] : undefined;
+    const opener = selector ? document.querySelector<HTMLElement>(selector) : null;
+    for (let node: HTMLElement | null = opener; node; node = node.parentElement) if (node.inert) return;
+    opener?.focus({ preventScroll: true });
+  }
 
   function setHelper(on: boolean): void {
     if (on === helperOpen) return;
@@ -444,6 +483,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   }
 
   for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) onAction(el(id), act);
+  // a press that reaches a locked box anyway (inert is not honoured everywhere) still buys nothing
+  for (const side of SIDES) onAction(el(`win-${side}`), (a, g) => { if (!locked()) act(a, g); });
   // the storage column belongs to the own living lane; it takes presses while no window is open
   const storageVisible = () => !driver.readOnly && driver.state.phase !== 'ended';
   const storageLive = () => storageVisible() && !driver.failed && modal === null;
@@ -588,20 +629,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const target = ev.target as HTMLElement | null;
     if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
     if (ev.code === 'Escape') {
-      // a window first, then a waiting move, then the selection
-      if (modal) act('closeModal', '');
+      // a locking window first, then the last side window opened, then a waiting move, then the selection
+      const step = escStep({ scene: false, locking: modal !== null, sidesLocked: locked(), sides });
+      if (step === 'locking') act('closeModal', '');
+      else if (step === 'left' || step === 'right') act('closeWin', step);
       else {
         if (!isMoving()) inspectedStack = null;
         stepMove({ kind: 'cancel' });
         render();
       }
-      return;
-    }
-    if (modal === 'upgrades') {
-      // the window never pauses anything; E toggles it and 1-4 buy only while it is open
-      const open = UPGRADE_KEYS[ev.code];
-      if (ev.code === 'KeyE') act('closeModal', '');
-      else if (open) act('upgrade', open);
       return;
     }
     if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }
@@ -614,10 +650,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     // Tab opens the selected unit's 상세 and closes it again
     if (ev.code === 'Tab' && modal === 'unitDetails') { ev.preventDefault(); act('closeModal', ''); return; }
     if (modal || driver.state.phase === 'ended') return;
+    // side-window keys do nothing under a lock (P pause too), so a paused board buys nothing
+    const buy = UPGRADE_KEYS[ev.code];
+    if (ev.code === 'KeyE' || buy) {
+      if (locked()) return;
+      if (ev.code === 'KeyE') { act('openUpgrades', ''); return; }
+      if (sides.right === 'upgrades') { act('upgrade', buy!); return; }
+    }
     if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button, .gamble-option[tabindex]')) return;
     const card = displayedCard;
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
-    else if (ev.code === 'KeyE') act('openUpgrades', '');
     else if (ev.code === 'KeyD') act('openDex', '');
     else if (ev.code === 'KeyQ') {
       // online Q opens and closes the helper, so Shift+Q flips its scope; solo Q is the scope key and Shift+Q does nothing
@@ -672,6 +714,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
 
   function render(): void {
     const s = driver.state;
+    // design ⑰: the end of the game closes a locking window, whose choices no longer mean anything; side windows only lock
+    if (s.phase === 'ended' && modal) {
+      if (modal === 'dex') dexRemember();
+      modal = null;
+      jigeList = null;
+    }
     // commands wait for ticks, so only the dex (which sends none) stops the clock
     if (!online) driver.paused = userPaused || (modal === 'dex' && s.phase !== 'ended');
     const selected = selectedSlot(s, scene.selectedId);
@@ -753,10 +801,21 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
-    const dialogOpen = modal !== null || soloResult;
-    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) el(id).inert = dialogOpen;
-    el('right').inert = dialogOpen || drawer.firstElementChild !== null;
-    if (!dialogOpen) refocusIn(el('left'), leftFocus, '.nc-list');
+    const lockOpen = modal !== null || soloResult;
+    const wins = currentWins();
+    renderSides(s, wins);
+    const covered = coveredIds(wins, sides);
+    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
+      el(id).inert = lockOpen || covered.includes(id);
+    }
+    if (drawer.firstElementChild !== null) el('right').inert = true;
+    const sideLock = locked();
+    for (const side of SIDES) {
+      const box = el(`win-${side}`);
+      box.inert = sideLock;
+      box.classList.toggle('locked', sideLock);
+    }
+    if (!lockOpen) refocusIn(el('left'), leftFocus, '.nc-list');
     // a redraw of the dex (a board change moves the tree marks) keeps its scroll position
     const dexShown = !soloResult && modal === 'dex';
     const listKey = `${dex.filter}
@@ -766,7 +825,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected, targetId) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'upgrades' ? upgradesHtml(s) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus, huntRows(econ()!, s)) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected, targetId) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus, huntRows(econ()!, s)) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
@@ -779,6 +838,15 @@ ${dex.mine.join()}`;
     shownModal = modal;
     dexListKey = dexShown ? listKey : '';
     hooks.onRender?.();
+  }
+
+  /** Draws each side window into its box as a non-modal dialog named by its head title. */
+  function renderSides(s: GameState, wins: WinPlace): void {
+    const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, heldCoins(reveal)) } : null;
+    const section = (side: Side, w: { cls: string; html: string } | null) =>
+      (w ? `<section class="win ${w.cls}" role="dialog" aria-labelledby="win-${side}-title">${w.html}</section>` : '');
+    setHtml(el('win-left'), section('left', null));
+    setHtml(el('win-right'), section('right', right));
   }
 
   /** The search texts as typed (the boxes are redrawn with the dex, so read them before a filter change). */
@@ -919,6 +987,7 @@ ${dex.mine.join()}`;
     showAllOne = false;
     banner = null;
     modal = null;
+    sides = NO_SIDES;
     best = null;
     notice = null;
     econTab = null;

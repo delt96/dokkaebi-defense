@@ -98,6 +98,7 @@ function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void, o
   vi.useFakeTimers();
   vi.stubGlobal('window', events);
   vi.stubGlobal('document', {
+    documentElement: { dataset: {} },
     getElementById: (id: string) => {
       if (!panels.has(id)) panels.set(id, Object.assign(new EventTarget(), {
         innerHTML: '', querySelector: () => null, querySelectorAll: () => [], classList: { toggle: () => {} }, contains: () => true,
@@ -361,18 +362,19 @@ test('the solo result offers 다시 하기 and a way back to the first screen', 
 describe('upgrade window keys', () => {
   const buys = (q: { mock: { calls: unknown[][] } }) => q.mock.calls.filter(c => (c[0] as { type: string }).type === 'upgrade');
 
-  test('E opens and closes the window, Esc closes it, and nothing pauses', () => {
+  test('E opens and closes the window beside the board, Esc closes it, and nothing pauses', () => {
     const { press, panels, driver } = mountTestUi(createGame(data, 1));
-    const modal = () => panels.get('modal')!.innerHTML;
-    expect(modal()).toBe('');
+    const win = () => panels.get('win-right')!.innerHTML;
+    expect(win()).toBe('');
     press('KeyE');
-    expect(modal()).toContain('class="upgrades"');
-    expect(modal()).toContain('E·Esc 닫기');
+    expect(win()).toContain('class="win upgrades"');
+    expect(win()).toContain('aria-label="강화 닫기 (E)"');
+    expect(panels.get('modal')!.innerHTML).toBe('');
     press('KeyE');
-    expect(modal()).toBe('');
+    expect(win()).toBe('');
     press('KeyE');
     press('Escape');
-    expect(modal()).toBe('');
+    expect(win()).toBe('');
     expect(driver.paused).toBe(false);
   });
 
@@ -396,9 +398,9 @@ describe('upgrade window keys', () => {
     const { press, queue, panels } = mountTestUi(s);
     const input = { tagName: 'INPUT', isContentEditable: false, closest: (sel: string) => (sel.includes('input') ? input : null) };
     press('KeyE', { target: input as never });
-    expect(panels.get('modal')!.innerHTML).toBe('');
+    expect(panels.get('win-right')!.innerHTML).toBe('');
     press('KeyE', { isComposing: true });
-    expect(panels.get('modal')!.innerHTML).toBe('');
+    expect(panels.get('win-right')!.innerHTML).toBe('');
     press('KeyE');
     press('Digit1', { target: input as never });
     press('Digit1', { isComposing: true });
@@ -426,7 +428,7 @@ describe('dex hotkey', () => {
     expect(driver.paused).toBe(false);
   });
 
-  test('D does not replace another window and is ignored while typing or composing', () => {
+  test('D opens over an open side window, which stays, and is ignored while typing or composing', () => {
     const { press, panels } = mountTestUi(createGame(data, 1));
     const input = { tagName: 'INPUT', isContentEditable: false, closest: (sel: string) => (sel.includes('input') ? input : null) };
     press('KeyD', { target: input as never });
@@ -434,7 +436,8 @@ describe('dex hotkey', () => {
     expect(panels.get('modal')!.innerHTML).toBe('');
     press('KeyE');
     press('KeyD');
-    expect(panels.get('modal')!.innerHTML).toContain('class="upgrades"');
+    expect(panels.get('modal')!.innerHTML).toContain('class="dex"');
+    expect(panels.get('win-right')!.innerHTML).toContain('class="win upgrades"');
   });
 
   test('labels show the key', () => {
@@ -490,9 +493,9 @@ test('S sells grades 1-2 at once; grade 3 and up asks for a second press within 
 test('a P pause outlives opening and closing the dex; the other windows never pause', () => {
   const s = createGame(data, 1);
   const { driver, press, click } = mountTestUi(s);
-  click('left', '', 'openUpgrades');
+  click('right', '', 'openUpgrades');
   expect(driver.paused).toBe(false);
-  click('modal', '', 'closeModal', true);
+  click('win-right', 'right', 'closeWin', true);
   press('KeyP');
   expect(driver.paused).toBe(true);
   press('KeyD');
