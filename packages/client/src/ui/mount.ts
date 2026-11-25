@@ -369,6 +369,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       const selector = '[data-action="toggleMarket"]';
       (drawer.firstElementChild ? drawer : el('right')).querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
     }
+    if (action === 'itemMenu' || action === 'attachItem') {
+      const unitId = action === 'itemMenu' ? arg : arg.split('@')[1];
+      const menuButton = el('bottom').querySelector<HTMLElement>(`[data-action="itemMenu"][data-arg="${unitId}"]`);
+      const first = itemMenuId !== null ? el('bottom').querySelector<HTMLElement>('.item-pop [data-action="attachItem"]') : null;
+      (first ?? menuButton)?.focus({ preventScroll: true });
+    }
     if (action === 'dexRole' || action === 'dexMine' || action === 'dexAdv') {
       el('modal').querySelector<HTMLButtonElement>(`[data-action="${action}"]${action === 'dexAdv' ? '' : `[data-arg="${arg}"]`}`)?.focus();
     }

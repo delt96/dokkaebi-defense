@@ -257,79 +257,77 @@ describe('the online card menu lists held items', () => {
     expect(document.querySelector('#bottom .card')!.textContent).toContain('(+20%)');
   });
 
-  test('while the first attach waits for its answer the menu already warns about it and counts it out', async () => {
-    const { buildFull, createMatch, roundStartTick } = await import('@dorandi/logic');
-    const { jumpToTick } = await import('@dorandi/logic/testing');
-    const { NetClient } = await import('../src/net/NetClient');
-    const { NetDriver } = await import('../src/net/NetDriver');
-    const { FakeRoom } = await import('./fixtures/net');
-    const clock = 1000;
-    vi.spyOn(performance, 'now').mockImplementation(() => clock);
-    const match = createMatch(d3, 5, [1, 2]);
-    jumpToTick(match, roundStartTick(d3, 12) + 1);
-    const lane = match.lanes[1]!;
-    lane.econ!.marketOpen = true;
-    lane.econ!.items = { rangeCharm: 1, powerCharm: 1 };
-    const unit = placeUnitForTest(lane, d3.units.find(u => !u.hidden && u.grade === 3)!.id, 2);
-    const full = () => buildFull(match, 1, { watching: 1, names: { 1: '가', 2: '나' }, key: 'k', n: 0 });
-    const room = new FakeRoom();
-    const net = new NetClient(room, full().dataVersion);
-    room.emit('full', full());
-    const driver = new NetDriver(net, d3, () => clock);
-    driver.update(16);
-    const scene = new FakeScene();
-    mountUi(driver, scene as never, {}, { online: true, view: () => net.view, data: d3, actions: { support() {}, watch() {}, forfeit() {} } });
-    scene.select!(2);
-    const pop = () => document.querySelector<HTMLElement>('#bottom .item-pop');
-    press(document.querySelector('#bottom [data-action="itemMenu"]'));
-    expect(pop()!.textContent).not.toContain(REPLACE);
-    press(pop()!.querySelector(`[data-action="attachItem"][data-arg="rangeCharm@${unit.id}"]`));
-    expect(room.cmds('attachItem')).toHaveLength(1);
-    press(document.querySelector('#bottom [data-action="itemMenu"]'));
-    expect(pop()!.textContent).toContain(`사거리 부적 · ${REPLACE}`);
-    expect(pop()!.querySelector('[data-arg^="rangeCharm@"]')).toBeNull();
-    expect(pop()!.textContent).toContain('사거리 부적 (0개)');
-    expect(pop()!.querySelector<HTMLElement>('[data-action="attachItem"]')!.dataset.arg).toBe(`powerCharm@${unit.id}`);
-    expect(lane.econ!.items).toEqual({ rangeCharm: 1, powerCharm: 1 });
-  });
-
-  test('a button pressed after a full view swapped its cell sends its own unit and the server keeps the charm', async () => {
+  async function onlineSeat(items: Record<string, number>, slots: number[]) {
     const { buildFull, createMatch, roundStartTick, stepMatch } = await import('@dorandi/logic');
     const { jumpToTick } = await import('@dorandi/logic/testing');
     const { NetClient } = await import('../src/net/NetClient');
     const { NetDriver } = await import('../src/net/NetDriver');
     const { FakeRoom } = await import('./fixtures/net');
-    const clock = 1000;
-    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    vi.spyOn(performance, 'now').mockImplementation(() => 1000);
     const match = createMatch(d3, 5, [1, 2]);
     jumpToTick(match, roundStartTick(d3, 12) + 1);
     const lane = match.lanes[1]!;
     lane.econ!.marketOpen = true;
-    lane.econ!.items = { powerCharm: 2 };
+    lane.econ!.items = items;
     const def = d3.units.find(u => !u.hidden && u.grade === 3)!.id;
-    const drawn = placeUnitForTest(lane, def, 2);
-    const other = placeUnitForTest(lane, def, 3);
+    const units = slots.map(slot => placeUnitForTest(lane, def, slot));
     const full = () => buildFull(match, 1, { watching: 1, names: { 1: '가', 2: '나' }, key: 'k', n: 0 });
     const room = new FakeRoom();
     const net = new NetClient(room, full().dataVersion);
     room.emit('full', full());
-    const driver = new NetDriver(net, d3, () => clock);
+    const driver = new NetDriver(net, d3, () => 1000);
     driver.update(16);
     const scene = new FakeScene();
     mountUi(driver, scene as never, {}, { online: true, view: () => net.view, data: d3, actions: { support() {}, watch() {}, forfeit() {} } });
-    scene.select!(2);
+    scene.select!(slots[0]!);
+    return { match, lane, units, room, scene, full, stepMatch };
+  }
+  const pop = () => document.querySelector<HTMLElement>('#bottom .item-pop');
+
+  test('while the first attach waits for its answer the menu already warns about it and counts it out', async () => {
+    const { lane, units: [unit], room } = await onlineSeat({ rangeCharm: 1, powerCharm: 1 }, [2]);
     press(document.querySelector('#bottom [data-action="itemMenu"]'));
-    const button = document.querySelector<HTMLElement>(`#bottom .item-pop [data-action="attachItem"][data-arg="powerCharm@${drawn.id}"]`)!;
+    expect(pop()!.textContent).not.toContain(REPLACE);
+    press(pop()!.querySelector(`[data-action="attachItem"][data-arg="rangeCharm@${unit!.id}"]`));
+    expect(room.cmds('attachItem')).toHaveLength(1);
+    press(document.querySelector('#bottom [data-action="itemMenu"]'));
+    expect(pop()!.textContent).toContain(`사거리 부적 · ${REPLACE}`);
+    expect(pop()!.querySelector('[data-arg^="rangeCharm@"]')).toBeNull();
+    expect(pop()!.textContent).toContain('사거리 부적 (0개)');
+    expect(pop()!.querySelector<HTMLElement>('[data-action="attachItem"]')!.dataset.arg).toBe(`powerCharm@${unit!.id}`);
+    expect(lane.econ!.items).toEqual({ rangeCharm: 1, powerCharm: 1 });
+  });
+
+  test('a button pressed after a full view swapped its cell sends its own unit and the server keeps the charm', async () => {
+    const { match, lane, units: [drawn, other], room, full, stepMatch } = await onlineSeat({ powerCharm: 2 }, [2, 3]);
+    press(document.querySelector('#bottom [data-action="itemMenu"]'));
+    const button = document.querySelector<HTMLElement>(`#bottom .item-pop [data-action="attachItem"][data-arg="powerCharm@${drawn!.id}"]`)!;
     [lane.slots[2], lane.slots[3]] = [lane.slots[3]!, lane.slots[2]!];
     room.emit('full', full());
     press(button);
     const sent = room.cmds('attachItem').at(-1)!;
-    expect(sent.args).toEqual({ item: 'powerCharm', slot: 2, unitId: drawn.id });
+    expect(sent.args).toEqual({ item: 'powerCharm', slot: 2, unitId: drawn!.id });
     const r = stepMatch(match, [{ seat: 1, seq: sent.seq, cmd: { type: 'attachItem', ...sent.args } }]);
     expect(r.acks[0]).toMatchObject({ ok: false, reason: 'staleUnit' });
-    expect(other.item).toBeUndefined();
-    expect(drawn.item).toBeUndefined();
+    expect(other!.item).toBeUndefined();
+    expect(drawn!.item).toBeUndefined();
     expect(lane.econ!.items!.powerCharm).toBe(2);
+  });
+
+  test('the keyboard moves into the opened list and back to its 아이템 ▾ button', async () => {
+    const { units: [unit], room } = await onlineSeat({ rangeCharm: 0, powerCharm: 1 }, [2]);
+    const menuButton = () => document.querySelector<HTMLElement>(`#bottom [data-action="itemMenu"][data-arg="${unit!.id}"]`)!;
+    menuButton().focus();
+    press(menuButton());
+    expect(document.activeElement).toBe(pop()!.querySelector(`[data-action="attachItem"][data-arg="powerCharm@${unit!.id}"]`));
+    press(menuButton());
+    expect(pop()).toBeNull();
+    expect(document.activeElement).toBe(menuButton());
+    press(menuButton());
+    press(document.activeElement);
+    expect(room.cmds('attachItem')).toHaveLength(1);
+    expect(pop()).toBeNull();
+    expect(document.activeElement).toBe(menuButton());
   });
 });
 
