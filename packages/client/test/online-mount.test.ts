@@ -159,14 +159,15 @@ describe('online mountUi', () => {
     expect(document.querySelector('#bottom')!.textContent).toContain(`2번에게 ${data.coop!.support.coins}냥을 보냈습니다`);
   });
 
-  test('spectators see watch instructions instead of unusable battle controls', () => {
+  test('spectators get the living lanes to watch or support instead of unusable battle controls', () => {
     const full = fixtureFull([1, 2]);
     full.rows[0]!.status = 'spirit';
     mountOnline(full);
-    expect(document.querySelector('#right [data-action]')).toBeNull();
+    expect(Array.from(document.querySelectorAll<HTMLElement>('#right [data-action]')).map(b => `${b.dataset.action}:${b.dataset.arg}`))
+      .toEqual(['watch:2', 'supportTo:2']);
     // the gear in the top bar stays, so a spirit can still turn the effects down
     expect(document.querySelector('#top [data-action="openSettings"]')).not.toBeNull();
-    expect(document.querySelector('#right')!.textContent).toContain('관전');
+    expect(document.querySelector('#right')!.textContent).toContain('살아 있는 고개');
   });
 
   test('the online card lists only the keyed recipes and opens details from the overflow line', () => {

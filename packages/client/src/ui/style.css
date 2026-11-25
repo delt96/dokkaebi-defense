@@ -481,8 +481,22 @@ body.online #bottom [data-action="sell"] { margin-left: 0; }
 body.online #bottom .card button:not(.unit-info) { min-height: 28px; }
 body.online #bottom .card .card-recipes button { min-height: 18px; }
 body.online #bottom .card .recipe-more { margin: 0; }
-.watch-heading { color: var(--accent); font-size: 12px; }
-.watch-hint { margin: 2px 0; font-size: 11px; line-height: 1.55; word-break: keep-all; }
+/* Design ⑳: a spirit's living lanes in #right. Title 14, token line 28 (three lines in 98 px), 32 per lane, sent line 28 kept while empty. */
+.survivors { display: flex; flex-direction: column; min-height: 0; }
+.sv-title { height: 14px; line-height: 14px; color: var(--accent); font-size: 11px; }
+.sv-head { min-height: 28px; margin: 0 0 2px; color: #ffd28a; font-size: 10px; line-height: 14px; word-break: keep-all; }
+.sv-row { flex: none; display: flex; align-items: center; gap: 4px; height: 32px; border-bottom: 1px solid var(--panel-edge); }
+button.sv-watch { flex: 1; min-width: 0; height: 31px; display: flex; align-items: center; gap: 4px; padding: 0 2px; background: none; border: 0; border-radius: 0; text-align: left; }
+button.sv-watch:hover { background: #32293c; }
+.sv-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-watch b { flex: none; font-weight: normal; }
+.sv-watch b.lv-warn { color: #ffb396; font-weight: bold; }
+.sv-watch b.lv-danger, .sv-watch b.lv-over { color: #ff9482; font-weight: bold; }
+button.sv-send { flex: none; width: 38px; height: 24px; min-height: 24px; padding: 0; }
+.sv-got { flex: none; width: 38px; color: var(--ink-dim); font-size: 10px; text-align: center; }
+.sv-sent { flex: none; height: 28px; margin: 4px 0 0; overflow: hidden; color: var(--accent); font-size: 10px; line-height: 14px; word-break: keep-all; }
+button.sv-watch:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+button.sv-send:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 #bottom .card.spirit { font-size: 12px; }
 #bottom .card.spirit button { min-height: 30px; font-size: 11px; }
 @media (max-height: 400px) {
@@ -923,3 +937,19 @@ body.online #end-scene { height: 292px; }
   :root[data-end-cover] body:not(.fx-reduced) #screen, :root[data-end-cover] body:not(.fx-reduced) #modal:has(> .modal.result) { animation: slot-fade 240ms cubic-bezier(.2, .8, .2, 1); }
 }
 @keyframes end-box-in { from { opacity: 0; transform: scale(.96); } }
+/* Design ㉑: a received support. The glow is colour only, so it stays with reduced effects; a redraw that rebuilds the
+   number starts it again, and the class leaves after 1 s whatever point it had reached. */
+.res .coin-glow, .win-money .coin-glow { color: var(--accent); animation: coin-glow 1000ms linear both; }
+@keyframes coin-glow {
+  0%, 70% { color: #fff; text-shadow: 0 0 6px #ffe35a; animation-timing-function: cubic-bezier(.4, 0, 1, 1); }
+  100% { color: var(--accent); text-shadow: none; }
+}
+.coin-float { position: absolute; z-index: 3; opacity: 0; transform: translateX(-100%); color: #ffe35a; font-size: 12px; font-weight: bold; line-height: 14px; text-shadow: 0 0 4px #000; white-space: nowrap; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  body:not(.fx-reduced) .coin-float { animation: coin-float 800ms cubic-bezier(.2, .8, .2, 1) both; }
+}
+@keyframes coin-float {
+  0% { opacity: 1; transform: translate(-100%, 0); }
+  40% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-100%, -12px); }
+}

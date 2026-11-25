@@ -69,9 +69,9 @@ export function winHeadHtml(o: { side: Side; titleHtml: string; extraHtml?: stri
     + `<button class="win-close" data-action="closeWin" data-arg="${o.side}" aria-label="${esc(o.closeLabel)}">닫기</button></div>`;
 }
 
-export function rightBarHtml(state: GameState, heldCoins: number): string {
+export function rightBarHtml(state: GameState, heldCoins: number, coinGlow = false): string {
   const { canSummon } = rightModel(state);
   return `<div class="win-bar"><button class="win-summon" data-action="summon"${canSummon ? '' : ' disabled'}>뚝딱 (Space)</button>`
-    + ` <span class="win-money"><span class="nw">불 <b>${esc(state.tokens)}</b> ·</span> <span class="nw">엽전 <b>${esc(state.coins - heldCoins)}</b></span>`
+    + ` <span class="win-money"><span class="nw">불 <b>${esc(state.tokens)}</b> ·</span> <span class="nw">엽전 <b${coinGlow ? ' class="coin-glow"' : ''}>${esc(state.coins - heldCoins)}</b></span>`
     + ` <span class="nw">· 묵 <b>${esc(state.buckwheat)}</b></span></span></div>`;
 }

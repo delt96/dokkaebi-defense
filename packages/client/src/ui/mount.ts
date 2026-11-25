@@ -4,10 +4,10 @@ import {
 import { SPEEDS, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
 import {
-  arrivalModel, CAUSE_TEXT, fallenSeats, gateCountdown, gateDeadlineRound, returnedSeats, rightNotices, STAGE_NAME, type GateCountdown,
+  arrivalModel, CAUSE_TEXT, fallenSeats, gateCountdown, gateDeadlineRound, returnedSeats, rightNotices, STAGE_NAME, supportCount, type GateCountdown,
 } from '../online/models';
 import { arrivalHtml, countdownHtml, renderRows, renderTop, type RowMarks } from '../online/panels';
-import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
+import { menuHtml, spiritCardHtml, spiritModel, survivorsHtml, survivorsModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
 import { cellCorner, cellPx, CENTER_X, CENTER_Y, NOTICE_SPAN, type WinPlace } from '../layout';
 import { currentWins } from '../fit';
@@ -29,7 +29,7 @@ import { el, esc, focusedIn, onAction, refocusIn, setHtml } from './dom';
 import { helperPopHtml } from './helper';
 import { edgeLevel, renderAlert, renderHud } from './hud';
 import {
-  END_SCENE_SUB, EndScene, endSceneText, loopOwner, OneShots, refusalPos, refusalSpot, TopSlot, type EndKind, type RefusalSpot, type SlotItem, type SlotShown,
+  coinSpot, END_SCENE_SUB, EndScene, endSceneText, loopOwner, OneShots, refusalPos, refusalSpot, TopSlot, type EndKind, type RefusalSpot, type SlotItem, type SlotShown,
 } from './signals';
 import { PressConfirm } from './confirm';
 import {
@@ -63,6 +63,10 @@ const COVER_MS = 240;
 const FALLEN_MS = 1000;
 const FALLEN_NOTE_MS = 3000;
 const RETURNED_MS = 2000;
+/** Design ㉑: the coin number stays gold 700 ms and turns back over 300 ms (CSS .coin-glow); "+5" rises for 800 ms (CSS .coin-float). */
+const COIN_GLOW_MS = 1000;
+const COIN_FLOAT_MS = 800;
+const COIN_NOTE_MS = 3000;
 const CONFIRM_SELL_GRADE = 3;
 /** Economy notices stay a little longer than a refusal. */
 const NOTE_MS = 2500;
@@ -96,8 +100,8 @@ const OPENERS: Partial<Record<SideWin, string>> = {
   jige: '#left [data-action="jigeOpen"]',
 };
 
-/** Online screens also read the server view for the scoreboard and the two-line top bar. */
-export interface OnlineActions { support(): void; watch(seat: number): void; forfeit(): void }
+/** Online screens also read the server view for the scoreboard and the two-line top bar. `support()` with no target sends to the watched lane. */
+export interface OnlineActions { support(target?: number): void; watch(seat: number): void; forfeit(): void }
 export interface MountOpts { online?: boolean; view?: () => ClientView | null; data?: GameData; actions?: OnlineActions; targetKey?: string }
 
 export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, opts: MountOpts = {}): { resetUi: () => void; afterEndScene: (cb: () => void) => void } {
@@ -182,6 +186,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let best: { id: string; grade: number } | null = null;
   let refusal: { spot: Exclude<RefusalSpot, { at: 'slot' }>; text: string; until: number; node: HTMLElement | null } | null = null;
   const oneShots = new OneShots();
+  // design ㉑: the received supports already shown, and the light on the coin number in view (or none: the slot said it)
+  let seenSupports = supportCount();
+  let coinFx: { spot: 'right' | 'win'; until: number; float: { start: number; text: string; node: HTMLElement | null } | null } | null = null;
   // the pillar market folds 최근 결과 to one line; this is whether it was pressed open
   let historyOpen = false;
   let reveal: Reveal | null = null;
@@ -367,6 +374,54 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     r.node.classList.toggle('out', r.until - now <= REFUSAL_OUT_MS);
   }
 
+  /** Design ㉑: a new support lights the coin number in view; with a pillar over it and no coin number there, the slot says it. */
+  function noteCoins(now: number, ended: boolean): void {
+    if (coinFx && now >= coinFx.until) {
+      coinFx.float?.node?.remove();
+      coinFx = null;
+    }
+    const got = supportCount();
+    if (got <= seenSupports) return;
+    const fresh = got - seenSupports;
+    seenSupports = got;
+    if (ended) return;
+    const spot = coinSpot(currentWins(), locked() ? NO_SIDES : sides);
+    if (spot === 'slot') {
+      for (const text of rightNotices(now).slice(-fresh)) topSlot.push({ kind: 'note', text, ms: COIN_NOTE_MS }, now);
+      return;
+    }
+    coinFx?.float?.node?.remove();
+    const coins = (opts.data?.coop?.support.coins ?? 0) * fresh;
+    const float = coins > 0 && !scene.reduceEffects && oneShots.begin(now, COIN_FLOAT_MS) ? { start: now, text: `+${coins}`, node: null } : null;
+    coinFx = { spot, until: now + COIN_GLOW_MS, float };
+  }
+
+  /** "+5" beside the lit number; a redraw of its window box takes it away, so it goes back in where its rise had got to. */
+  function placeCoinFloat(now: number): void {
+    const f = coinFx?.float;
+    if (!coinFx || !f) return;
+    const container = coinFx.spot === 'win' ? rightBox : el('stage');
+    const target = (coinFx.spot === 'win' ? rightBox : el('right')).querySelector('.coin-glow');
+    if (now - f.start >= COIN_FLOAT_MS || !target) {
+      f.node?.remove();
+      coinFx.float = null;
+      return;
+    }
+    if (f.node && container.contains(f.node)) return;
+    const node = document.createElement('div');
+    node.className = 'coin-float';
+    node.setAttribute('aria-hidden', 'true');
+    node.textContent = f.text;
+    if (now > f.start) node.style.animationDelay = `${Math.round(f.start - now)}ms`;
+    container.append(node);
+    const box = container.getBoundingClientRect();
+    const scale = (container.offsetWidth ? box.width / container.offsetWidth : 1) || 1;
+    const at = target.getBoundingClientRect();
+    node.style.left = `${Math.round((at.left - box.left) / scale) - 2}px`;
+    node.style.top = `${Math.round((at.top - box.top) / scale) - 4}px`;
+    f.node = node;
+  }
+
   function inspectMarket(event: Event): void {
     const target = event.target as Element;
     if (!target.closest('.econ-panel')) return;
@@ -506,6 +561,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       // the gear stays above the settings window, so a second press closes it
       case 'openSettings': modal = modal === 'settings' ? null : 'settings'; break;
       case 'support': opts.actions?.support(); break;
+      case 'supportTo': opts.actions?.support(Number(arg)); break;
       case 'watch': opts.actions?.watch(Number(arg)); break;
       case 'openMenu': modal = 'menu'; break;
       case 'askForfeit': modal = 'forfeit'; break;
@@ -1031,6 +1087,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         selected, list, idleList, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
       }));
     }
+    // before the slot is drawn, so a support it has to tell shows on this frame
+    noteCoins(now, s.phase === 'ended');
     const prompts = renderEcon(view, selected);
     if (s.phase === 'ended') {
       topSlot.clear();
@@ -1052,13 +1110,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       else delete rootData.endCover;
     }
     if (view && driver.readOnly) {
-      setHtml(el('right'), `<b class="watch-heading">고개 관전</b><p class="watch-hint">왼쪽에서 살아 있는 고개를 고르세요. 아래 카드로 엽전을 보낼 수 있습니다.</p>`);
+      const survivors = opts.data ? survivorsModel(view, opts.data, undefined, now) : null;
+      const mark = focusedIn(el('right'));
+      setHtml(el('right'), survivors ? survivorsHtml(survivors) : '');
+      refocusIn(el('right'), mark, '.sv-watch');
     } else {
       renderRight(s, {
         ...(view ? { online: true, notices: [...moved, ...rightNotices(now)] } : {}),
         ...(s.data.economy?.market ? { market: sides.right === 'market' } : {}),
         quests: questBox(),
         heldCoins: heldCoins(reveal),
+        coinGlow: coinFx?.spot === 'right',
       });
     }
     if (now < pressedUntil) el('right').querySelector('[data-action="summon"]')?.classList.add('pressed');
@@ -1080,6 +1142,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const wins = currentWins();
     renderSides(s, wins, selected, helperWin);
     placeRefusal(now, false);
+    placeCoinFloat(now);
     const cover = el('pause-cover');
     const coverOn = !online && userPaused && s.phase !== 'ended';
     if (cover.hidden === coverOn) cover.hidden = !coverOn;
@@ -1245,7 +1308,7 @@ ${dex.mine.join()}`;
     const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, held) }
       : sides.right === 'quests' && e ? {
         cls: 'quest-modal',
-        html: questListHtml(questRows(e, s, online), questFocus, huntRows(e, s), { wins, bar: rightBarHtml(s, held) }),
+        html: questListHtml(questRows(e, s, online), questFocus, huntRows(e, s), { wins, bar: rightBarHtml(s, held, coinFx?.spot === 'win') }),
       } : null;
     const section = (side: Side, w: { cls: string; html: string } | null) =>
       (w ? `<section class="win ${w.cls}" role="dialog" aria-labelledby="win-${side}-title">${w.html}</section>` : '');
@@ -1263,7 +1326,7 @@ ${dex.mine.join()}`;
     const oldBody = rightBox.querySelector<HTMLElement>('.econ-body');
     const bodyTop = oldBody?.scrollTop ?? 0;
     setHtml(rightBox, shownMarket ? econPanelHtml(shownMarket, shownReveal, driver.readOnly, {
-      wins, bar: rightBarHtml(s, held), historyOpen, historyCount: gambleHistory.length,
+      wins, bar: rightBarHtml(s, held, coinFx?.spot === 'win'), historyOpen, historyCount: gambleHistory.length,
     }) : section('right', right));
     const panel = marketPanel();
     if (panel) {
@@ -1418,6 +1481,9 @@ ${dex.mine.join()}`;
     best = null;
     refusal?.node?.remove();
     refusal = null;
+    coinFx?.float?.node?.remove();
+    coinFx = null;
+    seenSupports = supportCount();
     historyOpen = false;
     reveal = null;
     shownReveal = null;

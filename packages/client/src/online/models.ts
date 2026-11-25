@@ -177,13 +177,20 @@ export function arrivalModel(view: ClientView, data: GameData): Arrival | null {
 
 interface Notice { text: string; at: number }
 let active: Notice[] = [];
+let supports = 0;
 const seen = new WeakSet<object>();
+
+/** Supports received so far; a screen compares it with the count it last saw to light the coins once per support. */
+export function supportCount(): number {
+  return supports;
+}
 
 /** Remembers the supports in one `mine` message ("N번 넋이 보낸 엽전 +5" for 3 seconds). */
 export function noteSupport(incoming: ClientView['mine']['supportIn'], now: number): void {
   if (incoming.length === 0 || seen.has(incoming)) return;
   seen.add(incoming);
   for (const s of incoming) active.push({ text: `${s.from}번 넋이 보낸 엽전 +${s.coins}`, at: now });
+  supports += incoming.length;
 }
 
 /**

@@ -214,11 +214,12 @@ describe('spirit card', () => {
     const v = spiritView();
     v.mine.supportTokens = 0;
     v.rows[0]!.received = true;
-    expect(spiritModel(v, { seat: 1, round: 6 })).toMatchObject({ canSend: false, sentTo: 1 });
-    const html = spiritCardHtml(v, d2, { seat: 1, round: 6 });
+    const sent = { seat: 1, round: 6, at: 0, name: '가' };
+    expect(spiritModel(v, sent)).toMatchObject({ canSend: false, sentTo: 1 });
+    const html = spiritCardHtml(v, d2, sent);
     expect(html).toContain(`1번에게 ${d2.coop!.support.coins}냥을 보냈습니다`);
     expect(html).not.toContain('지원 토큰이 없습니다');
-    expect(spiritModel(v, { seat: 1, round: 5 })).toMatchObject({ sentTo: null });
+    expect(spiritModel(v, { ...sent, round: 5 })).toMatchObject({ sentTo: null });
   });
 });
 
