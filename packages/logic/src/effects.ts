@@ -11,6 +11,7 @@ import { unitDefFast } from './units';
 import { isEvent, isShared } from './stats';
 import { payFirstHit } from './income';
 import { applyBossKnockback } from './bosscontrol';
+import { applyItemVuln, itemBonus, unitRange } from './econ/shop';
 
 /** Auras of the same source and kind count once; the source defaults to the unit's own id. */
 function auraKey(defId: string, e: Effect): string {
@@ -48,7 +49,7 @@ export function speedBonus(state: GameState, slot: number): number {
   const type = unitDefFast(state.data, unit.defId).damageType;
   const v = auraSum(state, slot, e => (e.kind === 'auraAttackSpeed' && (!e.damageType || e.damageType === type) ? e.pct : 0));
   const caps = state.data.balance.auraCaps;
-  return caps ? Math.min(v, caps.attackSpeed) : v;
+  return (caps ? Math.min(v, caps.attackSpeed) : v) + itemBonus(state, slot, 'speed');
 }
 
 export function auraAttackPower(state: GameState, slot: number): number {
@@ -76,7 +77,7 @@ export function vulnOf(state: GameState, enemy: Enemy, damageType: DamageType): 
       for (const e of s.effects) {
         if (e.kind !== 'auraEnemyVuln' || (e.damageType && e.damageType !== damageType)) continue;
         const key = auraKey(def.id, e);
-        if (seen.has(key) || !inRange(state, i, enemy, def.range)) continue;
+        if (seen.has(key) || !inRange(state, i, enemy, unitRange(state, i))) continue;
         v += e.pct;
         seen.add(key);
       }
@@ -292,6 +293,7 @@ export function performAttack(state: GameState, slot: number, target: Enemy, eve
     if (e.kind === 'rampCrit' && unit.streak) mult *= Math.min(e.max, 1 + e.step * (unit.streak.count - 1));
   }
   applyPackage(state, slot, target, fired, { basic: true, mult, effect }, events);
+  applyItemVuln(state, slot, target);
 }
 
 /**
@@ -379,7 +381,7 @@ export function runPeriodics(state: GameState, slot: number, events: GameEvent[]
       unit.periodic[idx] = toTicks(skill.trigger.seconds) - 1;
       continue;
     }
-    const targets = state.enemies.filter(e => e.hp > 0 && inRange(state, slot, e, def.range));
+    const targets = state.enemies.filter(e => e.hp > 0 && inRange(state, slot, e, unitRange(state, slot)));
     if (!targets.length) { unit.periodic[idx] = 0; continue; }
     const damaged: Enemy[] = [];
     for (const eff of skill.effects) {

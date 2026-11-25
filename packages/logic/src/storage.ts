@@ -23,11 +23,15 @@ function putAway(state: GameState, slot: number): void {
   state.slots[slot] = null;
 }
 
-/** Index of the newest stored unit of `defId` (taken out and sold first), or -1. */
-function lastStored(state: GameState, defId: unknown): number {
-  const list = state.storage ?? [];
-  for (let i = list.length - 1; i >= 0; i--) if (list[i]!.defId === defId) return i;
-  return -1;
+/** Index of the stored unit of `defId` taken out and sold first: the newest without an item, else the newest; -1 if none. */
+export function pickStored(storage: readonly { defId: string; item?: string }[], defId: unknown): number {
+  let equipped = -1;
+  for (let i = storage.length - 1; i >= 0; i--) {
+    if (storage[i]!.defId !== defId) continue;
+    if (!storage[i]!.item) return i;
+    if (equipped < 0) equipped = i;
+  }
+  return equipped;
 }
 
 const validSlot = (state: GameState, i: unknown): i is number =>
@@ -53,7 +57,7 @@ registerCommand('storeAll', (state) => {
 
 registerCommand('retrieve', (state, cmd) => {
   if (cmd.type !== 'retrieve') return 'unknown';
-  const at = lastStored(state, cmd.defId);
+  const at = pickStored(state.storage ?? [], cmd.defId);
   if (at < 0) return 'notStored';
   const unit = state.storage![at]!;
   let slot: number | null;
@@ -72,7 +76,7 @@ registerCommand('retrieve', (state, cmd) => {
 
 registerCommand('sellStored', (state, cmd) => {
   if (cmd.type !== 'sellStored') return 'unknown';
-  const at = lastStored(state, cmd.defId);
+  const at = pickStored(state.storage ?? [], cmd.defId);
   if (at < 0) return 'notStored';
   const [unit] = state.storage!.splice(at, 1);
   state.coins += state.data.balance.sellPrice[unitDefFast(state.data, unit!.defId).grade - 1] ?? 0;

@@ -1,6 +1,9 @@
-import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type GameState } from '@dorandi/logic';
+import { STORAGE_MAX_GRADE, isTamedKind, jigeCandidates, unitDefFast, type GameState, type ShopView } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
+import {
+  ATTACK_RANGE_HINT, EATS_ITEM_TEXT, REPLACE_ITEM_TEXT, attackRangeText, baseSpec, cardRangeText, combineNoteLines, combineOptions, itemShareText, rightModel,
+  summonOddsText, unitCard, upgradeRows, type CombineOption, type UnitCard,
+} from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
@@ -37,7 +40,8 @@ function recipeHtml(state: GameState, option: CombineOption, unitId: number | nu
   const badge = typeBadgeHtml(state.data, option.result, short);
   const face = unitFaceHtml(option.result, option.name, option.grade);
   const key = option.key ? `[${option.key}] ` : '';
-  const head = (extra: string) => `<span class="recipe-top">${key}${face}<b>${esc(option.name)}</b> ${badge}${extra}</span>`;
+  const eats = option.eatsItem ? ` · <span class="combine-eats">${EATS_ITEM_TEXT}</span>` : '';
+  const head = (extra: string) => `<span class="recipe-top">${key}${face}<b>${esc(option.name)}</b> ${badge}${extra}${eats}</span>`;
   const mats = chips ? materialChipsHtml(option.materials, option.cost) : '';
   if (option.missing.length) {
     const currency = option.short ?? (option.cost ? `비용 ${option.cost}` : '');
@@ -53,11 +57,13 @@ function recipeHtml(state: GameState, option: CombineOption, unitId: number | nu
   return `<button data-action="combine" data-arg="${esc(option.result)}@${unitId}" class="recipe-row"${option.cost ? ` title="비용 ${esc(option.cost)}"` : ''}>${head(cost)}${mats}</button>`;
 }
 
+const itemShare = (card: UnitCard, kind: 'attack' | 'speed'): string => (itemShareText(card, kind) ? ` (+${Math.round(card.share[kind] * 100)}%)` : '');
+
 const notesHtml = (lines: string[]): string => (lines.length ? `<ul class="card-notes">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '');
 
-/** A stat cell of the 상세 window; `bonus` is the upgrade/aura part as a fraction, shown only when there is one. */
+/** A stat cell of the 상세 window; `bonus` is the upgrade/aura/item part as a fraction, shown only when there is one. */
 function statHtml(label: string, value: string, bonus = 0, bonusLabel = '', hint = ''): string {
-  const extra = bonus > 0 ? ` <span class="ud-bonus" title="강화·오라 포함">${bonusLabel}+${Math.round(bonus * 100)}%</span>` : '';
+  const extra = bonus > 0 ? ` <span class="ud-bonus" title="강화·오라·아이템 포함">${bonusLabel}+${Math.round(bonus * 100)}%</span>` : '';
   return `<div class="ud-stat"${hint ? ` title="${esc(hint)}"` : ''}><dt>${label}</dt><dd>${value}${extra}</dd></div>`;
 }
 
@@ -97,9 +103,10 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
     return `<div class="recipe"><div class="recipe-head">${recipeHtml(state, option, unit.id, false)}${pinButton(option.result, target)}</div>${resultSpecHtml(state, unit.defId, option.result)}${notesHtml(notes)}</div>`;
   });
   const head = `<div class="modal-head ud-head">${unitFaceHtml(unit.defId, card.name, card.grade)}<b class="ud-name">${esc(card.name)}</b>
-    <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
+    <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}${card.item?.evolved ? ' · 진화' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
     <button class="ud-close" data-action="closeModal">Tab·Esc 닫기</button></div>`;
-  const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', attackRangeText(state.data, card.range), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>`;
+  const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', cardRangeText(state.data, card).replace('사거리 ', ''), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>
+    ${card.item ? `<p class="ud-item">아이템 ${esc(card.item.name)}${itemShare(card, 'attack') || itemShare(card, 'speed')}</p>` : ''}`;
   const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
   const lines = card.skillText ? card.skillText.split(' / ') : [];
   const skill = lines.length ? `<ul class="ud-lines">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="ud-empty">특수 능력 없음</p>';
@@ -165,11 +172,35 @@ function jigeHtml(state: GameState, selected: number, unitId: number | null, jig
     ? `<span class="jige-held" title="지게는 장터 묵 보따리에서 3% 확률로 함께 나옵니다">보유 지게 ${jige}개</span><button data-action="jigeOpen" data-arg="board:${unitId}"${jige < 1 ? ' disabled' : ''}>R 지게 바꾸기</button>` : '';
 }
 
+/** One 붙이기 button per held kind; the unit id rides along so a moved board never gets the item on another unit. */
+function attachButtons(shop: ShopView, unitId: number, menu: boolean, tamed: boolean): string {
+  return shop.items.filter(i => (menu || i.held > 0) && (tamed || i.effect.kind !== 'evolve')).map(i => i.held > 0
+    ? `<button data-action="attachItem" data-arg="${esc(i.id)}@${unitId}">${menu ? `${esc(i.name)} (${i.held}개) 붙이기` : `붙이기: ${esc(i.name)} (${i.held})`}</button>`
+    : `<button disabled>${esc(i.name)} (0개)</button>`).join('');
+}
+
+/** Something is held, or the market is open to buy (every item is marketLocked until then). */
+const shopLive = (shop: ShopView) => shop.items.some(i => i.held > 0 || i.why !== 'marketLocked');
+
+function itemLineHtml(card: UnitCard, unitId: number | null, shop: ShopView | null | undefined, tamed: boolean): string {
+  if (!shop || unitId === null || (!card.item && !shopLive(shop))) return '';
+  const buttons = attachButtons(shop, unitId, false, tamed);
+  const hint = buttons ? (card.item ? `<small class="item-warn">${REPLACE_ITEM_TEXT}</small>` : '') : '<small class="item-hint">장터(B) 아이템 탭에서 삽니다</small>';
+  return `<div class="up-item"><span><b>아이템</b> ${card.item ? esc(card.item.name) : '없음'}</span>${buttons}${hint}</div>`;
+}
+
+function itemPopHtml(card: UnitCard, unitId: number, shop: ShopView, tamed: boolean): string {
+  return `<div class="item-pop" role="group" aria-label="아이템 붙이기"><b>아이템 붙이기</b>${attachButtons(shop, unitId, true, tamed)}
+    ${card.item ? `<small class="item-warn">${esc(card.item.name)} · ${REPLACE_ITEM_TEXT}</small>` : ''}</div>`;
+}
+
+export interface CardItems { shop: ShopView | null; open: boolean }
+
 /**
  * Online: the selected unit's one-line card under the board, or the help line (null hotkeys = 도움말 off).
  * Solo shows the card in the left panel (unitPanelHtml) and only the help line here.
  */
-export function renderBottom(state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number, sellArmed = false) {
+export function renderBottom(state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number, sellArmed = false, items?: CardItems) {
   const pick = cardRecipes(state, selected);
   const card = online && selected !== null ? unitCard(state, selected) : null;
   const help = hotkeys === null ? '' : helpLineHtml(hotkeys, {
@@ -181,14 +212,16 @@ export function renderBottom(state: GameState, selected: number | null, online =
   }
   const { unitId, recipes } = pick;
   const options = compactRecipes(state, recipes, unitId, 2, false);
+  const shop = items?.shop && unitId !== null && (card.item || shopLive(items.shop)) ? items.shop : null;
   setHtml(el('bottom'), `<div class="card"><span class="unit-info" title="${esc(card.skillText)}"><span><span class="dot" style="background:${GRADE_COLOR[card.grade]}"></span>
-        <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}</span>
-        <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack} · ${card.interval}초마다 · 사거리 ${attackRangeText(state.data, card.range)}</span></span>
+        <b>${esc(card.name)}</b> · ${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}${card.item ? ` <span class="item-tag" title="${esc(card.item.name)}">${esc(card.item.short)}</span>` : ''}</span>
+        <span title="${ATTACK_RANGE_HINT}">공격 ${card.attack}${itemShare(card, 'attack')} · ${card.interval}초마다${itemShare(card, 'speed')} · ${esc(cardRangeText(state.data, card, true))}</span></span>
         ${options}
         <button data-action="unitDetails">상세(Tab)</button>
+        ${shop ? `<button data-action="itemMenu" data-arg="${unitId}" aria-expanded="${items!.open}" class="item-menu">아이템 ▾</button>` : ''}
         ${jigeHtml(state, selected!, unitId, jige)}
         ${storeButton(state, selected!, unitId)}
-        ${sellButton(unitId, card.sellPrice, sellArmed)}</div>`);
+        ${sellButton(unitId, card.sellPrice, sellArmed)}</div>${shop && items!.open ? itemPopHtml(card, unitId!, shop, isTamedKind(state.data, state.slots[selected!]!.defId)) : ''}`);
   return pick;
 }
 
@@ -196,7 +229,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
  * Solo: the selected unit's card for the left panel. Alone it shows the whole skill text; `compact` (the helper list
  * sits above it) cuts the skill to two lines. With nothing selected it says how to fill it.
  */
-export function unitPanelHtml(state: GameState, selected: number | null, opts: { compact?: boolean; jige?: number; sellArmed?: boolean } = {}): string {
+export function unitPanelHtml(state: GameState, selected: number | null, opts: { compact?: boolean; jige?: number; sellArmed?: boolean; shop?: ShopView | null } = {}): string {
   const card = selected === null ? null : unitCard(state, selected);
   if (!card) return '<div class="unit-panel empty">유닛을 누르면 여기에 정보가 나옵니다</div>';
   const { unitId, recipes } = cardRecipes(state, selected);
@@ -205,9 +238,10 @@ export function unitPanelHtml(state: GameState, selected: number | null, opts: {
   const jige = jigeHtml(state, selected!, unitId, opts.jige);
   return `<div class="unit-panel${opts.compact ? ' compact' : ''}">
     <div class="up-name">${unitFaceHtml(state.slots[selected!]!.defId, card.name, card.grade)}<b>${esc(card.name)}</b></div>
-    <div class="up-sub">${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}</div>
-    <div class="up-stats"><span>공격 ${card.attack} · ${card.interval}초마다</span><span title="${ATTACK_RANGE_HINT}">사거리 ${attackRangeText(state.data, card.range)}</span></div>
+    <div class="up-sub">${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}${card.item?.evolved ? ' · 진화' : ''}</div>
+    <div class="up-stats"><span>공격 ${card.attack}${esc(itemShareText(card, 'attack'))} · ${card.interval}초마다${esc(itemShareText(card, 'speed'))}</span><span title="${ATTACK_RANGE_HINT}">${esc(cardRangeText(state.data, card))}</span></div>
     <p class="up-skill${opts.compact ? ' compact' : ''}" title="${esc(card.skillText)}">${esc(card.skillText)}</p>
+    ${itemLineHtml(card, unitId, opts.shop, isTamedKind(state.data, state.slots[selected!]!.defId))}
     ${options}
     ${jige ? `<div class="up-jige">${jige}<small class="jige-note">지게: 같은 등급의 다른 유닛으로 바꿉니다</small></div>` : ''}
     <div class="up-actions">${details}${storeButton(state, selected!, unitId)}${sellButton(unitId, card.sellPrice, opts.sellArmed === true)}</div></div>`;

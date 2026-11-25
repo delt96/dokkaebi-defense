@@ -5,7 +5,7 @@ import { enemyDistanceAt } from '@dorandi/logic';
 import type { Driver } from '../driver';
 import type { BirthAlert } from '../ui/birth';
 import type { NetClient } from './NetClient';
-import { dimmedSlots, summonsLeft, type PendingCmd } from './predict';
+import { dimmedSlots, predictShop, summonsLeft, type PendingCmd } from './predict';
 import { viewToGameState } from './viewState';
 
 /** Enemies are drawn this many ticks behind the latest server tick (spec 7). */
@@ -119,10 +119,11 @@ export class NetDriver implements Driver {
     this.flushLane();
   }
 
-  /** The own economy from the latest `mine`; null while only watching (spirit or another lane). */
+  /** The own economy from the latest `mine`, pending attaches counted out of the held charms; null while only watching (spirit or another lane). */
   econ(): EconMine | null {
     if (this.readOnly) return null;
-    return (this.net.view ?? this.view).mine.econ ?? null;
+    const econ = (this.net.view ?? this.view).mine.econ ?? null;
+    return econ?.shop ? { ...econ, shop: predictShop(econ.shop, this.net.pending) } : econ;
   }
 
   laneEliminated(): boolean {

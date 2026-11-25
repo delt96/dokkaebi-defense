@@ -10,8 +10,9 @@ export {
 } from './econ/ledger';
 export { jigeCandidates, swapJige } from './econ/jige';
 export { gambleCheck, gambleTier, type GambleView } from './econ/gamble';
+export { applyItemVuln, buyBlock, evolveMult, isEvolved, isTamedKind, itemBonus, itemOf, shopItem, unitRange } from './econ/shop';
 export { marketView, placePendingDrops, type MarketView } from './econ/market';
-export { econView, type EconHuntView, type EconMarketView, type EconTameView, type EconView } from './econ/view';
+export { econView, type EconHuntView, type EconMarketView, type EconTameView, type EconView, type ShopItemView, type ShopView } from './econ/view';
 export { spawnEventEnemy, type EventKind } from './econ/events';
 export { onCollectionCombine } from './econ/quests';
 export { pickResultSlot } from './combine';
@@ -25,11 +26,11 @@ export {
   enemySpeed, waveOf, toTicks, TICKS_PER_SECOND, enemyDefFast,
 } from './flow';
 export { rollSummon, chooseSlot, pityPick, unitDefFast } from './units';
-export { availableRecipes, combineLockRound, missingMaterials, recipesUsing, storedMaterials } from './combine';
-export { STORAGE_MAX_GRADE, canStore, storedUnits } from './storage';
+export { availableRecipes, combineEatsItem, missingMaterials, needsEvolve, recipesUsing, storedMaterials } from './combine';
+export { STORAGE_MAX_GRADE, canStore, pickStored, storedUnits } from './storage';
 export {
   computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps, resolveKills,
-  roundResistBonus, resistAt, roundResistRange, type ResistRange,
+  roundResistBonus, resistAt, roundResistRange, vulnOf, type ResistRange,
 } from './combat';
 export { upgradeCost } from './upgrades';
 export { applyBossKnockback, bossStunGate } from './bosscontrol';

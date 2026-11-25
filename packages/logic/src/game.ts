@@ -65,7 +65,7 @@ function staleUnit(lane: GameState, cmd: Command): boolean {
     if (cmd.toUnitId !== undefined && isSlotIndex(lane, cmd.to) && (lane.slots[cmd.to]?.id ?? null) !== cmd.toUnitId) return true;
     return false;
   }
-  if (cmd.type === 'sell' || cmd.type === 'store' || (cmd.type === 'combine' && cmd.slot !== undefined)) {
+  if (cmd.type === 'sell' || cmd.type === 'store' || cmd.type === 'attachItem' || (cmd.type === 'combine' && cmd.slot !== undefined)) {
     return cmd.unitId !== undefined && lane.slots[cmd.slot!]?.id !== cmd.unitId;
   }
   return false;

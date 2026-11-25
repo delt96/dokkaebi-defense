@@ -99,6 +99,18 @@ const PARSERS: Record<string, Parser> = {
     if (!inRange(slot, 0, slotCount - 1) || !isInt(unitId)) return null;
     return { type: 'combine', result, slot, unitId };
   },
+  buyItem: args => {
+    const keys = ['item'];
+    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
+    return isUnitId(args.item) ? { type: 'buyItem', item: args.item } : null;
+  },
+  attachItem: (args, slotCount) => {
+    const keys = ['item', 'slot', 'unitId'];
+    if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
+    const { item, slot, unitId } = args;
+    if (!isUnitId(item) || !inRange(slot, 0, slotCount - 1) || !isInt(unitId)) return null;
+    return { type: 'attachItem', item, slot, unitId };
+  },
   support: args => {
     const keys = ['target'];
     if (!onlyKeys(args, keys) || !hasAll(args, keys)) return null;
@@ -152,6 +164,10 @@ export function toWire(cmd: OutgoingCommand, lane?: GameState): Omit<WireCommand
       return { type: 'combine', args: { result: cmd.result, slot: cmd.slot, unitId: cmd.unitId ?? idAt(cmd.slot) } };
     case 'upgrade':
       return { type: 'upgrade', args: { id: cmd.id } };
+    case 'buyItem':
+      return { type: 'buyItem', args: { item: cmd.item } };
+    case 'attachItem':
+      return { type: 'attachItem', args: { item: cmd.item, slot: cmd.slot, unitId: cmd.unitId ?? idAt(cmd.slot) } };
     case 'support':
       return { type: 'support', args: { target: cmd.target } };
     case 'jigeSwap': return { type: cmd.type, args: { source: { ...cmd.source }, result: cmd.result } };

@@ -47,7 +47,7 @@ describe('stage 3 skill text', () => {
     expect(text('jinegaksi')).toContain('맞은 적 모두 받는 물딜 +16% 3초');
     expect(text('cheonnyeonjing')).toContain('받는 물딜 +4% 4초 (최대 5중첩, 모루의 효과와 겹치지 않음)');
     expect(text('mulle')).toBe('3번째 공격마다 한 번 더 공격 / 오라: 주변 1.5칸 물딜 아군 공격 속도 +12%');
-    expect(text('buk')).toContain('오라: 사거리 안 적이 받는 물딜 +15%');
+    expect(text('buk')).toContain('오라: 사거리 안 적이 받는 물딜 +24%');
   });
 
   test('combine cards: auras that vanish, supports carried on, controls lost', () => {

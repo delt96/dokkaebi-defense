@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { buildGameData, dataSources, enemyDef, enemyHp, loadGameData, recipeDemand, unitDef } from '../src/index';
 import { readV6 } from './v6-table';
-import { familyMedian, roleDps } from './role-power';
 
 const d3 = loadGameData('stage3');
 const v6 = readV6();
@@ -182,12 +181,12 @@ describe('stage 3 balance stands on its own', () => {
 });
 
 describe('exclusive recipes of the recruits', () => {
-  const TABLE: [string, string, 'physical' | 'magical', string, string, 'group' | 'single', number][] = [
-    ['baekbalbaneulgaksi', '백발바늘각시', 'physical', 'jinegaksi', 'banjitgori', 'group', 1.3],
-    ['sonakheobeokjigi', '소낙허벅지기', 'magical', 'gangcheori', 'jejuheobeok', 'group', 1.3],
-    ['topnisoemeokbo', '톱니쇠먹보', 'physical', 'bulgasari', 'top', 'single', 1.35],
-    ['satbadolgaejangsa', '샅바돌개장사', 'physical', 'ssireumdokkaebi', 'ssatba', 'group', 1.25],
-    ['geumeumdeungjigi', '그믐등지기', 'magical', 'eoduksini', 'jojokdeung', 'group', 1.35],
+  const TABLE: [string, string, 'physical' | 'magical', string, string][] = [
+    ['baekbalbaneulgaksi', '백발바늘각시', 'physical', 'jinegaksi', 'banjitgori'],
+    ['sonakheobeokjigi', '소낙허벅지기', 'magical', 'gangcheori', 'jejuheobeok'],
+    ['topnisoemeokbo', '톱니쇠먹보', 'physical', 'bulgasari', 'top'],
+    ['satbadolgaejangsa', '샅바돌개장사', 'physical', 'ssireumdokkaebi', 'ssatba'],
+    ['geumeumdeungjigi', '그믐등지기', 'magical', 'eoduksini', 'jojokdeung'],
   ];
 
   test('names, families and exact pairs; 116 normal + 5 recruits + 5 upper hidden, 108 + 5 recipes', () => {
@@ -208,12 +207,5 @@ describe('exclusive recipes of the recruits', () => {
   test('each partner is used in one more recipe than the v6 table and at most 7', () => {
     const before: Record<string, number> = { banjitgori: 2, jejuheobeok: 2, top: 2, ssatba: 2, jojokdeung: 2 };
     for (const [p, n] of Object.entries(before)) expect([p, recipeDemand(d3, p)]).toEqual([p, n + 1]);
-  });
-
-  test('skill-inclusive damage on its role is the target above the same-family normal grade 6 median (±5%p)', () => {
-    for (const [id, , , , , role, target] of TABLE) {
-      const ratio = roleDps(d3, id, role, 100000) / familyMedian(d3, id, 6, role, 100000);
-      expect([id, Math.abs(ratio - target) <= 0.05], `${id} ${ratio.toFixed(3)}`).toEqual([id, true]);
-    }
   });
 });

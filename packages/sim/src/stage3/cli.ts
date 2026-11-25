@@ -5,10 +5,11 @@ import { isDifficulty, loadGameData, stripEconomy, type GameData } from '@dorand
 import { normalBot } from '../bots';
 import { combineGainAll, parseCombinePlacement, parseUpgradeLevels } from './combineGain';
 import { controlAll } from './control';
-import { firepowerMarkdown, firepowerRun, type FirepowerRow } from './firepower';
+import { bossCsvRows, firepowerCsvRows, firepowerMarkdown, firepowerRun, type BossRow, type FirepowerRow } from './firepower';
 import { grade6Markdown, grade6Run, type Grade6Row } from './grade6';
 import { combineGainMarkdown, controlMarkdown, toCsvRows } from './report';
 import { targetBot } from './targetBot';
+import { unitPowerMarkdown, unitPowerRows } from './unitPower';
 import {
   ECON_BOTS, econMarkdown, econMatchRun, parseEconCsv, parseYeoksinCsv, STANDARD_CONFIGS,
   type EconBotKind, type EconConfig, type EconRow,
@@ -86,17 +87,32 @@ export function stage3Cli(arg: Arg): void {
     const seeds = Number(arg('seeds', '10'));
     const bots = arg('bot', 'switch,synergy,target').split(',');
     const noDefeat = arg('defeat', 'on') !== 'on';
+    const shred = arg('shred', 'off') === 'on';
     const configs = bots.map(b => {
       const c = STANDARD_CONFIGS.find(x => x.name === `${b}-full-q2`);
       if (!c) throw new Error(`--bot ${b}: no ${b}-full-q2 config`);
-      return { ...c, noDefeat };
+      return { ...c, noDefeat, shred, name: shred ? `${c.name}-shred` : c.name };
     });
     const rows: FirepowerRow[] = [];
-    for (const c of configs) for (let seed = 1; seed <= seeds; seed++) rows.push(...firepowerRun(data, seed, c));
-    const file = join(out, `firepower-${bots.join('-')}${noDefeat ? '' : '-defeat'}.csv`);
-    writeFileSync(file, toCsvRows(rows));
-    console.log(`## board firepower / round need, median of live seats (seeds ${seeds}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
-    console.log(firepowerMarkdown(rows) + '\n');
+    const bosses: BossRow[] = [];
+    for (const c of configs) {
+      for (let seed = 1; seed <= seeds; seed++) {
+        const run = firepowerRun(data, seed, c);
+        rows.push(...run.rows);
+        bosses.push(...run.bosses);
+      }
+    }
+    const file = join(out, `firepower-${bots.join('-')}${noDefeat ? '' : '-defeat'}${shred ? '-shred' : ''}.csv`);
+    writeFileSync(file, toCsvRows(firepowerCsvRows(rows)));
+    writeFileSync(file.replace(/\.csv$/, '-boss.csv'), toCsvRows(bossCsvRows(bosses)));
+    console.log(`## board firepower, median of live seats (seeds ${seeds}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
+    console.log(firepowerMarkdown(rows, data, bosses) + '\n');
+  }
+  if (check === 'unitpower') {
+    const rows = unitPowerRows(data);
+    writeFileSync(join(out, 'unitpower.csv'), toCsvRows(rows));
+    console.log(`## one unit alone, 30 s against the round's normal enemies (${elapsed()}, ${join(out, 'unitpower.csv')})\n`);
+    console.log(unitPowerMarkdown(rows) + '\n');
   }
   if (check === 'r10probe') {
     const seeds = Number(arg('seeds', '20'));
