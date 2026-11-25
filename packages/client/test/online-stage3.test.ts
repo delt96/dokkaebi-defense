@@ -12,13 +12,13 @@ describe('70-round online screens', () => {
     const view = applyFull(buildFull(m, 1, { watching: 1, names: { 1: '가', 2: '나', 3: '다' }, key: 'k', n: 1 }));
     const top = topModel(view, d3);
     expect(top.line1).toMatch(/^35 \/ 70 라운드/);
-    expect(top.line2).toMatch(/^관문 3\/5 · 39라운드 끝까지 · 역신 셋째 탈 /);
+    expect(top.line2).toMatch(/^관문 3\/5 · 39라운드 끝까지 · 역신\(셋째\) 체력 /);
   });
 
   test('top bar names the fifth gate', () => {
     const m = createMatch(d3, 1, [1, 2]); jumpToTick(m, roundStartTick(d3, 65)); stepMatch(m, []);
     const view = applyFull(buildFull(m, 1, { watching: 1, names: { 1: '가', 2: '나' }, key: 'k', n: 1 }));
-    expect(topModel(view, d3).line2).toMatch(/^관문 5\/5 · 69라운드 끝까지 · 역신 다섯째 탈 /);
+    expect(topModel(view, d3).line2).toMatch(/^관문 5\/5 · 69라운드 끝까지 · 역신\(다섯째\) 체력 /);
   });
 
   test('team result graphs all 70 rounds and counts five gates', () => {

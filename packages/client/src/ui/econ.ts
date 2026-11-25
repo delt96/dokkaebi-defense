@@ -2,7 +2,7 @@ import {
   jigeCandidates, toTicks, type ClientView, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
 } from '@dorandi/logic';
 import { esc } from './dom';
-import { unitSkillText } from './models';
+import { cellText, unitSkillText } from './models';
 import { withJosa } from './josa';
 import { gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
 
@@ -60,8 +60,8 @@ export function jigeRowsHtml(data: GameData, list: JigeList): string {
 /** The R window: what is given, the 지게 held, the filters and every same-grade normal unit. */
 export function jigeListHtml(data: GameData, list: JigeList, held: number): string {
   const def = data.units.find(u => u.id === list.defId);
-  const where = list.source.zone === 'board' ? `진영 ${list.source.index + 1}번 칸` : '보관함';
-  const cost = list.cost === null ? '' : ` · 원가 ${list.cost}`;
+  const where = list.source.zone === 'board' ? `진영 ${cellText(data.balance.grid.cols, list.source.index)}` : '보관함';
+  const cost = list.cost === null ? '' : ` · 원가 1등급 ${list.cost}기 값`;
   const chip = (arg: string, label: string, on: boolean) =>
     `<button data-action="jigeType" data-arg="${arg}" aria-pressed="${on}"${on ? ' class="on"' : ''}>${label}</button>`;
   return `<div class="modal jige-modal"><div class="modal-head">지게 바꾸기 · 보유 지게 ${held}개 <button data-action="closeModal">Esc 닫기</button></div>
@@ -327,7 +327,7 @@ function huntBoxLines(hunts: HuntRow[]): string {
 }
 
 export function questBoxHtml(box: QuestBoxModel, folded: boolean): string {
-  if (folded) return `<div class="quest-box folded"><button data-action="openQuests" data-arg="">J 퀘스트 · 진행 ${box.count}개</button>${huntBoxLines(box.hunts)}</div>`;
+  if (folded) return `<div class="quest-box folded"><button data-action="openQuests" data-arg="">퀘스트 (J) · 진행 ${box.count}개</button>${huntBoxLines(box.hunts)}</div>`;
   const lines = box.active.map(a => `<button class="quest-line" data-action="openQuests" data-arg="${a.id}"><span>${esc(a.title)}</span><b>${esc(a.short)}</b></button>`).join('');
   const hunts = huntBoxLines(box.hunts);
   return `<div class="quest-box"><button class="panel-title" data-action="openQuests" data-arg="">퀘스트 (J)</button>${hunts}${lines}

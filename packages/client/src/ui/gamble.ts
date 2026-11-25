@@ -4,6 +4,7 @@ import {
 import { GRADE_COLOR } from '../layout';
 import { esc } from './dom';
 import { unitFaceHtml } from './storage';
+import { cellText } from './models';
 
 type Tier = ReturnType<typeof gambleTier>;
 export type Reveal =
@@ -37,6 +38,8 @@ interface Odds { label: string; chance: number; color: string }
 interface ButtonModel {
   action: 'gambleCoins' | 'gambleUnit'; arg: string; name: string; price: string;
   blocked: string | null; odds: Odds[]; consolation?: number; stake?: number;
+  /** Coin gamble: what a stake returns on average (1.01 = 101%). */
+  payback?: number;
 }
 interface GroupModel { name: string; summary: string; count: string; buttons: ButtonModel[] }
 export interface GambleModel { coins: GroupModel; units: GroupModel; cheap?: GroupModel }
@@ -66,6 +69,7 @@ export function gambleModel(view: GambleView, coins: number, buckwheat: number):
   const odds = view.coins.outcomes.map(({ result, chance }) => ({
     label: `×${result}`, chance, color: PAYOUT_COLORS[result] ?? '#ffe08a',
   }));
+  const payback = view.coins.outcomes.reduce((sum, o) => sum + o.result * o.chance, 0);
   const cheap = view.units.tables.coin;
   function bundle(id: GambleTable, table: NonNullable<typeof cheap>): ButtonModel {
     const isCoin = id === 'coin';
@@ -91,7 +95,7 @@ export function gambleModel(view: GambleView, coins: number, buckwheat: number):
       name: '돈 도박', summary: '판돈 × 나온 배수', count: remaining(view.coins.left, view.coins.limit),
       buttons: view.coins.stakes.map(({ price, why }) => ({
         action: 'gambleCoins', arg: String(price), name: `돈 도박 · ${price}냥`, price: `${price}냥 걸기`,
-        blocked: blockedText(why, price, coins), odds, stake: price,
+        blocked: blockedText(why, price, coins), odds, stake: price, payback,
       })),
     },
     units: {
@@ -149,21 +153,23 @@ export function revealDisplay(reveal: Reveal | null, now: number, data: GameData
   };
 }
 
+/** Nothing picked yet (the drawer just opened): the first 묵 bundle's odds show. */
 export function gambleInfoHtml(model: GambleModel, item: string | null, jige: GambleJige): string {
-  const button = [...model.units.buttons, ...model.coins.buttons, ...(model.cheap?.buttons ?? [])].find(b => b.arg === item);
+  const all = [...model.units.buttons, ...model.coins.buttons, ...(model.cheap?.buttons ?? [])];
+  const button = all.find(b => b.arg === item) ?? (item === null ? model.units.buttons[0] : undefined);
   const title = button?.name ?? '상품 안내';
-  let detail = '<p>상품이나 가격에 마우스를 올려 보세요.</p>';
+  let detail = '';
   if (button) {
     const odds = button.odds.map(o => `<i style="--share:${percent(o.chance)};--swatch:${o.color}"></i>`).join('');
     const labels = button.odds.map(o => `<span><i style="--swatch:${o.color}" aria-hidden="true"></i>${esc(o.label)} ${percent(o.chance)}</span>`).join('');
     const note = button.stake !== undefined
-      ? `판돈 × 배수만큼 받아요. ×2면 ${button.stake * 2}냥을 받아 ${button.stake}냥 이득이에요.`
+      ? `판돈 × 배수만큼 받아요. ×2면 ${button.stake * 2}냥을 받아 ${button.stake}냥 이득이에요.${button.payback === undefined ? '' : `<br>평균 회수 ${Math.round(button.payback * 100)}%`}`
       : button.consolation !== undefined
         ? `꽝 위로금 ${button.consolation}냥 · 지게는 따로 ${percent(jige.chance)}<br>보유 ${jige.held}개 · ${jige.maxGrade}등급 이하를 골라 R · 같은 등급으로 바꿔요`
         : '뽑으면 유닛 한 기를 받아요.';
     detail = `<div class="gamble-odds" aria-hidden="true">${odds}</div><div class="gamble-odds-labels">${labels}</div><p>${note}</p>`;
   }
-  return `<div class="gamble-line"><strong>${esc(title)}</strong><span>이름을 눌러 확률 보기</span></div>${detail}`;
+  return `<div class="gamble-line"><strong>${esc(title)}</strong><span>다른 상품은 이름을 눌러 보세요</span></div>${detail}`;
 }
 
 export interface GambleHistoryEntry { event: GambleEvent; round: number }
@@ -184,7 +190,7 @@ export function gambleHistoryHtml(history: GambleHistoryEntry[], state: GameStat
     const token = event.jige ? ' · 지게' : '';
     if (!unit) return `<li>${time}<span>꽝 · ${shop}</span><span>위로금 ${event.consolation}냥${token}</span></li>`;
     const slot = state.slots.findIndex(u => u?.id === event.unitId);
-    const place = `${Math.floor(slot / cols) + 1}행 ${slot % cols + 1}열`;
+    const place = cellText(cols, slot);
     const location = slot < 0 ? '<span>진영에 없음</span>'
       : `<button type="button" data-action="marketCell" data-arg="${event.unitId}" data-market-focus="cell-${event.unitId}" aria-label="${esc(unit.name)}의 ${place} 보기">칸 보기 · ${place}</button>`;
     return `<li>${time}<span class="gamble-prize">${unitFaceHtml(unit.id, unit.name, unit.grade)}<span>${esc(unit.name)} · ${shop}${token}</span></span>${location}</li>`;

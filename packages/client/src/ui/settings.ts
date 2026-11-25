@@ -14,7 +14,7 @@ export interface SettingsOpts { helper: boolean; reducedFx: boolean; help: boole
 
 const HELP_LINE_KEY = 'dorandi.helpLine';
 
-/** The 도움말 setting, stored per browser; on unless turned off. */
+/** The 단축키 안내 줄 setting, stored per browser; on unless turned off. */
 export function readHelpLine(): boolean {
   try { return globalThis.localStorage?.getItem(HELP_LINE_KEY) !== '0'; } catch { return true; }
 }
@@ -37,6 +37,6 @@ const onOff = (action: string, on: boolean): string => choiceHtml(action, 'on', 
 export function settingsHtml(opts: SettingsOpts): string {
   const speed = opts.speed === undefined ? '' : rowHtml('speed', '배속', SPEEDS.map(n => choiceHtml('speed', String(n), `${n}×`, opts.speed === n)).join(''));
   return `<div class="modal settings-pop" role="dialog" aria-label="설정"><div class="modal-head">설정 <button data-action="closeModal">닫기</button></div>
-    ${rowHtml('helper', '조합 도우미', onOff('setHelper', opts.helper))}${speed}${rowHtml('fx', '효과 줄이기', onOff('setFx', opts.reducedFx))}${rowHtml('help', '도움말', onOff('setHelp', opts.help))}
+    ${rowHtml('helper', '조합 도우미', onOff('setHelper', opts.helper))}${speed}${rowHtml('fx', '화면 효과', choiceHtml('setFx', 'off', '보통', !opts.reducedFx) + choiceHtml('setFx', 'on', '줄임', opts.reducedFx))}${rowHtml('help', '단축키 안내 줄', onOff('setHelp', opts.help))}
     ${audioSettingsHtml()}</div>`;
 }

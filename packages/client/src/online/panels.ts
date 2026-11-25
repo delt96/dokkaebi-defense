@@ -29,5 +29,6 @@ export function renderRows(view: ClientView, data: GameData, overlay = '', flash
 export function renderTop(view: ClientView, data: GameData): void {
   const m = topModel(view, data);
   const second = m.myTurn ? `${m.line2} · ${m.myTurn}` : m.line2;
-  setHtml(el('top'), `<div class="line">${esc(m.line1)}</div><div class="line second${m.myTurn ? ' turn' : ''}">${esc(second)}</div>${SETTINGS_BUTTON}<button class="menu-btn" data-action="openMenu">메뉴</button>`);
+  const line1 = m.mine && m.mineDanger ? esc(m.line1).replace(esc(m.mine), `<b class="mine-danger">${esc(m.mine)}</b>`) : esc(m.line1);
+  setHtml(el('top'), `<div class="line">${line1}</div><div class="line second${m.myTurn ? ' turn' : ''}">${esc(second)}</div>${SETTINGS_BUTTON}<button class="menu-btn" data-action="openMenu">메뉴</button>`);
 }

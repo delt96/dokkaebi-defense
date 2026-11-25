@@ -8,7 +8,6 @@ const RESIST_HINT = '이번 라운드 잡귀가 받는 피해를 줄이는 비�
 export function renderHud(state: GameState, paused: boolean, notice: string | null = null): void {
   const m = hudModel(state);
   const boss = state.enemies.find(e => e.boss && e.hp > 0);
-  const crack = m.danger >= 1 ? '무너짐' : m.danger > 0.66 ? '금 감' : m.danger > 0.33 ? '흔들림' : '멀쩡함';
   const round = `<span class="round">${esc(m.roundText)}</span>`;
   // the 60-round resistance goes under the round label so the bar keeps its width
   const roundBlock = m.resistText
@@ -21,7 +20,7 @@ export function renderHud(state: GameState, paused: boolean, notice: string | nu
       ${boss ? `<span class="boss">보스 체력 ${boss.hp} / ${boss.maxHp}</span>` : ''}
       ${notice ? `<span class="notice">${esc(notice)}</span>` : ''}
       <span class="enemies">${esc(m.enemyText)}</span>
-      <span class="gauge" title="장승: ${crack}"><i style="width:${Math.round(m.danger * 100)}%"></i></span><span class="gauge-text${m.danger > 0.66 ? ' bad' : ''}">장승 ${crack}</span>
+      <span class="gauge" title="장승: ${m.crack}"><i style="width:${Math.round(m.danger * 100)}%"></i></span><span class="gauge-text${m.danger > 0.66 ? ' bad' : ''}">장승 ${m.crack}</span>
       ${SETTINGS_BUTTON}
     </div>`);
   renderAlert(state);

@@ -347,7 +347,18 @@ export function resistText(data: GameData, round: number): string | null {
   return `저항 물리 ${span(r.physical)} · 마법 ${span(r.magical)}`;
 }
 
-export function hudModel(state: GameState): { roundText: string; secondsLeft: number; enemyText: string; danger: number; resistText: string | null } {
+/** The 장승 word for `n` enemies: a lane loses only above the limit, so the limit itself is 한계, not 무너짐. */
+export function crackText(n: number, limit: number): string {
+  if (n > limit) return '무너짐';
+  if (n === limit) return '한계';
+  const r = n / limit;
+  return r > 0.66 ? '금 감' : r > 0.33 ? '흔들림' : '멀쩡함';
+}
+
+/** A board cell as the market and the 지게 window name it: "2행 3열". */
+export const cellText = (cols: number, index: number): string => `${Math.floor(index / cols) + 1}행 ${index % cols + 1}열`;
+
+export function hudModel(state: GameState): { roundText: string; secondsLeft: number; enemyText: string; danger: number; crack: string; resistText: string | null } {
   const b = state.data.balance;
   const n = countNormalEnemies(state);
   const ticksPerSecond = 1000 / b.tickMs;
@@ -356,8 +367,9 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
   return {
     roundText: (state.phase === 'prep' ? '준비' : `${state.round} / ${b.rounds} 라운드`) + difficultySuffix(state.data, state.difficulty),
     secondsLeft: Math.max(0, Math.ceil(left / ticksPerSecond)),
-    enemyText: `우리 고개 잡귀 ${n} / ${b.limit}`,
+    enemyText: `내 잡귀 ${n} / ${b.limit}`,
     danger: Math.min(1, n / b.limit),
+    crack: crackText(n, b.limit),
     resistText: resistText(state.data, state.round),
   };
 }
@@ -442,11 +454,21 @@ export function combineOptions(state: GameState, slot: number): CombineOption[] 
   return options;
 }
 
-const UPGRADE_TEXT: Record<UpgradeId, (p: number) => string> = {
-  physical: p => `물딜 공격력 +${pct(p)}`,
-  magical: p => `마딜 공격력 +${pct(p)}`,
-  polish: p => `1~4등급 공격력 +${pct(p)}`,
-};
+const UPGRADE_TARGET: Record<UpgradeId, string> = { physical: '물딜 공격력', magical: '마딜 공격력', polish: '1~4등급 공격력' };
+
+/** Levels add up (pct × level), so the row says the total now and after the next level. */
+function upgradeEffectText(id: UpgradeId, p: number, level: number, max: number): string {
+  const total = (n: number) => `+${Math.round(p * n * 100)}%`;
+  return level >= max ? `${UPGRADE_TARGET[id]} ${total(level)} · 최대` : `${UPGRADE_TARGET[id]} 지금 ${total(level)} → 다음 ${total(level + 1)}`;
+}
+
+/** What the 강화 window weighs against: this round's resistance and how many board units each damage upgrade reaches. */
+export function upgradeInfoText(state: GameState): string {
+  const defs = state.slots.flatMap(u => (u ? [unitDefFast(state.data, u.defId)] : []));
+  const count = (type: DamageType) => defs.filter(d => d.damageType === type).length;
+  const resist = resistText(state.data, state.round);
+  return [resist ? `이번 라운드 ${resist}` : null, `내 물딜 ${count('physical')}기 · 마딜 ${count('magical')}기`].filter(Boolean).join(' · ');
+}
 
 export function upgradeRows(state: GameState): { id: UpgradeId; label: string; level: number; max: number; cost: number | null; effectText: string; affordable: boolean }[] {
   return state.data.upgrades.map(def => {
@@ -454,7 +476,7 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
     const cost = level >= def.max ? null : upgradeCost(def, level + 1);
     return {
       id: def.id, label: def.label, level, max: def.max, cost,
-      effectText: UPGRADE_TEXT[def.id](def.pct ?? 0),
+      effectText: upgradeEffectText(def.id, def.pct ?? 0, level, def.max),
       affordable: cost !== null && state.coins >= cost,
     };
   });
@@ -509,6 +531,24 @@ const SEARCH_ALIAS: [text: string, alias: string][] = [['스턴', '기절'], ['�
 export function skillSearchText(skillText: string, roles: readonly RoleTag[]): string {
   const aliases = SEARCH_ALIAS.filter(([t]) => skillText.includes(t)).map(([, a]) => a);
   return [skillText, ...roles.map(t => ROLE_LABEL[t.role]), ...aliases].join(' ').replace(/\s+/g, '');
+}
+
+/**
+ * Where a hidden unit is tamed: the enemy and when it first shows up ("지네각시 · 10라운드 보스"). The wave table, the 격파
+ * targets and the one-off 씨름·그늘 rounds are the places an enemy can come from. Null for a unit no enemy turns into.
+ */
+export function tameSourceText(data: GameData, unitId: string): string | null {
+  const eco = data.economy;
+  const texts = (eco?.tame?.targets ?? []).filter(t => t.unit === unitId).map(t => {
+    const name = data.enemies.find(e => e.id === t.enemy)?.name ?? t.enemy;
+    const wave = data.waves.find(w => (w.type === 'boss' ? w.boss === t.enemy : w.pattern.includes(t.enemy)));
+    const hunt = eco?.hunts?.targets.find(h => h.enemy === t.enemy);
+    const event = [eco?.ssireum, eco?.shadow].find(e => e?.enemy === t.enemy);
+    const when = wave ? `${wave.round}라운드${wave.type === 'boss' ? ' 보스' : '부터'}`
+      : hunt ? `${hunt.fromRound}라운드부터 격파` : event ? `${event.round}라운드` : null;
+    return when ? `${name} · ${when}` : name;
+  });
+  return texts.length ? texts.join(', ') : null;
 }
 
 export function dexEntries(data: GameData): DexEntry[] {

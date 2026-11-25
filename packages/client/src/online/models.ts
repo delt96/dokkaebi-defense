@@ -7,7 +7,8 @@ export interface RowModel {
   seat: number; empty: boolean; title: string; count: string; danger: boolean; status: string;
   mark: 'current' | null; progress: number | null; me: boolean;
 }
-export interface TopModel { line1: string; line2: string; myTurn: string | null }
+/** `mine`: the part of line1 with my count, `mineDanger` when it is at the left row's 위험 line or over the limit. */
+export interface TopModel { line1: string; line2: string; myTurn: string | null; mine: string | null; mineDanger: boolean }
 
 const TICKS_PER_SECOND = 20;
 const CAUSE_TEXT: Record<EliminationCause, string> = { limit: '잡귀 한도', boss: '고개 보스', forfeit: '포기', disconnect: '단절' };
@@ -71,15 +72,18 @@ export function topModel(view: ClientView, data: GameData): TopModel {
   const left = secondsOf(clock.roundEndTick - clock.tick);
   const mine = view.rows.find(r => r.seat === view.me.seat);
   let line1: string;
+  let mineText: string | null = null;
   if (clock.phase === 'prep') line1 = `준비 · 남은 ${left}초`;
   else {
     line1 = `${clock.round} / ${data.balance.rounds} 라운드 · 남은 ${left}초`;
     if (mine?.status === 'spirit') line1 += ' · 관전 중';
     else {
-      line1 += ` · 내 잡귀 ${mine?.count ?? 0} / ${data.balance.limit}`;
-      if (mine && mine.count > data.balance.limit) line1 += ` · 초과 ${secondsOf(limitTicks(data) - mine.overLimitTicks)}초`;
+      mineText = `내 잡귀 ${mine?.count ?? 0} / ${data.balance.limit}`;
+      if (mine && mine.count > data.balance.limit) mineText += ` · 초과 ${secondsOf(limitTicks(data) - mine.overLimitTicks)}초`;
+      line1 += ` · ${mineText}`;
     }
   }
+  const mineDanger = mineText !== null && !!mine && mine.count >= coop.danger;
 
   const stages = coop.yeoksin.length;
   const gate = view.gate.stage;
@@ -87,11 +91,11 @@ export function topModel(view: ClientView, data: GameData): TopModel {
   let line2: string;
   if (!def) line2 = '관문 통과';
   else if (view.yeoksin) {
-    line2 = `관문 ${gate}/${stages} · ${def.deadlineRound}라운드 끝까지 · 역신 ${STAGE_NAME[view.yeoksin.stage] ?? ''} 탈 ${view.yeoksin.hp.toLocaleString('ko-KR')} / ${view.yeoksin.maxHp.toLocaleString('ko-KR')}`;
+    line2 = `관문 ${gate}/${stages} · ${def.deadlineRound}라운드 끝까지 · 역신${STAGE_NAME[view.yeoksin.stage] ? `(${STAGE_NAME[view.yeoksin.stage]})` : ''} 체력 ${view.yeoksin.hp.toLocaleString('ko-KR')} / ${view.yeoksin.maxHp.toLocaleString('ko-KR')}`;
   } else line2 = `관문 ${gate}/${stages} · ${def.startRound}라운드에 역신 등장`;
 
   const resist = resistText(data, clock.round);
-  return { line1: line1 + difficultySuffix(data, view.difficulty) + (resist ? ` · ${resist}` : ''), line2, myTurn: myTurnText(view, data) };
+  return { line1: line1 + difficultySuffix(data, view.difficulty) + (resist ? ` · ${resist}` : ''), line2, myTurn: myTurnText(view, data), mine: mineText, mineDanger };
 }
 
 export function myTurnText(view: ClientView, data: GameData): string | null {

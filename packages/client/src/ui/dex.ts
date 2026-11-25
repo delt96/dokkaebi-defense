@@ -1,7 +1,7 @@
 import type { GameData, GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import { missingMaterials } from '@dorandi/logic';
-import { ATTACK_RANGE_HINT, MINE_KEYS, MINE_LABEL, attackRangeText, branchKey, dexEntries, dexShows, materialsOf, recipeTree, roleList, summonOddsText, treeSize, type DexStep, type RecipeNode } from './models';
+import { ATTACK_RANGE_HINT, MINE_KEYS, MINE_LABEL, attackRangeText, branchKey, dexEntries, dexShows, materialsOf, recipeTree, roleList, summonOddsText, tameSourceText, treeSize, type DexStep, type RecipeNode } from './models';
 import { esc } from './dom';
 import { ROLE_LABEL, ROLE_LEGEND, ROLE_ORDER, roleText } from './dex-roles';
 import { withRo } from './josa';
@@ -30,12 +30,13 @@ export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, e
   const nameOf = new Map(entries.map(d => [d.id, d.name]));
   const gradeOf = new Map(entries.map(d => [d.id, d.grade]));
   const open = new Set(extra.open ?? []);
+  const tameFrom = (id: string) => { const from = tameSourceText(data, id); return from ? `: ${esc(from)}` : ''; };
   const rows = visible.map(d => {
     const makes = d.makesIds.length ? `<div class="dex-makes">이 유닛으로 만드는 조합: ${d.makesIds.map(id => link(id, nameOf.get(id) ?? id, d.id)).join(', ')}</div>` : '';
     // with a game, each chip says whether the board and storage cover it, as on the combine row
     const owned = extra.state && d.recipeIds.length ? materialsOf(extra.state, d.id, missingMaterials(extra.state, d.id)) : null;
     const chips = d.recipeIds.map((id, i) => materialChipHtml({ id, name: nameOf.get(id) ?? id, grade: gradeOf.get(id) ?? 1, ...(owned?.[i] ? { have: owned[i]!.have } : {}) }, `${id}@${d.id}`)).join('');
-    const recipe = d.recipeIds.length ? `<span class="mat-chips dex-mats">${chips}</span>` : d.hidden ? `길들이기로 획득${makes}` : '소환';
+    const recipe = d.recipeIds.length ? `<span class="mat-chips dex-mats">${chips}</span>` : d.hidden ? `길들이기로 획득${tameFrom(d.id)}${makes}` : '소환';
     const notes = d.notes.length ? `<ul class="card-notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
     // only the first skill line shows; the rest and the notes open under 더보기
     const [firstSkill = '', ...moreSkills] = d.skillText ? d.skillText.split(' / ') : [];

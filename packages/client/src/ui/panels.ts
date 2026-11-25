@@ -1,6 +1,6 @@
 import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeRows, type CombineOption } from './models';
+import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeInfoText, upgradeRows, type CombineOption } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
@@ -112,17 +112,20 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
   return `<div class="modal unit-details" role="dialog" aria-label="${esc(card.name)} 상세">${head}<div class="ud-body">${body}</div></div>`;
 }
 
-/** What the help line can name: a selected unit (and whether it fits in storage), stage 3's quests (J) and 지게 (R), the solo pause (P). */
-export interface HelpContext { selected?: boolean; storable?: boolean; quests?: boolean; jige?: boolean; pause?: boolean }
+/**
+ * What the help line can name: a selected unit (and whether it fits in storage), stage 3's quests (J) and 지게 (R), the solo pause (P).
+ * `empty`: no unit on the board yet, so the line opens with how to summon.
+ */
+export interface HelpContext { selected?: boolean; storable?: boolean; quests?: boolean; jige?: boolean; pause?: boolean; empty?: boolean }
 
 /**
- * The hotkey help line under the board (the 도움말 setting hides it). With a unit selected it lists what that unit takes;
+ * The hotkey help line under the board (the 단축키 안내 줄 setting hides it). With a unit selected it lists what that unit takes;
  * otherwise the board-wide keys. `hotkeys`: extra keys (stage 3 adds the market).
  */
 export function helpLineHtml(hotkeys?: string, ctx: HelpContext = {}): string {
   const keys = ctx.selected
     ? ['Z/X/C 조합', 'S 판매', ...(ctx.storable ? [`${STORE_KEY} 보관`] : []), ...(ctx.jige ? ['R 지게'] : []), 'Tab 상세', 'W 다음 유닛', 'Space 소환', 'Esc 선택 해제']
-    : ['유닛을 눌러 선택하고 끌어서 옮기세요.', 'W 다음 유닛', 'Space 소환', 'E 강화', 'D 도감', 'Q 도우미', `${STORE_ALL_KEY} 1·2등급 보관`,
+    : [ctx.empty ? 'Space나 뚝딱!으로 유닛을 뽑으세요.' : '유닛을 눌러 선택하고 끌어서 옮기세요.', 'W 다음 유닛', 'Space 소환', 'E 강화', 'D 도감', 'Q 도우미', `${STORE_ALL_KEY} 1·2등급 보관`,
       ...(hotkeys ? [hotkeys] : []), ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : [])];
   return `<div class="card hint">${keys.map(esc).join(' · ')}</div>`;
 }
@@ -166,7 +169,7 @@ function jigeHtml(state: GameState, selected: number, unitId: number | null, jig
 }
 
 /**
- * Online: the selected unit's one-line card under the board, or the help line (null hotkeys = 도움말 off).
+ * Online: the selected unit's one-line card under the board, or the help line (null hotkeys = 단축키 안내 줄 off).
  * Solo shows the card in the left panel (unitPanelHtml) and only the help line here.
  */
 export function renderBottom(state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number, sellArmed = false) {
@@ -174,6 +177,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
   const card = online && selected !== null ? unitCard(state, selected) : null;
   const help = hotkeys === null ? '' : helpLineHtml(hotkeys, {
     selected: selected !== null && !!state.slots[selected], storable: storable(state, selected), quests: !!state.data.economy, jige: !!state.data.economy?.market, pause: !online,
+    empty: state.slots.every(u => !u),
   });
   if (!card) {
     setHtml(el('bottom'), help);
@@ -218,5 +222,6 @@ export function upgradesHtml(state: GameState): string {
     <tr><td class="upgrade-key">${i + 1}</td><td>${esc(r.label)}</td><td>${r.level} / ${r.max}</td><td>${esc(r.effectText)}</td>
     <td><button data-action="upgrade" data-arg="${r.id}" ${r.affordable ? '' : 'disabled'}>${r.cost === null ? '최대' : `${r.cost}냥`}</button></td></tr>`).join('');
   return `<div class="modal"><div class="modal-head">강화 · 엽전 ${state.coins}냥 <button data-action="closeModal">E·Esc 닫기</button></div>
+    <p class="upgrade-info">${esc(upgradeInfoText(state))}</p>
     <table class="upgrades"><tbody>${rows}</tbody></table></div>`;
 }

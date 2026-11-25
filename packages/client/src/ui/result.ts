@@ -41,7 +41,7 @@ export function resultHtml(state: GameState, bestUnitId: string | null): string 
   return `<div class="modal result">
     <div class="modal-head">${m.title}${difficultySuffix(state.data, state.difficulty)}${m.reasonText ? ` · ${esc(m.reasonText)}` : ''}</div>
     <p>${m.roundReached}라운드까지 버텼습니다.</p>
-    <p>라운드별 우리 고개 잡귀 (빨간 점선: 한도 ${state.data.balance.limit})</p>
+    <p>라운드별 내 잡귀 (빨간 점선: 한도 ${state.data.balance.limit})</p>
     ${graph(m.series, state.data.balance.limit)}
     <p>마지막 ${m.lastEnemies}마리 · 가장 많았을 때 ${m.maxEnemies}마리</p>
     <p>최고 유닛: ${best} · ${esc(m.helperText)}</p>

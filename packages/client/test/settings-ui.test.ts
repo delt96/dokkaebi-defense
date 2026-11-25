@@ -49,7 +49,7 @@ describe('solo settings window', () => {
     expect(modal().textContent).toBe('');
     press(gear());
     expect(Array.from(modal().querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'speed', 'fx', 'help']);
-    expect(row('help')!.textContent).toContain('도움말');
+    expect(row('help')!.textContent).toContain('단축키 안내 줄');
     expect(choice('setHelp', 'on').getAttribute('aria-pressed')).toBe('true');
     expect(row('helper')!.textContent).toContain('조합 도우미');
     expect(choice('setHelper', 'off').getAttribute('aria-pressed')).toBe('true');

@@ -17,7 +17,7 @@ describe('ui models', () => {
     const s = createGame(data, 1);
     expect(hudModel(s).roundText).toBe('준비');
     for (let i = 0; i < 401; i++) step(s, []);
-    expect(hudModel(s)).toMatchObject({ roundText: '1 / 20 라운드', enemyText: '우리 고개 잡귀 1 / 60' });
+    expect(hudModel(s)).toMatchObject({ roundText: '1 / 20 라운드', enemyText: '내 잡귀 1 / 60' });
     expect(hudModel(s).secondsLeft).toBe(40);
   });
   test('helper and card', () => {
@@ -448,7 +448,7 @@ describe('settings window', () => {
   test('solo: helper, speed and reduce-effects rows show the current choice', () => {
     const html = settingsHtml({ helper: false, speed: 1, reducedFx: false, help: true });
     expect(html).toContain('설정');
-    expect(rows(html)).toEqual(['조합 도우미', '배속', '효과 줄이기', '도움말']);
+    expect(rows(html)).toEqual(['조합 도우미', '배속', '화면 효과', '단축키 안내 줄']);
     expect(pressed(html)).toEqual(['setHelper:off', 'speed:1', 'setFx:off', 'setHelp:on']);
     expect(html).toContain('data-action="closeModal"');
     expect(pressed(settingsHtml({ helper: true, speed: 3, reducedFx: true, help: false }))).toEqual(['setHelper:on', 'speed:3', 'setFx:on', 'setHelp:off']);
@@ -457,7 +457,7 @@ describe('settings window', () => {
 
   test('online: no speed row', () => {
     const html = settingsHtml({ helper: true, reducedFx: false, help: true });
-    expect(rows(html)).toEqual(['조합 도우미', '효과 줄이기', '도움말']);
+    expect(rows(html)).toEqual(['조합 도우미', '화면 효과', '단축키 안내 줄']);
     expect(html).not.toContain('data-action="speed"');
   });
 });

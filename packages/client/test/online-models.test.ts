@@ -72,7 +72,7 @@ describe('online rows', () => {
   test('top lines and my-turn notice', () => {
     const o: ViewOpts = { me: 1, tick: 5000, round: 6, roundEndTick: 5400, rows: [row({ seat: 1, count: 12 }), row({ seat: 2 })],
       gate: { stage: 1, kills: 0, deadlineTick: 7799 }, yeoksin: { stage: 1, hp: 7950, maxHp: 8800, seat: 2, enterTick: 4881, nextSeat: 1 } };
-    expect(topModel(viewWith(o), data)).toEqual({ line1: '6 / 20 라운드 · 남은 20초 · 내 잡귀 12 / 60', line2: '관문 1/2 · 9라운드 끝까지 · 역신 첫째 탈 7,950 / 8,800', myTurn: '다음은 내 고개 · 7초' });
+    expect(topModel(viewWith(o), data)).toEqual({ line1: '6 / 20 라운드 · 남은 20초 · 내 잡귀 12 / 60', line2: '관문 1/2 · 9라운드 끝까지 · 역신(첫째) 체력 7,950 / 8,800', myTurn: '다음은 내 고개 · 7초', mine: '내 잡귀 12 / 60', mineDanger: false });
     expect(topModel(viewWith({ ...o, yeoksin: { ...o.yeoksin!, seat: 1, nextSeat: 1 } }), data).myTurn).toBe('내 고개 순환');
     expect(topModel(viewWith({ ...o, yeoksin: null, round: 3 }), data).line2).toBe('관문 1/2 · 6라운드에 역신 등장');
     expect(topModel(viewWith({ ...o, yeoksin: null, gate: { stage: 3, kills: 2, deadlineTick: null } }), data).line2).toBe('관문 통과');
@@ -115,7 +115,7 @@ describe('online rows', () => {
     expect(left.querySelector('.lane-row.current .bar')).not.toBeNull();
     expect(left.textContent).toContain('가나다라마바사아');
     expect(top.querySelectorAll('.line')).toHaveLength(2);
-    expect(top.textContent).toContain('역신 첫째 탈 7,950 / 8,800');
+    expect(top.textContent).toContain('역신(첫째) 체력 7,950 / 8,800');
   });
 });
 

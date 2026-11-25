@@ -237,6 +237,7 @@ body.online #top .line { height: 11px; line-height: 11px; font-size: 10px; white
 body.online #top .line:first-child { color: var(--accent); font-weight: bold; }
 body.online #top .line.second { color: var(--ink); }
 body.online #top .line.turn { color: #ffb396; }
+body.online #top .mine-danger { color: #ff9482; }
 
 /* Online left panel: a 28px title and six 44px rows inside the 128px column. */
 body.online #left { border: 0; box-shadow: inset -1px 0 var(--panel-edge); padding: 0; gap: 0; display: block; overflow: hidden; }
@@ -273,6 +274,7 @@ body.online #top .settings-open { position: absolute; right: 46px; top: 3px; }
 #bottom .spirit-title { color: var(--accent); }
 #bottom .spirit-reason { color: var(--ink-dim); }
 .modal-text { margin: 6px 0; font-size: 11px; }
+.upgrade-info { margin: 0 0 4px; color: var(--ink-dim); }
 .modal-actions { display: flex; gap: 6px; }
 .modal-actions button.danger { color: #ffb3a8; border-color: #8a3a34; background: #3a1f24; }
 #conn-band { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 6px 12px; text-align: center; font-size: 14px; background: #5a2230; color: #fff; }
@@ -286,6 +288,7 @@ body.online #top .settings-open { position: absolute; right: 46px; top: 3px; }
 .screen-box .result-row { min-height: 34px; font-size: 13px; padding: 0 8px; background: var(--panel); border: 1px solid var(--panel-edge); color: inherit; cursor: pointer; }
 .result-row.open { border-color: var(--accent); }
 .result-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result-notes { font-size: 11px; color: var(--ink-dim); text-align: center; }
 .result-detail { padding: 4px 8px 8px; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 12px; }
 .result-detail p { margin: 3px 0; }
 .result-detail .graph { width: 100%; height: clamp(64px, 14vh, 110px); }

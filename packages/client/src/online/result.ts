@@ -9,7 +9,8 @@ export interface TeamRow {
   seat: number; name: string; status: string; last: number; max: number; best: string; damage: number;
   series: (number | null)[]; helperText: string;
 }
-export interface TeamResultModel { title: string; subtitle: string; rows: TeamRow[] }
+/** `notes`: one-line meanings of the result words, on screen under the table (생존·팀 패배 only when a row says it). */
+export interface TeamResultModel { title: string; subtitle: string; rows: TeamRow[]; notes: string[] }
 
 const TITLE: Record<TeamOutcome, string> = { clear: '팀 클리어', wipe: '전멸', gate: '스토리 관문 실패' };
 const CAUSE: Record<EliminationCause, string> = { limit: '잡귀 한도', boss: '고개 보스', forfeit: '포기', disconnect: '단절' };
@@ -24,7 +25,13 @@ function statusText(outcome: SeatOutcome, cause: EliminationCause | null, round:
 }
 
 export function teamResultModel(result: MatchResult, names: Record<number, string>, data: GameData): TeamResultModel {
+  const notes = [
+    '역신 격파: 관문마다 나오는 역신을 쓰러뜨린 수',
+    '잡귀 마지막 / 최대: 끝났을 때와 가장 많았을 때의 잡귀 수',
+    ...(result.seats.some(s => s.outcome === 'aliveTeamLoss') ? ['생존·팀 패배: 끝까지 버텼지만 팀이 졌음'] : []),
+  ];
   return {
+    notes,
     title: TITLE[result.outcome] + difficultySuffix(data, result.difficulty),
     subtitle: `도달 ${result.round}라운드 · 역신 격파 ${result.yeoksinKills}/${data.coop?.yeoksin.length ?? 2} · 생존 ${result.alive}/${result.started}`,
     rows: result.seats.map(s => {
@@ -85,6 +92,7 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
   const head = div('result-head');
   head.innerHTML = '<span>이름</span><span>상태</span><span>잡귀 마지막 / 최대</span><span>최고 유닛</span><span>역신 피해</span>';
   box.insertBefore(head, box.children[2] ?? null);
+  box.append(div('result-notes', m.notes.join(' · ')));
 
   const again = document.createElement('button');
   again.type = 'button';

@@ -33,7 +33,7 @@ describe('spirit', () => {
   test('card text and reasons', () => {
     const base = viewWith({ me: 2, watching: 1, rows: [row({ seat: 1, name: '가' }), row({ seat: 2, status: 'spirit' })] });
     base.mine.supportTokens = 1;
-    expect(spiritModel(base)).toEqual({ title: '관전: 1번 가', tokens: 1, canSend: true, reason: null });
+    expect(spiritModel(base)).toEqual({ title: '관전: 1번 가', tokens: 1, canSend: true, reason: null, sentTo: null });
     base.rows[0]!.received = true;
     expect(spiritModel(base)).toMatchObject({ canSend: false, reason: '이번 라운드에 이미 받았습니다' });
     base.rows[0]!.received = false; base.mine.supportTokens = 0;

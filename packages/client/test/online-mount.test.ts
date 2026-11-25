@@ -198,7 +198,7 @@ describe('online mountUi', () => {
     press(on());
     expect(fx.reduceEffects).toBe(true);
     expect(on().getAttribute('aria-pressed')).toBe('true');
-    expect(on().textContent).toBe('켬');
+    expect(on().textContent).toBe('줄임');
   });
 
   test('online 도움말 끔 hides the hotkey line but not the unit card', () => {

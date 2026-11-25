@@ -79,7 +79,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let helperOpen = false;
   // solo: P pauses until P again; the open dex pauses on top of that without touching the P state
   let userPaused = false;
-  // the hotkey line under the board (도움말 in the settings window)
+  // the hotkey line under the board (단축키 안내 줄 in the settings window)
   let helpLine = readHelpLine();
   let modal: 'unitDetails' | 'dex' | 'upgrades' | 'menu' | 'forfeit' | 'jige' | 'quests' | 'settings' | null = null;
   // the J list row to bring into view (a chip or a box line opened it)
