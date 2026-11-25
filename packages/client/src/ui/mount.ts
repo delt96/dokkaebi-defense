@@ -895,6 +895,8 @@ ${dex.mine.join()}`;
     const marketFocus = inMarket ? active!.dataset.marketFocus : undefined;
     const marketMark = inMarket ? focusedIn(rightBox) : null;
     const folded = wins === 'inside' && !historyOpen;
+    const oldBody = rightBox.querySelector<HTMLElement>('.econ-body');
+    const bodyTop = oldBody?.scrollTop ?? 0;
     setHtml(rightBox, shownMarket ? econPanelHtml(shownMarket, shownReveal, driver.readOnly, {
       wins, bar: rightBarHtml(s, held), historyOpen, historyCount: gambleHistory.length,
     }) : section('right', right));
@@ -908,6 +910,9 @@ ${dex.mine.join()}`;
       const history = panel.querySelector<HTMLElement>('.gamble-history');
       if (result) setHtml(result, gambleRevealHtml(shownReveal));
       if (history) setHtml(history, gambleHistoryHtml(gambleHistory, s, wins === 'inside' ? { folded } : undefined));
+      // setHtml put the scroll back while the odds and result were still empty, so the browser stopped it short
+      const body = panel.querySelector<HTMLElement>('.econ-body');
+      if (body && oldBody && body !== oldBody && body.scrollTop !== bodyTop) body.scrollTop = bodyTop;
       if (inMarket && !panel.contains(active)) {
         const next = marketFocus ? panel.querySelector<HTMLElement>(`[data-market-focus="${marketFocus}"]:not(:disabled)`) : null;
         if (next) next.focus({ preventScroll: true });

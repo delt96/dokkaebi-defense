@@ -356,6 +356,34 @@ describe('solo side windows', () => {
     expect($('#win-right [data-action="marketHistory"]')).toBeNull();
   });
 
+  test('a redraw of the market keeps the body scrolled down to 최근 결과', () => {
+    // a browser stops scrollTop at the content's end; the odds and the result are filled after the redraw,
+    // so a scroll put back before them would stop short. This stand-in stops it while the odds are still empty.
+    const tops = new WeakMap<Element, number>();
+    Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
+      configurable: true,
+      get(this: HTMLElement) { return tops.get(this) ?? 0; },
+      set(this: HTMLElement, v: number) {
+        const info = this.querySelector?.('.gamble-info');
+        tops.set(this, info && !info.innerHTML ? Math.min(v, 10) : v);
+      },
+    });
+    try {
+      const { s, frame } = mountSolo(withoutMarketLock(loadGameData('stage3')));
+      s.buckwheat = 7;
+      key('KeyB');
+      const body = () => $('#win-right .econ-body')!;
+      const first = body();
+      first.scrollTop = 120;
+      s.buckwheat = 0;
+      frame();
+      expect(body()).not.toBe(first);
+      expect(body().scrollTop).toBe(120);
+    } finally {
+      delete (HTMLElement.prototype as { scrollTop?: number }).scrollTop;
+    }
+  });
+
   test('B replaces another right window', () => {
     mountSolo(withoutMarketLock(loadGameData('stage3')));
     key('KeyE');
