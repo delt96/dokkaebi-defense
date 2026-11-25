@@ -182,9 +182,11 @@ describe('six-seat grade 6 measurement', () => {
     expect(d3.balance.limit).not.toBe(1e9);
   });
 
-  test('econMatchRun is deterministic and counts only normal grade 6', () => {
+  test('econMatchRun is deterministic and counts only normal grade 6', async () => {
     const c = { ...STANDARD_CONFIGS.find(x => x.name === 'target-full')!, noDefeat: true };
     const a = econMatchRun(d3, 1, c);
+    // vitest's worker RPC times out after a fixed 60 s; both runs in one synchronous block can pass that under load
+    await new Promise(resolve => setTimeout(resolve, 0));
     const b = econMatchRun(d3, 1, c);
     expect(a).toEqual(b);
     expect(a.rows.length).toBe(6);
