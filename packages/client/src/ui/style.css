@@ -69,7 +69,8 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .hud .enemies { margin-left: auto; }
 .gauge { display: inline-block; width: 60px; height: 6px; background: #2a2232; border: 1px solid #4a3e5a; }
 .gauge i { display: block; height: 100%; background: linear-gradient(90deg, #8a6a4a, var(--danger)); }
-.hud .gauge-text { margin-left: -8px; color: #bfbbca; white-space: nowrap; }
+/* pulls the label toward its gauge: half of the .hud gap (8px, set further down) stays between them */
+.hud .gauge-text { margin-left: -4px; color: #bfbbca; white-space: nowrap; }
 .hud .gauge-text.bad { color: #ff9482; }
 #alert { position: absolute; inset: 0; pointer-events: none; }
 #alert.on { box-shadow: inset 0 0 24px 4px rgba(255, 59, 47, 0.6); }
@@ -166,6 +167,7 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 #bottom .hint { color: var(--ink-dim); }
 
 #modal .result { left: 160px; top: 30px; width: 320px; }
+#modal:has(> .modal.result) { background: #08061099; }
 #modal .result p { margin: 3px 0; }
 .graph { display: block; background: #120e1a; border: 1px solid var(--panel-edge); margin: 4px 0; }
 
@@ -499,6 +501,8 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .target-level .target-level .target-material b { font-weight: normal; }
 .target-board, .target-owned, .legend-board { color: #9fe0a8; }
 .target-storage, .legend-storage { color: #9bd3ff; }
+.target-ready { display: block; padding-left: 10px; color: var(--accent); font-size: 8px; line-height: 10px; word-break: keep-all; }
+.target-scroll > .target-ready { padding-left: 0; }
 .target-missing, .legend-missing { color: #ff8a73; }
 /* a missing material's name keeps its grade color; owned ones dim, since they are covered */
 .target-board > b, .target-storage > b { opacity: 0.7; }
@@ -510,11 +514,15 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .storage-head { display: flex; justify-content: space-between; height: 11px; line-height: 11px; padding: 0 1px; color: var(--ink-dim); }
 .storage-head span { color: var(--accent); font-variant-numeric: tabular-nums; }
 #storage .storage-all { flex: none; min-height: 0; height: 22px; padding: 0 2px; font-size: 8px; line-height: 9px; white-space: normal; word-break: keep-all; }
-.stacks { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 39px; gap: 2px 2px; padding-top: 2px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #6a5a7a transparent; }
+/* no scrollbar-width here: in Chromium it switches off the 3px ::-webkit-scrollbar above for a 10px bar, which squeezes
+   three columns to 16px under 18px icons and scrolls the column sideways */
+.stacks { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 39px; gap: 2px 2px; padding-top: 2px; overflow-y: auto; }
 .stacks.dense { grid-template-columns: repeat(3, 1fr); grid-auto-rows: 33px; gap: 1px; }
 /* the sell strip sits under the grab area, never on it */
 .stack { position: relative; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 12px; gap: 1px; }
 #storage .stack-take { width: 100%; min-height: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: #1d1626; border: 1px solid var(--g); border-radius: 2px; cursor: grab; touch-action: none; }
+/* inset, not an outline: an outline would stick out of the column and bring back its sideways scroll */
+#storage .stack.inspected .stack-take { background: #3a2e4a; box-shadow: inset 0 0 0 1px var(--accent); }
 .stack-icon { display: flex; pointer-events: none; }
 .stack-icon img, .stack-ghost img { width: 24px; height: 24px; image-rendering: pixelated; }
 .dense .stack-icon img { width: 18px; height: 18px; }
@@ -531,6 +539,9 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .dex-summary { display: flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--ink-dim); font-size: 11px; }
 .dex-summary button { min-height: 16px; padding: 0 5px; font-size: 10px; color: var(--accent); border-color: var(--accent); }
 .dex .dex-name { white-space: nowrap; }
+/* a short list lets the table shrink this column to the floated face: the name then runs into the recipe column and
+   the role tags drop under the face wider than the cell. The widest role tag beside the face fits in this width. */
+.dex td:nth-child(2) { min-width: 84px; }
 .dex-roles { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; white-space: normal; }
 .role-tag { padding: 0 3px; border: 1px solid #55485f; border-radius: 3px; font-size: 9px; line-height: 13px; color: var(--ink-dim); white-space: nowrap; }
 .role-physVuln { color: #ffb08a; border-color: #8a5a42; }
@@ -540,9 +551,7 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .role-area { color: #ffa0c8; border-color: #8a4a68; }
 .role-aura { color: #b8e8a0; border-color: #5a7a48; }
 .dex-recent { display: flex; align-items: center; gap: 3px; margin-bottom: 3px; overflow: hidden; white-space: nowrap; }
-.dex-recent[data-searching="true"] { display: none; }
-.dex-searchbox:focus-within .dex-recent { display: flex; }
-.recent-chip { display: inline-flex; min-width: 0; flex: 0 1 auto; border: 1px solid #55485f; border-radius: 3px; background: #241c2e; }
+.recent-chip { display: inline-flex; min-width: 0; flex: none; border: 1px solid #55485f; border-radius: 3px; background: #241c2e; }
 .recent-chip button { min-height: 16px; border: 0; background: none; padding: 0 3px; font-size: 10px; }
 .recent-chip .recent-run { min-width: 0; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recent-chip .recent-del { flex: none; color: var(--ink-dim); padding: 0 4px 0 1px; }
@@ -572,7 +581,8 @@ body.online #modal .dex-browser .modal-head { position: static; padding: 0; }
 .dex-side .dex-filters button { flex: 1 0 20%; }
 .dex-side .dex-chips button { flex: 1 0 auto; }
 .dex-side .dex-searchbox, .dex-side .dex-adv, .dex-side .dex-advbar { padding: 0; margin: 0; }
-.dex-side .dex-recent { margin: 3px 0 0; flex-wrap: wrap; white-space: normal; }
+/* one fixed line: more chips scroll sideways instead of adding a line that pushes the filters down */
+.dex-side .dex-recent { margin: 3px 0 0; height: 21px; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; }
 .dex-side .dex-adv { gap: 3px; }
 .dex-side .dex-skillsearch, .dex-side .dex-search { width: 100%; }
 .dex-side .dex-advbar { flex-wrap: wrap; row-gap: 1px; }
@@ -612,7 +622,7 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 /* R 지게 바꾸기 */
 .jige-held { color: var(--accent); align-self: center; white-space: nowrap; }
 .jige-note { flex-basis: 100%; color: var(--ink-dim); font-size: 8px; line-height: 1.2; word-break: keep-all; }
-#storage .stack-swap { position: absolute; top: -2px; right: -2px; width: 11px; height: 11px; min-height: 0; padding: 0; border-radius: 50%; font-size: 6px; line-height: 9px; text-align: center; color: #10233a; background: #7fb2e5; border: 1px solid #2a5a8a; opacity: 0.85; }
+#storage .stack-swap { position: absolute; top: 0; right: 0; width: 11px; height: 11px; min-height: 0; padding: 0; border-radius: 50%; font-size: 6px; line-height: 9px; text-align: center; color: #10233a; background: #7fb2e5; border: 1px solid #2a5a8a; opacity: 0.85; }
 #storage .stack-swap:hover:not([disabled]) { opacity: 1; border-color: #e0f0ff; }
 #storage .stack-swap[disabled] { opacity: 0.35; }
 .jige-modal { display: flex; flex-direction: column; max-height: 100%; }
@@ -620,7 +630,9 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 .jige-filters { display: flex; gap: 2px; padding: 2px 4px; align-items: center; }
 .jige-filters button.on { border-color: var(--accent); color: var(--accent); }
 .jige-search input { width: 90px; }
-.jige-rows { flex: 1; overflow-y: auto; overflow-x: hidden; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 2px 4px; }
+/* max-content rows: with auto rows an overflowing list squeezes every row to the button's 22px min-height (the
+   overflow:hidden buttons have no content minimum), cutting off the skill line */
+.jige-rows { flex: 1; overflow-y: auto; overflow-x: hidden; display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-rows: max-content; gap: 2px; padding: 2px 4px; }
 .jige-rows button { text-align: left; min-height: 22px; padding: 1px 3px; min-width: 0; overflow: hidden; }
 .jige-rows button span { display: block; color: var(--ink-dim); font-size: 9px; line-height: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jige-empty { color: var(--ink-dim); padding: 4px; }

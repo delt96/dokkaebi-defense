@@ -76,6 +76,15 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     panel.className = 'lobby-audio';
     panel.innerHTML = `<summary>${TEXT.soundSettings}</summary>${audioSettingsHtml()}`;
     wireAudioSettings(panel);
+    // it covers the first seats, so it closes like a popup: a press anywhere else or Esc
+    document.addEventListener('pointerdown', ev => {
+      if (panel.open && panel.isConnected && !panel.contains(ev.target as Node)) panel.open = false;
+    });
+    document.addEventListener('keydown', ev => {
+      if (ev.key !== 'Escape' || !panel.open || !panel.isConnected) return;
+      panel.open = false;
+      panel.querySelector<HTMLElement>('summary')?.focus();
+    });
     return (lobbyAudio = panel);
   };
 

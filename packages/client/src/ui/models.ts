@@ -620,7 +620,8 @@ function markMaterials(top: RecipeNode[], reserve: (node: RecipeNode) => boolean
 }
 
 type MaterialLocation = 'board' | 'storage' | 'missing';
-export interface TargetNode { id: string; name: string; grade: number; location: MaterialLocation; children: TargetNode[] }
+/** `ready`: not owned, but every material it still needs is on the board or in storage, so it can be combined now. */
+export interface TargetNode { id: string; name: string; grade: number; location: MaterialLocation; ready: boolean; children: TargetNode[] }
 
 export function pinnedTarget(
   data: GameData, id: string, board: readonly ({ defId: string } | null)[], storage: readonly { defId: string }[] = [],
@@ -635,10 +636,12 @@ export function pinnedTarget(
     locations.set(node, location);
     return location !== 'missing';
   });
-  const display = (node: RecipeNode): TargetNode => ({
-    id: node.id, name: node.name, grade: node.grade, location: locations.get(node) ?? 'missing',
-    children: node.children.filter(child => child.mark !== 'covered').map(display),
-  });
+  const display = (node: RecipeNode): TargetNode => {
+    const location = locations.get(node) ?? 'missing';
+    const children = node.children.filter(child => child.mark !== 'covered').map(display);
+    const ready = location === 'missing' && children.length > 0 && children.every(child => child.location !== 'missing');
+    return { id: node.id, name: node.name, grade: node.grade, location, ready, children };
+  };
   return display(tree);
 }
 
@@ -661,8 +664,8 @@ export function storageStacks(state: GameState): StorageStack[] {
   }).sort((a, b) => a.grade - b.grade || (order.get(a.defId) ?? 0) - (order.get(b.defId) ?? 0));
 }
 
-/** Where a material link came from, to go back to it with the list as it was. */
-export interface DexStep { id: string; filter: string; query: string }
+/** Where a material link came from, to go back to it with the list as it was (every criterion a link may clear). */
+export interface DexStep { id: string; filter: string; query: string; kind?: string; role?: string; skill?: string; mine?: string[] }
 
 /**
  * The dex's browsing state: grade/hidden filter, search, the units followed through material links (newest last),
@@ -727,7 +730,7 @@ export function dexShows(
 export function dexGo(data: GameData, nav: DexNav, target: string, from: string, state?: GameState): DexNav {
   const entry = dexEntries(data).find(e => e.id === target);
   if (!entry) return nav;
-  const back = [...nav.back, { id: from, filter: nav.filter, query: nav.query }].slice(-DEX_BACK_MAX);
+  const back = [...nav.back, { id: from, filter: nav.filter, query: nav.query, kind: nav.kind, role: nav.role, skill: nav.skill, mine: nav.mine }].slice(-DEX_BACK_MAX);
   const tries: [string, string][] = [[nav.filter, nav.query], [nav.filter, ''], ['all', nav.query], ['all', '']];
   // 계열/역할 stay when they show the target; otherwise they are cleared before the grade and search are given up
   const found = tries.find(([f, q]) => dexShows(data, entry, f, q, { ...nav, state }));
@@ -736,11 +739,14 @@ export function dexGo(data: GameData, nav: DexNav, target: string, from: string,
   return { ...nav, filter, query, kind: 'all', role: 'all', skill: '', mine: [], back, focus: target };
 }
 
-/** Goes back to the entry the last material link was followed from, with its filter and search. */
+/** Goes back to the entry the last material link was followed from, with its filter, search and the other criteria. */
 export function dexBack(nav: DexNav): DexNav {
   const step = nav.back[nav.back.length - 1];
   if (!step) return nav;
-  return { ...nav, filter: step.filter, query: step.query, back: nav.back.slice(0, -1), focus: step.id };
+  return {
+    ...nav, filter: step.filter, query: step.query, kind: step.kind ?? nav.kind, role: step.role ?? nav.role, skill: step.skill ?? nav.skill,
+    mine: step.mine ?? nav.mine, back: nav.back.slice(0, -1), focus: step.id,
+  };
 }
 
 /** The key of a tree branch for `DexNav.unfold`. */

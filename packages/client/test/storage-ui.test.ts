@@ -168,6 +168,22 @@ describe('storage on the page', () => {
     expect(s.coins).toBe(coins + d1.balance.sellPrice[0]!);
   });
 
+  test('the stack whose info is open is marked in the column until the info closes', () => {
+    const { driver, s } = mount();
+    placeUnitForTest(s, 'ki', 0);
+    placeUnitForTest(s, 'sotlid', 1);
+    box().querySelector<HTMLElement>('[data-action="storeAll"]')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    driver.update(50);
+    keydown(window, { code: 'Escape' });
+    expect(box().querySelector('.stack.inspected')).toBeNull();
+    box().querySelector<HTMLElement>('[data-stack="sotlid"]')!.click();
+    expect(box().querySelectorAll('.stack.inspected')).toHaveLength(1);
+    expect(box().querySelector('.stack.inspected [data-stack="sotlid"]')!.getAttribute('aria-current')).toBe('true');
+    expect(box().querySelector('[data-stack="ki"]')!.hasAttribute('aria-current')).toBe(false);
+    document.querySelector<HTMLElement>('.storage-info [data-action="closeStorageInfo"]')!.click();
+    expect(box().querySelector('.stack.inspected')).toBeNull();
+  });
+
   test('the small sell button on a stack sells only on a second press within two seconds', () => {
     let clock = 1000;
     vi.spyOn(performance, 'now').mockImplementation(() => clock);

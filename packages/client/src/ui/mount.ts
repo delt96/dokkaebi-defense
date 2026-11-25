@@ -616,7 +616,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), infoHtml);
     } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected));
-    setHtml(el('storage'), storageVisible() ? storageHtml(s, held, defId => confirm.armed(`sellStored:${defId}`, now)) : '');
+    setHtml(el('storage'), storageVisible() ? storageHtml(s, held, defId => confirm.armed(`sellStored:${defId}`, now), info ? info.defId : null) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';

@@ -211,6 +211,29 @@ describe('online app: music in the ready room', () => {
   });
 });
 
+describe('online app: the sound panel in the ready room closes like a popup', () => {
+  test('a press outside or Esc closes it; a press inside keeps it open', async () => {
+    saveSession('r1', { key: 'k0', name: '하나' });
+    const room = new FakeRoom('r1');
+    join.mockResolvedValueOnce(room);
+    startOnline({ roomId: 'r1' });
+    await vi.advanceTimersByTimeAsync(0);
+    room.emit('lobby', { roomId: 'r1', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: false }] });
+    const panel = screen().querySelector<HTMLDetailsElement>('.lobby .lobby-audio')!;
+    const down = (target: Element) => target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    panel.open = true;
+    down(panel.querySelector('#audio-music')!);
+    expect(panel.open).toBe(true);
+    down(screen().querySelector('.lobby')!);
+    expect(panel.open).toBe(false);
+    panel.open = true;
+    panel.querySelector<HTMLElement>('#audio-music')!.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(panel.open).toBe(false);
+    expect(document.activeElement).toBe(panel.querySelector('summary'));
+  });
+});
+
 describe('online app: the room link in the ready room', () => {
   async function inLobby(): Promise<FakeRoom> {
     saveSession('r1', { key: 'k0', name: '하나' });

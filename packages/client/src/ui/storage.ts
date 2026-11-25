@@ -47,11 +47,12 @@ export function storageInfoHtml(state: GameState, info: NonNullable<ReturnType<t
 /** The storage column: a 모두 보관 button and one stack per kind (sprite, grade colour, ×N, a sell strip under it). */
 /** `jige` is the 지게 held on a 60-round lane (each stack then gets its swap button), undefined elsewhere. */
 /** `sellArmed` says which stack's sell strip has had its first press and waits for the second. */
-export function storageHtml(state: GameState, jige?: number, sellArmed: (defId: string) => boolean = () => false): string {
+/** `inspected` is the stack whose info is open; it stays marked in the column while that info shows. */
+export function storageHtml(state: GameState, jige?: number, sellArmed: (defId: string) => boolean = () => false, inspected: string | null = null): string {
   const stacks = storageStacks(state);
   const total = stacks.reduce((n, s) => n + s.count, 0);
-  const list = stacks.map(s => `<div class="stack" style="--g:${GRADE_COLOR[s.grade]}">
-      <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(s.name)} ×${s.count} · 눌러서 정보, 끌어서 꺼내기"><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span></button>
+  const list = stacks.map(s => `<div class="stack${s.defId === inspected ? ' inspected' : ''}" style="--g:${GRADE_COLOR[s.grade]}">
+      <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(s.name)} ×${s.count} · 눌러서 정보, 끌어서 꺼내기"${s.defId === inspected ? ' aria-current="true"' : ''}><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span></button>
       ${stackSellHtml(s.defId, s.name, s.sellPrice, sellArmed(s.defId))}${jige === undefined ? '' : `
       <button class="stack-swap" data-action="jigeOpen" data-arg="storage:${esc(s.defId)}" title="${esc(s.name)} 지게 바꾸기 · 보유 지게 ${jige}개" aria-label="${esc(s.name)} 지게 바꾸기"${jige < 1 ? ' disabled' : ''}>R</button>`}
     </div>`).join('');

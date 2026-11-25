@@ -12,9 +12,10 @@ export function materialChipHtml(m: ChipMaterial, link?: string): string {
   const state = m.have === undefined ? '' : m.have ? 'have' : 'lack';
   const cls = `mat-chip${state ? ` ${state}` : ''}${link ? ' dex-link' : ''}`;
   const inner = `<span class="mat-face" style="--g:${GRADE_COLOR[m.grade]}">${iconHtml(m.id, m.name, m.grade)}${state ? MARK[state] : ''}</span><small>${esc(m.name)}</small>`;
+  const title = `${esc(m.name)}${state === 'lack' ? ' 없음' : ''}`;
   return link
-    ? `<button class="${cls}" data-action="dexGo" data-arg="${esc(link)}" title="${esc(m.name)}">${inner}</button>`
-    : `<span class="${cls}" title="${esc(m.name)}${state === 'lack' ? ' 없음' : ''}">${inner}</span>`;
+    ? `<button class="${cls}" data-action="dexGo" data-arg="${esc(link)}" title="${title}">${inner}</button>`
+    : `<span class="${cls}" title="${title}">${inner}</span>`;
 }
 
 /** The materials of one recipe in a row; `tail` is the grade 5-6 cost, written after the chips. */

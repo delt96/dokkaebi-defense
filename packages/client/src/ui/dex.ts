@@ -1,6 +1,7 @@
 import type { GameData, GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
-import { ATTACK_RANGE_HINT, MINE_KEYS, MINE_LABEL, attackRangeText, branchKey, dexEntries, dexShows, recipeTree, roleList, summonOddsText, treeSize, type DexStep, type RecipeNode } from './models';
+import { missingMaterials } from '@dorandi/logic';
+import { ATTACK_RANGE_HINT, MINE_KEYS, MINE_LABEL, attackRangeText, branchKey, dexEntries, dexShows, materialsOf, recipeTree, roleList, summonOddsText, treeSize, type DexStep, type RecipeNode } from './models';
 import { esc } from './dom';
 import { ROLE_LABEL, ROLE_LEGEND, ROLE_ORDER, roleText } from './dex-roles';
 import { withRo } from './josa';
@@ -31,7 +32,9 @@ export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, e
   const open = new Set(extra.open ?? []);
   const rows = visible.map(d => {
     const makes = d.makesIds.length ? `<div class="dex-makes">이 유닛으로 만드는 조합: ${d.makesIds.map(id => link(id, nameOf.get(id) ?? id, d.id)).join(', ')}</div>` : '';
-    const chips = d.recipeIds.map(id => materialChipHtml({ id, name: nameOf.get(id) ?? id, grade: gradeOf.get(id) ?? 1 }, `${id}@${d.id}`)).join('');
+    // with a game, each chip says whether the board and storage cover it, as on the combine row
+    const owned = extra.state && d.recipeIds.length ? materialsOf(extra.state, d.id, missingMaterials(extra.state, d.id)) : null;
+    const chips = d.recipeIds.map((id, i) => materialChipHtml({ id, name: nameOf.get(id) ?? id, grade: gradeOf.get(id) ?? 1, ...(owned?.[i] ? { have: owned[i]!.have } : {}) }, `${id}@${d.id}`)).join('');
     const recipe = d.recipeIds.length ? `<span class="mat-chips dex-mats">${chips}</span>` : d.hidden ? `길들이기로 획득${makes}` : '소환';
     const notes = d.notes.length ? `<ul class="card-notes">${d.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : '';
     // only the first skill line shows; the rest and the notes open under 더보기
@@ -73,15 +76,18 @@ export function dexHtml(data: GameData, filter = 'all', query = '', round = 1, e
   const odds = summonOddsText(data, round);
   // two columns: the filters on the left, the list (with its count and 필터 초기화) on the right, each scrolling on its own
   return `<div class="modal dex-modal dex-browser${adv ? ' dex-advanced' : ''}"><div class="modal-head"><span class="dex-title">도감</span><span class="dex-odds" title="${esc(odds)}">${esc(odds)}</span><span class="dex-head-actions">${back}<button data-action="closeModal">닫기</button></span></div>
-    <div class="dex-body"><div class="dex-side">${searchForm ? `<div class="dex-searchbox">${searchForm}${recentHtml(extra.recent ?? [], query)}</div>` : ''}${browsable ? `<div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div>` : ''}<div class="dex-chips" role="group" aria-label="도감 계열"><span class="dex-filter-label">계열</span>${kindRow}</div><div class="dex-chips dex-roles-row" role="group" aria-label="도감 역할"><span class="dex-filter-label">역할</span>${roleRow}</div>${advBar}${advPanel}</div>
+    <div class="dex-body"><div class="dex-side">${searchForm ? `<div class="dex-searchbox">${searchForm}${recentHtml(extra.recent ?? [])}</div>` : ''}${browsable ? `<div class="dex-filters" role="group" aria-label="도감 분류">${filters}</div>` : ''}<div class="dex-chips" role="group" aria-label="도감 계열"><span class="dex-filter-label">계열</span>${kindRow}</div><div class="dex-chips dex-roles-row" role="group" aria-label="도감 역할"><span class="dex-filter-label">역할</span>${roleRow}</div>${advBar}${advPanel}</div>
     <div class="dex-main">${summary}<div class="dex-scroll"><table class="dex"><thead><tr><th>등급</th><th>이름</th><th>재료</th></tr></thead><tbody>${rows || '<tr><td colspan="3">찾는 유닛이 없습니다.</td></tr>'}</tbody></table></div></div></div></div>`;
 }
 
-/** The recent searches under the search box: a chip runs its search, its × removes it. Hidden by CSS while a search shows and the box is not focused. */
-function recentHtml(recent: readonly string[], query: string): string {
-  if (!recent.length) return '';
+/**
+ * The recent searches under the search box: a chip runs its search, its × removes it. The row is always there and one
+ * line high, even before the first search, so the filter buttons under it never move while the box gains or loses focus.
+ */
+function recentHtml(recent: readonly string[]): string {
+  if (!recent.length) return '<div class="dex-recent" aria-hidden="true"></div>';
   const chips = recent.map(t => `<span class="recent-chip"><button class="recent-run" data-action="dexRecent" data-arg="${esc(t)}" title="${esc(t)}">${esc(t)}</button><button class="recent-del" data-action="dexRecentDel" data-arg="${esc(t)}" aria-label="${esc(t)} 삭제" title="삭제">×</button></span>`).join('');
-  return `<div class="dex-recent" data-searching="${query !== ''}"><span class="dex-filter-label">최근</span>${chips}</div>`;
+  return `<div class="dex-recent"><span class="dex-filter-label">최근</span>${chips}</div>`;
 }
 
 /** A material name that jumps to its own entry; `from` is the entry it is shown in, for the back button. */
