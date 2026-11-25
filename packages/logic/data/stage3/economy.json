@@ -49,11 +49,11 @@
     ],
     "failureHealPct": 0.25, "cooldownSeconds": 5,
     "targets": [
-      { "enemy": "jinegaksi", "unit": "jinegaksi", "cost": { "coins": 30 }, "evolvedMult": 1.5 },
-      { "enemy": "ev_soebap", "unit": "bulgasari", "cost": { "buckwheat": 2, "coins": 65 }, "needs": { "vulnSource": "moru", "stacks": 5 }, "evolvedMult": 1.5 },
-      { "enemy": "gangcheori", "unit": "gangcheori", "cost": { "buckwheat": 2, "coins": 75 }, "needs": "slowed", "evolvedMult": 1.5 },
-      { "enemy": "ev_ssireum", "unit": "ssireumdokkaebi", "cost": { "buckwheat": 2, "coins": 90 }, "evolvedMult": 1.5 },
-      { "enemy": "ev_shadow", "unit": "eoduksini", "cost": { "buckwheat": 2, "coins": 105 }, "evolvedMult": 1.5 }
+      { "enemy": "jinegaksi", "unit": "jinegaksi", "cost": { "coins": 30 }, "evolvedMult": 5.23 },
+      { "enemy": "ev_soebap", "unit": "bulgasari", "cost": { "buckwheat": 2, "coins": 65 }, "needs": { "vulnSource": "moru", "stacks": 5 }, "evolvedMult": 7.5 },
+      { "enemy": "gangcheori", "unit": "gangcheori", "cost": { "buckwheat": 2, "coins": 75 }, "needs": "slowed", "evolvedMult": 5.14 },
+      { "enemy": "ev_ssireum", "unit": "ssireumdokkaebi", "cost": { "buckwheat": 2, "coins": 90 }, "evolvedMult": 6.75 },
+      { "enemy": "ev_shadow", "unit": "eoduksini", "cost": { "buckwheat": 2, "coins": 105 }, "evolvedMult": 5.46 }
     ]
   },
   "shop": {

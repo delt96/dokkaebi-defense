@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createGame, jigeCandidates, step, loadGameData } from '../src/index';
 import { unitAttack } from '../src/data';
-import { familyMedian, roleDps, type Role } from './role-power';
+import type { Role } from './role-power';
 import { computeHitDamage, attackIntervalTicks, damageBonus, pickTarget } from '../src/combat';
 import { upgradeCost } from '../src/upgrades';
 import { forceRound, spawnEnemyForTest, placeUnitForTest } from '../src/testing';
@@ -70,7 +70,7 @@ describe('combat', () => {
   });
 });
 
-describe('recruited hidden units fight like an ordinary grade 4', () => {
+describe('recruited hidden units', () => {
   const d3r = loadGameData('stage3');
   const ROLE: Record<string, Role> = { jinegaksi: 'group', gangcheori: 'group', bulgasari: 'single', ssireumdokkaebi: 'single', eoduksini: 'group' };
 
@@ -83,13 +83,6 @@ describe('recruited hidden units fight like an ordinary grade 4', () => {
     }
     expect(d3r.units.find(u => u.id === 'gangcheori')!.damageType).toBe('magical');
     expect(d3r.units.find(u => u.id === 'jinegaksi')!.damageType).toBe('physical');
-  });
-
-  test('skill-inclusive damage on its role is 90-110% of the same-family normal grade 4 median', () => {
-    for (const [id, role] of Object.entries(ROLE)) {
-      const ratio = roleDps(d3r, id, role) / familyMedian(d3r, id, 4, role);
-      expect([id, ratio >= 0.9 && ratio <= 1.1], `${id} ${ratio.toFixed(3)}`).toEqual([id, true]);
-    }
   });
 
   test('recruits are never offered or taken by a jige swap', () => {

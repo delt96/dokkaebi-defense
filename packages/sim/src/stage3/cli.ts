@@ -9,6 +9,7 @@ import { bossCsvRows, firepowerCsvRows, firepowerMarkdown, firepowerRun, type Bo
 import { grade6Markdown, grade6Run, type Grade6Row } from './grade6';
 import { combineGainMarkdown, controlMarkdown, toCsvRows } from './report';
 import { targetBot } from './targetBot';
+import { unitPowerMarkdown, unitPowerRows } from './unitPower';
 import {
   ECON_BOTS, econMarkdown, econMatchRun, parseEconCsv, parseYeoksinCsv, STANDARD_CONFIGS,
   type EconBotKind, type EconConfig, type EconRow,
@@ -106,6 +107,12 @@ export function stage3Cli(arg: Arg): void {
     writeFileSync(file.replace(/\.csv$/, '-boss.csv'), toCsvRows(bossCsvRows(bosses)));
     console.log(`## board firepower, median of live seats (seeds ${seeds}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
     console.log(firepowerMarkdown(rows, data, bosses) + '\n');
+  }
+  if (check === 'unitpower') {
+    const rows = unitPowerRows(data);
+    writeFileSync(join(out, 'unitpower.csv'), toCsvRows(rows));
+    console.log(`## one unit alone, 30 s against the round's normal enemies (${elapsed()}, ${join(out, 'unitpower.csv')})\n`);
+    console.log(unitPowerMarkdown(rows) + '\n');
   }
   if (check === 'r10probe') {
     const seeds = Number(arg('seeds', '20'));
