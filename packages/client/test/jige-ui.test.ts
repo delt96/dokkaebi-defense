@@ -24,10 +24,10 @@ const modal = () => document.getElementById('modal')!;
 const rows = () => Array.from(modal().querySelectorAll<HTMLButtonElement>('[data-action="jigeSwap"]'));
 
 describe('swapRows', () => {
-  test('lists every same-grade normal and filters by name and damage type', () => {
+  test('lists every other same-grade normal and filters by name and damage type', () => {
     for (const grade of [1, 2, 3, 4]) {
       const id = normalsOf(grade)[0]!;
-      expect(swapRows(d3, id, '', null).map(u => u.id).sort()).toEqual(normalsOf(grade));
+      expect(swapRows(d3, id, '', null).map(u => u.id).sort()).toEqual(normalsOf(grade).filter(x => x !== id));
     }
     const pick = d3.units.find(u => !u.hidden && u.grade === 3)!;
     const part = pick.name.slice(0, 1);
@@ -62,7 +62,7 @@ describe('R jige swap in solo', () => {
 
   const board = (defId: string, slot: number) => placeUnitForTest(driver.state, defId, slot);
 
-  test('R lists every normal peer and filters without spending; two picks spend two jige', () => {
+  test('R lists every other normal peer and filters without spending; two picks spend two jige', () => {
     const s = driver.state;
     s.econ!.jige = 2;
     const g4 = normalsOf(4)[0]!;
@@ -73,7 +73,7 @@ describe('R jige swap in solo', () => {
     expect(bottom).toContain('보유 지게 2개');
     expect(bottom).toContain('R 지게 바꾸기');
     keydown(window, { code: 'KeyR' });
-    expect(rows().map(b => b.dataset.arg).sort()).toEqual(normalsOf(4));
+    expect(rows().map(b => b.dataset.arg).sort()).toEqual(normalsOf(4).filter(x => x !== g4));
     for (const row of rows()) {
       const def = d3.units.find(u => u.id === row.dataset.arg)!;
       expect(row.textContent).toContain(def.name);
