@@ -1,8 +1,9 @@
 import {
-  jigeCandidates, toTicks, type ClientView, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
+  availableRecipes, jigeCandidates, toTicks, unitDefFast, type ClientView, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
 } from '@dorandi/logic';
 import { esc } from './dom';
-import { cellText, unitSkillText } from './models';
+import { cellText, pinnedTarget, unitSkillText, type TargetNode } from './models';
+import { unitFaceHtml } from './storage';
 import { withJosa } from './josa';
 import { gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
 
@@ -32,28 +33,82 @@ export function marketModel(econ: EconMine, state: GameState): MarketModel | nul
 
 // ---------- jige swap (R) ----------
 
-/** Same-grade normal units a 지게 can turn `defId` into, narrowed by a name part and a damage type. */
-export function swapRows(data: GameData, defId: string, name: string, type: DamageType | null): UnitDef[] {
+/** 'target': the candidate is a missing node of the target tree. 'combine': swapping makes recipes ready that are not now. */
+export interface JigeReason { tag: 'target' | 'combine'; results: string[] }
+
+const missingNodes = (node: TargetNode | null, into = new Set<string>()): Set<string> => {
+  if (!node) return into;
+  if (node.location === 'missing') into.add(node.id);
+  for (const child of node.children) missingNodes(child, into);
+  return into;
+};
+
+/** Why each candidate for `source` is worth taking; candidates with no reason are left out. Results: highest grade first, then table order. */
+export function jigeReasons(state: GameState, source: JigeSource, target: string | null): Record<string, JigeReason> {
+  const zone = source.zone === 'board' ? state.slots : state.storage ?? [];
+  const unit = zone[source.index];
+  if (!unit) return {};
+  const missing = missingNodes(target ? pinnedTarget(state.data, target, state.slots, state.storage ?? [], state) : null);
+  const now = new Set(availableRecipes(state));
+  const grade = (id: string) => unitDefFast(state.data, id).grade;
+  const reasons: Record<string, JigeReason> = {};
+  for (const u of jigeCandidates(state.data, unit.defId)) {
+    const swapped = zone.slice();
+    swapped[source.index] = { ...unit, defId: u.id };
+    const what: GameState = source.zone === 'board'
+      ? { ...state, slots: swapped as GameState['slots'] }
+      : { ...state, storage: swapped as NonNullable<GameState['storage']> };
+    const results = availableRecipes(what).filter(r => !now.has(r)).sort((a, b) => grade(b) - grade(a));
+    if (missing.has(u.id)) reasons[u.id] = { tag: 'target', results };
+    else if (results.length) reasons[u.id] = { tag: 'combine', results };
+  }
+  return reasons;
+}
+
+/**
+ * Same-grade normal units a 지게 can turn `defId` into: target materials, then new combines (best result first),
+ * then the rest, each in table order; then narrowed by a name part and a damage type.
+ */
+export function swapRows(data: GameData, defId: string, name: string, type: DamageType | null, reasons: Record<string, JigeReason> = {}): UnitDef[] {
   const q = name.trim();
-  return jigeCandidates(data, defId).filter(u => (!q || u.name.includes(q)) && (!type || u.damageType === type));
+  const rank = (u: UnitDef) => {
+    const r = reasons[u.id];
+    if (!r) return 0;
+    return r.tag === 'target' ? 100 : 1 + (r.results[0] ? unitDefFast(data, r.results[0]).grade : 0);
+  };
+  return jigeCandidates(data, defId)
+    .map(u => ({ u, rank: rank(u) }))
+    .sort((a, b) => b.rank - a.rank)
+    .map(({ u }) => u)
+    .filter(u => (!q || u.name.includes(q)) && (!type || u.damageType === type));
 }
 
 /**
  * An open R list: the exact unit it was opened on (zone, index and id), the lane snapshot it belongs to, and the
- * filters. A pick is sent only while all of these still hold.
+ * filters. A pick is sent only while all of these still hold. `reasons` is counted once when the list opens.
  */
 export interface JigeList {
   source: JigeSource; defId: string; cost: number | null;
   seat: number | undefined; epoch: number | undefined;
   name: string; type: DamageType | null;
+  reasons: Record<string, JigeReason>;
+}
+
+function jigeTagHtml(data: GameData, reason: JigeReason | undefined): string | null {
+  if (reason?.tag === 'target') return '<i class="jige-tag target">목표 재료</i>';
+  if (reason?.tag !== 'combine') return null;
+  const names = reason.results.map(id => nameOf(data, id));
+  const more = names.length > 1 ? ` 외 ${names.length - 1}` : '';
+  const title = names.length > 1 ? ` title="${esc(names.join(' · '))}"` : '';
+  return `<i class="jige-tag"${title}>조합 → ${esc(names[0]!)}${more}</i>`;
 }
 
 export function jigeRowsHtml(data: GameData, list: JigeList): string {
-  const rows = swapRows(data, list.defId, list.name, list.type);
+  const rows = swapRows(data, list.defId, list.name, list.type, list.reasons);
   if (rows.length === 0) return '<p class="jige-empty">맞는 유닛이 없습니다</p>';
   return rows.map(u => {
-    const skill = unitSkillText(data, u).split(' / ')[0] ?? '';
-    return `<button data-action="jigeSwap" data-arg="${esc(u.id)}"><b>${esc(u.name)}</b> · ${u.damageType === 'magical' ? '마딜' : '물딜'}${skill ? `<span>${esc(skill)}</span>` : ''}</button>`;
+    const second = jigeTagHtml(data, list.reasons[u.id]) ?? esc(unitSkillText(data, u).split(' / ')[0] ?? '');
+    return `<button class="jige-row" data-action="jigeSwap" data-arg="${esc(u.id)}"><span class="jige-l1">${unitFaceHtml(u.id, u.name, u.grade)}<b>${esc(u.name)}</b> ${u.damageType === 'magical' ? '마딜' : '물딜'}</span><span class="jige-l2">${second}</span></button>`;
   }).join('');
 }
 

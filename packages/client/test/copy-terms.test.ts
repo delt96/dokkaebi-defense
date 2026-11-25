@@ -113,7 +113,7 @@ describe('cell positions and the 원가 unit', () => {
 
   test('the 지게 window says the cell as 행·열 and the 원가 in grade-1 units', () => {
     const cols = d3.balance.grid.cols;
-    const html = jigeListHtml(d3, { source: { zone: 'board', index: cols + 4, unitId: 1 }, defId: 'sotlid', cost: 8, seat: undefined, epoch: undefined, name: '', type: null }, 1);
+    const html = jigeListHtml(d3, { source: { zone: 'board', index: cols + 4, unitId: 1 }, defId: 'sotlid', cost: 8, seat: undefined, epoch: undefined, name: '', type: null, reasons: {} }, 1);
     expect(html).toContain('진영 2행 5열');
     expect(html).toContain('원가 1등급 8기 값');
     expect(html).not.toContain('번 칸');

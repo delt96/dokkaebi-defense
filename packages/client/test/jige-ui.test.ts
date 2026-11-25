@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { applyCommand, createGame, jigeCandidates, loadGameData, type Command, type GameState } from '@dorandi/logic';
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
-import { swapRows } from '../src/ui/econ';
+import { jigeReasons, jigeRowsHtml, swapRows, type JigeList } from '../src/ui/econ';
 import { mountUi } from '../src/ui/mount';
+import { unitSkillText } from '../src/ui/models';
 import { press, STAGE_HTML } from './fixtures/net';
 
 const d3 = loadGameData('stage3');
@@ -40,6 +41,67 @@ describe('swapRows', () => {
     const grade5 = d3.units.find(u => !u.hidden && u.grade === 5)!;
     expect(swapRows(d3, hidden.id, '', null)).toEqual([]);
     expect(swapRows(d3, grade5.id, '', null)).toEqual([]);
+  });
+});
+
+describe('jige reasons', () => {
+  // buchae on cell 0 next to jipsin and ki: no recipe is ready, and each candidate for buchae opens a different one
+  const reasonBoard = () => {
+    const s: GameState = createGame(d3, 1);
+    forceRound(s, 3);
+    const unit = placeUnitForTest(s, 'buchae', 0);
+    placeUnitForTest(s, 'jipsin', 1);
+    placeUnitForTest(s, 'ki', 2);
+    return { s, source: { zone: 'board' as const, index: 0, unitId: unit.id } };
+  };
+  const listOf = (s: GameState, source: JigeList['source'], target: string | null): JigeList => ({
+    source, defId: 'buchae', cost: null, seat: undefined, epoch: undefined, name: '', type: null,
+    reasons: jigeReasons(s, source, target),
+  });
+  const rowOf = (html: string, id: string) => {
+    const box = document.createElement('div');
+    box.innerHTML = html;
+    return box.querySelector<HTMLElement>(`button.jige-row[data-arg="${id}"]`)!;
+  };
+
+  test('a candidate that makes a recipe ready says which', () => {
+    const { s, source } = reasonBoard();
+    const reasons = jigeReasons(s, source, null);
+    expect(reasons.bitjaru).toEqual({ tag: 'combine', results: ['meongseok', 'sseurebatgi'] });
+    expect(reasons.jipsin).toEqual({ tag: 'combine', results: ['dunggumi'] });
+    expect(reasons.dadeumi).toEqual({ tag: 'combine', results: ['jeolgu'] });
+    expect(reasons.bujigaengi).toEqual({ tag: 'combine', results: ['hwaetbul'] });
+    for (const id of ['sotlid', 'horong', 'ki']) expect(reasons[id]).toBeUndefined();
+  });
+
+  test('a missing node of the target tree comes first', () => {
+    const { s, source } = reasonBoard();
+    expect(jigeReasons(s, source, 'meongseok').bitjaru!.tag).toBe('target');
+  });
+
+  test('rows: target, then combine by grade, then the rest', () => {
+    const { s, source } = reasonBoard();
+    const names = swapRows(d3, 'buchae', '', null, jigeReasons(s, source, 'meongseok')).map(u => u.name);
+    expect(names).toEqual(['빗자루', '짚신', '다듬이방망이', '부지깽이', '솥뚜껑', '호롱', '키']);
+  });
+
+  test('two-line row: face, name, type, then the tag', () => {
+    const { s, source } = reasonBoard();
+    const goal = rowOf(jigeRowsHtml(d3, listOf(s, source, 'meongseok')), 'bitjaru');
+    expect(goal.dataset.action).toBe('jigeSwap');
+    expect(goal.querySelector('.jige-l1 .unit-face')).not.toBeNull();
+    expect(goal.querySelector('.jige-l1')!.textContent).toBe('빗자루 물딜');
+    expect(goal.querySelector('.jige-l2 .jige-tag.target')!.textContent).toBe('목표 재료');
+    const free = jigeRowsHtml(d3, listOf(s, source, null));
+    const tag = rowOf(free, 'bitjaru').querySelector<HTMLElement>('.jige-l2 .jige-tag')!;
+    expect(tag.textContent).toBe('조합 → 멍석 외 1');
+    expect(tag.title).toBe('멍석 · 쓰레받기');
+    expect(rowOf(free, 'jipsin').querySelector('.jige-tag')!.textContent).toBe('조합 → 둥구미');
+    expect(rowOf(free, 'jipsin').querySelector('.jige-tag')!.hasAttribute('title')).toBe(false);
+    // no reason: the first skill line, dimmed
+    const plain = rowOf(free, 'horong').querySelector('.jige-l2')!;
+    expect(plain.querySelector('.jige-tag')).toBeNull();
+    expect(plain.textContent).toBe(unitSkillText(d3, d3.units.find(u => u.id === 'horong')!).split(' / ')[0]);
   });
 });
 
@@ -121,6 +183,26 @@ describe('R jige swap in solo', () => {
     keydown(window, { code: 'KeyG' });
     driver.update(50);
     expect(s.slots[9]).toBeNull();
+  });
+
+  test('R works the reasons out once: the tags stay while the name box filters', () => {
+    const s = driver.state;
+    s.econ!.jige = 1;
+    board('buchae', 0);
+    board('jipsin', 1);
+    board('ki', 2);
+    scene.select!(0);
+    keydown(window, { code: 'KeyR' });
+    expect(rows().map(b => b.dataset.arg)).toEqual(['bitjaru', 'jipsin', 'dadeumi', 'bujigaengi', 'sotlid', 'horong', 'ki']);
+    const tagOf = (id: string) => modal().querySelector(`.jige-row[data-arg="${id}"] .jige-tag`)?.textContent;
+    expect(tagOf('bitjaru')).toBe('조합 → 멍석 외 1');
+    // a board change after opening is not counted again (counting it would drop 쓰레받기)
+    s.slots[2] = null;
+    const input = modal().querySelector<HTMLInputElement>('.jige-search input')!;
+    input.value = '빗';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(rows().map(b => b.dataset.arg)).toEqual(['bitjaru']);
+    expect(tagOf('bitjaru')).toBe('조합 → 멍석 외 1');
   });
 
   test('a list whose unit moved, sold or changed never sends the stale pick', () => {

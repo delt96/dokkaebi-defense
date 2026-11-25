@@ -16,7 +16,7 @@ import { dexHtml } from './dex';
 import { addRecent, loadRecent, loadView, removeRecent, saveRecent, saveView } from './dex-memory';
 import {
   econBottomHtml, econPanelHtml, tameButtonHtml, marketModel, noteText, questChips, tameModel,
-  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, type JigeList, type MarketModel,
+  tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, jigeReasons, type JigeList, type MarketModel,
 } from './econ';
 import {
   advanceReveal, gambleHistoryHtml, gambleInfoHtml, gambleRevealHtml, heldCoins, recordGamble,
@@ -313,9 +313,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const unit = (zone === 'board' ? s.slots : s.storage ?? [])[index];
         if (!e || !unit || (zone !== 'board' && zone !== 'storage')) break;
         if (e.jige < 1) { refuse(rejectText('noJige') ?? ''); break; }
+        const source: JigeList['source'] = { zone, index, unitId: unit.id };
         jigeList = {
-          source: { zone, index, unitId: unit.id }, defId: unit.defId, cost: unit.cost ?? null,
+          source, defId: unit.defId, cost: unit.cost ?? null,
           seat: driver.laneSeat, epoch: driver.laneEpoch, name: '', type: null,
+          reasons: jigeReasons(s, source, targetId),
         };
         modal = 'jige';
         break;
