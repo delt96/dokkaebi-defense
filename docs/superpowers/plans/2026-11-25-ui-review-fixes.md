@@ -14,6 +14,7 @@
   - `docs/superpowers/specs/2026-11-25-{next-combine,window-layout,status-signals,first-visit}-design.md`
   - `docs/design/mockups/2026-11-25-{next-combine,window-layout,status-signals,first-visit}.html`
 - **B1 끝:** `e9cfba0`~`b752790`, 브라우저 확인 중 찾은 지게 줄 잘림 수정 `6bdc919`. 실패로 보는 것 셋 없음. 확인한 것·못 한 것은 `docs/superpowers/plans/2026-11-25-next-combine.md` '진행'.
+- **B2 끝:** `9f05bac`~`259f670`, 브라우저 확인 중 찾은 수정 `be2527e`(판 밖 장터 머리 줄 넘침) `d363931`(기둥 배치 칩 줄 잘림) `ed6f678`(장터 스크롤 튐) `da288b2`(길들이기 상자가 기둥 창 밑으로). 실패로 보는 것 넷 없음. 상세 창 안 공용 조각 8~9px·'목표로' 15px·장터 상품 이름 단추 13px는 범위 밖이라 남김. 확인한 것·못 한 것은 `docs/superpowers/plans/2026-11-25-window-layout.md` '진행'.
 
 ## 두 줄로 나눈다
 
