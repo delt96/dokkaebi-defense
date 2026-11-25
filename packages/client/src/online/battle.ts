@@ -8,7 +8,7 @@ import { NetDriver } from '../net/NetDriver';
 import { mountUi } from '../ui/mount';
 import { watchSupport } from './models';
 import { mountResult } from './result';
-import { noteSupportSent } from './spirit';
+import { onlineActions } from './spirit';
 import '../ui/style.css';
 
 /** The online battle screen: the 1-player stage in layout A, drawn from the server's view. */
@@ -50,11 +50,7 @@ export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: 
   mountUi(driver, scene, {}, {
     online: true, view: () => net.view, data,
     targetKey: `dorandi.target:${net.roomId}:${net.view?.me.seat}`,
-    actions: {
-      support: () => { if (net.view) { net.send({ type: 'support', target: net.view.watching }); noteSupportSent(net.view); } },
-      watch: seat => net.watch(seat),
-      forfeit: () => { net.send({ type: 'forfeit' }); },
-    },
+    actions: onlineActions(net),
   });
 
   // the team result (also carried by a rejoin snapshot) covers the stage

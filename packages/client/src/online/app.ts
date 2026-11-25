@@ -94,6 +94,9 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     if (!net || !msg) return;
     const n = net;
     screen = 'lobby';
+    // the redraw swaps in a new address field: someone copying it by hand would lose their focus and selection
+    const oldField = document.activeElement instanceof HTMLInputElement && document.activeElement.classList.contains('lobby-link') ? document.activeElement : null;
+    const selection = oldField ? [oldField.selectionStart, oldField.selectionEnd] as const : null;
     renderLobby(root, msg, {
       ready: v => n.ready(v, msg.stage, msg.difficulty),
       start: () => n.start(),
@@ -115,6 +118,11 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
         }
       },
     }, notice, handLink);
+    if (selection) {
+      const field = root.querySelector<HTMLInputElement>('.lobby-link');
+      field?.focus();
+      if (selection[0] !== null && selection[1] !== null) field?.setSelectionRange(selection[0], selection[1]);
+    }
     gameAudio.musicMode('normal');
     root.querySelector('.lobby .lobby-modes')?.append(lobbyAudioPanel());
   };

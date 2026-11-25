@@ -1,5 +1,7 @@
 import type { ClientView, GameData } from '@dorandi/logic';
 import { esc } from '../ui/dom';
+import type { OnlineActions } from '../ui/mount';
+import type { NetClient } from '../net/NetClient';
 
 /** `sentTo`: the seat this spirit supported in the current round (its token is spent until the next one). */
 export interface SpiritModel { title: string; tokens: number; canSend: boolean; reason: string | null; sentTo: number | null }
@@ -8,8 +10,17 @@ export interface SpiritModel { title: string; tokens: number; canSend: boolean; 
 export interface SentSupport { seat: number; round: number }
 let lastSent: SentSupport | null = null;
 
-export function noteSupportSent(view: ClientView): void {
+function noteSupportSent(view: ClientView): void {
   lastSent = { seat: view.watching, round: view.clock.round };
+}
+
+/** What the battle screen's spirit buttons send to the server. */
+export function onlineActions(net: NetClient): OnlineActions {
+  return {
+    support: () => { const view = net.view; if (view) { net.send({ type: 'support', target: view.watching }); noteSupportSent(view); } },
+    watch: seat => net.watch(seat),
+    forfeit: () => { net.send({ type: 'forfeit' }); },
+  };
 }
 
 /** The spirit card under the board: null for a survivor. */
@@ -30,9 +41,10 @@ export function spiritModel(view: ClientView, sent: SentSupport | null = lastSen
 export function spiritCardHtml(view: ClientView, data: GameData, sent: SentSupport | null = lastSent): string | null {
   const m = spiritModel(view, sent);
   if (!m) return null;
-  const coins = data.coop!.support.coins;
+  const { coins, max, perRound } = data.coop!.support;
+  const keep = max <= perRound ? '토큰은 쌓이지 않습니다 · 이번 라운드 안에 보내세요' : `토큰은 ${max}개까지 쌓입니다`;
   const note = m.sentTo !== null ? `${m.sentTo}번에게 ${coins}냥을 보냈습니다 · 다음 라운드에 토큰이 다시 생깁니다`
-    : m.canSend ? '토큰은 쌓이지 않습니다 · 이번 라운드 안에 보내세요' : m.reason;
+    : m.canSend ? keep : m.reason;
   return `<div class="card spirit"><span class="spirit-title">${esc(m.title)} · 지원 토큰 ${m.tokens}</span>
     <button data-action="support" ${m.canSend ? '' : 'disabled'}>엽전 ${coins}냥 보내기</button>
     ${note ? `<span class="spirit-reason">${esc(note)}</span>` : ''}</div>`;

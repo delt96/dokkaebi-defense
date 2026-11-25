@@ -279,4 +279,18 @@ describe('online app: the room link in the ready room', () => {
       expect(screen().querySelector<HTMLInputElement>('input.lobby-link')?.value).toBe('http://localhost/room/r1');
     });
   }
+
+  test('a lobby update while the hand-copy address is selected keeps it focused and selected', async () => {
+    setClipboard(undefined);
+    const room = await inLobby();
+    copyButton().click();
+    await vi.advanceTimersByTimeAsync(0);
+    const old = screen().querySelector<HTMLInputElement>('input.lobby-link')!;
+    old.setSelectionRange(7, 16);
+    room.emit('lobby', { roomId: 'r1', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: true }, { seat: 2, name: '둘', ready: false }] });
+    const field = screen().querySelector<HTMLInputElement>('input.lobby-link')!;
+    expect(field).not.toBe(old);
+    expect(document.activeElement).toBe(field);
+    expect([field.selectionStart, field.selectionEnd]).toEqual([7, 16]);
+  });
 });

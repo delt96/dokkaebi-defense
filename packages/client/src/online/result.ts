@@ -26,7 +26,8 @@ function supportText(sent: number, received: number): string {
 /** The seats sharing the highest positive value, as "가·나", or null when nobody is above 0. */
 function leaders(result: MatchResult, names: Record<number, string>, value: (s: MatchResult['seats'][number]) => number): { who: string; top: number } | null {
   const top = Math.max(0, ...result.seats.map(value));
-  if (top <= 0) return null;
+  // !(top > 0) rather than top <= 0: a result from an older server without the field gives NaN here
+  if (!(top > 0)) return null;
   return { who: result.seats.filter(s => value(s) === top).map(s => names[s.seat] ?? `${s.seat}번`).join('·'), top };
 }
 
@@ -101,7 +102,7 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
     const open = ui.opened === r.seat;
     const row = document.createElement('button');
     row.type = 'button';
-    row.title = `${r.name} · 누르면 라운드별 그래프`;
+    row.title = `${r.name} · ${open ? '누르면 접기' : '누르면 라운드별 그래프'}`;
     row.setAttribute('aria-expanded', String(open));
     row.className = open ? 'result-row open' : 'result-row';
     row.innerHTML = `<span class="r-name"><span class="r-caret" aria-hidden="true">${open ? '▾' : '▸'}</span>${esc(r.name)}</span><span class="r-status">${esc(r.status)}</span>`

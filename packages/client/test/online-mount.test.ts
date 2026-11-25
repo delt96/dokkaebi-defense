@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { FullMsg } from '@dorandi/logic';
 import { NetClient } from '../src/net/NetClient';
 import { NetDriver } from '../src/net/NetDriver';
-import { FORFEIT_TEXT } from '../src/online/spirit';
+import { FORFEIT_TEXT, onlineActions } from '../src/online/spirit';
 import { mountUi, type OnlineActions } from '../src/ui/mount';
 import { FakeRoom, STAGE_HTML, data, fixtureFull, key, press } from './fixtures/net';
 
@@ -24,14 +24,14 @@ beforeEach(() => {
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
-function mountOnline(full: FullMsg = fixtureFull()) {
+function mountOnline(full: FullMsg = fixtureFull(), real = false) {
   const room = new FakeRoom();
   const net = new NetClient(room, full.dataVersion);
   room.emit('full', full);
   const driver = new NetDriver(net, data, () => clock);
   driver.update(16);
   const scene = new FakeScene();
-  const actions = { support: vi.fn(), watch: vi.fn(), forfeit: vi.fn() } satisfies OnlineActions;
+  const actions: OnlineActions = real ? onlineActions(net) : { support: vi.fn(), watch: vi.fn(), forfeit: vi.fn() };
   mountUi(driver, scene as never, {}, { online: true, view: () => net.view, data, actions });
   /** One animation frame: the driver steps, then the 100 ms panel redraw runs. */
   const frame = (step = true): void => { clock += 150; if (step) driver.update(16); scene.onFrame?.(); };
@@ -130,6 +130,20 @@ describe('online mountUi', () => {
     expect(picks.map(p => p.dataset.arg)).toEqual(['2']);
     press(picks[0]!);
     expect(actions.watch).toHaveBeenCalledWith(2);
+  });
+
+  test('after a spirit sends its support, the card says who got it once the spent token comes back', () => {
+    const full = fixtureFull([1, 2]);
+    full.rows[0]!.status = 'spirit';
+    full.watching = 2;
+    full.mine.supportTokens = 1;
+    const { room, frame } = mountOnline(full, true);
+    press(document.querySelector('#bottom [data-action="support"]'));
+    expect(room.cmds('support').map(c => c.args)).toEqual([{ target: 2 }]);
+    const tick = full.clock.tick + 1;
+    room.emit('mine', { ...structuredClone(full.mine), tick, supportTokens: 0, lastSeq: 1, acks: [{ seq: 1, ok: true }] });
+    frame();
+    expect(document.querySelector('#bottom')!.textContent).toContain(`2번에게 ${data.coop!.support.coins}냥을 보냈습니다`);
   });
 
   test('spectators see watch instructions instead of unusable battle controls', () => {

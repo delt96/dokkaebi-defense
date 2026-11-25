@@ -198,6 +198,16 @@ describe('spirit card', () => {
     expect(spiritCardHtml(v, d2, null)).toContain('토큰은 쌓이지 않습니다 · 이번 라운드 안에 보내세요');
   });
 
+  test('when the data lets tokens pile up, it says how many instead', () => {
+    const v = spiritView();
+    v.mine.supportTokens = 1;
+    const piling = structuredClone(d2);
+    piling.coop!.support.max = 3;
+    const html = spiritCardHtml(v, piling, null);
+    expect(html).not.toContain('쌓이지 않습니다');
+    expect(html).toContain('토큰은 3개까지 쌓입니다');
+  });
+
   test('after sending this round it says who got how much', () => {
     const v = spiritView();
     v.mine.supportTokens = 0;

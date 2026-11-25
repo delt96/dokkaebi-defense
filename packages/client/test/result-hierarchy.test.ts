@@ -53,6 +53,7 @@ describe('online result hierarchy', () => {
     expect(rows[0]!.querySelector('.r-caret')?.textContent).toBe('▸');
     expect(rows[1]!.querySelector('.r-caret')?.textContent).toBe('▾');
     expect(rows[0]!.title).toBe('가 · 누르면 라운드별 그래프');
+    expect(rows[1]!.title).toBe('나 · 누르면 접기');
     expect(rows[0]!.querySelector('.r-name')?.textContent).toBe('▸가');
   });
 
@@ -83,5 +84,11 @@ describe('online result hierarchy', () => {
     const root = document.createElement('div');
     renderResult(root, none, names, d2, { rematch() {}, leave() {} }, { opened: null, rematching: false });
     expect(root.querySelector('.result-credit')).toBeNull();
+  });
+
+  test('a result from a server without support counts leaves the supporter out instead of NaN', () => {
+    const old = structuredClone(result) as MatchResult;
+    for (const seat of old.seats) delete (seat as Partial<typeof seat>).supportSent;
+    expect(teamResultModel(old, names, d2).credit).toBe('역신 피해 1위 가 3,000');
   });
 });
