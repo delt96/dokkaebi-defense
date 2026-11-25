@@ -4,6 +4,7 @@ import {
 import { GRADE_COLOR } from '../layout';
 import { esc } from './dom';
 import { unitFaceHtml } from './storage';
+import { cellText } from './models';
 
 type Tier = ReturnType<typeof gambleTier>;
 export type Reveal =
@@ -37,6 +38,8 @@ interface Odds { label: string; chance: number; color: string }
 interface ButtonModel {
   action: 'gambleCoins' | 'gambleUnit'; arg: string; name: string; price: string;
   blocked: string | null; odds: Odds[]; consolation?: number; stake?: number;
+  /** Coin gamble: what a stake returns on average (1.01 = 101%). */
+  payback?: number;
 }
 interface GroupModel { name: string; summary: string; count: string; buttons: ButtonModel[] }
 export interface GambleModel { coins: GroupModel; units: GroupModel; cheap?: GroupModel }
@@ -66,6 +69,7 @@ export function gambleModel(view: GambleView, coins: number, buckwheat: number):
   const odds = view.coins.outcomes.map(({ result, chance }) => ({
     label: `×${result}`, chance, color: PAYOUT_COLORS[result] ?? '#ffe08a',
   }));
+  const payback = view.coins.outcomes.reduce((sum, o) => sum + o.result * o.chance, 0);
   const cheap = view.units.tables.coin;
   function bundle(id: GambleTable, table: NonNullable<typeof cheap>): ButtonModel {
     const isCoin = id === 'coin';
@@ -91,7 +95,7 @@ export function gambleModel(view: GambleView, coins: number, buckwheat: number):
       name: '돈 도박', summary: '판돈 × 나온 배수', count: remaining(view.coins.left, view.coins.limit),
       buttons: view.coins.stakes.map(({ price, why }) => ({
         action: 'gambleCoins', arg: String(price), name: `돈 도박 · ${price}냥`, price: `${price}냥 걸기`,
-        blocked: blockedText(why, price, coins), odds, stake: price,
+        blocked: blockedText(why, price, coins), odds, stake: price, payback,
       })),
     },
     units: {
@@ -104,7 +108,11 @@ export function gambleModel(view: GambleView, coins: number, buckwheat: number):
 export interface RevealDisplay {
   phase: Reveal['phase']; label: string; detail?: string; unit?: UnitDef;
   tier?: Tier; coin?: boolean; motion?: boolean; announcement: string;
+  /** A grade 6 prize: the line stays gold for GOLD_MS (with reduced effects too; only the flash is motion). */
+  gold?: boolean;
 }
+
+const GOLD_MS = 1200;
 
 function coinResult(event: Extract<GambleEvent, { type: 'gambleCoins' }>): string {
   const net = event.payout - event.stake;
@@ -145,25 +153,28 @@ export function revealDisplay(reveal: Reveal | null, now: number, data: GameData
   return {
     phase, tier, motion, unit, label: unit?.name ?? '꽝',
     detail,
+    ...(event.result === 6 && now - reveal.at < GOLD_MS && { gold: true }),
     announcement: [unit ? `${gradeText(event.result)} 당첨!` : '꽝', unit ? (event.jige ? '지게 획득' : '') : detail].filter(Boolean).join(' · '),
   };
 }
 
+/** Nothing picked yet (the drawer just opened): the first 묵 bundle's odds show. */
 export function gambleInfoHtml(model: GambleModel, item: string | null, jige: GambleJige): string {
-  const button = [...model.units.buttons, ...model.coins.buttons, ...(model.cheap?.buttons ?? [])].find(b => b.arg === item);
+  const all = [...model.units.buttons, ...model.coins.buttons, ...(model.cheap?.buttons ?? [])];
+  const button = all.find(b => b.arg === item) ?? (item === null ? model.units.buttons[0] : undefined);
   const title = button?.name ?? '상품 안내';
-  let detail = '<p>상품이나 가격에 마우스를 올려 보세요.</p>';
+  let detail = '';
   if (button) {
     const odds = button.odds.map(o => `<i style="--share:${percent(o.chance)};--swatch:${o.color}"></i>`).join('');
     const labels = button.odds.map(o => `<span><i style="--swatch:${o.color}" aria-hidden="true"></i>${esc(o.label)} ${percent(o.chance)}</span>`).join('');
     const note = button.stake !== undefined
-      ? `판돈 × 배수만큼 받아요. ×2면 ${button.stake * 2}냥을 받아 ${button.stake}냥 이득이에요.`
+      ? `판돈 × 배수만큼 받아요. ×2면 ${button.stake * 2}냥을 받아 ${button.stake}냥 이득이에요.${button.payback === undefined ? '' : `<br>평균 회수 ${Math.round(button.payback * 100)}%`}`
       : button.consolation !== undefined
         ? `꽝 위로금 ${button.consolation}냥 · 지게는 따로 ${percent(jige.chance)}<br>보유 ${jige.held}개 · ${jige.maxGrade}등급 이하를 골라 R · 같은 등급으로 바꿔요`
         : '뽑으면 유닛 한 기를 받아요.';
     detail = `<div class="gamble-odds" aria-hidden="true">${odds}</div><div class="gamble-odds-labels">${labels}</div><p>${note}</p>`;
   }
-  return `<div class="gamble-line"><strong>${esc(title)}</strong><span>이름을 눌러 확률 보기</span></div>${detail}`;
+  return `<div class="gamble-line"><strong>${esc(title)}</strong><span>다른 상품은 이름을 눌러 보세요</span></div>${detail}`;
 }
 
 export interface GambleHistoryEntry { event: GambleEvent; round: number }
@@ -172,7 +183,15 @@ export function recordGamble(history: GambleHistoryEntry[], receipt: GambleHisto
   return [receipt, ...history.slice(0, 4)];
 }
 
-export function gambleHistoryHtml(history: GambleHistoryEntry[], state: GameState): string {
+/** The pillar market's 최근 결과 line: pressed, it opens or folds the list under it. */
+export function gambleHistoryToggleHtml(count: number, open: boolean): string {
+  return `<button type="button" class="gamble-history-toggle" data-action="marketHistory" data-market-focus="history" aria-expanded="${open}">`
+    + `최근 결과 ${open ? '▾' : '▸'} <span>${count}개</span></button>`;
+}
+
+/** Without `folded` the list shows with its plain heading (off the board); with it, under the toggle line. */
+export function gambleHistoryHtml(history: GambleHistoryEntry[], state: GameState, opts?: { folded: boolean }): string {
+  if (opts?.folded) return gambleHistoryToggleHtml(history.length, false);
   const cols = state.data.balance.grid.cols;
   const rows = history.map(({ event, round }) => {
     const time = `<span class="gamble-time">${round}R</span>`;
@@ -184,12 +203,13 @@ export function gambleHistoryHtml(history: GambleHistoryEntry[], state: GameStat
     const token = event.jige ? ' · 지게' : '';
     if (!unit) return `<li>${time}<span>꽝 · ${shop}</span><span>위로금 ${event.consolation}냥${token}</span></li>`;
     const slot = state.slots.findIndex(u => u?.id === event.unitId);
-    const place = `${Math.floor(slot / cols) + 1}행 ${slot % cols + 1}열`;
+    const place = cellText(cols, slot);
     const location = slot < 0 ? '<span>진영에 없음</span>'
       : `<button type="button" data-action="marketCell" data-arg="${event.unitId}" data-market-focus="cell-${event.unitId}" aria-label="${esc(unit.name)}의 ${place} 보기">칸 보기 · ${place}</button>`;
     return `<li>${time}<span class="gamble-prize">${unitFaceHtml(unit.id, unit.name, unit.grade)}<span>${esc(unit.name)} · ${shop}${token}</span></span>${location}</li>`;
   });
-  return `<div class="gamble-line"><strong>최근 결과</strong></div><ul>${rows.join('') || '<li>이번 경기에서 아직 뽑지 않았어요</li>'}</ul>`;
+  const head = opts ? gambleHistoryToggleHtml(history.length, true) : '<div class="gamble-line"><strong>최근 결과</strong></div>';
+  return `${head}<ul>${rows.join('') || '<li>이번 경기에서 아직 뽑지 않았어요</li>'}</ul>`;
 }
 
 export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null, readOnly = false): string {
@@ -199,7 +219,7 @@ export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null, rea
   const buy = (b: ButtonModel) => {
     const why = reason(b);
     const reasonId = `gamble-why-${esc(b.arg)}`;
-    return `<button type="button" class="gamble-buy" data-action="${b.action}" data-arg="${esc(b.arg)}" data-market-focus="buy-${esc(b.arg)}" aria-label="${esc(b.stake === undefined ? b.name + ' · ' + b.price : b.price)}"${why ? ` aria-describedby="${reasonId}"` : ''}${busy || why ? ' disabled' : ''}>${esc(b.price)}</button>${why ? `<span class="gamble-why" id="${reasonId}">${esc(why)}</span>` : ''}`;
+    return `<button type="button" class="gamble-buy" data-action="${b.action}" data-arg="${esc(b.arg)}" data-market-focus="buy-${esc(b.arg)}" aria-label="${esc(b.stake === undefined ? b.name + ' · ' + b.price : b.price)}"${why ? ` aria-describedby="${reasonId}"` : ''}${busy || why ? ' disabled' : ''}>${esc(b.price)}</button>${why ? `<span class="gamble-why" id="${reasonId}">${esc(why)}</span>` : '<span class="gamble-why" aria-hidden="true"></span>'}`;
   };
   const heading = (group: GroupModel, item?: string) => `<div class="gamble-line">
     <strong>${item ? inspect(item, group.name) : esc(group.name)}</strong><span>${esc(group.summary)}</span><span class="gamble-count">${esc(group.count)}</span>
@@ -221,7 +241,7 @@ export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null, rea
 export function gambleRevealHtml(reveal: RevealDisplay | null): string {
   const face = reveal?.unit ? unitFaceHtml(reveal.unit.id, reveal.unit.name, reveal.unit.grade)
     : reveal?.coin ? '<span class="coin" aria-hidden="true">◇</span>' : '';
-  const effect = reveal?.motion ? (reveal.tier === 'big' ? ' flash pop' : reveal.tier === 'small' ? ' pop' : '') : '';
+  const effect = (reveal?.motion ? (reveal.tier === 'big' ? ' flash pop' : reveal.tier === 'small' ? ' pop' : '') : '') + (reveal?.gold ? ' gold' : '');
   return `<div class="gamble-reveal ${reveal?.phase ?? ''} ${reveal?.tier ?? ''}${effect}"${reveal?.phase === 'result' ? ' role="status"' : ''}>
     ${reveal ? `${face}<div><b>${esc(reveal.label)}</b>${reveal.detail ? `<small>${esc(reveal.detail)}</small>` : ''}</div>` : '아직 뽑은 결과가 없어요'}
   </div>`;

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { loadGameData } from '@dorandi/logic';
-import { BIRTH_MS, BirthHold, BirthQueue, FirstSix, birthBand, birthBanner, birthSource, toastY, type BirthAlert, type BirthBanner } from '../src/ui/birth';
+import { BIRTH_MS, BirthHold, BirthQueue, FirstSix, birthBand, birthBanner, birthLine, birthSource, type BirthAlert, type BirthBanner } from '../src/ui/birth';
+import { CENTER_Y } from '../src/layout';
 
 const d3 = loadGameData('stage3');
 
@@ -92,11 +93,15 @@ describe('birthSource', () => {
   });
 });
 
-describe('toastY', () => {
-  test('a toast sits at the top, and moves under the band while one is showing', () => {
-    const band = birthBand(300);
-    expect(band).toEqual({ y: 54, half: 33 });
-    expect(toastY(300, false)).toBe(30);
-    expect(toastY(300, true)).toBe(54 + 33 + 12);
+describe('my birth band', () => {
+  test('the band fills the top slot, stage y 26 to 68', () => {
+    const band = birthBand();
+    expect(band).toEqual({ y: 23, half: 21 });
+    expect([CENTER_Y + band.y - band.half, CENTER_Y + band.y + band.half]).toEqual([26, 68]);
+  });
+
+  test('its first line joins the way it came and the grade line', () => {
+    const b = birthBanner(d3, { defId: 'bihyeongrang', unitId: 1, via: 'combine', firstSix: true }, { mine: true, team: false });
+    expect(birthLine(b)).toBe('조합 · 6등급 · 마딜 · 이번 판 첫 6등급');
   });
 });

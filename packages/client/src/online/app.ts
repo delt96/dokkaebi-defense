@@ -39,6 +39,8 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
   if (!root) throw new Error('missing #screen');
   let screen: Screen = 'entry';
   let net: NetClient | null = null;
+  // the invite room this page joins; cleared on leaving the lobby so the start screen makes a new room
+  let roomId = opts.roomId;
   let notice = '';
   let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -47,7 +49,7 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     screen = 'entry';
     net = null;
     renderEntry(root, {
-      roomId: opts.roomId,
+      roomId,
       name: name ?? lastName() ?? '',
       error,
       onSubmit: submit,
@@ -76,7 +78,42 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     panel.className = 'lobby-audio';
     panel.innerHTML = `<summary>${TEXT.soundSettings}</summary>${audioSettingsHtml()}`;
     wireAudioSettings(panel);
+    // it covers the first seats, so it closes like a popup: a press anywhere else or Esc
+    document.addEventListener('pointerdown', ev => {
+      if (panel.open && panel.isConnected && !panel.contains(ev.target as Node)) panel.open = false;
+    });
+    document.addEventListener('keydown', ev => {
+      if (ev.key !== 'Escape' || !panel.open || !panel.isConnected) return;
+      panel.open = false;
+      panel.querySelector<HTMLElement>('summary')?.focus();
+    });
     return (lobbyAudio = panel);
+  };
+
+  let handLink: string | undefined;
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  const showToast = (text: string): void => {
+    document.querySelector('.screen-toast')?.remove();
+    clearTimeout(toastTimer);
+    const toast = document.createElement('div');
+    toast.className = 'screen-toast';
+    toast.setAttribute('role', 'status');
+    toast.textContent = text;
+    document.body.append(toast);
+    toastTimer = setTimeout(() => toast.remove(), 4000);
+  };
+
+  // nothing is lost before the match starts, so the room is left without asking and the same invite link still works
+  const leaveLobby = (old: NetClient): void => {
+    screen = 'entry';
+    net = null;
+    clearSession(old.roomId);
+    history.replaceState(null, '', '/');
+    roomId = undefined;
+    handLink = undefined;
+    void old.leave().catch(() => undefined);
+    showEntry();
+    showToast(TEXT.left);
   };
 
   const showLobby = (): void => {
@@ -84,12 +121,36 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     if (!net || !msg) return;
     const n = net;
     screen = 'lobby';
+    // the redraw swaps in a new address field: someone copying it by hand would lose their focus and selection
+    const oldField = document.activeElement instanceof HTMLInputElement && document.activeElement.classList.contains('lobby-link') ? document.activeElement : null;
+    const selection = oldField ? [oldField.selectionStart, oldField.selectionEnd] as const : null;
     renderLobby(root, msg, {
       ready: v => n.ready(v, msg.stage, msg.difficulty),
       start: () => n.start(),
+      leave: () => leaveLobby(n),
       difficulty: d => n.setDifficulty(d),
-      copy: () => { void navigator.clipboard?.writeText(location.href).catch(() => undefined); },
-    }, notice);
+      copy: async () => {
+        const href = location.href;
+        try {
+          // plain http on a LAN address has no navigator.clipboard at all
+          if (!navigator.clipboard) throw new Error('no clipboard');
+          await navigator.clipboard.writeText(href);
+          return true;
+        } catch {
+          handLink = href;
+          if (screen === 'lobby') {
+            showLobby();
+            root.querySelector<HTMLInputElement>('.lobby-link')?.focus();
+          }
+          return false;
+        }
+      },
+    }, notice, handLink);
+    if (selection) {
+      const field = root.querySelector<HTMLInputElement>('.lobby-link');
+      field?.focus();
+      if (selection[0] !== null && selection[1] !== null) field?.setSelectionRange(selection[0], selection[1]);
+    }
     gameAudio.musicMode('normal');
     root.querySelector('.lobby .lobby-modes')?.append(lobbyAudioPanel());
   };
@@ -146,14 +207,14 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
   // Lost link during the match: retry with the stored key every 2 seconds (spec 6).
   const reconnect = (): void => {
     if (reconnecting || stopped) return;
-    const roomId = opts.roomId ?? net?.roomId;
-    const stored = roomId ? loadSession(roomId) : null;
-    if (!roomId || !stored?.key) { showMessage(TEXT.noRoom, true); return; }
+    const id = roomId ?? net?.roomId;
+    const stored = id ? loadSession(id) : null;
+    if (!id || !stored?.key) { showMessage(TEXT.noRoom, true); return; }
     reconnecting = true;
     band.textContent = TEXT.disconnected;
     const attempt = (): void => {
       if (stopped) return;
-      connectJoin(roomId, { name: stored.name, rejoinKey: stored.key }).then(room => {
+      connectJoin(id, { name: stored.name, rejoinKey: stored.key }).then(room => {
         // the new client saves the reissued key on its first snapshot; a reload then takes the seat again
         const fresh = new NetClient(room, knownDataVersions());
         let done = false;
@@ -217,7 +278,8 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     const client = new NetClient(room, knownDataVersions());
     net = client;
     history.replaceState(null, '', `/room/${room.roomId}`);
-    client.on(onEvent);
+    // a link left from the lobby may still close late (4000); it must not touch the screen it no longer owns
+    client.on(e => { if (net === client) onEvent(e); });
   };
 
   function showJoinError(code: number, name: string): void {
@@ -228,7 +290,7 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
   async function submit(name: string, difficulty: Difficulty): Promise<void> {
     showConnecting();
     try {
-      attach(opts.roomId ? await connectJoin(opts.roomId, { name }) : await connectCreate(name, { ...devCreateOptions(location.search, import.meta.env.DEV), difficulty }));
+      attach(roomId ? await connectJoin(roomId, { name }) : await connectCreate(name, { ...devCreateOptions(location.search, import.meta.env.DEV), difficulty }));
     } catch (err) {
       const code = errorCode(err);
       showJoinError(code, name);

@@ -33,7 +33,7 @@ function view(me: number, rows: { seat: number; name: string; alive?: boolean; c
 describe('B market', () => {
   const panel = (s: GameState, extra: Partial<EconMine> = {}) => {
     const div = document.createElement('div');
-    div.innerHTML = econPanelHtml(marketModel(econOf(s, extra), s));
+    div.innerHTML = econPanelHtml(marketModel(econOf(s, extra), s), null, false, { wins: 'outside', bar: '', historyOpen: false, historyCount: 0 });
     return div;
   };
 
@@ -152,14 +152,14 @@ describe('market hotkey', () => {
     showGambleResult(): void {}
   }
   beforeEach(() => { document.body.innerHTML = STAGE_HTML; });
-  afterEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); delete document.documentElement.dataset.wins; });
 
   function mountSolo(data = d3) {
     const driver = new GameDriver(createGame(data, 1));
     mountUi(driver, new FakeScene() as never);
     return driver;
   }
-  const panel = () => document.getElementById('econ-panel')?.innerHTML ?? '';
+  const panel = () => document.querySelector('#win-right .econ-panel')?.innerHTML ?? '';
   const keydown = (target: EventTarget, init: KeyboardEventInit) => target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
 
   // first: mountUi's key listener stays on window for the rest of the file
@@ -168,7 +168,7 @@ describe('market hotkey', () => {
     keydown(window, { code: 'KeyB' });
     expect(panel()).toBe('');
     expect(document.querySelector('[data-action="toggleMarket"]')).toBeNull();
-    expect(document.getElementById('bottom')!.textContent).toBe('유닛을 눌러 선택하고 끌어서 옮기세요. · W 다음 유닛 · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · P 멈춤');
+    expect(document.getElementById('bottom')!.textContent).toBe('Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개) · E 강화 · D 도감 · Q 이 유닛/전체 · P 멈춤');
   });
 
   test('B opens and closes the market; the help line names it', () => {
@@ -187,7 +187,7 @@ describe('market hotkey', () => {
     driver.state.buckwheat = 1;
     driver.update(0);
     keydown(window, { code: 'KeyB' });
-    press(document.querySelector('#econ-panel [data-action="gambleUnit"][data-arg="small"]'));
+    press(document.querySelector('#win-right .econ-panel [data-action="gambleUnit"][data-arg="small"]'));
     driver.update(50);
     expect(panel()).toContain('남은 횟수 1/2');
     expect(driver.state.buckwheat).toBe(0);
@@ -197,6 +197,8 @@ describe('market hotkey', () => {
   test('touch opens details on the card, then the first touch on the price draws and records its result', () => {
     let now = performance.now();
     vi.spyOn(performance, 'now').mockImplementation(() => now);
+    // off the board the recent results stay unfolded
+    document.documentElement.dataset.wins = 'outside';
     const driver = new GameDriver(lane(30, 46));
     const scene = new FakeScene();
     mountUi(driver, scene as never);
@@ -252,7 +254,7 @@ describe('market hotkey', () => {
 
 describe('T under the health bar', () => {
   beforeEach(() => { document.body.innerHTML = STAGE_HTML; });
-  afterEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); delete document.documentElement.dataset.wins; });
 
   test('the button follows the bar, and click and T address the displayed target', () => {
     const s = lane(10, 30);
@@ -295,5 +297,31 @@ describe('T under the health bar', () => {
     vi.spyOn(performance, 'now').mockReturnValue(1e9);
     scene.onFrame!();
     expect(box.innerHTML).toBe('');
+  });
+
+  test('while a pillar window is open the button stays between the pillars', () => {
+    const s = lane(10, 30);
+    const driver = new GameDriver(s);
+    const at = { x: 210, y: 120 };
+    const scene = {
+      selectedId: null as number | null, onFrame: undefined as (() => void) | undefined,
+      onSelect() {}, onEvents() {}, enemyBarAnchor: () => ({ ...at }),
+    };
+    spawnEnemyForTest(s, 'jinegaksi', 3, 5000);
+    mountUi(driver, scene as never);
+    const box = document.getElementById('tame-anchor')!;
+    Object.defineProperty(box, 'offsetWidth', { value: 120 });
+    scene.onFrame!();
+    expect(box.style.left).toBe('210px');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true, cancelable: true }));
+    expect(document.getElementById('stage')!.classList.contains('pillar-open')).toBe(true);
+    scene.onFrame!();
+    expect(box.style.left).toBe('260px');
+    at.x = 440;
+    scene.onFrame!();
+    expect(box.style.left).toBe('394px');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true, cancelable: true }));
+    scene.onFrame!();
+    expect(box.style.left).toBe('440px');
   });
 });

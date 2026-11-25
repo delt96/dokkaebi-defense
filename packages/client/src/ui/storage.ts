@@ -1,8 +1,8 @@
 import { unitDefFast, type GameState } from '@dorandi/logic';
 import type { Lane } from '@dorandi/logic';
-import { GRADE_COLOR, STAGE_W, stageToCell } from '../layout';
+import { GRADE_COLOR, STAGE_W, gradeShape, stageToCell } from '../layout';
 import { esc } from './dom';
-import { EATS_ITEM_TEXT, storageStacks, storedCombineOptions, unitSkillText } from './models';
+import { EATS_ITEM_TEXT, storageStacks, storedCombineOptions, unitSkillText, type ComboKey } from './models';
 import { typeBadgeHtml } from './badge';
 import { SPRITE_IDS } from '../art';
 
@@ -17,9 +17,10 @@ export function iconHtml(defId: string, name: string, grade: number): string {
   return `<span class="stack-disc" style="background:${GRADE_COLOR[grade]}">${esc(name.slice(0, 1))}</span>`;
 }
 
-/** A small face for the 상세 window and the left card: the sprite, or the grade disc when the unit has none. */
-export function unitFaceHtml(defId: string, name: string, grade: number): string {
-  return `<span class="unit-face" style="--g:${GRADE_COLOR[grade]}">${iconHtml(defId, name, grade)}</span>`;
+/** A small face for the 상세 window and the left card: the sprite, or the grade disc when the unit has none. `shape` adds the board's grade shape at its top left. */
+export function unitFaceHtml(defId: string, name: string, grade: number, shape = false): string {
+  const mark = shape ? `<i class="gshape ${gradeShape(grade)}" style="background:${GRADE_COLOR[grade]}"></i>` : '';
+  return `<span class="unit-face" style="--g:${GRADE_COLOR[grade]}">${iconHtml(defId, name, grade)}${mark}</span>`;
 }
 
 export function storageInfoModel(state: GameState, defId: string | null) {
@@ -44,19 +45,34 @@ export function storageInfoHtml(state: GameState, info: NonNullable<ReturnType<t
   </div>`;
 }
 
-/** The storage column: a 모두 보관 button and one stack per kind (sprite, grade colour, ×N, a small sell button). */
+/** The storage column: a 모두 보관 button and one stack per kind (sprite, grade colour, ×N, a sell strip under it). */
 /** `jige` is the 지게 held on a 60-round lane (each stack then gets its swap button), undefined elsewhere. */
-export function storageHtml(state: GameState, jige?: number): string {
+/** `sellArmed` says which stack's sell strip has had its first press and waits for the second. */
+/** `inspected` is the stack whose info is open; it stays marked in the column while that info shows. */
+/** `pairs`: stacks the selected unit's Z/X/C combines take from, with the first key that takes each (the board's brackets). */
+export function storageHtml(
+  state: GameState, jige?: number, sellArmed: (defId: string) => boolean = () => false, inspected: string | null = null,
+  pairs: ReadonlyMap<string, ComboKey> = new Map(),
+): string {
   const stacks = storageStacks(state);
   const total = stacks.reduce((n, s) => n + s.count, 0);
-  const list = stacks.map(s => `<div class="stack" style="--g:${GRADE_COLOR[s.grade]}">
-      <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(s.name)} ×${s.count} · 눌러서 정보, 끌어서 꺼내기"><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span></button>
-      <button class="stack-sell" data-action="sellStored" data-arg="${esc(s.defId)}" title="${esc(s.name)} 1개 판매 +${s.sellPrice}냥" aria-label="${esc(s.name)} 1개 판매 +${s.sellPrice}냥">냥</button>${jige === undefined ? '' : `
+  const list = stacks.map(s => {
+    const key = pairs.get(s.defId);
+    const title = `${s.name} ×${s.count}${key ? ` · ${key} 조합 재료` : ''} · 눌러서 정보, 끌어서 꺼내기`;
+    return `<div class="stack${s.defId === inspected ? ' inspected' : ''}${key ? ' pair' : ''}" style="--g:${GRADE_COLOR[s.grade]}">
+      <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(title)}"${s.defId === inspected ? ' aria-current="true"' : ''}><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span>${key ? `<i class="pair-key" aria-hidden="true">${key}</i>` : ''}</button>
+      ${stackSellHtml(s.defId, s.name, s.sellPrice, sellArmed(s.defId))}${jige === undefined ? '' : `
       <button class="stack-swap" data-action="jigeOpen" data-arg="storage:${esc(s.defId)}" title="${esc(s.name)} 지게 바꾸기 · 보유 지게 ${jige}개" aria-label="${esc(s.name)} 지게 바꾸기"${jige < 1 ? ' disabled' : ''}>R</button>`}
-    </div>`).join('');
+    </div>`;
+  }).join('');
   return `<div class="storage-head"><b>보관함</b>${total ? `<span>${total}</span>` : ''}</div>
     <button class="storage-all" data-action="storeAll" title="판 위의 1·2등급을 모두 보관 (${STORE_ALL_KEY})">1·2등급<br>모두 보관</button>
     ${list ? `<div class="storage-hint">눌러서 정보<br>끌어서 꺼내기</div><div class="stacks${stacks.length > ROOMY_STACKS ? ' dense' : ''}">${list}</div>` : '<p class="storage-empty">1·2등급 유닛을 여기로 끌어 놓으세요</p>'}`;
+}
+
+function stackSellHtml(defId: string, name: string, price: number, armed: boolean): string {
+  const label = `${armed ? '한 번 더 누르면 ' : ''}${name} 1개 판매 +${price}냥`;
+  return `<button class="stack-sell${armed ? ' armed' : ''}" data-action="sellStack" data-arg="${esc(defId)}" title="${esc(label)}" aria-label="${esc(label)}">${armed ? '확인' : '판매'}</button>`;
 }
 
 /** The board cell under a page point, or null outside the board (the stage is scaled to the window). */

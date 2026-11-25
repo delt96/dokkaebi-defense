@@ -187,6 +187,22 @@ export function pickResultSlot(state: GameState, slots: number[]): number {
   return best;
 }
 
+/** board: slot indexes the combine takes (resultSlot among them when it is a material); stored: storage indexes. */
+export interface CombinePlan { resultSlot: number | null; board: number[]; stored: number[] }
+
+/** The units a combine would take, without looking at its cost; null when the materials (or their evolved copies) are not all there. */
+export function combinePlan(state: GameState, result: string, slot?: number): CombinePlan | null {
+  const recipe = state.data.recipes.find(r => r.result === result);
+  if (!recipe) return null;
+  if (slot !== undefined) {
+    const chosen = state.slots[slot];
+    if (!chosen || !recipe.materials.includes(chosen.defId)) return null;
+  }
+  if (missingFrom(state, recipe.materials).length || needsEvolve(state, recipe)) return null;
+  const { used, stored, replacedSlot } = pickMaterials(state, recipe, slot);
+  return { resultSlot: replacedSlot < 0 ? null : replacedSlot, board: [...used], stored: [...stored] };
+}
+
 registerCommand('combine', (state, cmd, events) => {
   if (cmd.type !== 'combine') return 'unknown';
   const chosen = cmd.slot === undefined ? null : state.slots[cmd.slot];

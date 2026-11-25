@@ -3,9 +3,8 @@ import { describe, expect, test } from 'vitest';
 import { createGame, econView, loadGameData, unitAttack, unitDefFast, type EconMine, type GameState } from '@dorandi/logic';
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
 import { econPanelHtml, marketModel, shopModel } from '../src/ui/econ';
-import { renderHelper } from '../src/ui/helper';
-import { combineOptions, helperModel, itemShort, rejectText, unitCard } from '../src/ui/models';
-import { renderBottom, unitPanelHtml } from '../src/ui/panels';
+import { combineOptions, helperModel, itemShort, nextCombines, rejectText, unitCard } from '../src/ui/models';
+import { renderBottom, soloPanelHtml } from '../src/ui/panels';
 import { STAGE_HTML } from './fixtures/net';
 
 const d3 = loadGameData('stage3');
@@ -15,6 +14,12 @@ const TAMED = PAIR.materials[0]!;
 const MULT = d3.economy!.tame!.targets.find(t => t.unit === TAMED)!.evolvedMult!;
 const NEEDS = '진화부적을 붙여야 합니다';
 const NEEDS_SHORT = '진화 필요';
+
+/** The solo left panel with `slot` selected, or the whole next list (the old helper) with nothing selected. */
+const panel = (s: GameState, slot: number | null, shop = econView(s)?.shop ?? null) => soloPanelHtml(s, {
+  selected: slot, list: nextCombines(s, slot === null ? {} : { slot }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false, shop,
+});
+const WIN = { wins: 'outside', bar: '', historyOpen: false, historyCount: 0 } as const;
 
 function openGame(round = 20): GameState {
   const s = createGame(d3, 3);
@@ -41,7 +46,7 @@ describe('the evolve charm row', () => {
     early.coins = 999; early.buckwheat = 5;
     expect(row(early).blocked).toBe('20라운드부터');
     const box = document.createElement('div');
-    box.innerHTML = econPanelHtml(marketModel(mineOf(early), early)!, null, false, 'items');
+    box.innerHTML = econPanelHtml(marketModel(mineOf(early), early)!, null, false, { ...WIN, tab: 'items' });
     const buy = box.querySelector<HTMLButtonElement>(`[data-action="buyItem"][data-arg="${CHARM}"]`)!;
     expect(buy.disabled).toBe(true);
     expect(box.textContent).toContain('20라운드부터');
@@ -67,7 +72,7 @@ describe('붙이기 for the evolve charm', () => {
     const other = placeUnitForTest(s, PAIR.materials[1]!, 1);
     const args = (slot: number) => {
       const box = document.createElement('div');
-      box.innerHTML = unitPanelHtml(s, slot, { shop: econView(s)!.shop });
+      box.innerHTML = panel(s, slot);
       return Array.from(box.querySelectorAll<HTMLElement>('[data-action="attachItem"]')).map(b => b.dataset.arg);
     };
     expect(args(0)).toEqual([`powerCharm@${tamed.id}`, `${CHARM}@${tamed.id}`]);
@@ -75,7 +80,7 @@ describe('붙이기 for the evolve charm', () => {
 
     document.body.innerHTML = STAGE_HTML;
     const menuArgs = (slot: number) => {
-      renderBottom(s, slot, true, null, 0, false, { shop: econView(s)!.shop, open: true });
+      renderBottom(s, slot, true, null, 0, false, null, false, false, { shop: econView(s)!.shop, open: true });
       return document.querySelector('#bottom .item-pop')!.textContent!;
     };
     expect(menuArgs(0)).toContain('진화부적');
@@ -92,8 +97,9 @@ describe('combine candidates name the missing evolution', () => {
     placeUnitForTest(s, PAIR.materials[1]!, 1);
     expect(combineOptions(s, 0).find(o => o.result === PAIR.result)!.short).toBe(NEEDS_SHORT);
     expect(helperModel(s).find(h => h.recipe === PAIR.result)!.short).toBe(NEEDS_SHORT);
-    renderHelper(s, true);
-    expect(document.querySelector('#left .helper')!.textContent).toContain(NEEDS_SHORT);
+    const box = document.createElement('div');
+    box.innerHTML = panel(s, null);
+    expect(box.querySelector('.next-list')!.textContent).toContain(NEEDS_SHORT);
     s.slots[0]!.item = CHARM;
     const ready = combineOptions(s, 0).find(o => o.result === PAIR.result)!;
     expect(ready.short).toBeUndefined();
@@ -109,13 +115,13 @@ describe('the card of an evolved unit', () => {
     expect(card.share.attack).toBeCloseTo(MULT - 1);
     expect(card.attack).toBe(Math.round(unitAttack(unitDefFast(d3, TAMED), d3.balance) * MULT));
     expect(itemShort(s, 0)).toBe('진');
-    const html = unitPanelHtml(s, 0, { shop: econView(s)!.shop });
+    const html = panel(s, 0);
     expect(html).toContain(`공격 ${card.attack}`);
     expect(html).not.toContain('% 진화');
     expect(html).not.toContain(String(Math.round((MULT - 1) * 100)));
     expect(html).toContain('· 진화');
     document.body.innerHTML = STAGE_HTML;
-    renderBottom(s, 0, true, null, 0, false, { shop: econView(s)!.shop, open: false });
+    renderBottom(s, 0, true, null, 0, false, null, false, false, { shop: econView(s)!.shop, open: false });
     const bottom = document.querySelector('#bottom .card')!.textContent!;
     expect(bottom).not.toContain(`${Math.round((MULT - 1) * 100)}%`);
     expect(bottom).toContain('진');

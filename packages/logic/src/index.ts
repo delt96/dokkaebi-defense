@@ -26,7 +26,9 @@ export {
   enemySpeed, waveOf, toTicks, TICKS_PER_SECOND, enemyDefFast,
 } from './flow';
 export { rollSummon, chooseSlot, pityPick, unitDefFast } from './units';
-export { availableRecipes, combineEatsItem, missingMaterials, needsEvolve, recipesUsing, storedMaterials } from './combine';
+export {
+  availableRecipes, combineEatsItem, combinePlan, missingMaterials, needsEvolve, recipesUsing, storedMaterials, type CombinePlan,
+} from './combine';
 export { STORAGE_MAX_GRADE, canStore, pickStored, storedUnits } from './storage';
 export {
   computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps, resolveKills,
@@ -49,4 +51,4 @@ export { parseClientCommand, toWire } from './match/parse';
 export {
   buildFull, buildTick, MatchStreamer, applyFull, applyTick, applyLane, applyMine, enemyDistanceAt, diffViews,
 } from './match/view';
-export { normalizeNickname, sameNickname } from './match/nickname';
+export { NICKNAME_MAX, normalizeNickname, sameNickname } from './match/nickname';

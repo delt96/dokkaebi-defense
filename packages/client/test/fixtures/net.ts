@@ -34,10 +34,10 @@ export function fixtureFull(seats: number[] = [1, 2]): FullMsg {
 }
 
 /** The page elements the battle UI draws into (as in index.html). */
-export const STAGE_HTML = `<div id="stage"><div id="top"></div><div id="left"></div><div id="lane"></div><div id="right"></div>
-  <div id="bottom"></div><div id="round-banner"></div><div id="modal"></div><div id="alert"></div>
+export const STAGE_HTML = `<div id="win-left" class="win-box"></div><div id="stage"><div id="top"></div><div id="left"></div><div id="lane"></div><div id="right"></div>
+  <div id="bottom"></div><div id="round-banner" aria-hidden="true"></div><div id="modal"></div><div id="alert"></div>
   <div id="error" hidden><span id="error-message"></span><button id="error-restart" data-action="restart">다시 하기</button></div></div>
-  <div id="screen"></div>`;
+  <div id="win-right" class="win-box"></div><div id="screen"></div>`;
 
 /** Presses a control the way the UI listens for it (a keyboard-style click, detail 0). */
 export function press(node: Element | null): void {
@@ -45,6 +45,6 @@ export function press(node: Element | null): void {
   node.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
 }
 
-export function key(code: string): void {
-  window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true }));
+export function key(code: string, init: KeyboardEventInit = {}): void {
+  window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true, cancelable: true, ...init }));
 }

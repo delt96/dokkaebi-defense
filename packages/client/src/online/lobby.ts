@@ -1,34 +1,45 @@
 import { difficultyNote, difficultyPicker } from '../ui/difficulty';
 import type { Difficulty, LobbyMsg, MatchStage } from '@dorandi/logic';
-import { TEXT } from './text';
+import { startFewText, startHintText, TEXT } from './text';
 
-const SEATS = 6;
+export const SEATS = 6;
 
-export interface LobbyRow { seat: number; text: string; host: boolean; ready: boolean; me: boolean; empty: boolean }
-export interface LobbyModel { rows: LobbyRow[]; canStart: boolean; isHost: boolean; myReady: boolean; hint: string | null; difficulty?: Difficulty; stage: MatchStage }
+export interface LobbyRow { seat: number; text: string; host: boolean; ready: boolean; me: boolean; empty: boolean; showState: boolean }
+export interface LobbyModel {
+  rows: LobbyRow[]; canStart: boolean; isHost: boolean; myReady: boolean; hint: string;
+  guests: number; readyGuests: number; difficulty?: Difficulty; stage: MatchStage;
+}
 
 export function lobbyModel(msg: LobbyMsg): LobbyModel {
   const rows: LobbyRow[] = [];
   for (let seat = 1; seat <= SEATS; seat++) {
     const s = msg.seats.find(x => x.seat === seat);
     rows.push(s
-      ? { seat, text: `${seat}번 ${s.name}`, host: msg.hostSeat === seat, ready: s.ready, me: msg.you === seat, empty: false }
-      : { seat, text: TEXT.emptySeat, host: false, ready: false, me: false, empty: true });
+      ? { seat, text: `${seat}번 ${s.name}`, host: msg.hostSeat === seat, ready: s.ready, me: msg.you === seat, empty: false, showState: msg.hostSeat !== seat }
+      : { seat, text: TEXT.emptySeat, host: false, ready: false, me: false, empty: true, showState: false });
   }
   const isHost = msg.hostSeat === msg.you;
-  const canStart = isHost && msg.seats.length > 0 && msg.seats.every(s => s.ready);
+  const guestSeats = msg.seats.filter(s => s.seat !== msg.hostSeat);
+  const guests = guestSeats.length;
+  const readyGuests = guestSeats.filter(s => s.ready).length;
+  const canStart = isHost && readyGuests === guests;
+  const players = msg.seats.length;
+  const hint = !isHost ? '' : !canStart ? startHintText(readyGuests, guests) : players < SEATS ? startFewText(players) : '';
   return {
     rows,
     canStart,
     isHost,
     myReady: msg.seats.find(s => s.seat === msg.you)?.ready ?? false,
-    hint: isHost && !canStart ? TEXT.startHint : null,
+    hint,
+    guests,
+    readyGuests,
     difficulty: msg.stage === 'stage3' ? msg.difficulty ?? 'normal' : undefined,
     stage: msg.stage ?? 'stage2',
   };
 }
 
-export interface LobbyActions { ready(v: boolean): void; start(): void; copy(): void; difficulty?(d: Difficulty): void }
+/** `copy` resolves true only when the clipboard took the address. */
+export interface LobbyActions { ready(v: boolean): void; start(): void; leave(): void; copy(): Promise<boolean>; difficulty?(d: Difficulty): void }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -37,7 +48,8 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
-export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActions, notice?: string): void {
+/** `link` is the room address shown as a text box to copy by hand, once the clipboard has failed. */
+export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActions, notice?: string, link?: string): void {
   const m = lobbyModel(msg);
   root.replaceChildren();
   const box = el('div', 'screen-box lobby');
@@ -46,11 +58,27 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
   const copy = el('button', undefined, TEXT.copy);
   copy.type = 'button';
   copy.addEventListener('click', () => {
-    actions.copy();
-    copy.textContent = TEXT.copied;
-    setTimeout(() => { copy.textContent = TEXT.copy; }, 1500);
+    void actions.copy().then(ok => {
+      if (!ok) return;
+      copy.textContent = TEXT.copied;
+      setTimeout(() => { copy.textContent = TEXT.copy; }, 1500);
+    });
   });
-  box.append(copy);
+  const leave = el('button', undefined, TEXT.leave);
+  leave.type = 'button';
+  leave.addEventListener('click', () => actions.leave());
+  const tools = el('div', 'lobby-tools');
+  tools.append(copy, leave);
+  box.append(tools);
+  if (link !== undefined) {
+    const field = el('input', 'entry-input lobby-link');
+    field.type = 'text';
+    field.readOnly = true;
+    field.value = link;
+    field.setAttribute('aria-label', TEXT.linkLabel);
+    field.addEventListener('focus', () => field.select());
+    box.append(el('div', 'lobby-hint', TEXT.copyByHand), field);
+  }
 
   // new rooms are 70 rounds and the host picks the difficulty; a 20-round room from an old client only says so
   const modes = el('div', 'lobby-modes');
@@ -69,26 +97,25 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
     li.append(el('span', 'lobby-name', r.text));
     if (r.host) li.append(el('em', undefined, TEXT.host));
     if (r.me) li.append(el('em', undefined, TEXT.me));
-    if (!r.empty) li.append(el('span', r.ready ? 'lobby-state on' : 'lobby-state', r.ready ? TEXT.ready : TEXT.waiting));
+    if (r.showState) li.append(el('span', r.ready ? 'lobby-state on' : 'lobby-state', r.ready ? TEXT.ready : TEXT.waiting));
     list.append(li);
   }
   box.append(list);
 
-  const ready = el('button', 'big', m.myReady ? TEXT.unreadyBtn : TEXT.readyBtn);
-  ready.type = 'button';
-  ready.addEventListener('click', () => actions.ready(!m.myReady));
   const controls = el('div', 'screen-actions');
-  box.append(controls);
-  controls.append(ready);
-
   if (m.isHost) {
     const start = el('button', 'big', TEXT.start);
     start.type = 'button';
     start.disabled = !m.canStart;
     start.addEventListener('click', () => actions.start());
     controls.append(start);
+  } else {
+    const ready = el('button', m.myReady ? 'big secondary' : 'big', m.myReady ? TEXT.unreadyBtn : TEXT.readyBtn);
+    ready.type = 'button';
+    ready.addEventListener('click', () => actions.ready(!m.myReady));
+    controls.append(ready);
   }
-  if (m.hint) box.append(el('div', 'lobby-hint', m.hint));
+  box.append(controls, el('div', 'lobby-hint lobby-start-hint', m.hint));
   if (notice) box.append(el('div', 'entry-error', notice));
   root.append(box);
 }

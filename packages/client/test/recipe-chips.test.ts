@@ -2,13 +2,17 @@
 import { describe, expect, test } from 'vitest';
 import { createGame, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
-import { combineOptions, helperModel } from '../src/ui/models';
+import { combineOptions, helperModel, nextCombines } from '../src/ui/models';
 import { materialChipHtml, materialChipsHtml } from '../src/ui/chips';
-import { renderBottom, unitDetailsHtml, unitPanelHtml } from '../src/ui/panels';
-import { renderHelper } from '../src/ui/helper';
+import { renderBottom, soloPanelHtml, unitDetailsHtml } from '../src/ui/panels';
 import { dexHtml } from '../src/ui/dex';
 
 const data = loadGameData();
+
+/** The solo left panel as mount draws it: the selected unit's scope, or the whole list with nothing selected. */
+const soloHtml = (s: ReturnType<typeof createGame>, slot: number | null) => soloPanelHtml(s, {
+  selected: slot, list: nextCombines(s, { slot }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false,
+});
 
 describe('recipe materials', () => {
   test('each combine option lists its materials in recipe order, marking the ones on hand', () => {
@@ -80,9 +84,9 @@ describe('recipe rows', () => {
     return box;
   };
 
-  test('the solo card shows each recipe on two lines: result face, then material chips', () => {
-    const box = dom(unitPanelHtml(board(), 1));
-    const row = box.querySelector('.combine-options > button.recipe-row[data-action="combine"]')!;
+  test('the solo panel shows each recipe on two lines: result face, then material chips', () => {
+    const box = dom(soloHtml(board(), 1));
+    const row = box.querySelector('.nc-list button.recipe-row[data-action="combine"]')!;
     expect(row.querySelector('.recipe-top .unit-face img')!.getAttribute('src')).toContain('sprites/gamasot.png');
     expect(Array.from(row.querySelectorAll('.mat-chips .mat-chip.have small'), n => n.textContent)).toEqual(['솥뚜껑', '부지깽이']);
     expect(box.querySelector('.combine-missing .mat-chip.lack')).not.toBeNull();
@@ -93,25 +97,25 @@ describe('recipe rows', () => {
     expect(box.querySelectorAll('.recipe-list .recipe-row .mat-chips').length).toBeGreaterThan(0);
   });
 
-  test('the online bottom card keeps one line: the result face and missing names in words, no chips', () => {
+  test('the online bottom card keeps one line per keyed recipe: the result face, no chips, no short recipes', () => {
     document.body.innerHTML = '<div id="bottom"></div>';
     renderBottom(board(), 1, true);
     const bottom = document.getElementById('bottom')!;
     expect(bottom.querySelector('.recipe-row .unit-face')).not.toBeNull();
     expect(bottom.querySelector('.mat-chips')).toBeNull();
-    expect(bottom.textContent).toContain('부족');
+    expect(bottom.textContent).not.toContain('부족');
   });
 });
 
 describe('helper and dex chips', () => {
-  test('the helper shows the result face and the material chips of each recipe', () => {
+  test('the whole list shows the result face and the material chips of each recipe', () => {
     const s = createGame(data, 1);
     placeUnitForTest(s, 'sotlid', 0);
     placeUnitForTest(s, 'bujigaengi', 1);
-    document.body.innerHTML = '<div id="left"></div>';
-    renderHelper(s, true);
-    const li = document.querySelector('#left ul.helper li')!;
-    expect(li.querySelector('.helper-name .unit-face img')!.getAttribute('src')).toContain('sprites/gamasot.png');
+    const row = document.createElement('div');
+    row.innerHTML = soloHtml(s, null);
+    const li = row.querySelector('.nc-list button.recipe-row[data-recipe="gamasot"]')!;
+    expect(li.querySelector('.recipe-top .unit-face img')!.getAttribute('src')).toContain('sprites/gamasot.png');
     expect(li.querySelectorAll('.mat-chips .mat-chip.have')).toHaveLength(2);
   });
 

@@ -8,10 +8,10 @@ import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import { econPanelHtml, marketModel, shopModel } from '../src/ui/econ';
 import { blockedText } from '../src/ui/gamble';
-import { renderHelper } from '../src/ui/helper';
-import { combineOptions, helperModel, itemShort, rejectText, storedCombineOptions, unitCard } from '../src/ui/models';
+import { combineOptions, helperModel, itemShort, nextCombines, rejectText, storedCombineOptions, unitCard } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
-import { unitDetailsHtml, unitPanelHtml } from '../src/ui/panels';
+import { soloPanelHtml, unitDetailsHtml } from '../src/ui/panels';
+import { refusalSpot } from '../src/ui/signals';
 import { storageInfoHtml, storageInfoModel } from '../src/ui/storage';
 import { press, STAGE_HTML } from './fixtures/net';
 
@@ -19,6 +19,12 @@ const d3 = loadGameData('stage3');
 const price = (id: string) => shopItem(d3, id)!.coins;
 const EATS = '아이템이 사라집니다';
 const REPLACE = '붙이면 지금 아이템은 사라집니다';
+
+/** The solo left panel with `slot` selected, or the whole next list (the old helper) with nothing selected. */
+const panel = (s: GameState, slot: number | null, shop = econView(s)?.shop ?? null) => soloPanelHtml(s, {
+  selected: slot, list: nextCombines(s, slot === null ? {} : { slot }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false, shop,
+});
+const WIN = { wins: 'outside', bar: '', historyOpen: false, historyCount: 0 } as const;
 
 class FakeScene {
   selectedId: number | null = null;
@@ -76,7 +82,7 @@ describe('blocked text', () => {
     const row = shopModel(mineOf(s), s.coins, 0)!.find(r => r.id === 'rangeCharm')!;
     expect(row.done).toBe(true);
     const box = document.createElement('div');
-    box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, false, 'items');
+    box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, false, { ...WIN, tab: 'items' });
     const buy = box.querySelector<HTMLButtonElement>('[data-action="buyItem"][data-arg="rangeCharm"]')!;
     expect(buy.disabled).toBe(true);
     expect(buy.textContent!.trim()).toBe('삼');
@@ -86,7 +92,7 @@ describe('blocked text', () => {
     const s = openGame();
     s.econ!.itemsBought = { rangeCharm: 1 };
     const box = document.createElement('div');
-    box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, true, 'items');
+    box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, true, { ...WIN, tab: 'items' });
     const done = box.querySelector<HTMLButtonElement>('[data-action="buyItem"][data-arg="rangeCharm"]')!;
     expect(done.hasAttribute('aria-describedby')).toBe(false);
     const other = box.querySelector<HTMLButtonElement>('[data-action="buyItem"][data-arg="powerCharm"]')!;
@@ -103,13 +109,13 @@ describe('blocked text', () => {
     s.coins = 9999;
     s.econ!.items = { powerCharm: 2 };
     const box = document.createElement('div');
-    box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, false, 'items');
+    box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, false, { ...WIN, tab: 'items' });
     expect(box.querySelectorAll('[data-action="econTab"]')).toHaveLength(2);
     expect(box.querySelectorAll('[data-action="buyItem"]')).toHaveLength(d3.economy!.shop!.items.length);
     expect(box.textContent).toContain('들고 있는 아이템');
     expect(box.textContent!.replace(/ /g, ' ')).toContain('힘 부적 2');
     expect(box.querySelector('.gamble-products')).toBeNull();
-    box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, false, 'market');
+    box.innerHTML = econPanelHtml(marketModel(mineOf(s), s)!, null, false, WIN);
     expect(box.querySelector('.gamble-products')).not.toBeNull();
     expect(box.querySelector('[data-action="buyItem"]')).toBeNull();
   });
@@ -123,7 +129,8 @@ describe('the unit card shows the item and its share', () => {
     const s = openGame();
     placeUnitForTest(s, ranged.id, 0).item = 'rangeCharm';
     expect(unitCard(s, 0)!.item).toEqual({ id: 'rangeCharm', name: '사거리 부적', short: '사' });
-    expect(unitPanelHtml(s, 0, { shop: econView(s)!.shop })).toContain('사거리 2칸 (+0.5 사거리 부적)');
+    expect(panel(s, 0)).toContain('사거리 2칸');
+    expect(unitDetailsHtml(s, 0)).toContain('2칸 (+0.5 사거리 부적)');
   });
   test('power charm adds its 0.2 on top of the upgrade', () => {
     const s = openGame();
@@ -135,10 +142,14 @@ describe('the unit card shows the item and its share', () => {
     const card = unitCard(s, 0)!;
     expect(card.attackBonus).toBeCloseTo(before + 0.2);
     expect(card.attack).toBe(Math.round(unitAttack(ranged, d3.balance) * (1 + before + 0.2)));
-    const html = unitPanelHtml(s, 0, { shop: econView(s)!.shop });
+    const html = panel(s, 0);
     const line = html.match(/공격 \d+[^<]*/)![0];
     expect(line).toContain(`공격 ${card.attack}`);
-    expect(line).toContain('+20% 힘 부적');
+    const box = document.createElement('div');
+    box.innerHTML = html;
+    expect(box.querySelector('.unit-item')!.textContent).toContain('힘 부적');
+    box.innerHTML = unitDetailsHtml(s, 0);
+    expect(box.querySelector('.ud-item')!.textContent).toBe('아이템 힘 부적 (+20%)');
   });
   test('the 상세 item line names the charm once with its share, and the bonus title counts items', () => {
     const s = openGame();
@@ -160,8 +171,10 @@ describe('the unit card shows the item and its share', () => {
     const card = unitCard(s, 0)!;
     expect(card.speedBonus).toBeCloseTo(before + 0.15);
     expect(card.interval).toBe(attackIntervalTicks(ranged.interval, speedBonus(s, 0)) * d3.balance.tickMs / 1000);
-    const html = unitPanelHtml(s, 0, { shop: econView(s)!.shop });
-    expect(html).toContain(`${card.interval}초마다 (+15% 날쌘 부적)`);
+    expect(panel(s, 0)).toContain(`${card.interval}초마다`);
+    const box = document.createElement('div');
+    box.innerHTML = unitDetailsHtml(s, 0);
+    expect(box.querySelector('.ud-item')!.textContent).toBe('아이템 날쌘 부적 (+15%)');
   });
   test('the board corner letter follows the attached item', () => {
     const s = openGame();
@@ -180,14 +193,17 @@ describe('the item line warns before a replace', () => {
     const unit = placeUnitForTest(s, d3.units.find(u => !u.hidden && u.grade === 2)!.id, 0);
     unit.item = 'rangeCharm';
     const box = document.createElement('div');
-    box.innerHTML = unitPanelHtml(s, 0, { shop: econView(s)!.shop });
-    expect(box.textContent).toContain(REPLACE);
-    expect(box.textContent).toContain('사거리 부적');
-    const args = Array.from(box.querySelectorAll<HTMLElement>('[data-action="attachItem"]')).map(b => b.dataset.arg);
-    expect(args).toEqual([`powerCharm@${unit.id}`, `swiftCharm@${unit.id}`]);
+    box.innerHTML = panel(s, 0);
+    const line = box.querySelector<HTMLElement>('.unit-item')!;
+    expect(line.title).toContain(REPLACE);
+    expect(line.textContent).toContain('사거리 부적');
+    const buttons = Array.from(line.querySelectorAll<HTMLElement>('[data-action="attachItem"]'));
+    expect(buttons.map(b => b.dataset.arg)).toEqual([`powerCharm@${unit.id}`, `swiftCharm@${unit.id}`]);
+    expect(buttons.every(b => b.title.includes(REPLACE))).toBe(true);
+    expect(line.nextElementSibling!.classList.contains('up-actions')).toBe(true);
     delete unit.item;
-    box.innerHTML = unitPanelHtml(s, 0, { shop: econView(s)!.shop });
-    expect(box.textContent).not.toContain(REPLACE);
+    box.innerHTML = panel(s, 0);
+    expect(box.innerHTML).not.toContain(REPLACE);
     expect(box.querySelectorAll('[data-action="attachItem"]')).toHaveLength(2);
   });
   test('pressing 붙이기 in solo sends attachItem for that cell', () => {
@@ -369,11 +385,11 @@ describe('a combine that eats an item says so', () => {
     }
     for (const h of helperModel(s)) expect(h.eatsItem === true).toBe(combineEatsItem(s, h.recipe));
     const box = document.createElement('div');
-    box.innerHTML = unitPanelHtml(s, 0, { shop: econView(s)!.shop });
+    box.innerHTML = panel(s, 0);
     const row = box.querySelector<HTMLElement>(`[data-action="combine"][data-arg="${recipe.result}@${s.slots[0]!.id}"]`)!;
     expect(row.textContent).toContain(EATS);
-    renderHelper(s, true);
-    const li = document.querySelector<HTMLElement>(`#left .helper [data-arg="${recipe.result}"]`)!.closest('li')!;
+    box.innerHTML = panel(s, null);
+    const li = box.querySelector<HTMLElement>(`[data-action="combine"][data-arg="${recipe.result}"]`)!;
     expect(li.textContent).toContain(EATS);
   });
   test('a bare copy on the board takes the warning away from the helper', () => {
@@ -381,8 +397,9 @@ describe('a combine that eats an item says so', () => {
     const s = board();
     placeUnitForTest(s, recipe.materials[0]!, 10);
     expect(combineEatsItem(s, recipe.result)).toBe(false);
-    renderHelper(s, true);
-    const li = document.querySelector<HTMLElement>(`#left .helper [data-arg="${recipe.result}"]`)!.closest('li')!;
+    const box = document.createElement('div');
+    box.innerHTML = panel(s, null);
+    const li = box.querySelector<HTMLElement>(`[data-action="combine"][data-arg="${recipe.result}"]`)!;
     expect(li.textContent).not.toContain(EATS);
   });
 });
@@ -418,10 +435,43 @@ describe('storage paths prefer the bare copy', () => {
     const queued: Command[] = [];
     vi.spyOn(driver, 'queue').mockImplementation(cmd => { queued.push(cmd); });
     press(document.querySelector(`#storage [data-action="jigeOpen"][data-arg="storage:${kind.id}"]`));
-    const pick = Array.from(document.querySelectorAll<HTMLElement>('#modal [data-action="jigeSwap"]')).find(b => b.dataset.arg !== kind.id)!;
+    const pick = Array.from(document.querySelectorAll<HTMLElement>('#win-left [data-action="jigeSwap"]')).find(b => b.dataset.arg !== kind.id)!;
     press(pick);
     expect(queued).toEqual([{ type: 'jigeSwap', source: { zone: 'storage', index: 1, unitId: bare.id }, result: pick.dataset.arg }]);
     vi.restoreAllMocks();
+  });
+});
+
+describe('an item refusal sits over the pressed button', () => {
+  const vis = (selector: string) => !!document.querySelector(selector);
+  const spotNode = (cmd: { type: string; arg?: string }) => {
+    const spot = refusalSpot(cmd, vis);
+    return spot.at === 'slot' ? null : document.querySelector(spot.selector);
+  };
+  test('buyItem over its 사기 button in the market window, else the slot', () => {
+    document.body.innerHTML = STAGE_HTML;
+    document.getElementById('win-right')!.innerHTML = '<button data-action="buyItem" data-arg="powerCharm"></button>';
+    expect(refusalSpot({ type: 'buyItem', arg: 'powerCharm' }, vis)).toMatchObject({ at: 'win', side: 'right' });
+    expect(refusalSpot({ type: 'buyItem', arg: 'swiftCharm' }, vis)).toEqual({ at: 'slot' });
+  });
+  test('attachItem over the solo 붙이기 button, online over the 아이템 ▾ button the list closed back to', () => {
+    document.body.innerHTML = STAGE_HTML;
+    document.getElementById('left')!.innerHTML = '<button data-action="attachItem" data-arg="powerCharm@7"></button>';
+    expect(spotNode({ type: 'attachItem', arg: 'powerCharm@7' })).toBe(document.querySelector('#left [data-action="attachItem"]'));
+    document.getElementById('left')!.innerHTML = '';
+    document.getElementById('bottom')!.innerHTML = '<button data-action="itemMenu" data-arg="7"></button>';
+    expect(spotNode({ type: 'attachItem', arg: 'powerCharm@7' })).toBe(document.querySelector('#bottom [data-action="itemMenu"]'));
+    expect(refusalSpot({ type: 'attachItem', arg: 'powerCharm@8' }, vis)).toEqual({ at: 'slot' });
+  });
+  test('a combine refusal (notEvolved among them) sits over the pressed row, not over a shut one', () => {
+    document.body.innerHTML = STAGE_HTML;
+    document.getElementById('left')!.innerHTML = '<button data-action="combine" data-arg="jangdok@7"></button>';
+    expect(spotNode({ type: 'combine', arg: 'jangdok@7' })).toBe(document.querySelector('#left [data-action="combine"]'));
+    document.getElementById('left')!.innerHTML = '<button data-action="combine" data-arg="jangdok@7" disabled></button>';
+    expect(refusalSpot({ type: 'combine', arg: 'jangdok@7' }, vis)).toEqual({ at: 'slot' });
+    document.getElementById('win-left')!.innerHTML = '<button data-action="combine" data-arg="jangdok@7"></button>';
+    expect(refusalSpot({ type: 'combine', arg: 'jangdok@7' }, vis)).toMatchObject({ at: 'win', side: 'left' });
+    expect(rejectText('notEvolved')).toBe('진화부적을 붙여야 합니다');
   });
 });
 
@@ -430,22 +480,22 @@ describe('no shop, no tab', () => {
     document.body.innerHTML = STAGE_HTML;
     const s = createGame(loadGameData(), 1);
     placeUnitForTest(s, s.data.units.find(u => u.grade === 1)!.id, 0);
-    const html = unitPanelHtml(s, 0, { shop: null });
+    const html = panel(s, 0, null);
     expect(html).not.toContain('attachItem');
-    expect(html).not.toContain('up-item');
+    expect(html).not.toContain('unit-item');
     expect(unitCard(s, 0)!.item).toBeNull();
     expect(itemShort(s, 0)).toBeNull();
     const scene = new FakeScene();
     mountUi(new GameDriver(s), scene as never);
     scene.select!(0);
     expect(document.getElementById('left')!.innerHTML).not.toContain('attachItem');
-    expect(document.getElementById('econ-panel')!.innerHTML).toBe('');
+    expect(document.getElementById('win-right')!.innerHTML).toBe('');
   });
   test('a market without a shop draws no tabs', () => {
     const s = openGame();
     const market = marketModel(mineOf(s), s)!;
     const { shop: _shop, ...noShop } = market;
-    expect(econPanelHtml(noShop, null, false, 'market')).not.toContain('data-action="econTab"');
-    expect(econPanelHtml(market, null, false, 'market')).toContain('data-action="econTab"');
+    expect(econPanelHtml(noShop, null, false, WIN)).not.toContain('data-action="econTab"');
+    expect(econPanelHtml(market, null, false, WIN)).toContain('data-action="econTab"');
   });
 });

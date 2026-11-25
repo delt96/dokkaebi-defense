@@ -101,7 +101,7 @@ test('pinning from details replaces the dex target, follows inventory, and survi
   key('Escape');
   expect(overlay.textContent).toContain('가마솥');
   key('Tab');
-  press(document.querySelector('#modal .pin-btn[data-arg="jangdok"]'));
+  press(document.querySelector('#win-left .pin-btn[data-arg="jangdok"]'));
   key('Escape');
   key('Escape');
   expect(overlay.querySelector('.target-head')!.textContent).toContain('장독');
@@ -147,6 +147,43 @@ test("a details recipe shows the result's own spec against the selected unit, no
   expect(html).not.toContain('조합하면 사라지는 제어');
 });
 
+test('a missing material whose own materials are all on hand is marked as makeable now', () => {
+  const state = createGame(d3, 1);
+  // the first 솥뚜껑 goes to 장독 itself (top-level materials come first), the second to 가마솥
+  placeUnitForTest(state, 'sotlid', 0);
+  placeUnitForTest(state, 'sotlid', 5);
+  placeUnitForTest(state, 'bujigaengi', 1);
+  const target = pinnedTarget(d3, 'jangdok', state.slots, state.storage)!;
+  const gamasot = target.children.find(n => n.id === 'gamasot')!;
+  expect(gamasot).toMatchObject({ location: 'missing', ready: true });
+  expect(target.ready).toBe(false);
+  expect(target.children.find(n => n.id === 'ki')).toMatchObject({ location: 'missing', ready: false });
+  placeUnitForTest(state, 'gamasot', 2);
+  placeUnitForTest(state, 'ki', 3);
+  expect(pinnedTarget(d3, 'jangdok', state.slots, state.storage)!.ready).toBe(true);
+});
+
+test('the pinned tree tells board from storage by its mark, not only by color, and says what can be made now', () => {
+  const state = createGame(d3, 1);
+  placeUnitForTest(state, 'sotlid', 0);
+  placeUnitForTest(state, 'sotlid', 5);
+  placeUnitForTest(state, 'bujigaengi', 1);
+  placeUnitForTest(state, 'ki', 2);
+  step(state, [{ type: 'store', slot: 2 }]);
+  document.body.innerHTML = '<div id="t"></div>';
+  return import('../src/ui/target').then(({ targetHtml }) => {
+    const root = document.getElementById('t')!;
+    root.innerHTML = targetHtml(pinnedTarget(d3, 'jangdok', state.slots, state.storage)!, false);
+    const mark = (cls: string) => root.querySelector(`.target-depth-1 > li > .target-material.${cls} i`)!.textContent;
+    expect(mark('target-storage')).not.toBe(mark('target-board'));
+    expect(root.querySelector('.target-legend')!.textContent).toContain(`${mark('target-storage')}보관`);
+    const ready = root.querySelector('.target-depth-1 > li.ready')!;
+    expect(ready.querySelector('.target-ready')!.textContent).toBe('지금 조합 가능');
+    expect(ready.querySelector('.target-material')!.getAttribute('title')).toContain('지금 조합 가능');
+    expect(root.querySelectorAll('.target-ready')).toHaveLength(1);
+  });
+});
+
 test('the pinned tree names whose material a deeper node is', () => {
   const state = createGame(d3, 1);
   document.body.innerHTML = '<div id="t"></div>';
@@ -155,5 +192,33 @@ test('the pinned tree names whose material a deeper node is', () => {
     root.innerHTML = targetHtml(pinnedTarget(d3, 'geumulbaneul', state.slots, state.storage)!, false);
     const deep = root.querySelector('.target-depth-2 .target-material')!;
     expect(deep.getAttribute('title')).toMatch(/^새끼줄의 재료 · /);
+  });
+});
+
+test('a target whose materials are all on hand but which cannot be paid or is still shut says why instead of makeable now', () => {
+  const state = createGame(d3, 1);
+  placeUnitForTest(state, 'meok', 0);
+  placeUnitForTest(state, 'jige', 1);
+  state.buckwheat = 0;
+  expect(pinnedTarget(d3, 'top', state.slots, state.storage, state)).toMatchObject({ ready: false, blocked: '메밀묵 1개 모자람' });
+  state.buckwheat = 1;
+  expect(pinnedTarget(d3, 'top', state.slots, state.storage, state)).toMatchObject({ ready: true, blocked: null });
+
+  const tame = createGame(d3, 1);
+  placeUnitForTest(tame, 'jinegaksi', 0);
+  placeUnitForTest(tame, 'banjitgori', 1);
+  tame.buckwheat = 5;
+  tame.coins = 500;
+  expect(pinnedTarget(d3, 'baekbalbaneulgaksi', tame.slots, tame.storage, tame)).toMatchObject({ ready: false, blocked: '진화 필요' });
+  tame.slots[0]!.item = 'evolveCharm';
+  expect(pinnedTarget(d3, 'baekbalbaneulgaksi', tame.slots, tame.storage, tame)).toMatchObject({ ready: true, blocked: null });
+
+  state.buckwheat = 0;
+  return import('../src/ui/target').then(({ targetHtml }) => {
+    document.body.innerHTML = '<div id="t"></div>';
+    const root = document.getElementById('t')!;
+    root.innerHTML = targetHtml(pinnedTarget(d3, 'top', state.slots, state.storage, state)!, false);
+    expect(root.querySelector('.target-ready')).toBeNull();
+    expect(root.querySelector('.target-blocked')!.textContent).toBe('재료 다 있음 · 메밀묵 1개 모자람');
   });
 });

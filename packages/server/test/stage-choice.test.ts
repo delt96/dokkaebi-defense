@@ -51,13 +51,13 @@ describe('round count choice', () => {
   });
 
   test('a legacy ready only consents to a 20-round room', () => {
-    const { core } = lobby(1);
+    const { core } = lobby(2);
     core.message('a', 'stage', { stage: 'stage3' });
-    core.message('a', 'ready', { ready: true });
+    core.message('b', 'ready', { ready: true });
     core.message('a', 'start', {});
     expect(core.phase).toBe('lobby');
     core.message('a', 'stage', { stage: 'stage2' });
-    core.message('a', 'ready', { ready: true });
+    core.message('b', 'ready', { ready: true });
     core.message('a', 'start', {});
     expect(core.phase).toBe('playing');
   });

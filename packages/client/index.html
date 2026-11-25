@@ -7,13 +7,14 @@
   <title>도깨비 랜덤 디펜스</title>
 </head>
 <body>
+  <div id="win-left" class="win-box"></div>
   <div id="stage">
     <div id="top"></div>
     <div id="left"></div>
     <div id="lane"></div>
     <div id="right"></div>
     <div id="bottom"></div>
-    <div id="round-banner" aria-live="polite"></div>
+    <div id="round-banner" aria-hidden="true"></div>
     <div id="modal"></div>
     <div id="alert"></div>
     <div id="error" role="alert" hidden>
@@ -21,6 +22,7 @@
       <button id="error-restart" data-action="restart">다시 하기</button>
     </div>
   </div>
+  <div id="win-right" class="win-box"></div>
   <div id="screen"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>

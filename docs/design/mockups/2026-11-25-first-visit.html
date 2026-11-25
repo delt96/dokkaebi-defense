@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>처음 온 사람 (B4) 목업</title>
+<style>
+  :root { --bg:#0d0a14; --panel:#17121f; --edge:#2a2236; --ink:#e8e0d0; --dim:#9a90a8; --accent:#ffe08a; --danger:#ff3b2f; --new:#e8a33d; --chg:#6fb7e0; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px 28px 80px; background:#140f17; color:#e8dfe9; font-family: 'Pretendard','Apple SD Gothic Neo','Malgun Gothic', sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  h2 { font-size:18px; margin:40px 0 4px; padding-top:14px; border-top:1px solid #33283b; }
+  h3 { font-size:14px; margin:0 0 6px; color:#cdbfd0; font-weight:600; }
+  p.sub { margin:2px 0 10px; color:#b8aabb; font-size:14px; line-height:1.55; max-width:1100px; }
+  .status { display:inline-block; margin:4px 0 8px; padding:4px 10px; border:1px solid #8a6a2a; background:#2a1f10; color:#ffd58a; font-size:14px; font-weight:700; }
+  .legend { display:flex; flex-wrap:wrap; gap:18px; margin:10px 0 4px; font-size:14px; align-items:center; }
+  .legend i { display:inline-block; width:34px; height:16px; vertical-align:middle; margin-right:6px; }
+  .legend .l-new { outline:2px dashed var(--new); }
+  .legend .l-chg { outline:2px dashed var(--chg); }
+  .legend .l-gone { background:repeating-linear-gradient(135deg,#6b6470 0 4px,transparent 4px 8px); opacity:.6; }
+  .legend .l-same { width:18px; height:18px; border-radius:50%; background:#7a7280; }
+  .row { display:flex; flex-wrap:wrap; gap:28px; align-items:flex-start; }
+  .col { display:flex; flex-direction:column; gap:6px; }
+  .cap { font-size:13px; color:#a898ad; max-width:640px; line-height:1.5; }
+  .mres { font-size:12px; color:#9fd59f; font-family:Consolas, monospace; }
+  .mres.bad { color:#ff8a8a; }
+
+  /* annotation */
+  .n { position:absolute; z-index:9; width:20px; height:20px; border-radius:50%; font:700 12px/20px sans-serif; text-align:center; color:#140f17; box-shadow:0 0 0 2px #140f17; }
+  .n.new { background:var(--new); } .n.chg { background:var(--chg); } .n.old { background:#7a7280; color:#fff; }
+  .mk { position:relative; }
+  .mk.new { outline:2px dashed var(--new); outline-offset:2px; }
+  .mk.chg { outline:2px dashed var(--chg); outline-offset:2px; }
+  .gone { position:relative; opacity:.5; }
+  .gone::after { content:''; position:absolute; inset:-2px; background:repeating-linear-gradient(135deg,rgba(150,140,160,.6) 0 3px,transparent 3px 8px); pointer-events:none; }
+  .tag-new { outline:1px dashed var(--new); outline-offset:1px; }
+
+  /* outer screens (#screen). 640x360 windows are <= 400px high, so the compact rule (padding 8, gap 5) applies */
+  .win { position:relative; overflow:hidden; display:flex; justify-content:center; align-items:flex-start; color:var(--ink);
+         background: radial-gradient(ellipse at 50% 40%, #211a2c, var(--bg) 72%); border:1px solid #3a3040; }
+  .w640 { width:640px; height:360px; }
+  .w640.tall { height:auto; min-height:360px; padding-bottom:6px; }
+  .fold { position:absolute; left:0; right:0; top:360px; border-top:1px dashed #ff6b6b; color:#ff8a8a; font-size:11px; text-align:right; padding-right:6px; z-index:10; }
+  .box { width:360px; margin-block:auto; padding:8px 0; display:flex; flex-direction:column; gap:5px; font-size:15px; }
+  .box.roomy { padding:20px 0; gap:10px; }
+  .w640.tall .box { margin-block:0; }
+  .ttl { margin:0 0 2px; text-align:center; color:var(--accent); font-size:26px; font-weight:700; line-height:1.2; }
+  .intro { text-align:center; color:var(--dim); font-size:14px; line-height:1.4; }
+  .lbl { display:flex; flex-direction:column; gap:6px; color:var(--dim); }
+  .inp { font-size:16px; background:#1f1829; border:1px solid #4a3e5a; border-radius:2px; min-height:40px; padding:0 10px; display:flex; align-items:center; color:var(--ink); }
+  .inp.ph { color:#6d6479; }
+  .big { min-height:44px; font-size:16px; font-weight:700; background:#3a2a1a; border:1px solid var(--accent); color:var(--accent); border-radius:2px; display:flex; align-items:center; justify-content:center; margin:4px 0; }
+  .big.sec { background:#2a2236; color:var(--ink); border-color:#574a65; }
+  .big.off { opacity:.4; }
+  .pair { display:flex; gap:8px; } .pair > * { flex:1; }
+  .diff { display:flex; align-items:center; justify-content:center; gap:6px; }
+  .diff-l { color:var(--dim); font-size:13px; }
+  .pick { display:flex; gap:4px; }
+  .pick span { min-height:28px; padding:2px 8px; font-size:12px; border:1px solid #4a3e5a; background:#2a2236; border-radius:2px; display:flex; align-items:center; }
+  .pick span.on { color:var(--accent); border-color:var(--accent); }
+  .pick.ro span { opacity:.7; } .pick.ro span.on { opacity:1; }
+  .note { margin-top:-1px; text-align:center; font-size:12px; opacity:.75; }
+  .note.old { font-size:11px; }
+  .link { text-align:center; color:var(--dim); font-size:14px; text-decoration:underline; padding:4px 12px; align-self:center; min-height:24px; }
+  .credits { border-top:1px solid var(--edge); color:var(--dim); font-size:10px; padding-top:4px; }
+  .first { font-size:13px; color:var(--dim); border:1px solid var(--edge); background:#17121f99; padding:0 8px; }
+  .first .sum { display:flex; align-items:center; gap:6px; min-height:28px; color:var(--ink); font-weight:600; }
+  .first .sum small { font-weight:400; color:var(--dim); font-size:13px; }
+  .tri { width:0; height:0; border-left:5px solid var(--dim); border-top:4px solid transparent; border-bottom:4px solid transparent; }
+  .tri.open { border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid var(--dim); border-bottom:0; }
+  .first ol { margin:0 0 6px; padding-left:18px; line-height:1.5; }
+  .hint { color:var(--dim); font-size:13px; text-align:center; line-height:1.4; }
+  .hint.slot { min-height:18px; }
+  .toast { position:absolute; left:50%; bottom:14px; transform:translateX(-50%); padding:6px 14px; background:#241c30; border:1px solid #574a65; color:var(--ink); font-size:13px; white-space:nowrap; }
+
+  /* lobby */
+  .lobby { width:400px; display:grid; grid-template-columns:1fr auto; align-items:center; }
+  .lobby > .full { grid-column:1 / -1; }
+  .lobby .ttl { text-align:left; margin:0; }
+  .tools { display:flex; gap:8px; }
+  .sbtn { font-size:15px; min-height:38px; padding:0 10px; background:#2a2236; border:1px solid #4a3e5a; border-radius:2px; display:flex; align-items:center; }
+  .rows { display:flex; flex-direction:column; gap:2px; }
+  .box.roomy .rows { gap:4px; } .box.roomy .lr { min-height:34px; }
+  .lr { display:flex; align-items:center; gap:8px; min-height:30px; padding:0 10px; background:var(--panel); border:1px solid var(--edge); }
+  .lr.empty { color:var(--dim); }
+  .lr .nm { flex:1; }
+  .lr em { font-style:normal; font-size:12px; color:var(--accent); }
+  .lr .st { color:var(--dim); font-size:13px; } .lr .st.on { color:var(--accent); }
+  .acts { display:flex; gap:8px; } .acts > * { flex:1; }
+
+  /* battle stage (640x360) */
+  .stage { position:relative; width:640px; height:360px; background:var(--bg); font-size:10px; color:var(--ink); border:1px solid #3a3040; overflow:hidden; flex:none; }
+  .stage.bar { height:24px; overflow:visible; margin-bottom:14px; }
+  .stage.bar .top { overflow:visible; }
+  .sw { position:relative; }
+  .stage .p { position:absolute; background:var(--panel); border:1px solid var(--edge); }
+  .top { left:0; top:0; width:640px; height:24px; overflow:hidden; }
+  .hud { display:flex; gap:8px; align-items:center; height:100%; padding:0 8px; font-size:11px; white-space:nowrap; }
+  .hud .rd { color:var(--accent); font-weight:700; }
+  .hud .rb { display:flex; flex-direction:column; line-height:11px; }
+  .hud .rs { font-size:10px; color:#c9bfd8; font-weight:400; }
+  .hud .en { margin-left:auto; }
+  .hud .en.warn { font-size:13px; font-weight:700; color:#ff9482; }
+  .hud .gauge { display:inline-block; flex:none; width:60px; height:6px; background:#2a2232; border:1px solid #4a3e5a; }
+  .hud .gauge i { display:block; height:100%; width:23%; background:linear-gradient(90deg,#8a6a4a,var(--danger)); }
+  .hud .gauge.hot i { width:96%; background:#ff6b5a; }
+  .hud .gt { margin-left:-4px; color:#bfbbca; }
+  .hud .boss { color:#ffab99; }
+  .hud .pill { font-size:10px; padding:0 6px; border-radius:7px; background:#3a3048; color:var(--ink); line-height:14px; margin-left:4px; }
+  .gear { flex:none; width:18px; height:18px; display:grid; place-items:center; color:var(--dim); }
+  .menu { flex:none; height:22px; padding:0 8px; font-size:11px; border:1px solid #4a3e5a; background:#2a2236; border-radius:2px; display:flex; align-items:center; }
+  .left { left:0; top:24px; width:128px; height:308px; padding:4px; color:var(--dim); }
+  .lane { left:128px; top:24px; width:400px; height:308px; background:#121a12; }
+  .lane .path { position:absolute; left:20px; top:20px; right:20px; bottom:20px; border:16px solid #26331f; }
+  .lane .grid { position:absolute; left:104px; top:90px; width:192px; height:128px; display:grid; grid-template-columns:repeat(6,1fr); gap:2px; }
+  .lane .grid div { background:#1d2819; }
+  .right { left:528px; top:24px; width:112px; height:308px; padding:4px; display:flex; flex-direction:column; gap:3px; }
+  .right .res { display:flex; justify-content:space-between; } .right .res b { font-weight:400; color:var(--dim); }
+  .right .b { border:1px solid #4a3e5a; background:#2a2236; min-height:22px; display:flex; align-items:center; justify-content:center; border-radius:2px; }
+  .right .b.big2 { min-height:34px; font-size:13px; font-weight:700; background:#3a2a1a; border-color:var(--accent); color:var(--accent); }
+  .bottom { left:0; top:332px; width:640px; height:28px; display:flex; align-items:center; padding:0 8px; white-space:nowrap; overflow:hidden; color:var(--dim); }
+  .strip { position:relative; width:640px; height:28px; background:var(--panel); border:1px solid var(--edge); font-size:10px; display:flex; align-items:center; padding:0 8px; white-space:nowrap; overflow:hidden; color:var(--dim); flex:none; }
+  .strip.on44 { height:44px; }
+  .guide { color:var(--accent); font-weight:700; font-size:11px; margin-right:6px; flex:none; }
+  .modal { position:absolute; left:170px; top:60px; width:300px; background:var(--panel); border:1px solid var(--accent); padding:8px; font-size:11px; z-index:5; }
+  .modal .mh { display:flex; justify-content:space-between; align-items:center; font-weight:700; margin-bottom:8px; font-size:12px; }
+  .modal .mb { border:1px solid #4a3e5a; background:#2a2236; border-radius:2px; min-height:24px; padding:0 10px; display:flex; align-items:center; justify-content:center; font-weight:400; font-size:11px; }
+  .modal .mb.danger { color:#ffb3a8; border-color:#8a3a34; background:#3a1f24; }
+  .modal .mb.focus { outline:2px solid var(--accent); outline-offset:2px; }
+  .modal .ma { display:flex; gap:8px; } .modal .ma > * { flex:1; }
+  .modal .mt { margin:8px 0 0; font-size:11px; line-height:1.45; }
+  .inertwin { position:absolute; background:#1b1524; border:1px dashed #6b6470; color:#9a90a8; font-size:10px; padding:4px; }
+  .inertwin::after { content:''; position:absolute; inset:0; background:#0d0a1499; }
+  .veil { position:absolute; left:128px; top:24px; width:400px; height:308px; background:#0d0a14b3; display:flex; align-items:flex-end; justify-content:center; padding-bottom:18px; color:var(--ink); font-size:12px; font-weight:700; z-index:4; }
+
+  /* big windows: drawn at true CSS px, then shrunk for the page */
+  .big-win { position:relative; background:#05040a; border:1px solid #3a3040; overflow:hidden; }
+  .big-win .stage-at { position:absolute; }
+  .shrinkwrap { display:inline-block; }
+
+  /* portrait phone */
+  .phone { position:relative; width:390px; height:780px; background:#000; overflow:hidden; border:1px solid #3a3040; border-radius:10px; flex:none; }
+  .phone .stage { position:absolute; left:0; top:210px; border:0; }
+  .rot { position:absolute; inset:0; z-index:8; background:#0d0a14f2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:0 32px; text-align:center; color:var(--ink); }
+  .rot .rt { color:var(--accent); font-size:22px; font-weight:700; }
+  .rot .rdx { color:var(--dim); font-size:15px; line-height:1.6; }
+  .rot .rb { min-height:44px; padding:0 18px; font-size:15px; border:1px solid #574a65; background:#2a2236; border-radius:2px; display:flex; align-items:center; }
+
+  /* explanations */
+  .notes { display:grid; grid-template-columns:30px 1fr; gap:6px 4px; max-width:1100px; font-size:14px; line-height:1.55; margin-top:12px; }
+  .notes .nn { width:20px; height:20px; border-radius:50%; font:700 12px/20px sans-serif; text-align:center; color:#140f17; margin-top:2px; }
+  .notes .nn.new { background:var(--new); } .notes .nn.chg { background:var(--chg); } .notes .nn.old { background:#7a7280; color:#fff; }
+  code { background:#2a2030; padding:0 4px; border-radius:3px; font-size:12px; }
+  table.g { border-collapse:collapse; font-size:13px; margin-top:8px; max-width:1200px; }
+  table.g td, table.g th { border:1px solid #3a3040; padding:5px 8px; text-align:left; vertical-align:top; line-height:1.5; }
+  table.g th { color:#cdbfd0; background:#1e1724; }
+  .ok { color:#9fd59f; font-weight:700; } .ex { color:#ffd58a; font-weight:700; }
+</style></head>
+<body>
+
+<h1>처음 온 사람 (B4): 이 배치로 진행하려 합니다</h1>
+<div class="status">목업 확정 전 · 사용자 확인 필요</div>
+<p class="sub">와이어프레임입니다. 색과 크기는 지금 <code>ui/style.css</code> 값을 따랐고, '지금' 그림은 스크린샷이 아니라 <code>online/entry.ts</code>·<code>online/lobby.ts</code>·<code>ui/panels.ts</code>·<code>ui/hud.ts</code>를 보고 다시 그렸습니다. 분위기는 지금처럼 담백하게 두고 정보와 위계만 손봅니다(새 장식·그림 없음). 구현 순서는 B1 → B2 → B3 → B4라, 판 그림의 왼쪽 패널·하단 줄·상단 숫자는 B1~B3이 바꾼 모습을 '그대로(회색)'로 깔고 그 위에 B4가 더하는 것만 색으로 표시했습니다. 설계 문서: <code>docs/superpowers/specs/2026-11-25-first-visit-design.md</code></p>
+<div class="legend">
+  <span><i class="l-new"></i><b style="color:var(--new)">주황 점선·주황 번호</b> = 새로 생기는 요소</span>
+  <span><i class="l-chg"></i><b style="color:var(--chg)">하늘색 점선·하늘색 번호</b> = 바뀌는 요소(자리·모양·문구)</span>
+  <span><i class="l-gone"></i>회색 빗금 = 없어지는 요소</span>
+  <span><i class="l-same"></i>회색 동그라미 번호 = 그대로</span>
+</div>
+<p class="sub">초록 글자(<span class="mres">측정 …</span>)는 이 페이지를 열 때 스크립트가 그림의 실제 폭·높이를 잰 값입니다(목업 글꼴 기준, 실제 화면과 몇 px 다를 수 있음). 빨간 글자면 넘친다는 뜻입니다.</p>
+<table class="g">
+  <tr><th>창 크기</th><th>판 배율</th><th>바깥 화면(첫 화면·대기실) 배율 · B2 ⑮ 규칙 = 판 배율 × 0.75</th><th>이 목업에서 그린 곳</th></tr>
+  <tr><td>640×360 (휴대폰 가로와 비슷)</td><td>1</td><td>1 (높이 400 이하라 촘촘한 간격)</td><td>모든 화면</td></tr>
+  <tr><td>1280×720</td><td>2</td><td>1.5</td><td>높이만 잼(1920×953과 같은 배율, 높이가 가장 빠듯)</td></tr>
+  <tr><td>1920×953 (1080p 모니터에서 창 최대화)</td><td><b>2</b></td><td><b>1.5</b></td><td>1·2·3번 큰 화면, 5번 판</td></tr>
+  <tr><td>1920×1080 (전체 화면)</td><td><b>3</b></td><td><b>2.25</b></td><td>1·3번 큰 화면, 5번 판</td></tr>
+</table>
+
+<!-- ===================================================== 1 -->
+<h2>1. 첫 화면 (창 640×360, 배율 1)</h2>
+<div class="row">
+  <div class="col"><h3>지금</h3>
+    <div class="win w640"><div class="box">
+      <div class="ttl">도깨비 랜덤 디펜스</div>
+      <div class="lbl">닉네임<div class="inp">범수</div></div>
+      <div class="big">방 만들기</div>
+      <div class="gone" style="display:grid;gap:6px">
+        <div class="diff"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div></div>
+        <div class="note old">70라운드 · 적 체력 90%</div>
+      </div>
+      <div class="link gone">혼자 하기</div>
+      <div class="credits">▸ 음악 출처</div>
+    </div></div>
+    <div class="cap">난이도 줄이 '혼자 하기' 바로 위라 솔로 설정처럼 보입니다(실제로는 방 만들기에도 걸림). '혼자 하기'는 회색 밑줄 링크로 '음악 출처'와 무게가 같습니다. 빗금 두 곳은 이 자리에서 빠집니다(난이도 줄은 위로 옮기고, '혼자 하기'는 버튼이 됨).</div>
+  </div>
+
+  <div class="col"><h3>바뀐 화면 · 다시 온 사람(닉네임 기억됨, 접힘)</h3>
+    <div class="win w640"><div class="box meas" data-fit="box" data-winh="360" data-scale="1">
+      <div class="ttl mk"><span class="n old" style="left:-28px;top:6px">1</span>도깨비 랜덤 디펜스</div>
+      <div class="intro mk new"><span class="n new" style="left:-28px;top:0">2</span>최대 6명이 함께 잡귀를 막는 협동 랜덤 디펜스</div>
+      <div class="first mk new"><span class="n new" style="left:-30px;top:4px">3</span><div class="sum"><span class="tri"></span>처음이라면 <small>규칙 다섯 줄</small></div></div>
+      <div class="lbl mk"><span class="n old" style="left:-28px;top:24px">4</span>닉네임<div class="inp">범수</div></div>
+      <div class="mk chg" style="display:grid;gap:5px"><span class="n chg" style="left:-28px;top:10px">5</span>
+        <div class="diff"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div></div>
+        <div class="note">70라운드 · <span class="tag-new">약 45분</span> · 적 체력 90%</div>
+      </div>
+      <div class="pair mk chg"><span class="n chg" style="left:-28px;top:16px">6</span><div class="big">방 만들기</div><div class="big sec">혼자 하기</div></div>
+      <div class="credits mk"><span class="n old" style="left:-28px;top:0">7</span>▸ 음악 출처</div>
+    </div></div>
+    <div class="mres"></div>
+    <div class="cap">위에서 아래로 "무엇인지 → 처음이라면 → 닉네임 → 난이도 → 두 버튼". 난이도가 두 버튼 바로 위 한 줄이라 둘 다에 걸린다는 게 자리로 보입니다.</div>
+  </div>
+
+  <div class="col"><h3>바뀐 화면 · 처음 온 사람(펼침)</h3>
+    <div class="win w640 tall"><div class="fold">창 아래 끝 (360px)</div><div class="box meas" data-fit="box" data-winh="360" data-scale="1">
+      <div class="ttl">도깨비 랜덤 디펜스</div>
+      <div class="intro">최대 6명이 함께 잡귀를 막는 협동 랜덤 디펜스</div>
+      <div class="first mk new"><span class="n new" style="left:-30px;top:4px">3</span><div class="sum"><span class="tri open"></span>처음이라면</div>
+        <ol>
+          <li>Space(뚝딱!)를 누르면 도깨비불 1개로 유닛 하나를 뽑습니다.</li>
+          <li>재료가 모인 유닛을 고르고 Z로 조합하면 등급이 오릅니다.</li>
+          <li>길 위 잡귀가 60마리를 넘긴 채 5초가 지나면 집니다.</li>
+          <li>10라운드마다 나오는 보스는 그 라운드 안에 잡아야 합니다.</li>
+          <li>방을 만들어 링크를 보내면 최대 6명이 함께 합니다.</li>
+        </ol>
+      </div>
+      <div class="lbl">닉네임<div class="inp ph">한글·영문·숫자 1~8자</div></div>
+      <div style="display:grid;gap:5px">
+        <div class="diff"><span class="diff-l">난이도</span><div class="pick"><span class="on">쉬움</span><span>보통</span><span>어려움</span></div></div>
+        <div class="note">60라운드 · 약 40분 · 적 체력 80%</div>
+      </div>
+      <div class="pair"><div class="big">방 만들기</div><div class="big sec">혼자 하기</div></div>
+      <div class="credits">▸ 음악 출처</div>
+    </div></div>
+    <div class="mres"></div>
+    <div class="cap">이 높이에서는 펼치면 버튼이 접힌 선 아래로 내려가 스크롤됩니다(지금도 <code>#screen</code>은 스크롤됨). 규칙을 읽고 내려가면 바로 닉네임·난이도·버튼이 이어지는 순서라 받아들입니다. 다른 안은 문서 '사용자에게 물을 것' 3번.</div>
+  </div>
+</div>
+
+<div class="notes">
+  <span class="nn old">1</span><span>제목: 그대로(26px 금색). 화면에서 가장 큰 글자는 이것 하나.</span>
+  <span class="nn new">2</span><span><b>한 줄 소개</b>: 14px 흐린 글자(<code>--ink-dim</code>). 제목 바로 아래 둘째 단계 글자라 아래 도움말(13px)보다 한 단계 크게. 360px 상자에서 한 줄.</span>
+  <span class="nn new">3</span><span><b>'처음이라면'</b> 접기(<code>&lt;details&gt;</code>). 누르는 머리 줄은 높이 28px·13px 굵은 크림색, 펼침 표시는 글꼴에 기대지 않는 CSS 삼각형. 닉네임이 기억돼 있지 않으면 펼친 채로 엽니다(첫 그리기 전에 정해서 접혔다 펼쳐지는 깜빡임 없음). 새 저장값은 쓰지 않습니다. 다섯 줄 13px·줄 간격 1.5: 뽑기, 조합, 60마리·5초, 보스, 방. 숫자는 데이터에서 읽습니다. 초대 화면(2번)에서도 같은 자리(소개 바로 아래)에 둡니다.</span>
+  <span class="nn old">4</span><span>닉네임 칸: 그대로(안내 "1~8자"와 글자 수 제한 맞추기는 A1.6).</span>
+  <span class="nn chg">5</span><span><b>난이도 줄</b>: '혼자 하기' 위에서 두 버튼 위로 옮김. 설명에 <b>판 길이(약 N분)</b>를 더하고 11px → 12px(판 길이는 고를 때 보는 핵심 숫자). 쉬움 "60라운드 · 약 40분 · 적 체력 80%", 보통 "70라운드 · 약 45분 · 적 체력 90%", 어려움 "70라운드 · 약 45분 · 적 체력 100%". 대기실과 버튼 툴팁에도 같은 문구. 난이도 단추는 높이 28px·간격 4px.</span>
+  <span class="nn chg">6</span><span><b>두 버튼</b>: '방 만들기'(금색 주 버튼)와 '혼자 하기'(같은 높이 44px·같은 폭, 어두운 보조 버튼), 사이 8px. 한 화면에 주 버튼은 하나. '혼자 하기'는 링크 그대로(새 탭 열기 가능), 모양만 버튼.</span>
+  <span class="nn old">7</span><span>음악 출처: 그대로.</span>
+</div>
+
+<h3 style="margin-top:24px">큰 화면 · 바깥 화면은 B2 ⑮ 규칙(판 배율 × 0.75)을 따름 · 그림은 35%로 줄여 그림</h3>
+<div class="row">
+  <div class="col">
+    <div class="cap">1920×953 (판 배율 2 → 바깥 1.5) · 처음 온 사람(펼침)</div>
+    <div class="shrinkwrap" style="zoom:.35"><div class="win" style="width:1920px;height:953px"><div class="box roomy meas" data-fit="box" data-winh="953" data-winh2="720" data-scale="0.35" style="zoom:1.5">
+      <div class="ttl">도깨비 랜덤 디펜스</div>
+      <div class="intro">최대 6명이 함께 잡귀를 막는 협동 랜덤 디펜스</div>
+      <div class="first"><div class="sum"><span class="tri open"></span>처음이라면</div>
+        <ol>
+          <li>Space(뚝딱!)를 누르면 도깨비불 1개로 유닛 하나를 뽑습니다.</li>
+          <li>재료가 모인 유닛을 고르고 Z로 조합하면 등급이 오릅니다.</li>
+          <li>길 위 잡귀가 60마리를 넘긴 채 5초가 지나면 집니다.</li>
+          <li>10라운드마다 나오는 보스는 그 라운드 안에 잡아야 합니다.</li>
+          <li>방을 만들어 링크를 보내면 최대 6명이 함께 합니다.</li>
+        </ol>
+      </div>
+      <div class="lbl">닉네임<div class="inp ph">한글·영문·숫자 1~8자</div></div>
+      <div style="display:grid;gap:5px">
+        <div class="diff"><span class="diff-l">난이도</span><div class="pick"><span class="on">쉬움</span><span>보통</span><span>어려움</span></div></div>
+        <div class="note">60라운드 · 약 40분 · 적 체력 80%</div>
+      </div>
+      <div class="pair"><div class="big">방 만들기</div><div class="big sec">혼자 하기</div></div>
+      <div class="credits">▸ 음악 출처</div>
+    </div></div></div>
+    <div class="mres"></div>
+  </div>
+  <div class="col">
+    <div class="cap">1920×1080 전체 화면 (판 배율 3 → 바깥 2.25) · 다시 온 사람(접힘)</div>
+    <div class="shrinkwrap" style="zoom:.35"><div class="win" style="width:1920px;height:1080px"><div class="box roomy meas" data-fit="box" data-winh="1080" data-scale="0.35" style="zoom:2.25">
+      <div class="ttl">도깨비 랜덤 디펜스</div>
+      <div class="intro">최대 6명이 함께 잡귀를 막는 협동 랜덤 디펜스</div>
+      <div class="first"><div class="sum"><span class="tri"></span>처음이라면 <small>규칙 다섯 줄</small></div></div>
+      <div class="lbl">닉네임<div class="inp">범수</div></div>
+      <div style="display:grid;gap:5px">
+        <div class="diff"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div></div>
+        <div class="note">70라운드 · 약 45분 · 적 체력 90%</div>
+      </div>
+      <div class="pair"><div class="big">방 만들기</div><div class="big sec">혼자 하기</div></div>
+      <div class="credits">▸ 음악 출처</div>
+    </div></div></div>
+    <div class="mres"></div>
+  </div>
+</div>
+<p class="sub">배율 값은 B2가 정하고(<code>--outer-zoom</code>) B4는 건드리지 않습니다. 1280×720도 바깥 1.5배라 위 왼쪽 그림의 높이를 720과 같이 비교했습니다. 큰 화면에서는 높이 400 초과라 촘촘한 간격 규칙이 빠져 간격이 넓어집니다(padding 20, gap 10).</p>
+
+<!-- ===================================================== 2 -->
+<h2>2. 초대 링크로 들어온 화면 (창 640×360, 배율 1)</h2>
+<div class="row">
+  <div class="col"><h3>지금</h3>
+    <div class="win w640"><div class="box">
+      <div class="ttl">도깨비 랜덤 디펜스</div>
+      <div class="lbl">닉네임<div class="inp ph">한글·영문·숫자 1~8자</div></div>
+      <div class="big">입장하기</div>
+      <div class="gone" style="display:grid;gap:6px">
+        <div class="diff"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div></div>
+        <div class="note old">70라운드 · 적 체력 90%</div>
+      </div>
+      <div class="link gone">혼자 하기</div>
+      <div class="credits">▸ 음악 출처</div>
+    </div></div>
+    <div class="cap">입장할 방의 난이도는 방장이 정하는데, 효과 없는 난이도 줄이 나옵니다(빗금: 없어짐). '혼자 하기' 링크도 이 자리에서 빠집니다.</div>
+  </div>
+  <div class="col"><h3>바뀐 화면 (다시 온 사람: 접힘. 처음 온 사람이면 1번처럼 펼침)</h3>
+    <div class="win w640"><div class="box meas" data-fit="box" data-winh="360" data-scale="1">
+      <div class="ttl">도깨비 랜덤 디펜스</div>
+      <div class="intro mk new"><span class="n new" style="left:-28px;top:0">1</span>최대 6명이 함께 잡귀를 막는 협동 랜덤 디펜스</div>
+      <div class="first mk new"><span class="n new" style="left:-30px;top:4px">2</span><div class="sum"><span class="tri"></span>처음이라면 <small>규칙 다섯 줄</small></div></div>
+      <div class="hint mk new"><span class="n new" style="left:-28px;top:-2px">3</span>초대받은 방에 들어갑니다 · 난이도는 방장이 정합니다</div>
+      <div class="lbl">닉네임<div class="inp ph">한글·영문·숫자 1~8자</div></div>
+      <div class="big">입장하기</div>
+      <div class="link mk new" style="font-size:13px;padding:3px 12px"><span class="n new" style="left:-28px;top:0">4</span>처음 화면으로</div>
+      <div class="credits">▸ 음악 출처</div>
+    </div></div>
+    <div class="mres"></div>
+  </div>
+  <div class="col"><h3>큰 화면 1920×953 (바깥 1.5) · 35%로 줄임</h3>
+    <div class="shrinkwrap" style="zoom:.35"><div class="win" style="width:1920px;height:953px"><div class="box roomy meas" data-fit="box" data-winh="953" data-winh2="720" data-scale="0.35" style="zoom:1.5">
+      <div class="ttl">도깨비 랜덤 디펜스</div>
+      <div class="intro">최대 6명이 함께 잡귀를 막는 협동 랜덤 디펜스</div>
+      <div class="first"><div class="sum"><span class="tri open"></span>처음이라면</div>
+        <ol><li>Space(뚝딱!)를 누르면 도깨비불 1개로 유닛 하나를 뽑습니다.</li><li>재료가 모인 유닛을 고르고 Z로 조합하면 등급이 오릅니다.</li><li>길 위 잡귀가 60마리를 넘긴 채 5초가 지나면 집니다.</li><li>10라운드마다 나오는 보스는 그 라운드 안에 잡아야 합니다.</li><li>방을 만들어 링크를 보내면 최대 6명이 함께 합니다.</li></ol>
+      </div>
+      <div class="hint">초대받은 방에 들어갑니다 · 난이도는 방장이 정합니다</div>
+      <div class="lbl">닉네임<div class="inp ph">한글·영문·숫자 1~8자</div></div>
+      <div class="big">입장하기</div>
+      <div class="link" style="font-size:13px;padding:3px 12px">처음 화면으로</div>
+      <div class="credits">▸ 음악 출처</div>
+    </div></div></div>
+    <div class="mres"></div>
+  </div>
+</div>
+<div class="notes">
+  <span class="nn new">1</span><span>한 줄 소개(1번 화면과 같음).</span>
+  <span class="nn new">2</span><span>'처음이라면': 초대로 들어오는 사람이 처음 온 사람일 가능성이 가장 높아 여기도 둡니다. 1번과 같은 자리(소개 바로 아래)라 어디서 봐도 같은 곳에 있습니다. 닉네임이 기억돼 있지 않으면 펼친 채로.</span>
+  <span class="nn new">3</span><span><b>난이도 줄 대신 한 줄 안내</b>(13px). 난이도는 대기실에서 보입니다.</span>
+  <span class="nn new">4</span><span><b>'혼자 하기' 대신 '처음 화면으로'</b>(<code>/</code>). 13px 밑줄, 누르는 높이 24px 이상. 방을 새로 만들거나 혼자 하려는 사람은 여기로. 주 버튼은 '입장하기' 하나.</span>
+</div>
+
+<!-- ===================================================== 3 -->
+<h2>3. 대기실 (창 640×360, 배율 1)</h2>
+<div class="row">
+  <div class="col"><h3>지금 · 방장이 준비를 누른 뒤</h3>
+    <div class="win w640 tall"><div class="fold">창 아래 끝 (360px)</div><div class="box lobby" style="gap:5px">
+      <div class="ttl">대기실</div><div class="sbtn">링크 복사</div>
+      <div class="full diff" style="justify-content:flex-start"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div><span class="sbtn" style="font-size:12px;min-height:26px;margin-left:auto">소리 설정</span></div>
+      <div class="full note old">70라운드 · 적 체력 90%</div>
+      <div class="full rows">
+        <div class="lr"><span class="nm">1번 범수</span><em>방장</em><em>나</em><span class="st on gone">준비</span></div>
+        <div class="lr"><span class="nm">2번 손님</span><span class="st">대기</span></div>
+        <div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div>
+      </div>
+      <div class="full acts"><div class="big gone">준비 취소</div><div class="big sec off">시작</div></div>
+      <div class="full hint">모두 준비하면 시작할 수 있습니다</div>
+    </div></div>
+    <div class="cap">금색은 '준비 취소', 다음 단계인 '시작'은 회색. 나가기 없음. 빗금: 방장 줄의 '준비'와 방장 '준비/준비 취소' 버튼은 없어짐.</div>
+  </div>
+
+  <div class="col"><h3>바뀐 화면 · 방장 (2명, 손님 대기 중)</h3>
+    <div class="win w640 tall"><div class="fold">창 아래 끝 (360px)</div><div class="box lobby meas" data-fit="box" data-winh="360" data-scale="1" style="gap:5px">
+      <div class="ttl">대기실</div>
+      <div class="tools"><div class="sbtn">링크 복사</div><div class="sbtn mk new"><span class="n new" style="left:-10px;top:-14px">1</span>나가기</div></div>
+      <div class="full diff" style="justify-content:flex-start"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div><span class="sbtn" style="font-size:12px;min-height:26px;margin-left:auto">소리 설정</span></div>
+      <div class="full note">70라운드 · <span class="tag-new">약 45분</span> · 적 체력 90%</div>
+      <div class="full rows">
+        <div class="lr mk chg"><span class="n chg" style="left:-26px;top:5px">2</span><span class="nm">1번 범수</span><em>방장</em><em>나</em></div>
+        <div class="lr"><span class="nm">2번 손님</span><span class="st">대기</span></div>
+        <div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div>
+      </div>
+      <div class="full acts mk chg"><span class="n chg" style="left:-26px;top:12px">3</span><div class="big off">시작</div></div>
+      <div class="full hint slot mk chg meas" data-fit="oneline"><span class="n chg" style="left:-26px;top:-2px">4</span>모두 준비하면 시작할 수 있습니다 · 0/1명 준비</div>
+    </div></div>
+    <div class="mres"></div>
+  </div>
+</div>
+
+<div class="row" style="margin-top:20px">
+  <div class="col"><h3>바뀐 화면 · 손님 (준비한 뒤)</h3>
+    <div class="win w640 tall"><div class="fold">창 아래 끝 (360px)</div><div class="box lobby" style="gap:5px">
+      <div class="ttl">대기실</div>
+      <div class="tools"><div class="sbtn">링크 복사</div><div class="sbtn mk new">나가기</div></div>
+      <div class="full diff" style="justify-content:flex-start"><span class="diff-l">난이도</span><div class="pick ro"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div><span class="sbtn" style="font-size:12px;min-height:26px;margin-left:auto">소리 설정</span></div>
+      <div class="full note">70라운드 · 약 45분 · 적 체력 90%</div>
+      <div class="full hint">난이도는 방장이 정합니다</div>
+      <div class="full rows">
+        <div class="lr"><span class="nm">1번 범수</span><em>방장</em></div>
+        <div class="lr"><span class="nm">2번 손님</span><em>나</em><span class="st on">준비</span></div>
+        <div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div>
+      </div>
+      <div class="full acts mk chg"><span class="n chg" style="left:-26px;top:12px">6</span><div class="big sec">준비 취소</div></div>
+    </div></div>
+  </div>
+  <div class="col"><h3>바뀐 화면 · 방장, 3명 모두 준비</h3>
+    <div class="win w640 tall"><div class="fold">창 아래 끝 (360px)</div><div class="box lobby" style="gap:5px">
+      <div class="ttl">대기실</div>
+      <div class="tools"><div class="sbtn">링크 복사</div><div class="sbtn">나가기</div></div>
+      <div class="full diff" style="justify-content:flex-start"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div><span class="sbtn" style="font-size:12px;min-height:26px;margin-left:auto">소리 설정</span></div>
+      <div class="full note">70라운드 · 약 45분 · 적 체력 90%</div>
+      <div class="full rows">
+        <div class="lr"><span class="nm">1번 범수</span><em>방장</em><em>나</em></div>
+        <div class="lr"><span class="nm">2번 손님</span><span class="st on">준비</span></div>
+        <div class="lr"><span class="nm">3번 동생</span><span class="st on">준비</span></div>
+        <div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div>
+      </div>
+      <div class="full acts"><div class="big">시작</div></div>
+      <div class="full hint slot mk new meas" data-fit="oneline"><span class="n new" style="left:-26px;top:-2px">5</span>3명으로 시작합니다 · 시작하면 더 들어올 수 없습니다</div>
+    </div></div>
+    <div class="mres"></div>
+  </div>
+  <div class="col"><h3>바뀐 화면 · 방장 혼자</h3>
+    <div class="win w640 tall"><div class="fold">창 아래 끝 (360px)</div><div class="box lobby" style="gap:5px">
+      <div class="ttl">대기실</div>
+      <div class="tools"><div class="sbtn">링크 복사</div><div class="sbtn">나가기</div></div>
+      <div class="full diff" style="justify-content:flex-start"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div><span class="sbtn" style="font-size:12px;min-height:26px;margin-left:auto">소리 설정</span></div>
+      <div class="full note">70라운드 · 약 45분 · 적 체력 90%</div>
+      <div class="full rows">
+        <div class="lr"><span class="nm">1번 범수</span><em>방장</em><em>나</em></div>
+        <div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div>
+      </div>
+      <div class="full acts"><div class="big">시작</div></div>
+      <div class="full hint slot mk new meas" data-fit="oneline"><span class="n new" style="left:-26px;top:-2px">5</span>혼자 시작합니다 · 시작하면 더 들어올 수 없습니다</div>
+    </div></div>
+    <div class="mres"></div>
+  </div>
+</div>
+
+<h3 style="margin-top:24px">큰 화면 · 대기실 (방장, 3명 모두 준비) · 35%로 줄임</h3>
+<div class="row">
+  <div class="col"><div class="cap">1920×953 (바깥 1.5)</div>
+    <div class="shrinkwrap" style="zoom:.35"><div class="win" style="width:1920px;height:953px"><div class="box lobby roomy meas" data-fit="box" data-winh="953" data-winh2="720" data-scale="0.35" style="zoom:1.5">
+      <div class="ttl">대기실</div>
+      <div class="tools"><div class="sbtn">링크 복사</div><div class="sbtn">나가기</div></div>
+      <div class="full diff" style="justify-content:flex-start"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div><span class="sbtn" style="font-size:12px;min-height:26px;margin-left:auto">소리 설정</span></div>
+      <div class="full note">70라운드 · 약 45분 · 적 체력 90%</div>
+      <div class="full rows"><div class="lr"><span class="nm">1번 범수</span><em>방장</em><em>나</em></div><div class="lr"><span class="nm">2번 손님</span><span class="st on">준비</span></div><div class="lr"><span class="nm">3번 동생</span><span class="st on">준비</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div></div>
+      <div class="full acts"><div class="big">시작</div></div>
+      <div class="full hint slot">3명으로 시작합니다 · 시작하면 더 들어올 수 없습니다</div>
+    </div></div></div>
+    <div class="mres"></div>
+  </div>
+  <div class="col"><div class="cap">1920×1080 전체 화면 (바깥 2.25)</div>
+    <div class="shrinkwrap" style="zoom:.35"><div class="win" style="width:1920px;height:1080px"><div class="box lobby roomy meas" data-fit="box" data-winh="1080" data-scale="0.35" style="zoom:2.25">
+      <div class="ttl">대기실</div>
+      <div class="tools"><div class="sbtn">링크 복사</div><div class="sbtn">나가기</div></div>
+      <div class="full diff" style="justify-content:flex-start"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div><span class="sbtn" style="font-size:12px;min-height:26px;margin-left:auto">소리 설정</span></div>
+      <div class="full note">70라운드 · 약 45분 · 적 체력 90%</div>
+      <div class="full rows"><div class="lr"><span class="nm">1번 범수</span><em>방장</em><em>나</em></div><div class="lr"><span class="nm">2번 손님</span><span class="st on">준비</span></div><div class="lr"><span class="nm">3번 동생</span><span class="st on">준비</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div><div class="lr empty"><span class="nm">빈 자리</span></div></div>
+      <div class="full acts"><div class="big">시작</div></div>
+      <div class="full hint slot">3명으로 시작합니다 · 시작하면 더 들어올 수 없습니다</div>
+    </div></div></div>
+    <div class="mres"></div>
+  </div>
+  <div class="col"><div class="cap">나가기를 누른 뒤 첫 화면 (640×360)</div>
+    <div class="win w640"><div class="box">
+      <div class="ttl">도깨비 랜덤 디펜스</div>
+      <div class="intro">최대 6명이 함께 잡귀를 막는 협동 랜덤 디펜스</div>
+      <div class="first"><div class="sum"><span class="tri"></span>처음이라면 <small>규칙 다섯 줄</small></div></div>
+      <div class="lbl">닉네임<div class="inp">범수</div></div>
+      <div style="display:grid;gap:5px"><div class="diff"><span class="diff-l">난이도</span><div class="pick"><span>쉬움</span><span class="on">보통</span><span>어려움</span></div></div><div class="note">70라운드 · 약 45분 · 적 체력 90%</div></div>
+      <div class="pair"><div class="big">방 만들기</div><div class="big sec">혼자 하기</div></div>
+    </div><div class="toast mk new"><span class="n new" style="left:-26px;top:4px">7</span>방을 나왔습니다</div></div>
+  </div>
+</div>
+<div class="notes">
+  <span class="nn new">1</span><span><b>나가기</b>: '링크 복사' 옆, 사이 8px. 방을 나가 첫 화면으로. 확인 창 없음(시작 전이고 링크로 다시 들어올 수 있음). 방장이 나가면 서버가 가장 낮은 번호 자리에게 방장을 넘깁니다(지금 동작).</span>
+  <span class="nn chg">2</span><span>방장 줄에는 '준비/대기'를 쓰지 않습니다. 방장은 준비하지 않습니다.</span>
+  <span class="nn chg">3</span><span><b>방장 버튼은 '시작' 하나, 금색</b>. 손님이 모두 준비하면 켜짐(혼자면 바로 켜짐). 꺼진 동안은 흐리게 + 커서 금지 + 바로 아래 안내 줄이 이유를 말합니다. 방장 '준비' 버튼은 없앰.</span>
+  <span class="nn chg">4</span><span>안내 줄 뒤에 준비한 사람 수(방장 빼고 센 손님 수). 방장 안내는 <b>상황별로 한 줄만</b>. 안내 줄 자리(높이 18px)는 글이 없을 때(6명 다 차고 모두 준비)도 비워 두어 버튼이 위아래로 튀지 않게 합니다.</span>
+  <span class="nn new">5</span><span><b>6명 미만으로 시작할 수 있을 때 안내</b>(방장에게만, 4번 대신): 2~5명 "N명으로 시작합니다 · 시작하면 더 들어올 수 없습니다", 혼자 "혼자 시작합니다 · 시작하면 더 들어올 수 없습니다". 400px 안 한 줄에 들어가게 줄였습니다(초록 측정값). 근거: 빈 자리는 판에 들어가지 않고(<code>createMatch</code>가 들어온 자리만 고리로 만듦), 시작한 방에는 들어올 수 없음(<code>alreadyStarted</code>).</span>
+  <span class="nn chg">6</span><span><b>손님 버튼</b>: '준비'는 금색, 누르면 '준비 취소'가 되며 보조(어두운) 모양. 금색은 언제나 "지금 누를 다음 단계"입니다.</span>
+  <span class="nn new">7</span><span><b>나온 뒤 알림</b>: 첫 화면 아래쪽에 떠 있는 한 줄 "방을 나왔습니다", 4초 뒤 사라짐. 흐름 밖(<code>position: fixed</code>)이라 버튼을 밀지 않습니다. 버튼 이름 '나가기'와 같은 말로 끝냅니다.</span>
+  <span class="nn old">·</span><span>빨간 점선은 창(640×360)의 아래 끝입니다. 지금 대기실도 이 높이에서는 아래가 조금 넘쳐 스크롤됩니다(<code>#screen</code>이 스크롤). 이번 설계는 지금보다 줄을 늘리지 않습니다.</span>
+</div>
+
+<!-- ===================================================== 4 -->
+<h2>4. 첫 판 안내 줄 (솔로 하단 28px 줄, 판 배율 1)</h2>
+<p class="sub">하단 안내 줄 맨 앞에 지금 할 일 한 마디를 금색 11px 굵게 붙이고, 그 뒤에 <b>B1 ⑫가 바꾼 단축키 줄</b>을 잇습니다(한 마디와 겹치는 키는 뒤에서 뺌). 판을 가리지 않고 입력도 막지 않습니다. 판 상태로만 정하므로 저장하지 않습니다. 설정 '도움말'을 끄면 함께 사라집니다. 판은 어느 배율에서나 640 기준 그대로 커지므로 큰 화면에서도 같은 줄이 2·3배가 됩니다(5번 큰 화면 그림의 아래 줄).</p>
+<div class="col">
+  <div class="cap">지금 · 판에 유닛이 없을 때 (A3.11이 이미 들어가 있음)</div>
+  <div class="strip"><span><span class="gone">Space나 뚝딱!으로 유닛을 뽑으세요.</span> · <span class="gone">W 다음 유닛</span> · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤</span></div>
+  <div class="cap">지금 · 유닛이 있을 때</div>
+  <div class="strip"><span><span class="gone">유닛을 눌러 선택하고 끌어서 옮기세요.</span> · <span class="gone">W 다음 유닛</span> · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤</span></div>
+  <div class="cap">B1 ⑫ 뒤의 줄 (B4가 뒤에 잇는 기준, 회색 = B4에서는 그대로) · 솔로 Q는 '이 유닛/전체'</div>
+  <div class="strip"><span>W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤</span></div>
+
+  <div class="cap" style="margin-top:10px">바뀐 화면 ① 판과 보관함에 유닛이 없을 때</div>
+  <div class="sw"><span class="n new" style="left:-26px;top:4px">1</span><div class="strip meas" data-fit="strip"><span class="guide mk new">Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개)</span><span>· E 강화 · D 도감 · Q 이 유닛/전체 · B 장터 · J 퀘스트 · P 멈춤</span></div></div>
+  <div class="mres"></div>
+  <div class="cap">② 2등급 이상이 아직 없고, 지금 되는 조합이 있을 때</div>
+  <div class="sw"><span class="n new" style="left:-26px;top:4px">2</span><div class="strip meas" data-fit="strip"><span class="guide mk new">W로 재료 유닛을 고르고 Z로 조합합니다 · 왼쪽 목록 맨 위부터</span><span>· Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관</span></div></div>
+  <div class="mres"></div>
+  <div class="cap">②′ 2등급 이상이 아직 없고, 지금 되는 조합도 없을 때</div>
+  <div class="sw"><span class="n new" style="left:-26px;top:4px">2′</span><div class="strip meas" data-fit="strip"><span class="guide mk new">조합할 재료가 아직 모자랍니다 · Space로 더 뽑으세요 (도깨비불 2개)</span><span>· E 강화 · D 도감 · Q 이 유닛/전체</span></div></div>
+  <div class="mres"></div>
+  <div class="cap">③ 1~5라운드</div>
+  <div class="sw"><span class="n new" style="left:-26px;top:4px">3</span><div class="strip meas" data-fit="strip"><span class="guide mk new">잡귀가 60마리를 넘긴 채 5초가 지나면 집니다 · 지금 14마리</span><span>· W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감</span></div></div>
+  <div class="mres"></div>
+  <div class="cap">④ 8~10라운드, 첫 보스를 아직 잡지 않았을 때</div>
+  <div class="sw"><span class="n new" style="left:-26px;top:4px">4</span><div class="strip meas" data-fit="strip"><span class="guide mk new">10라운드 보스는 그 라운드 안에 잡아야 합니다</span><span>· W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체</span></div></div>
+  <div class="mres"></div>
+  <div class="cap">온라인 44px 하단 카드(유닛을 고르지 않았을 때) · 같은 한 마디, 뒤 줄은 온라인 줄(Q 도우미)</div>
+  <div class="strip on44"><span class="guide mk new">잡귀가 60마리를 넘긴 채 5초가 지나면 집니다 · 지금 14마리</span><span>· W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 도우미</span></div>
+  <div class="cap">그 밖: B1 ⑫ 줄 그대로. 유닛을 고르면 B1 ⑫의 '고른 유닛' 줄(Z/X/C 조합(판에 짝 표시) · S 판매 …)이 나오고 한 마디는 숨깁니다.</div>
+</div>
+<table class="g">
+  <tr><th>단계</th><th>조건 (위에서부터 처음 맞는 하나)</th><th>뒤 줄에서 빼는 키</th><th>숫자 출처</th></tr>
+  <tr><td>① 뽑기</td><td>판과 보관함에 유닛이 하나도 없음</td><td>W(고를 유닛 없음), Space(한 마디에 있음), G(보관할 것 없음)</td><td><code>state.tokens</code></td></tr>
+  <tr><td>② 조합</td><td>2등급 이상 없음, B1 '지금 가능' 묶음이 하나 이상</td><td>W(한 마디에 있음)</td><td>-</td></tr>
+  <tr><td>②′ 재료 부족</td><td>2등급 이상 없음, '지금 가능' 묶음 없음</td><td>Space(한 마디에 있음)</td><td><code>state.tokens</code></td></tr>
+  <tr><td>③ 한도</td><td>1~5라운드</td><td>-</td><td><code>balance.limit</code>, <code>limitSeconds</code>, 지금 잡귀 수</td></tr>
+  <tr><td>④ 보스</td><td>8~10라운드, 첫 보스 생존</td><td>-</td><td>첫 보스 웨이브 라운드</td></tr>
+</table>
+<p class="sub">한 마디는 줄 맨 앞이라 잘리지 않습니다(초록 측정값: 한 마디 폭). 뒤 단축키는 지금처럼 오른쪽 끝에서 잘릴 수 있습니다(지금 동작 그대로). 한 마디는 스크린리더 알림(aria-live)으로 만들지 않습니다. 판 알림은 B3이 정한 한 곳으로만 읽힙니다.</p>
+
+<!-- ===================================================== 5 -->
+<h2>5. 솔로 상단 줄과 메뉴 (판 배율 1)</h2>
+<p class="sub">교차 검토에서 B3(잡귀 숫자 확대·꼬리 글·멈춤 알약)와 B4(메뉴 버튼)가 같은 줄에 요소를 더하는데 맡은 설계가 없었습니다. <b>상단 줄은 B4가 맡습니다.</b> 판 안 글자는 배율과 상관없이 640 기준이라, 아래 폭 계산은 배율 1·2·3에서 똑같습니다.</p>
+<div class="col">
+  <div class="cap">지금 · 보통 상태 (11라운드)</div>
+  <div class="stage bar"><div class="p top"><div class="hud meas" data-fit="row"><span class="rd">11 / 70 라운드 · 보통</span><span>남은 22초</span><span class="en">내 잡귀 14 / 60</span><span class="gauge"><i></i></span><span class="gt">장승 멀쩡함</span><span class="gear"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="2.4 1.6"/></svg></span></div></div></div>
+  <div class="mres"></div>
+  <div class="cap">지금 · 가장 긴 상태 (70라운드 · 어려움, 저항 줄, P 멈춤, 보스 생존, 잡귀 58)</div>
+  <div class="stage bar"><div class="p top"><div class="hud meas" data-fit="row"><span class="rb"><span class="rd">70 / 70 라운드 · 어려움</span><span class="rs">저항 물리 20~70% · 마법 20~70%</span></span><span>남은 41초 · 멈춤</span><span class="boss">보스 체력 186400 / 240000</span><span class="en">내 잡귀 58 / 60</span><span class="gauge"><i style="width:96%"></i></span><span class="gt">장승 금 감</span><span class="gear"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="2.4 1.6"/></svg></span></div></div></div>
+  <div class="mres"></div>
+  <div class="cap" style="margin-top:8px">B3 ①⑦을 더하고 메뉴를 붙이기만 하면 · 넘침 (그리지 않을 모습, 비교용). 이 그림은 잡귀 글 전체를 13px 굵게 그려 넓게 잡았습니다. B3 문서는 숫자만 12~13px, 꼬리 글 10px로 그려 같은 상태를 703px로 쟀습니다(26px 차이). 넓게 잡은 이 목업 값이 기준이고, 넘칠 때는 꼬리 글을 빼지 않고 아래 ⑤⑥ 규칙으로 줄입니다.</div>
+  <div class="stage bar"><div class="p top"><div class="hud meas" data-fit="row"><span class="rb"><span class="rd">70 / 70 라운드 · 어려움</span><span class="rs">저항 물리 20~70% · 마법 20~70%</span></span><span>남은 41초<span class="pill">멈춤</span></span><span class="boss">보스 체력 186400 / 240000</span><span class="en warn">내 잡귀 58 / 60 · 2마리 남음</span><span class="gauge hot"><i></i></span><span class="gt">장승 금 감</span><span class="gear"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="2.4 1.6"/></svg></span><span class="menu">메뉴</span></div></div></div>
+  <div class="mres"></div>
+  <div class="cap" style="margin-top:8px">바뀐 화면 · 가장 긴 상태 (B4 줄이기 규칙 적용)</div>
+  <div class="stage bar"><div class="p top"><div class="hud meas" data-fit="row"><span class="rb"><span class="rd">70 / 70 라운드 · 어려움</span><span class="rs">저항 물리 20~70% · 마법 20~70%</span></span><span>남은 41초<span class="pill">멈춤</span></span><span class="boss mk chg"><span class="n chg" style="left:-8px;top:14px">5</span>보스 186400</span><span class="en warn">내 잡귀 58 / 60 · 2마리 남음</span><span class="gauge hot mk chg"><span class="n chg" style="left:20px;top:14px">6</span><i></i></span><span class="gear"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="2.4 1.6"/></svg></span><span class="menu mk new"><span class="n new" style="left:4px;top:14px">1</span>메뉴</span></div></div></div>
+  <div class="mres"></div>
+  <div class="cap">⑥ 위험 단계(57~60)에서는 게이지 옆 '장승 금 감' 글자를 숨깁니다(게이지는 남음). 위 '지금' 그림의 '장승 금 감' 자리입니다.</div>
+  <div class="cap" style="margin-top:8px">바뀐 화면 · 보스 라운드, 저항 줄 없음, 위험 아님 (보스 체력은 전체 표시)</div>
+  <div class="stage bar"><div class="p top"><div class="hud meas" data-fit="row"><span class="rd">10 / 70 라운드 · 어려움</span><span>남은 52초<span class="pill">멈춤</span></span><span class="boss">보스 체력 18400 / 24000</span><span class="en">내 잡귀 31 / 60</span><span class="gauge"><i style="width:52%"></i></span><span class="gt">장승 흔들림</span><span class="gear"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="2.4 1.6"/></svg></span><span class="menu">메뉴</span></div></div></div>
+  <div class="mres"></div>
+</div>
+
+<div class="row" style="margin-top:18px">
+  <div class="col"><h3>메뉴 창 (배율 1)</h3>
+    <div class="stage">
+      <div class="p top"><div class="hud"><span class="rd">11 / 70 라운드 · 보통</span><span>남은 22초<span class="pill">멈춤</span></span><span class="en">내 잡귀 14 / 60</span><span class="gauge"><i></i></span><span class="gt">장승 멀쩡함</span><span class="gear"><svg width="12" height="12" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-dasharray="2.4 1.6"/></svg></span><span class="menu">메뉴</span></div></div>
+      <div class="p left">왼쪽 패널 (B1 합친 패널, 그대로)</div>
+      <div class="p lane"><div class="path"></div><div class="grid"></div></div>
+      <div class="p right"><div class="res"><b>도깨비불 (뽑기)</b><span>3</span></div><div class="res"><b>엽전</b><span>48</span></div><div class="res"><b>메밀묵</b><span>0</span></div><div class="b big2">뚝딱! (3번)</div><div class="b">불 1개 → 25냥</div><div class="b">강화 (E)</div><div class="b">장터 (B)</div><div class="b" style="margin-top:auto">도감 (D)</div></div>
+      <div class="p bottom">W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤</div>
+      <div class="modal mk new"><span class="n new" style="left:-26px;top:4px">2</span>
+        <div class="mh">메뉴 <span class="mb">닫기</span></div>
+        <div class="ma"><span class="mb">다시 시작</span><span class="mb">처음 화면으로</span></div>
+        <div class="mt" style="color:var(--dim)">시간이 멈춰 있습니다. 다시 시작하거나 처음 화면으로 가면 지금 판은 기록되지 않고 사라집니다.</div>
+      </div>
+    </div>
+  </div>
+  <div class="col"><h3>'다시 시작'을 누른 뒤 (확인 창)</h3>
+    <div class="stage">
+      <div class="p top"><div class="hud"><span class="rd">11 / 70 라운드 · 보통</span><span>남은 22초<span class="pill">멈춤</span></span><span class="en">내 잡귀 14 / 60</span><span class="gauge"><i></i></span><span class="gt">장승 멀쩡함</span><span class="gear"></span><span class="menu">메뉴</span></div></div>
+      <div class="p left">왼쪽 패널</div>
+      <div class="p lane"><div class="path"></div></div>
+      <div class="p right"><div class="b big2">뚝딱! (3번)</div></div>
+      <div class="p bottom">…</div>
+      <div class="modal mk new" style="top:100px"><span class="n new" style="left:-26px;top:4px">3</span>
+        <div class="mh">다시 시작</div>
+        <div class="mt" style="margin-top:0">지금 판을 버리고 같은 난이도로 다시 시작할까요?</div>
+        <div class="ma" style="margin-top:10px"><span class="mb danger">다시 시작</span><span class="mb focus">취소</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col"><h3>P로 멈춘 채 메뉴를 열었을 때</h3>
+    <div class="stage">
+      <div class="p top"><div class="hud"><span class="rd">11 / 70 라운드 · 보통</span><span>남은 22초<span class="pill">멈춤</span></span><span class="en">내 잡귀 14 / 60</span><span class="gauge"><i></i></span><span class="gt">장승 멀쩡함</span><span class="gear"></span><span class="menu">메뉴</span></div></div>
+      <div class="p left">왼쪽 패널</div>
+      <div class="p lane"><div class="path"></div><div class="grid"></div></div>
+      <div class="p right"><div class="b big2">뚝딱! (3번)</div></div>
+      <div class="p bottom">…</div>
+      <div class="veil">멈춤 · P로 계속</div>
+      <div class="modal mk new"><span class="n new" style="left:-26px;top:4px">4</span>
+        <div class="mh">메뉴 <span class="mb">닫기</span></div>
+        <div class="ma"><span class="mb">다시 시작</span><span class="mb">처음 화면으로</span></div>
+        <div class="mt" style="color:var(--dim)">시간이 멈춰 있습니다. 다시 시작하거나 처음 화면으로 가면 지금 판은 기록되지 않고 사라집니다.</div>
+      </div>
+    </div>
+    <div class="cap">B3 ⑦ 멈춤 덮개(4층, 그대로)는 메뉴(5층) 아래에 남습니다. 메뉴를 닫으면 덮개가 다시 보이고 P 멈춤은 그대로입니다.</div>
+  </div>
+</div>
+
+<h3 style="margin-top:24px">큰 화면 · 메뉴가 열린 판 · 30%로 줄임</h3>
+<div class="row">
+  <div class="col"><div class="cap">1920×953 · 판 배율 2 (1280×720, 가운데) · 양옆 여백은 B2 여백 창 자리</div>
+    <div class="shrinkwrap" style="zoom:.3"><div class="big-win" style="width:1920px;height:953px">
+      <div class="inertwin" style="left:8px;top:116px;width:304px;height:400px;font-size:22px">B2 왼쪽 여백 창 (상세·지게)<br>메뉴가 열린 동안 inert·판 잠금 창 아래</div>
+      <div class="inertwin" style="left:1608px;top:116px;width:304px;height:500px;font-size:22px">B2 오른쪽 여백 창 (장터 등)<br>메뉴가 열린 동안 inert·판 잠금 창 아래</div>
+      <div class="stage-at" style="left:320px;top:116px"><div style="zoom:2">
+        <div class="stage">
+          <div class="p top"><div class="hud"><span class="rd">11 / 70 라운드 · 보통</span><span>남은 22초<span class="pill">멈춤</span></span><span class="en">내 잡귀 14 / 60</span><span class="gauge"><i></i></span><span class="gt">장승 멀쩡함</span><span class="gear"></span><span class="menu">메뉴</span></div></div>
+          <div class="p left">왼쪽 패널</div><div class="p lane"><div class="path"></div><div class="grid"></div></div>
+          <div class="p right"><div class="b big2">뚝딱! (3번)</div></div>
+          <div class="p bottom"><span class="guide">10라운드 보스는 그 라운드 안에 잡아야 합니다</span>· W 다음 조합 고르기 · Space 소환 · E 강화</div>
+          <div class="modal"><div class="mh">메뉴 <span class="mb">닫기</span></div><div class="ma"><span class="mb">다시 시작</span><span class="mb">처음 화면으로</span></div><div class="mt" style="color:var(--dim)">시간이 멈춰 있습니다. 다시 시작하거나 처음 화면으로 가면 지금 판은 기록되지 않고 사라집니다.</div></div>
+        </div>
+      </div></div>
+    </div></div>
+  </div>
+  <div class="col"><div class="cap">1920×1080 전체 화면 · 판 배율 3 (여백 없음, 창은 판 안 기둥)</div>
+    <div class="shrinkwrap" style="zoom:.3"><div class="big-win" style="width:1920px;height:1080px">
+      <div class="stage-at" style="left:0;top:0"><div style="zoom:3">
+        <div class="stage" style="border:0">
+          <div class="p top"><div class="hud"><span class="rd">11 / 70 라운드 · 보통</span><span>남은 22초<span class="pill">멈춤</span></span><span class="en">내 잡귀 14 / 60</span><span class="gauge"><i></i></span><span class="gt">장승 멀쩡함</span><span class="gear"></span><span class="menu">메뉴</span></div></div>
+          <div class="p left">왼쪽 패널</div><div class="p lane"><div class="path"></div><div class="grid"></div></div>
+          <div class="inertwin" style="left:458px;top:24px;width:182px;height:200px">B2 오른쪽 기둥 창(장터)<br>inert·메뉴 아래</div>
+          <div class="p bottom"><span class="guide">10라운드 보스는 그 라운드 안에 잡아야 합니다</span>· W 다음 조합 고르기 · Space 소환 · E 강화</div>
+          <div class="modal" style="z-index:6"><div class="mh">메뉴 <span class="mb">닫기</span></div><div class="ma"><span class="mb">다시 시작</span><span class="mb">처음 화면으로</span></div><div class="mt" style="color:var(--dim)">시간이 멈춰 있습니다. 다시 시작하거나 처음 화면으로 가면 지금 판은 기록되지 않고 사라집니다.</div></div>
+        </div>
+      </div></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="notes">
+  <span class="nn new">1</span><span><b>'메뉴' 버튼</b>: 상단 오른쪽 끝, 톱니 오른쪽, 사이 8px. 온라인 <code>.menu-btn</code>과 같은 말·모양(11px, 높이 22px·폭 약 36px). 줄 높이가 24px라 높이 22px지만 위아래 1px이 줄 끝이고 옆 톱니와 중심 사이가 24px 넘게 떨어져 '24px 원' 기준(간격으로 같은 효과)을 지킵니다.</span>
+  <span class="nn new">2</span><span><b>메뉴 창</b>: 제목 '메뉴' + 닫기, 단추 '다시 시작'·'처음 화면으로'(높이 24px, 사이 8px, 11px). 아래 한 줄은 시간이 멈췄다는 것과 무엇이 사라지는지. 열려 있는 동안 솔로 시간을 멈춤(도감 자동 멈춤과 같은 방식, P 멈춤과 따로). B2 ⑰ 층 표의 5층 잠그는 창이라 판 안 기둥 창(2층)·판 밖 창 <code>#win-left</code>/<code>#win-right</code>(3층)는 inert로 이 창 아래에 깔립니다. 메뉴로만 멈췄을 때는 판 덮개 '멈춤 · P로 계속'을 그리지 않습니다(이 창이 판을 덮음, B3 ⑦에서 맞춤). 상단 '멈춤' 알약은 시간이 멈춘 사실이라 보입니다.</span>
+  <span class="nn new">3</span><span><b>확인 창</b>: 둘 다 되돌릴 수 없어 한 번 더 묻습니다. 초점은 '취소'(A1.1 규칙), 초점 표시는 2px 금색 둘레(바탕과 대비 3:1 넘음). 위험 단추는 기존 <code>.danger</code> 색 + 단추 글자 자체가 동작 이름(색만으로 구분하지 않음). 단추 순서는 지금 포기 확인 창(위험 단추 왼쪽, 취소 오른쪽)과 같게. '처음 화면으로'는 "지금 판을 버리고 처음 화면으로 갈까요?". Esc는 '취소'와 같고(메뉴 창으로 돌아감), 메뉴 창에서 Esc를 한 번 더 누르면 닫힙니다.</span>
+  <span class="nn new">4</span><span><b>P로 멈춘 채 메뉴</b>: 층 순서(아래 → 위) 1 판, 2 판 안 기둥 창, 3 판 밖 창, 4 멈춤 덮개, 5 잠그는 창, 6 실패·클리어 장면, 7 바깥 화면, 8 세로 안내(B2 ⑰이 기준). 메뉴는 덮개 위에 보이고, 닫으면 덮개가 다시 보입니다. 실패·클리어 장면(6층)은 시작될 때 열린 잠그는 창을 닫습니다. 솔로 메뉴는 시간을 멈춰 그럴 일이 없고, 온라인 메뉴를 연 채 관문 실패가 오면 메뉴가 닫히고 실패 장면이 보입니다. Esc: 실패 장면 건너뛰기 → 잠그는 창 → 마지막에 연 창 → 선택 풀기.</span>
+  <span class="nn chg">5</span><span><b>보스 체력 줄임</b>: 저항 줄이 보이는 라운드(60라운드 이후)이거나 잡귀 꼬리 글이 붙는 위험 단계일 때만 "보스 체력 N / M" → "보스 N". 전체 값은 <code>title</code>과 판 위 보스 체력 막대로 볼 수 있습니다.</span>
+  <span class="nn chg">6</span><span><b>'장승 …' 글자 숨김</b>: B3 위험 단계(57~60)에서 잡귀 꼬리 글('· 2마리 남음', 60이면 '· 한계')이 같은 뜻을 더 정확히 말하므로 그동안만 숨기고 게이지(색은 B3 ②)는 남깁니다. 초과(61+)에는 꼬리 글이 없으므로 '장승 무너짐'이 다시 보입니다.</span>
+  <span class="nn old">·</span><span>B3 ⑧ 뒤에는 거절 알림이 버튼 위로 옮겨 가 상단 줄의 <code>.notice</code> 자리는 비어 있다고 보고 계산했습니다(구현 순서 B3 → B4).</span>
+</div>
+
+<!-- ===================================================== 6 -->
+<h2>6. 휴대폰 세로 (창 390×780)</h2>
+<div class="row">
+  <div class="col"><h3>지금</h3>
+    <div class="phone">
+      <div class="stage">
+        <div class="p top"><div class="hud"><span class="rd">3 / 70 라운드 · 보통</span><span>남은 22초</span><span class="en">내 잡귀 4 / 60</span></div></div>
+        <div class="p left">왼쪽 패널</div>
+        <div class="p lane"><div class="path"></div><div class="grid"></div></div>
+        <div class="p right"><div class="b big2">뚝딱!</div></div>
+        <div class="p bottom">W 다음 조합 고르기 · Space 소환 · …</div>
+      </div>
+    </div>
+    <div class="cap">판(640px)이 배율 1로 놓여 오른쪽 250px(뚝딱·톱니·메뉴)가 잘립니다. 안내 없음.</div>
+  </div>
+  <div class="col"><h3>바뀐 화면 · 솔로</h3>
+    <div class="phone">
+      <div class="stage">
+        <div class="p top"><div class="hud"><span class="rd">3 / 70 라운드 · 보통</span></div></div>
+        <div class="p left">왼쪽 패널</div>
+        <div class="p lane"><div class="path"></div></div>
+      </div>
+      <div class="rot mk new"><span class="n new" style="left:12px;top:12px">1</span>
+        <div class="rt">가로로 돌려 주세요</div>
+        <div class="rdx">세로 화면에서는 판 오른쪽(뚝딱·설정)이 잘립니다.<br>시간은 멈춰 있고, 돌리면 이어서 합니다.</div>
+        <div class="rb">이대로 보기</div>
+      </div>
+    </div>
+  </div>
+  <div class="col"><h3>바뀐 화면 · 온라인</h3>
+    <div class="phone">
+      <div class="stage">
+        <div class="p top"><div class="hud"><span class="rd">3라운드</span></div></div>
+        <div class="p left">왼쪽 패널</div>
+        <div class="p lane"><div class="path"></div></div>
+      </div>
+      <div class="rot mk new"><span class="n new" style="left:12px;top:12px">1</span>
+        <div class="rt">가로로 돌려 주세요</div>
+        <div class="rdx">세로 화면에서는 판 오른쪽(뚝딱·설정)이 잘립니다.<br>함께 하는 판이라 시간은 계속 흐릅니다.</div>
+        <div class="rb">이대로 보기</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="notes">
+  <span class="nn new">1</span><span><b>세로 안내</b>: 판 화면이 보이고, 창이 세로이며 폭이 640px보다 좁을 때 전체를 덮습니다. 제목 22px 금색, 설명 15px, 단추 44px. 움직임 없이 바로 나타납니다. 솔로는 떠 있는 동안 시간을 멈추고(P 멈춤과 따로, 판 덮개 'P로 계속' 없음), 온라인은 멈출 수 없어 "시간은 계속 흐릅니다". 층은 B2 ⑰ 표의 맨 위 8층(바깥 화면 7층, 잠그는 창 5층, 실패 장면 6층보다 위): 판과 판 안 기둥 창·<code>#win-left</code>/<code>#win-right</code>를 inert로 하고 그 위에 그립니다. 메뉴가 열린 채 세로로 돌리면 메뉴 위를 덮고, 풀리면 메뉴가 그대로 보입니다. '이대로 보기'를 누르면 그 페이지에서는 다시 띄우지 않습니다(회전이 잠긴 폰). 가로로 돌리면 저절로 사라집니다.</span>
+  <span class="nn old">·</span><span>첫 화면·대기실·결과 화면은 세로에서도 360px 상자로 보이므로 띄우지 않습니다.</span>
+</div>
+
+<!-- ===================================================== 7 -->
+<h2>7. 다른 설계와 맞춘 것 (교차 검토)</h2>
+<table class="g">
+  <tr><th>항목</th><th>정한 것 (임시 결정, 사용자 확인 전)</th><th>이 목업에서</th></tr>
+  <tr><td>[B1↔B4] 하단 안내 줄</td><td>② 문구를 B1 흐름으로: "W로 재료 유닛을 고르고 Z로 조합합니다 · 왼쪽 목록 맨 위부터". 뒤 단축키는 B1 ⑫의 새 줄.</td><td>4번 전부, 5번 판 아래 줄</td></tr>
+  <tr><td>[B1↔B2] Q 키</td><td>솔로 Q = '이 유닛/전체', 온라인 Q = 도우미 열고 닫기.</td><td>4번 솔로 줄은 'Q 이 유닛/전체', 온라인 카드는 'Q 도우미'</td></tr>
+  <tr><td>[B3↔B4] 상단 줄 폭</td><td>B4가 맡음. 가장 긴 상태를 그려 재고, 보스 체력 줄임·'장승' 글자 숨김 규칙을 둠.</td><td>5번 위쪽 상단 줄 다섯 개</td></tr>
+  <tr><td>[B3↔B4] 줄이는 순서</td><td>B4 5-1이 기준: 보스 'N'만, 위험 단계에서 '장승' 글자 숨김, 꼬리 글은 남김. B3 ①의 '넘치면 꼬리 글부터 뺀다'는 쓰지 않음(B3에서 맞춤). 측정값도 이 목업 값(그냥 더하면 729px, 규칙 적용 607px)이 기준. B3의 703px은 꼬리 글 10px로 그린 값이라 작음.</td><td>5번 셋째 줄 설명</td></tr>
+  <tr><td>[B3↔B4] 멈춤 종류</td><td>판 덮개 '멈춤 · P로 계속'과 거절 문구 'P로 계속'은 P로 멈췄을 때만(B3에서 맞춤). 메뉴·세로 안내로 멈추면 덮개 없음.</td><td>5번 메뉴 창, 6번 솔로</td></tr>
+  <tr><td>[B2↔B3·B4] 층 순서와 잠금</td><td>B2 ⑰ 표가 기준(1 판 · 2 판 안 기둥 창 · 3 판 밖 창 · 4 멈춤 덮개 · 5 잠그는 창 · 6 실패·클리어 장면 · 7 바깥 화면 · 8 세로 안내). 잠그는 창·세로 안내가 뜨면 2·3층 inert. P 멈춤 중 메뉴는 덮개 위. 실패 장면은 시작될 때 잠그는 창을 닫음.</td><td>5번 ④ 그림과 큰 화면 두 그림, 6번 설명</td></tr>
+  <tr><td>[B1↔B2·B3·B4] 초점 색</td><td>DOM 단추·창 초점은 금색 <code>--accent</code> 2px(네 설계 공통). 크림 <code>--ink</code>는 판 위 표시에만.</td><td>5번 확인 창 '취소' 초점</td></tr>
+  <tr><td>목업 범례</td><td>네 목업이 같은 말·아이콘(주황 점선 = 새로, 하늘색 점선 = 바뀜, 회색 빗금 = 없어짐, 회색 동그라미 번호 = 그대로).</td><td>맨 위 범례</td></tr>
+  <tr><td>[B2↔B4] 바깥 화면 배율</td><td>B2 ⑮(판 배율 × 0.75)를 따름. 1920×953 = 1.5, 1920×1080 = 2.25. B4는 그 값을 건드리지 않음.</td><td>맨 위 표, 1·2·3번 큰 화면</td></tr>
+  <tr><td>[넷 다] 같은 파일</td><td>구현 순서 B1 → B2 → B3 → B4, 앞 묶음이 커밋된 뒤 시작.</td><td>문서 '구현 순서와 앞 묶음 의존'</td></tr>
+</table>
+
+<!-- ===================================================== 8 -->
+<h2>8. 지침 대조 (ui-ux-pro-max)</h2>
+<p class="sub">출처: [DB] ux-guidelines.csv 검색, [QR] quick-reference.md, [보충] DB에 맞는 항목이 없어 일반 원칙으로 채운 것. '(직접 검색)'이라 적은 다섯 줄은 브리프에 없어 이 설계에서 직접 찾은 것입니다.</p>
+<table class="g">
+  <tr><th>지침</th><th>지켰는지</th><th>어떻게 / 예외와 이유</th></tr>
+  <tr><td>primary-action [QR] 화면마다 주 버튼 하나</td><td class="ok">지킴</td><td>첫 화면 '방 만들기'만 금색, '혼자 하기'는 같은 크기 보조. 초대 화면 '입장하기'. 대기실 방장 '시작', 손님 '준비'(준비 뒤에는 보조 모양). 메뉴 창은 주 버튼 없이 같은 무게 둘(어느 쪽도 권하지 않음).</td></tr>
+  <tr><td>progressive-disclosure [QR] · User Freedom [DB]</td><td class="ok">지킴</td><td>'처음이라면'은 접기. 첫 판 안내는 창이 아니라 줄 앞 한 마디라 건너뛸 필요가 없고, 설정 '도움말'로 끌 수 있음. 강제 투어 없음. 세로 안내에는 '이대로 보기'.</td></tr>
+  <tr><td>Confirmation Dialogs [DB] · destructive-emphasis [QR]</td><td class="ok">지킴</td><td>솔로 '다시 시작'·'처음 화면으로'는 확인 창, 위험 단추는 <code>.danger</code> 색 + 동작 이름. 초점은 '취소'.</td></tr>
+  <tr><td>Confirmation Dialogs [DB] · 대기실 나가기</td><td class="ex">예외</td><td>확인 창 없음. 시작 전이라 링크로 다시 들어올 수 있고 잃는 것이 없음. 대신 끝난 뒤 짧은 알림 "방을 나왔습니다"(4초). 혼자 있는 방장이 나가면 방이 닫혀 링크가 죽지만 새로 만들면 되므로 확인을 두지 않음(문서 질문 6).</td></tr>
+  <tr><td>Empty States [DB]</td><td class="ok">지킴</td><td>첫 판 유닛 0개면 ① "Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 N개)". 조합할 것이 없으면 ②′ "조합할 재료가 아직 모자랍니다 · Space로 더 뽑으세요".</td></tr>
+  <tr><td>Target Size (Minimum) [DB] 24×24</td><td class="ok">지킴</td><td>배율 1 기준: 첫 화면 버튼 44px, '처음이라면' 머리 28px, 난이도 단추 28px, '처음 화면으로' 링크 24px 이상, 대기실 '나가기' 38px, 메뉴 창·확인 창 단추 24px, 세로 안내 단추 44px. 상단 '메뉴'는 22px 높이지만 간격으로 같은 효과(위 1번 설명). 톱니(18px)는 B4가 바꾸지 않음(A줄).</td></tr>
+  <tr><td>Touch Spacing [DB] 8px</td><td class="ok">지킴</td><td>두 버튼 사이 8px, 대기실 '링크 복사'↔'나가기' 8px(지금 6px에서 넓힘), 메뉴 창 단추 사이 8px, 상단 톱니↔메뉴 8px. 난이도 단추 사이는 4px(지금 3px)로 8px가 안 됨: 단추가 28px라 24px 원끼리 겹치지 않음.</td></tr>
+  <tr><td>Focus Appearance [DB] 2px·3:1</td><td class="ok">지킴</td><td>메뉴 창·확인 창 단추와 '처음이라면' 머리, 두 버튼: 2px 금색(<code>--accent</code> #ffe08a) 둘레, 2px 띄움. 판(#17121f)·바깥 바탕(#0d0a14)과 대비 3:1 넘음. DOM 단추·창 초점을 금색으로 하는 것은 B1~B4 공통 규칙(크림 <code>--ink</code>는 판 위 표시에만).</td></tr>
+  <tr><td>Focus Not Obscured [DB]</td><td class="ok">지킴</td><td>메뉴·확인 창(5층)·세로 안내(8층)가 뜨면 B2 판 안 기둥 창·판 밖 창(2·3층)은 inert로 그 아래에 그려 초점 요소를 덮지 않음.</td></tr>
+  <tr><td>Stacking Context · Z-Index Management [DB] (직접 검색)</td><td class="ok">지킴</td><td>층 번호는 B2 ⑰ 표 하나(1~8층)만 따르고 B4는 새 번호를 만들지 않음. 메뉴·확인 창 5층, 세로 안내 8층. P 멈춤 덮개(4층) 위에 메뉴가 옴(5번 ④). 실패 장면이 열린 잠그는 창을 닫을 때 그 안의 초점은 푼다 [보충: DB에 맞는 항목 없음].</td></tr>
+  <tr><td>Content Jumping [DB]</td><td class="ok">지킴</td><td>'처음이라면' 첫 상태는 첫 그리기 전에 정함(접혔다 펼쳐지는 깜빡임 없음). 펼침은 누른 사람이 일으킨 변화라 아래가 밀리는 것을 받아들임. 대기실 안내 줄은 글이 없을 때도 자리를 비워 둠. 하단 안내 줄은 높이 고정(28px), 한 마디가 바뀌어도 줄 높이 그대로. 나온 뒤 알림은 흐름 밖.</td></tr>
+  <tr><td>orientation-support [QR]</td><td class="ok">지킴</td><td>세로 안내는 판 화면에서만, '이대로 보기'로 계속 볼 수 있음. 바깥 화면은 세로에서도 360px 상자로 읽힘.</td></tr>
+  <tr><td>Color Only [DB]</td><td class="ok">지킴</td><td>안내 한 마디는 금색이지만 문장 자체가 뜻. 대기실 준비 상태는 '준비/대기' 글자. 위험 단추는 글자로 동작을 말함. 상단 꼬리 글은 B3 규칙(색 + 크기 + 글).</td></tr>
+  <tr><td>글자 크기 [DB Readable Font Size] 새 글자 10px 이상, 핵심 수치 12px 이상</td><td class="ex">일부 예외</td><td>판 안 새 글자: 안내 한 마디 11px, 메뉴 단추·확인 문구 11px, 메뉴 제목 12px. 난이도 설명(판 길이)은 11 → 12px. 예외: 안내 한 마디 속 '지금 14마리'는 11px — 같은 숫자가 상단 줄에 12~13px로 있어(B3 ①) 여기서는 보조 표시. 9px 이하 새 글자 없음.</td></tr>
+  <tr><td>Reduced Motion [DB]</td><td class="ok">해당 거의 없음</td><td>B4는 새 움직임을 넣지 않음: '처음이라면' 펼침·세로 안내·메뉴 창 모두 바로 나타남. 알림 "방을 나왔습니다"도 서서히 사라지게 하지 않고 4초 뒤 바로 사라짐.</td></tr>
+  <tr><td>Toast Notifications [DB] 3~5초</td><td class="ok">지킴</td><td>"방을 나왔습니다" 4초.</td></tr>
+  <tr><td>Contextual Live Badge Updates [DB]</td><td class="ok">지킴</td><td>안내 한 마디는 aria-live로 만들지 않음. 판 알림은 B3이 정한 한 곳만 읽힘(다투지 않게).</td></tr>
+  <tr><td>이모지를 아이콘으로 쓰지 않기 (브리프 1절 점검표)</td><td class="ok">지킴</td><td>'처음이라면' 펼침 표시는 CSS 삼각형, 톱니는 지금 SVG 그대로. 목업의 '▸ 음악 출처'는 지금 화면 글자를 옮긴 것.</td></tr>
+  <tr><td>Disabled States [DB] (직접 검색)</td><td class="ok">지킴</td><td>대기실 '시작'이 꺼진 동안 흐리게 + 커서 금지 + 바로 아래 안내 줄이 이유("모두 준비하면 시작할 수 있습니다 · 0/1명 준비").</td></tr>
+  <tr><td>Consistent Help [DB] (직접 검색)</td><td class="ok">지킴</td><td>'처음이라면'은 첫 화면·초대 화면 모두 소개 바로 아래 같은 자리.</td></tr>
+  <tr><td>Essential Text Truncation · Compact Label Overflow [DB] (직접 검색)</td><td class="ok">지킴</td><td>상단 줄은 넘치지 않게 줄이는 순서를 정함(보스 체력 "N / M" → "N", 위험 단계에서 '장승' 글자 숨김). 줄인 값의 전체는 <code>title</code>과 판 위 보스 막대에서 볼 수 있음. 하단 줄은 한 마디가 맨 앞이라 잘리지 않음.</td></tr>
+  <tr><td>Overflow Hidden [DB] (직접 검색)</td><td class="ex">예외</td><td>하단 단축키 뒤쪽은 지금처럼 <code>overflow: hidden</code>으로 오른쪽 끝에서 잘릴 수 있음. 지금 동작이고 한 마디와 앞쪽 키는 들어감(측정값). 단축키 전체 목록을 따로 보여 주는 일은 이 설계 범위 밖.</td></tr>
+</table>
+
+<script>
+document.querySelectorAll('.lane .grid').forEach(g => { if (!g.children.length) g.innerHTML = '<div></div>'.repeat(24); });
+const put = (el, text, bad) => {
+  let out = el.closest('.col')?.querySelector(':scope > .mres');
+  let n = el; while (n && n.parentElement && !(n.nextElementSibling && n.nextElementSibling.classList?.contains('mres'))) n = n.parentElement;
+  if (n && n.nextElementSibling?.classList.contains('mres')) out = n.nextElementSibling;
+  if (!out) return;
+  out.textContent = (out.textContent ? out.textContent + ' / ' : '') + text;
+  if (bad) out.classList.add('bad');
+};
+document.querySelectorAll('.meas').forEach(el => {
+  const kind = el.dataset.fit;
+  if (kind === 'box') {
+    const s = parseFloat(el.dataset.scale || '1');
+    const h = Math.round(el.getBoundingClientRect().height / s);
+    const wh = +el.dataset.winh, wh2 = el.dataset.winh2 ? +el.dataset.winh2 : null;
+    let t = `측정 내용 높이 약 ${h}px / 창 ${wh}px ${h <= wh ? '들어감' : '넘침(스크롤)'}`;
+    if (wh2) t += ` · 1280×720이면 ${h <= wh2 ? '들어감' : '넘침(스크롤)'}`;
+    put(el, t, false);
+  } else if (kind === 'row') {
+    const have = el.clientWidth;
+    const kids = [...el.children].filter(c => !c.hasAttribute('data-skip'));
+    const w = Math.round(kids.reduce((a, c) => a + c.getBoundingClientRect().width, 0) + 8 * (kids.length - 1) + 16);
+    const skipped = kids.length < el.children.length ? ' (빗금 숨긴 뒤)' : '';
+    put(el, `측정 필요한 폭 약 ${w}px${skipped} / 줄 ${have}px ${w <= have ? '들어감' : '넘침'}`, w > have);
+  } else if (kind === 'strip') {
+    const g = el.querySelector('.guide');
+    put(el, `측정 한 마디 폭 ${Math.round(g.getBoundingClientRect().width)}px / 줄 640px`, g.getBoundingClientRect().right > el.getBoundingClientRect().right);
+  } else if (kind === 'oneline') {
+    const lh = parseFloat(getComputedStyle(el).lineHeight) || 18;
+    const lines = Math.round(el.getBoundingClientRect().height / lh);
+    put(el, `측정 안내 줄 ${lines <= 1 ? '한 줄' : lines + '줄(넘침)'}`, lines > 1);
+  }
+});
+</script>
+</body></html>

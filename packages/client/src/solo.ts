@@ -3,7 +3,8 @@ import { createGame, isDifficulty, loadGameData } from '@dorandi/logic';
 import { bindBattleAudio } from './audio/battle';
 import { GameDriver } from './driver';
 import { LaneScene, LANE_CANVAS } from './LaneScene';
-import { stagePlacement } from './layout';
+import { applyLayout } from './fit';
+import { screenLayout } from './layout';
 import { sendSoloLog, soloLogBody } from './soloLog';
 import { soloStage } from './online/entry';
 import { mountUi } from './ui/mount';
@@ -38,10 +39,7 @@ export function startSolo(): void {
 
   const stage = document.getElementById('stage')!;
   function fit(): void {
-    const p = stagePlacement(window.innerWidth, window.innerHeight);
-    stage.style.transform = `scale(${p.zoom})`;
-    stage.style.left = `${p.left}px`;
-    stage.style.top = `${p.top}px`;
+    applyLayout(screenLayout(window.innerWidth, window.innerHeight), stage);
     game.scale.refresh();
   }
   window.addEventListener('resize', fit);

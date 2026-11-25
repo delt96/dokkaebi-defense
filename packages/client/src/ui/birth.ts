@@ -91,14 +91,11 @@ export function birthSource(online: boolean): 'events' | 'notice' {
   return online ? 'notice' : 'events';
 }
 
-const TOAST_Y = 30;
-
-export function birthBand(height: number): { y: number; half: number } {
-  return { y: Math.round(height * 0.18), half: Math.round(height * 0.11) };
+/** Canvas px: the top slot, stage y 26 to 68 (canvas y = stage y - CENTER_Y). */
+export function birthBand(): { y: 23; half: 21 } {
+  return { y: 23, half: 21 };
 }
 
-export function toastY(height: number, bandOn: boolean): number {
-  if (!bandOn) return TOAST_Y;
-  const band = birthBand(height);
-  return band.y + band.half + 12;
+export function birthLine(b: BirthBanner): string {
+  return `${b.who} · ${b.sub}`;
 }

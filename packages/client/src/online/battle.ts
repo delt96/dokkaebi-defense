@@ -2,12 +2,14 @@ import Phaser from 'phaser';
 import type { GameData } from '@dorandi/logic';
 import { bindBattleAudio } from '../audio/battle';
 import { LaneScene } from '../LaneScene';
-import { LANE_CANVAS_ONLINE, STAGE_H, STAGE_W, stagePlacement } from '../layout';
+import { applyLayout } from '../fit';
+import { LANE_CANVAS_ONLINE, screenLayout } from '../layout';
 import type { NetClient } from '../net/NetClient';
 import { NetDriver } from '../net/NetDriver';
 import { mountUi } from '../ui/mount';
 import { watchSupport } from './models';
 import { mountResult } from './result';
+import { onlineActions } from './spirit';
 import '../ui/style.css';
 
 /** The online battle screen: the 1-player stage in layout A, drawn from the server's view. */
@@ -33,32 +35,24 @@ export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: 
   const stage = document.getElementById('stage')!;
   const band = document.getElementById('conn-band');
   function fit(): void {
-    const { innerWidth: width, innerHeight: height } = window;
-    const available = height - (band?.offsetHeight ?? 0);
-    const p = stagePlacement(width, height);
-    const zoom = band?.offsetHeight ? Math.min(p.zoom, available / STAGE_H) : p.zoom;
-    stage.style.transform = `scale(${zoom})`;
-    stage.style.left = `${Math.max(0, Math.floor((width - STAGE_W * zoom) / 2))}px`;
-    stage.style.top = `${Math.floor(Math.max(0, available - STAGE_H * zoom) / 2)}px`;
+    // the band is scaled by CSS zoom, so read its drawn height rather than offsetHeight
+    const bandH = band?.getBoundingClientRect().height ?? 0;
+    applyLayout(screenLayout(window.innerWidth, window.innerHeight, { band: bandH, online: true }), stage);
     game.scale.refresh();
   }
   window.addEventListener('resize', fit);
   if (band) new ResizeObserver(fit).observe(band);
   fit();
 
-  mountUi(driver, scene, {}, {
+  const ui = mountUi(driver, scene, {}, {
     online: true, view: () => net.view, data,
     targetKey: `dorandi.target:${net.roomId}:${net.view?.me.seat}`,
-    actions: {
-      support: () => { if (net.view) net.send({ type: 'support', target: net.view.watching }); },
-      watch: seat => net.watch(seat),
-      forfeit: () => { net.send({ type: 'forfeit' }); },
-    },
+    actions: onlineActions(net),
   });
 
-  // the team result (also carried by a rejoin snapshot) covers the stage
+  // the team result (also carried by a rejoin snapshot) covers the stage, after the end scene when one runs
   const screen = document.getElementById('screen');
-  if (screen) mountResult(net, screen, data, undefined, goRematch);
+  if (screen) mountResult(net, screen, data, undefined, goRematch, show => ui.afterEndScene(show));
 
   if (import.meta.env.DEV) Object.assign(window, { __net: net, __driver: driver, __scene: scene });
 }

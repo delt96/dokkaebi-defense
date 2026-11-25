@@ -183,8 +183,15 @@ describe('dex memory', () => {
     const html = dexHtml(d3, 'all', '', 1, { recent: ['짚', '북'] });
     expect(html).toContain('data-action="dexRecent" data-arg="짚"');
     expect(html).toContain('data-action="dexRecentDel" data-arg="북"');
-    expect(dexHtml(d3)).not.toContain('dex-recent');
+    expect(dexHtml(d3)).not.toContain('recent-chip');
     expect(dexHtml(d2, 'all', '', 1, { recent: ['짚'] })).not.toContain('dex-recent');
+  });
+
+  test('the recent row keeps its place: it is there before the first search and stays while a search shows', () => {
+    expect(dexHtml(d3)).toContain('<div class="dex-recent"');
+    const searching = dexHtml(d3, 'all', '짚', 1, { recent: ['짚'] });
+    expect(searching).toContain('data-action="dexRecent" data-arg="짚"');
+    expect(searching).not.toContain('data-searching');
   });
 });
 

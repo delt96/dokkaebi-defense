@@ -1,10 +1,13 @@
 import {
-  jigeCandidates, shopItem, toTicks, type ClientView, type ItemEffect, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
+  availableRecipes, jigeCandidates, shopItem, toTicks, unitDefFast, type ClientView, type ItemEffect, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
 } from '@dorandi/logic';
 import { esc } from './dom';
-import { unitSkillText } from './models';
+import { cellText, pinnedTarget, unitSkillText, type TargetNode } from './models';
+import { unitFaceHtml } from './storage';
 import { withJosa } from './josa';
-import { blockedText, gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
+import { blockedText, gambleHistoryToggleHtml, gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
+import { winHeadHtml } from './windows';
+import type { WinPlace } from '../layout';
 
 // Stage 3 economy on screen: the market panel (B), the T button under a target's health bar and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
@@ -77,43 +80,97 @@ function shopHtml(rows: ShopRow[], readOnly: boolean): string {
 
 // ---------- jige swap (R) ----------
 
-/** Same-grade normal units a 지게 can turn `defId` into, narrowed by a name part and a damage type. */
-export function swapRows(data: GameData, defId: string, name: string, type: DamageType | null): UnitDef[] {
+/** 'target': the candidate is a missing node of the target tree. 'combine': swapping makes recipes ready that are not now. */
+export interface JigeReason { tag: 'target' | 'combine'; results: string[] }
+
+const missingNodes = (node: TargetNode | null, into = new Set<string>()): Set<string> => {
+  if (!node) return into;
+  if (node.location === 'missing') into.add(node.id);
+  for (const child of node.children) missingNodes(child, into);
+  return into;
+};
+
+/** Why each candidate for `source` is worth taking; candidates with no reason are left out. Results: highest grade first, then table order. */
+export function jigeReasons(state: GameState, source: JigeSource, target: string | null): Record<string, JigeReason> {
+  const zone = source.zone === 'board' ? state.slots : state.storage ?? [];
+  const unit = zone[source.index];
+  if (!unit) return {};
+  const missing = missingNodes(target ? pinnedTarget(state.data, target, state.slots, state.storage ?? [], state) : null);
+  const now = new Set(availableRecipes(state));
+  const grade = (id: string) => unitDefFast(state.data, id).grade;
+  const reasons: Record<string, JigeReason> = {};
+  for (const u of jigeCandidates(state.data, unit.defId)) {
+    const swapped = zone.slice();
+    swapped[source.index] = { ...unit, defId: u.id };
+    const what: GameState = source.zone === 'board'
+      ? { ...state, slots: swapped as GameState['slots'] }
+      : { ...state, storage: swapped as NonNullable<GameState['storage']> };
+    const results = availableRecipes(what).filter(r => !now.has(r)).sort((a, b) => grade(b) - grade(a));
+    if (missing.has(u.id)) reasons[u.id] = { tag: 'target', results };
+    else if (results.length) reasons[u.id] = { tag: 'combine', results };
+  }
+  return reasons;
+}
+
+/**
+ * Same-grade normal units a 지게 can turn `defId` into: target materials, then new combines (best result first),
+ * then the rest, each in table order; then narrowed by a name part and a damage type.
+ */
+export function swapRows(data: GameData, defId: string, name: string, type: DamageType | null, reasons: Record<string, JigeReason> = {}): UnitDef[] {
   const q = name.trim();
-  return jigeCandidates(data, defId).filter(u => (!q || u.name.includes(q)) && (!type || u.damageType === type));
+  const rank = (u: UnitDef) => {
+    const r = reasons[u.id];
+    if (!r) return 0;
+    return r.tag === 'target' ? 100 : 1 + (r.results[0] ? unitDefFast(data, r.results[0]).grade : 0);
+  };
+  return jigeCandidates(data, defId)
+    .map(u => ({ u, rank: rank(u) }))
+    .sort((a, b) => b.rank - a.rank)
+    .map(({ u }) => u)
+    .filter(u => (!q || u.name.includes(q)) && (!type || u.damageType === type));
 }
 
 /**
  * An open R list: the exact unit it was opened on (zone, index and id), the lane snapshot it belongs to, and the
- * filters. A pick is sent only while all of these still hold.
+ * filters. A pick is sent only while all of these still hold. `reasons` is counted once when the list opens.
  */
 export interface JigeList {
   source: JigeSource; defId: string; cost: number | null;
   seat: number | undefined; epoch: number | undefined;
   name: string; type: DamageType | null;
+  reasons: Record<string, JigeReason>;
+}
+
+function jigeTagHtml(data: GameData, reason: JigeReason | undefined): string | null {
+  if (reason?.tag === 'target') return '<i class="jige-tag target">목표 재료</i>';
+  if (reason?.tag !== 'combine') return null;
+  const names = reason.results.map(id => nameOf(data, id));
+  const more = names.length > 1 ? ` 외 ${names.length - 1}` : '';
+  const title = names.length > 1 ? ` title="${esc(names.join(' · '))}"` : '';
+  return `<i class="jige-tag"${title}>조합 → ${esc(names[0]!)}${more}</i>`;
 }
 
 export function jigeRowsHtml(data: GameData, list: JigeList): string {
-  const rows = swapRows(data, list.defId, list.name, list.type);
+  const rows = swapRows(data, list.defId, list.name, list.type, list.reasons);
   if (rows.length === 0) return '<p class="jige-empty">맞는 유닛이 없습니다</p>';
   return rows.map(u => {
-    const skill = unitSkillText(data, u).split(' / ')[0] ?? '';
-    return `<button data-action="jigeSwap" data-arg="${esc(u.id)}"><b>${esc(u.name)}</b> · ${u.damageType === 'magical' ? '마딜' : '물딜'}${skill ? `<span>${esc(skill)}</span>` : ''}</button>`;
+    const second = jigeTagHtml(data, list.reasons[u.id]) ?? esc(unitSkillText(data, u).split(' / ')[0] ?? '');
+    return `<button class="jige-row" data-action="jigeSwap" data-arg="${esc(u.id)}"><span class="jige-l1">${unitFaceHtml(u.id, u.name, u.grade)}<b>${esc(u.name)}</b> ${u.damageType === 'magical' ? '마딜' : '물딜'}</span><span class="jige-l2">${second}</span></button>`;
   }).join('');
 }
 
-/** The R window: what is given, the 지게 held, the filters and every same-grade normal unit. */
+/** The R window's inside (the left window wraps it): what is given, the 지게 held, the filters and every same-grade normal unit. */
 export function jigeListHtml(data: GameData, list: JigeList, held: number): string {
   const def = data.units.find(u => u.id === list.defId);
-  const where = list.source.zone === 'board' ? `진영 ${list.source.index + 1}번 칸` : '보관함';
-  const cost = list.cost === null ? '' : ` · 원가 ${list.cost}`;
+  const where = list.source.zone === 'board' ? `진영 ${cellText(data.balance.grid.cols, list.source.index)}` : '보관함';
+  const cost = list.cost === null ? '' : ` title="원가 1등급 ${list.cost}기 값"`;
   const chip = (arg: string, label: string, on: boolean) =>
     `<button data-action="jigeType" data-arg="${arg}" aria-pressed="${on}"${on ? ' class="on"' : ''}>${label}</button>`;
-  return `<div class="modal jige-modal"><div class="modal-head">지게 바꾸기 · 보유 지게 ${held}개 <button data-action="closeModal">Esc 닫기</button></div>
-    <div class="jige-from">${esc(def?.name ?? '')} (${def?.grade ?? 0}등급) · ${where}${cost} → 같은 등급 일반 유닛</div>
+  return `${winHeadHtml({ side: 'left', titleHtml: `지게 (R) · 보유 ${esc(held)}`, closeLabel: '지게 닫기 (R)' })}
+    <div class="jige-from"${cost}>${esc(def?.name ?? '')} (${def?.grade ?? 0}등급) · ${where} → 같은 등급</div>
     <div class="jige-filters"><label class="jige-search"><input type="search" placeholder="이름" value="${esc(list.name)}" aria-label="이름으로 찾기"></label>
       ${chip('all', '전체', list.type === null)}${chip('physical', '물딜', list.type === 'physical')}${chip('magical', '마딜', list.type === 'magical')}</div>
-    <div class="jige-rows">${jigeRowsHtml(data, list)}</div></div>`;
+    <div class="jige-rows">${jigeRowsHtml(data, list)}</div>`;
 }
 
 // ---------- taming ----------
@@ -298,11 +355,12 @@ function settledProgress(id: QuestId, rec: QuestRecord, data: GameData): string 
 /**
  * One 격파 target for this seat as the quest box and the J list show it: the next level and its pay, and the summon
  * button, disabled with the reason the server would give (opening round, a target already out, the cooldown, coins).
- * `short` is the button text in the narrow box, `label` the full one in the J list.
+ * `short` is the button text in the narrow box, `label` the full one in the J list. `readyIn` is the seconds until it
+ * can be called again: the cooldown, or the time left while it is out; 0 otherwise.
  */
 export interface HuntRow {
   enemy: string; name: string; level: number; best: number; reward: string; muk: string; hp: string; open: boolean; seconds: number;
-  out: boolean; ready: boolean; poor: boolean; short: string; label: string; wait: string;
+  out: boolean; ready: boolean; poor: boolean; short: string; label: string; wait: string; readyIn: number;
 }
 
 const won = (n: number) => n.toLocaleString('ko-KR');
@@ -319,15 +377,16 @@ export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
     const fee = h.fee ? ` · ${h.fee}냥` : '';
     let short: string;
     let label: string;
+    let readyIn = 0;
     switch (h.why) {
       case null: short = '소환'; label = `소환${fee}`; break;
       case 'huntClosed': short = `${h.fromRound}R`; label = `${h.fromRound}라운드부터`; break;
       case 'huntOut': {
-        const left = secondsOf(data, h.deadlineTick - state.tick);
+        const left = readyIn = secondsOf(data, h.deadlineTick - state.tick);
         short = `${left}초`; label = `이미 나와 있음 · ${left}초 남음`; break;
       }
       case 'cooldown': {
-        const left = secondsOf(data, h.readyTick - state.tick);
+        const left = readyIn = secondsOf(data, h.readyTick - state.tick);
         const wait = left < 60 ? `${left}초` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
         short = `${wait} 뒤`; label = `${short} 다시 소환`; break;
       }
@@ -338,7 +397,7 @@ export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
     return {
       enemy: h.enemy, name: nameOf(data, h.enemy), level: h.level, best: h.best, reward, muk: h.reward.buckwheat ? `묵${h.reward.buckwheat}` : '', hp: `체력 ${won(h.hp)}`,
       seconds: rules.seconds, wait: huntWait(rules.targets.find(t => t.enemy === h.enemy)?.cooldownSeconds ?? rules.cooldownSeconds),
-      open: state.phase === 'round' && state.round >= h.fromRound, out: h.why === 'huntOut', ready: h.why === null, poor: h.why === 'noCoins', short, label,
+      open: state.phase === 'round' && state.round >= h.fromRound, out: h.why === 'huntOut', ready: h.why === null, poor: h.why === 'noCoins', short, label, readyIn,
     };
   });
 }
@@ -346,41 +405,42 @@ export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
 const huntButton = (r: HuntRow, text: string) =>
   `<button class="hunt-go${r.poor ? ' poor' : ''}" data-action="hunt" data-arg="${esc(r.enemy)}"${r.ready ? '' : ' disabled'} title="${esc(`${r.label} · 보상 ${r.reward} · ${huntFailure(r.seconds)} ${r.wait}`)}">${esc(text)}</button>`;
 
-export interface QuestBoxModel {
-  active: { id: QuestId; title: string; short: string }[]; next: string | null; count: number;
-  /** Open 격파 targets, each with its summon button. */
-  hunts: HuntRow[];
-}
+/**
+ * The compact box in the right panel. `count`: running quests plus open 격파 targets. `hunt`: the first open target that
+ * can be called now, else the one callable soonest. `more`: the other open targets, seen in the J list.
+ */
+export interface QuestBoxModel { count: number; hunt: HuntRow | null; more: number; next: string | null }
 
-/** The compact box: open 격파 targets, each running quest with its count, then the next one this seat can still take part in. */
 export function questBoxModel(econ: EconMine, state: GameState, online: boolean): QuestBoxModel {
   const rows = questRows(econ, state, online);
-  const active = rows.filter(r => r.group === '진행 중').map(r => ({ id: r.id, title: r.title, short: r.short }));
-  const allHunts = huntRows(econ, state);
-  const hunts = allHunts.filter(h => h.open);
+  const hunts = huntRows(econ, state).filter(h => h.open);
+  const hunt = hunts.find(h => h.ready) ?? hunts.reduce<HuntRow | null>((best, h) => (!best || h.readyIn < best.readyIn ? h : best), null);
   const round = state.phase === 'prep' ? 0 : state.round;
   const soon = [
     ...rows.filter(r => r.group === '곧 열림').map(r => ({ from: questWindow(state, r.id)![0], name: QUEST_SHORT[r.id] })),
     ...(econ.hunts ?? []).filter(h => round < h.fromRound).map(h => ({ from: h.fromRound, name: `${nameOf(state.data, h.enemy)} 격파` })),
   ].sort((a, b) => a.from - b.from)[0];
-  return { active, next: soon ? `다음 ${soon.from}라운드 ${soon.name}` : null, count: active.length + hunts.filter(h => h.out).length, hunts };
+  return {
+    count: rows.filter(r => r.group === '진행 중').length + hunts.length, hunt, more: hunts.length - (hunt ? 1 : 0),
+    next: soon ? `다음 ${soon.from}라운드 ${soon.name}` : null,
+  };
 }
 
-function huntBoxLines(hunts: HuntRow[]): string {
-  if (!hunts.length) return '';
-  return `<div class="hunt-failure">${huntFailure(hunts[0]!.seconds)}</div>${hunts.map(h => `<div class="hunt-line"><span class="hunt-name">${esc(h.name)}</span><i class="hunt-lv" title="${h.level}단계">${h.level}</i><b>${esc(h.muk)}</b>${huntButton(h, h.short)}</div><div class="hunt-wait">${h.wait}</div>`).join('')}`;
+/** Seconds under a minute, whole minutes rounded up above it. */
+const waitLeft = (seconds: number) => `재소환 대기 ${seconds < 60 ? `${seconds}초` : `${Math.ceil(seconds / 60)}분`}`;
+
+export function questBoxHtml(box: QuestBoxModel): string {
+  const h = box.hunt;
+  const hunt = h ? `<div class="hunt-line"><span class="hunt-name">${esc(h.name)}</span><i class="hunt-lv" title="${h.level}단계">${h.level}</i><b>${esc(h.muk)}</b>${huntButton(h, h.short)}</div>`
+    + (h.readyIn > 0 && !h.out ? `<div class="hunt-wait">${waitLeft(h.readyIn)}</div>` : '') : '';
+  const more = box.more > 0 ? `<button class="quest-more" data-action="openQuests" data-arg="hunts">+${box.more}개 더 · J에서</button>` : '';
+  const next = h ? '' : box.next ?? (box.count ? '' : '남은 퀘스트 없음');
+  return `<div class="quest-box"><button class="panel-title" data-action="openQuests" data-arg="">퀘스트 (J) · ${box.count}개</button>${hunt}${more}`
+    + `${next ? `<div class="quest-next">${esc(next)}</div>` : ''}</div>`;
 }
 
-export function questBoxHtml(box: QuestBoxModel, folded: boolean): string {
-  if (folded) return `<div class="quest-box folded"><button data-action="openQuests" data-arg="">J 퀘스트 · 진행 ${box.count}개</button>${huntBoxLines(box.hunts)}</div>`;
-  const lines = box.active.map(a => `<button class="quest-line" data-action="openQuests" data-arg="${a.id}"><span>${esc(a.title)}</span><b>${esc(a.short)}</b></button>`).join('');
-  const hunts = huntBoxLines(box.hunts);
-  return `<div class="quest-box"><button class="panel-title" data-action="openQuests" data-arg="">퀘스트 (J)</button>${hunts}${lines}
-    ${box.next ? `<div class="quest-next">${esc(box.next)}</div>` : ''}${!lines && !hunts && !box.next ? '<div class="quest-next">남은 퀘스트 없음</div>' : ''}</div>`;
-}
-
-/** The J window: fixed title and close, the 격파 targets, then the three groups in a scrolled body. */
-export function questListHtml(rows: QuestRow[], focus: QuestId | 'hunts' | null, hunts: HuntRow[] = []): string {
+/** The J window: head and, on the board, the pillar bar stay put; the 격파 targets and the three groups scroll under them. */
+export function questListHtml(rows: QuestRow[], focus: QuestId | 'hunts' | null, hunts: HuntRow[], opts: { wins: WinPlace; bar: string }): string {
   const groups: QuestGroup[] = ['진행 중', '곧 열림', '끝남'];
   const huntSection = hunts.length ? `<section class="quest-group"><h3>격파</h3><div class="quest-row${focus === 'hunts' ? ' focus' : ''}" data-quest="hunts" tabindex="-1">
     <div class="quest-row-line">${huntFailure(hunts[0]!.seconds)} 시간 안에 잡으면 보상을 받고 다음 단계가 열립니다.</div>
@@ -393,8 +453,8 @@ export function questListHtml(rows: QuestRow[], focus: QuestId | 'hunts' | null,
       <div class="quest-row-head"><b>${esc(r.title)}</b><span>${esc(r.when)}</span>${r.outcome ? `<em>${esc(r.outcome)}</em>` : ''}</div>
       ${r.progress ? `<div class="quest-row-line">${esc(r.progress)}</div>` : ''}${r.reward ? `<div class="quest-row-reward">${esc(r.reward)}</div>` : ''}</div>`).join('')}</section>`;
   }).join('');
-  return `<div class="modal quest-modal"><div class="modal-head">퀘스트 <button data-action="closeModal">J·Esc 닫기</button></div>
-    <div class="quest-scroll">${huntSection}${body || (huntSection ? '' : '<p class="quest-empty">퀘스트가 없습니다</p>')}</div></div>`;
+  return winHeadHtml({ side: 'right', titleHtml: '퀘스트 (J)', closeLabel: '퀘스트 닫기 (J)' }) + (opts.wins === 'inside' ? opts.bar : '')
+    + `<div class="win-body quest-scroll">${huntSection}${body || (huntSection ? '' : '<p class="quest-empty">퀘스트가 없습니다</p>')}</div>`;
 }
 
 export interface Chip { title: string; text: string; tone?: 'hot' | 'done'; quest?: QuestId | 'hunts'; action?: { name: string; arg: string; label: string; disabled?: boolean } }
@@ -481,21 +541,32 @@ const button = (action: string, arg: string, label: string, disabled = false, cl
   `<button data-action="${action}" data-arg="${esc(arg)}"${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
 
 /** The B drawer leaves the board and both unit-card positions visible. */
-export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay | null = null, readOnly = false, tab: MarketTab = 'market'): string {
-  const items = tab === 'items' && !!market?.shop;
-  const head = `<div class="econ-head"><b>장터</b><span class="gamble-wallet"></span>
-    ${market?.gamble && !items ? '<span class="gamble-refill" aria-label="매 라운드 횟수가 다시 차요">라운드마다 충전</span>' : ''}
-    <button type="button" data-action="toggleMarket" data-market-focus="close" class="econ-close" aria-label="장터 닫기 (B)">닫기 B</button></div>`;
+/**
+ * The B window. The wallet (off the board) and the history are left for mount to fill and update in place, so a
+ * redraw of those parts keeps the product buttons and their focus. `tab` 'items' shows the item shop in place of the draws.
+ */
+export function econPanelHtml(
+  market: MarketModel | null, reveal: RevealDisplay | null, readOnly: boolean,
+  opts: { wins: WinPlace; bar: string; historyOpen: boolean; historyCount: number; tab?: MarketTab },
+): string {
+  const inside = opts.wins === 'inside';
+  const items = opts.tab === 'items' && !!market?.shop;
+  const head = winHeadHtml({
+    side: 'right', titleHtml: '장터 (B)', extraHtml: inside ? '' : '<span class="gamble-wallet win-wallet"></span>', closeLabel: '장터 닫기 (B)',
+  });
   const tabButton = (id: MarketTab, label: string) => {
     const on = (id === 'items') === items;
     return `<button type="button" data-action="econTab" data-arg="${id}" data-market-focus="tab-${id}" aria-pressed="${on}"${on ? ' class="on"' : ''}>${label}</button>`;
   };
   const tabs = market?.shop ? `<div class="econ-tabs">${tabButton('market', '뽑기')}${tabButton('items', '아이템')}</div>` : '';
-  const body = items ? shopHtml(market!.shop!, readOnly) : market?.gamble ? `<div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
+  const folded = inside && !opts.historyOpen;
+  const body = items ? shopHtml(market!.shop!, readOnly) : market?.gamble ? `<p class="gamble-refill">라운드마다 충전</p>
+    <div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
     <div class="gamble-info" id="gamble-info" aria-live="polite"></div>
-    <div class="gamble-result"></div><section class="gamble-history" aria-label="최근 장터 결과"></section>`
+    <div class="gamble-result"></div><section class="gamble-history" aria-label="최근 장터 결과">${folded ? gambleHistoryToggleHtml(opts.historyCount, false) : ''}</section>`
     : market ? `<div>보유 지게 ${market.jige.held}개</div>` : '';
-  return `<section class="econ-panel" aria-label="장터">${head}${tabs}<div class="econ-body">${body}</div></section>`;
+  return `<section class="win market econ-panel" role="dialog" aria-labelledby="win-right-title">${head}${inside ? opts.bar : ''}${tabs}`
+    + `<div class="win-body econ-body">${body}</div></section>`;
 }
 
 /** The T button under the target's health bar (placed by mount from the scene's bar anchor). */

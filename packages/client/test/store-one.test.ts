@@ -4,24 +4,31 @@ import { createGame, loadGameData } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import { mountUi } from '../src/ui/mount';
-import { renderBottom, unitPanelHtml } from '../src/ui/panels';
+import { renderBottom, soloPanelHtml } from '../src/ui/panels';
+import { nextCombines } from '../src/ui/models';
 import { key, press, STAGE_HTML } from './fixtures/net';
 
 const d3 = loadGameData('stage3');
 
+/** The solo left panel as mount draws it: the selected unit's scope, or the whole list with nothing selected. */
+const soloHtml = (s: ReturnType<typeof createGame>, slot: number | null) => soloPanelHtml(s, {
+  selected: slot, list: nextCombines(s, { slot }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false,
+});
+
 describe('the selected unit card stores grades 1-2 one at a time', () => {
   beforeEach(() => { document.body.innerHTML = STAGE_HTML; });
 
-  test('the solo card shows 보관(A) for grade 1 and nothing for grade 3', () => {
+  test('the solo panel shows 보관 (title A) for grade 1 and nothing for grade 3', () => {
     const s = createGame(d3, 1);
     const low = placeUnitForTest(s, 'sotlid', 0);
     placeUnitForTest(s, 'samtaegi', 1);
     const div = document.createElement('div');
-    div.innerHTML = unitPanelHtml(s, 0);
+    div.innerHTML = soloHtml(s, 0);
     const button = div.querySelector('[data-action="store"]');
-    expect(button?.textContent).toBe('보관(A)');
+    expect(button?.textContent).toBe('보관');
+    expect(button?.getAttribute('title')).toBe('A');
     expect(button?.getAttribute('data-arg')).toBe(String(low.id));
-    div.innerHTML = unitPanelHtml(s, 1);
+    div.innerHTML = soloHtml(s, 1);
     expect(div.querySelector('[data-action="store"]')).toBeNull();
   });
 
@@ -33,7 +40,7 @@ describe('the selected unit card stores grades 1-2 one at a time', () => {
     expect(document.querySelector('#bottom [data-action="store"]')?.textContent).toBe('보관(A)');
     renderBottom(s, 0, false, 'B 장터');
     expect(document.getElementById('bottom')!.textContent).toBe(
-      'Z/X/C 조합 · S 판매 · A 보관 · R 지게 · Tab 상세 · W 다음 유닛 · Space 소환 · Esc 선택 해제');
+      'Z/X/C 조합(판에 짝 표시) · S 판매 · A 보관 · R 지게 · Tab 상세 · M 옮기기 · W 다음 조합 · Esc 해제');
     renderBottom(s, 1, false, 'B 장터');
     expect(document.getElementById('bottom')!.textContent).not.toContain('A 보관');
   });

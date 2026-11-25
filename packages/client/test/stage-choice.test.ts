@@ -29,7 +29,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     expect(lobbyModel(msg({ stage: 'stage3' })).stage).toBe('stage3');
     const picks: string[] = [];
     const root = document.createElement('div');
-    renderLobby(root, msg({ stage: 'stage3' }), { ready: () => {}, start: () => {}, copy: () => {}, difficulty: d => picks.push(d) });
+    renderLobby(root, msg({ stage: 'stage3' }), { ready: () => {}, start: () => {}, leave: () => {}, copy: async () => true, difficulty: d => picks.push(d) });
     expect(root.querySelector('.lobby-mode, [data-stage]')).toBeNull();
     expect(root.textContent).not.toContain('20라운드');
     expect(root.textContent).not.toContain('시험판');
@@ -38,7 +38,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     expect(picks).toEqual(['hard']);
 
     const guest = document.createElement('div');
-    renderLobby(guest, msg({ you: 2, stage: 'stage3' }), { ready: () => {}, start: () => {}, copy: () => {} });
+    renderLobby(guest, msg({ you: 2, stage: 'stage3' }), { ready: () => {}, start: () => {}, leave: () => {}, copy: async () => true });
     const gb = Array.from(guest.querySelectorAll<HTMLButtonElement>('[data-difficulty]'));
     expect(gb).toHaveLength(4);
     expect(gb.every(b => b.disabled)).toBe(true);
@@ -47,7 +47,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
 
   test('lobby: a 20-round room made by an old client says so and offers no switch', () => {
     const root = document.createElement('div');
-    renderLobby(root, msg(), { ready: () => {}, start: () => {}, copy: () => {} });
+    renderLobby(root, msg(), { ready: () => {}, start: () => {}, leave: () => {}, copy: async () => true });
     expect(root.querySelector('button.lobby-mode, [data-stage], [data-difficulty]')).toBeNull();
     expect(root.querySelector('.lobby-modes')?.textContent).toBe('20라운드 방');
   });
@@ -109,8 +109,8 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     renderEntry(root, { onSubmit: async () => {} });
     const labels = Array.from(root.querySelectorAll<HTMLButtonElement>('.entry-difficulty [data-difficulty]')).map(b => b.textContent);
     expect(labels).toEqual(['쉬움', '보통', '어려움', '지옥']);
-    expect(difficultyRuleText('hell')).toBe('70라운드 · 적 체력 100% · 도깨비불 2개');
-    expect(difficultyRuleText('hard')).toBe('70라운드 · 적 체력 100%');
+    expect(difficultyRuleText('hell')).toBe('70라운드 · 약 45분 · 적 체력 100% · 도깨비불 2개');
+    expect(difficultyRuleText('hard')).toBe('70라운드 · 약 45분 · 적 체력 100%');
     expect(hudModel(createGame(loadGameData('stage3'), 1, 'hell')).roundText).toContain('지옥');
   });
 
@@ -118,7 +118,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     const message = msg({ stage: 'stage3', you: 2, difficulty: 'easy' });
     expect(lobbyModel(message).difficulty).toBe('easy');
     const root = document.createElement('div');
-    renderLobby(root, message, { ready() {}, start() {}, copy() {} });
+    renderLobby(root, message, { ready() {}, start() {}, leave() {}, async copy() { return true; } });
     expect(root.querySelector<HTMLButtonElement>('[data-difficulty="easy"]')?.disabled).toBe(true);
     expect(hudModel(createGame(loadGameData('stage3'), 1, 'easy')).roundText).toContain('쉬움');
   });

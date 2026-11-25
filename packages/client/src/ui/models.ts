@@ -1,7 +1,7 @@
 import { difficultySuffix } from './difficulty';
 import {
-  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineEatsItem, countNormalEnemies, evolveMult, itemOf, needsEvolve, missingMaterials, recipesUsing,
-  storedMaterials, unitDefFast, upgradeCost, unitRange, summonOddsForRound, roundResistRange,
+  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineEatsItem, combinePlan, countNormalEnemies, evolveMult, itemOf, needsEvolve, missingMaterials,
+  storedMaterials, availableRecipes, unitDefFast, upgradeCost, unitRange, summonOddsForRound, roundResistRange,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 import { ROLE_LABEL, unitRoles, type RoleTag } from './dex-roles';
@@ -284,6 +284,30 @@ export function nextUnitId(state: GameState, selected: number | null): number | 
   return (units[next] ?? units[0])?.id ?? null;
 }
 
+/**
+ * What a press on the board (or M, Esc) means for press-to-move. `press`: a drag started on a unit; `again`: a short
+ * press on the unit already selected; `tap`: a cell, another unit or outside the grid; `toggle`: M; `cancel`: Esc or a right click.
+ */
+export type MoveInput =
+  | { kind: 'press'; slot: number }
+  | { kind: 'again'; slot: number }
+  | { kind: 'tap'; slot: number | null }
+  | { kind: 'toggle' }
+  | { kind: 'cancel' };
+/** `select`: the slot to select (null drops the selection); absent keeps it. */
+export interface MoveStep { moving: boolean; select?: number | null; move?: { from: number; to: number } }
+
+export function moveStep(state: GameState, selected: number | null, moving: boolean, input: MoveInput): MoveStep {
+  if (input.kind === 'toggle') return { moving: selected !== null && !moving };
+  if (input.kind === 'cancel') return selected !== null && moving ? { moving: false } : { moving: false, select: null };
+  if (selected === null || !moving) {
+    return input.kind === 'again' && selected !== null ? { moving: true } : { moving: false, select: input.slot };
+  }
+  const to = input.slot;
+  if (to === null || to === selected || !state.open[to]) return { moving: false };
+  return { moving: false, move: { from: selected, to } };
+}
+
 export interface Notice { text: string; until: number }
 
 export function activeNotice(notice: Notice | null, now: number): string | null {
@@ -358,18 +382,73 @@ export function resistText(data: GameData, round: number): string | null {
   return `저항 물리 ${span(r.physical)} · 마법 ${span(r.magical)}`;
 }
 
-export function hudModel(state: GameState): { roundText: string; secondsLeft: number; enemyText: string; danger: number; resistText: string | null } {
+/** The 장승 word for `n` enemies: a lane loses only above the limit, so the limit itself is 한계, not 무너짐. */
+export function crackText(n: number, limit: number): string {
+  if (n > limit) return '무너짐';
+  if (n === limit) return '한계';
+  const r = n / limit;
+  return r > 0.66 ? '금 감' : r > 0.33 ? '흔들림' : '멀쩡함';
+}
+
+/** A board cell as the market and the 지게 window name it: "2행 3열". */
+export const cellText = (cols: number, index: number): string => `${Math.floor(index / cols) + 1}행 ${index % cols + 1}열`;
+
+export type LimitLevel = 'ok' | 'warn' | 'danger' | 'over';
+
+/**
+ * The one grading of an enemy count the HUD, the online rows, the 장승 and the board edge read. A lane loses only above
+ * the limit, so the limit itself is still danger. `instant`: from `limitInstantFromRound` on, the first enemy over loses.
+ */
+export function limitLevel(data: GameData, count: number, round: number): { level: LimitLevel; instant: boolean } {
+  const { limit, limitInstantFromRound } = data.balance;
+  const warn = data.coop?.danger ?? Math.ceil(limit * 0.8);
+  const danger = Math.ceil(limit * 0.95);
+  const level: LimitLevel = count > limit ? 'over' : count >= danger ? 'danger' : count >= warn ? 'warn' : 'ok';
+  return { level, instant: limitInstantFromRound !== undefined && round >= limitInstantFromRound };
+}
+
+export function limitTail(level: LimitLevel, count: number, limit: number): string | null {
+  switch (level) {
+    case 'ok': return null;
+    case 'warn': return '주의';
+    case 'danger': return count >= limit ? '한계' : `${limit - count}마리 남음`;
+    case 'over': return '초과';
+  }
+}
+
+export interface HudModel {
+  roundText: string; secondsLeft: number; enemyText: string; danger: number; crack: string; resistText: string | null;
+  count: number; limit: number; level: LimitLevel; instant: boolean; tail: string | null;
+  /** the '장승 …' word hides in danger, where the tail already says it */
+  crackShown: boolean; overBy: number;
+  /** Null without a living boss. Shortened to '보스 N' while the resist line, a count tail or the pause pill needs the room. */
+  bossText: string | null; bossTitle: string | null;
+}
+
+/** `pill`: the solo pause pill is drawn, which takes the room the full boss value needs. */
+export function hudModel(state: GameState, pill = false): HudModel {
   const b = state.data.balance;
   const n = countNormalEnemies(state);
   const ticksPerSecond = 1000 / b.tickMs;
   const prepTicks = b.prepSeconds * ticksPerSecond;
   const left = state.phase === 'prep' ? prepTicks - state.tick : state.roundEndTick - state.tick;
+  const { level, instant } = limitLevel(state.data, n, state.round);
+  const resist = resistText(state.data, state.round);
+  const boss = state.enemies.find(e => e.boss && e.hp > 0);
+  const bossTitle = boss ? `보스 체력 ${boss.hp} / ${boss.maxHp}` : null;
+  const tail = limitTail(level, n, b.limit);
   return {
     roundText: (state.phase === 'prep' ? '준비' : `${state.round} / ${b.rounds} 라운드`) + difficultySuffix(state.data, state.difficulty),
     secondsLeft: Math.max(0, Math.ceil(left / ticksPerSecond)),
-    enemyText: `우리 고개 잡귀 ${n} / ${b.limit}`,
+    enemyText: `내 잡귀 ${n} / ${b.limit}`,
     danger: Math.min(1, n / b.limit),
-    resistText: resistText(state.data, state.round),
+    crack: crackText(n, b.limit),
+    resistText: resist,
+    count: n, limit: b.limit, level, instant, tail,
+    crackShown: level !== 'danger', overBy: level === 'over' ? n - b.limit : 0,
+    // any count tail or the pause pill, not only the danger tail: round 10 wrapped the 638px bar in Malgun Gothic with either
+    bossText: boss && (resist !== null || tail !== null || pill) ? `보스 ${boss.hp}` : bossTitle,
+    bossTitle,
   };
 }
 
@@ -379,8 +458,11 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
  */
 export interface HelperItem { recipe: string; name: string; grade: number; materials: Material[]; cost?: string; short?: string; stored?: number; eatsItem?: true }
 
-/** A recipe material as the chips draw it; `have` is false for the copies the board and storage cannot cover. */
-export interface Material { id: string; name: string; grade: number; have: boolean }
+/**
+ * A recipe material as the chips draw it; `have` is false for the copies the board and storage cannot cover.
+ * `mark` 'share': the rows in `takenBy` (top first) use this copy up before this row; 'make': a ready recipe yields this missing material.
+ */
+export interface Material { id: string; name: string; grade: number; have: boolean; mark?: 'share' | 'make'; takenBy?: string[] }
 
 /** `missingIds` is what missingMaterials returns: the last copies of a material are the missing ones. */
 export function materialsOf(state: GameState, result: string, missingIds: readonly string[]): Material[] {
@@ -397,70 +479,244 @@ export function materialsOf(state: GameState, result: string, missingIds: readon
   });
 }
 
-/** Recipes that can be made now (in table order); stage 3 also lists those that only lack the cost, marked `short`. */
-export function helperModel(state: GameState): HelperItem[] {
-  const out: HelperItem[] = [];
-  for (const recipe of state.data.recipes) {
-    const missing = missingMaterials(state, recipe.result);
-    if (missing.length) continue;
-    const cost = costText(recipe);
-    const short = blockedText(state, recipe);
-    const def = unitDefFast(state.data, recipe.result);
-    const stored = storedMaterials(state, recipe.result);
-    out.push({
-      recipe: recipe.result, name: def.name, grade: def.grade, materials: materialsOf(state, recipe.result, missing), ...(cost ? { cost } : {}), ...(short ? { short } : {}), ...(stored ? { stored } : {}),
-      ...(combineEatsItem(state, recipe.result) && { eatsItem: true as const }),
-    });
-  }
-  return out;
-}
-
-const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
+const COMBINE_KEYS: readonly ComboKey[] = ['Z', 'X', 'C'];
 
 /** `short` describes any currency shortfall. */
 export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string; eatsItem?: true }
 
-/** `slot`: the cell the option's button sends (none for storage and the helper), as combineEatsItem takes it. */
-function optionsFor(state: GameState, recipes: { result: string; missing: string[] }[], slot?: number): CombineOption[] {
-  return recipes.map(({ result, missing }): CombineOption => {
-    const { name, grade } = unitDefFast(state.data, result);
-    const recipe = state.data.recipes.find(r => r.result === result);
-    const cost = costText(recipe);
-    const short = blockedText(state, recipe);
-    return {
-      result, name, grade,
-      missing: missing.map(id => unitDefFast(state.data, id).name),
-      materials: materialsOf(state, result, missing),
-      key: null,
-      ...(cost ? { cost } : {}),
-      ...(short ? { short } : {}),
-      ...(combineEatsItem(state, result, slot) && { eatsItem: true as const }),
-    };
-  });
+/** `slot`: the cell the option's button sends (none for storage and the rows without the selected unit), as combineEatsItem takes it. */
+function optionFor(state: GameState, result: string, missing: readonly string[], slot?: number): CombineOption {
+  const { name, grade } = unitDefFast(state.data, result);
+  const recipe = state.data.recipes.find(r => r.result === result);
+  const cost = costText(recipe);
+  const short = blockedText(state, recipe);
+  return {
+    result, name, grade,
+    missing: missing.map(id => unitDefFast(state.data, id).name),
+    materials: materialsOf(state, result, missing),
+    key: null,
+    ...(cost ? { cost } : {}),
+    ...(short ? { short } : {}),
+    ...(combineEatsItem(state, result, slot) && { eatsItem: true as const }),
+  };
 }
 
 const ready = (option: CombineOption) => !option.missing.length && !option.short;
 
 /** Recipes a stored kind can go into right now (board units first, then storage, as the combine command takes them). */
 export function storedCombineOptions(state: GameState, defId: string): CombineOption[] {
-  const recipes = state.data.recipes.filter(r => r.materials.includes(defId))
-    .map(r => ({ result: r.result, missing: missingMaterials(state, r.result) }));
-  return optionsFor(state, recipes).filter(ready);
+  return state.data.recipes.filter(r => r.materials.includes(defId))
+    .map(r => optionFor(state, r.result, missingMaterials(state, r.result))).filter(ready);
 }
 
-export function combineOptions(state: GameState, slot: number): CombineOption[] {
-  const options = optionsFor(state, recipesUsing(state, slot), slot);
-  options.sort((a, b) => Number(ready(b)) - Number(ready(a)) || a.missing.length - b.missing.length);
-  let nextKey = 0;
-  for (const option of options) if (ready(option)) option.key = COMBINE_KEYS[nextKey++] ?? null;
-  return options;
+export type NextScope = 'unit' | 'all';
+export type NextGroup = 'target' | 'ready' | 'one' | 'far';
+/** uses: the selected unit is one of the materials. */
+export interface NextRow extends CombineOption { group: NextGroup; uses: boolean }
+/** `far` (unit scope only): recipes two or more materials short. `counts`: ready rows (no shortfall) per scope, `unit` null with nothing selected. */
+export interface NextList {
+  scope: NextScope; rows: NextRow[]; far: NextRow[];
+  counts: { unit: number | null; all: number };
+  target: { id: string; name: string } | null;
+}
+export interface NextOpts { target?: string | null; slot?: number | null; scope?: NextScope }
+
+/** Recipe results of the target tree's missing nodes, each at its shallowest depth. */
+function targetDepths(state: GameState, target: string | null): Map<string, number> {
+  const depths = new Map<string, number>();
+  const tree = target ? pinnedTarget(state.data, target, state.slots, state.storage ?? [], state) : null;
+  let level = tree ? [tree] : [];
+  for (let depth = 0; level.length; depth++) {
+    for (const node of level) if (node.location === 'missing' && node.children.length && !depths.has(node.id)) depths.set(node.id, depth);
+    level = level.flatMap(node => node.children);
+  }
+  return depths;
 }
 
-const UPGRADE_TEXT: Record<UpgradeId, (p: number) => string> = {
-  physical: p => `물딜 공격력 +${pct(p)}`,
-  magical: p => `마딜 공격력 +${pct(p)}`,
-  polish: p => `1~4등급 공격력 +${pct(p)}`,
-};
+/** Ready rows take their materials from the board and storage top down; a copy left with nothing to take is 'share'. */
+function markShares(state: GameState, rows: readonly NextRow[]): void {
+  const left = new Map<string, number>();
+  for (const u of state.slots) if (u) left.set(u.defId, (left.get(u.defId) ?? 0) + 1);
+  for (const u of state.storage ?? []) left.set(u.defId, (left.get(u.defId) ?? 0) + 1);
+  const takers = new Map<string, string[]>();
+  for (const row of rows) {
+    if (!ready(row)) continue;
+    for (const m of row.materials) {
+      const n = left.get(m.id) ?? 0;
+      if (n > 0) {
+        left.set(m.id, n - 1);
+        const by = takers.get(m.id) ?? [];
+        if (!by.includes(row.result)) takers.set(m.id, [...by, row.result]);
+      } else {
+        m.mark = 'share';
+        m.takenBy = (takers.get(m.id) ?? []).filter(r => r !== row.result);
+      }
+    }
+  }
+}
+
+/** The one "what to combine next" list the helper, the unit panel, the keys and the board marks all read. */
+export function nextCombines(state: GameState, opts: NextOpts = {}): NextList {
+  const slot = opts.slot ?? null;
+  const unitDef = slot === null ? null : state.slots[slot]?.defId ?? null;
+  const scope: NextScope = unitDef === null ? 'all' : opts.scope ?? 'unit';
+  const tableOrder = new Map(state.data.recipes.map((r, i) => [r.result, i]));
+  const depths = targetDepths(state, opts.target ?? null);
+  const makeable = new Set(availableRecipes(state));
+  const byGrade = (a: NextRow, b: NextRow) => b.grade - a.grade || tableOrder.get(a.result)! - tableOrder.get(b.result)!;
+
+  const groups: Record<NextGroup, NextRow[]> = { target: [], ready: [], one: [], far: [] };
+  const lacking = new Map<string, string>();
+  let all = 0;
+  let unit = 0;
+  for (const recipe of state.data.recipes) {
+    const missing = missingMaterials(state, recipe.result);
+    const uses = unitDef !== null && recipe.materials.includes(unitDef);
+    const option = optionFor(state, recipe.result, missing, uses ? slot! : undefined);
+    if (ready(option)) { all++; if (uses) unit++; }
+    if (scope === 'unit' && !uses) continue;
+    const group: NextGroup = depths.has(recipe.result) && missing.length <= 1 ? 'target'
+      : !missing.length ? 'ready' : missing.length === 1 ? 'one' : 'far';
+    if (group === 'far' && scope === 'all') continue;
+    if (missing.length === 1) lacking.set(recipe.result, missing[0]!);
+    groups[group].push({ ...option, group, uses });
+  }
+  groups.target.sort((a, b) => depths.get(a.result)! - depths.get(b.result)! || byGrade(a, b));
+  groups.ready.sort((a, b) => Number(!!a.short) - Number(!!b.short) || byGrade(a, b));
+  const unmakeable = (row: NextRow) => Number(!makeable.has(lacking.get(row.result)!));
+  groups.one.sort((a, b) => unmakeable(a) - unmakeable(b) || byGrade(a, b));
+
+  const rows = [...groups.target, ...groups.ready, ...groups.one];
+  markShares(state, rows);
+  for (const row of rows) {
+    if (row.missing.length !== 1) continue;
+    for (const m of row.materials) if (!m.have && makeable.has(m.id)) m.mark = 'make';
+  }
+  if (unitDef !== null) {
+    let next = 0;
+    for (const row of rows) if (row.uses && ready(row)) row.key = COMBINE_KEYS[next++] ?? null;
+  }
+  const target = opts.target && tableOrder.has(opts.target) ? { id: opts.target, name: unitDefFast(state.data, opts.target).name } : null;
+  return { scope, rows, far: groups.far, counts: { unit: unitDef === null ? null : unit, all }, target };
+}
+
+export type ComboKey = 'Z' | 'X' | 'C';
+/** What the board draws from the next list: `triangles` (first one breathes), the selected unit's partner cells and stacks, the hovered row's cells. */
+export interface BoardMarks {
+  triangles: number[];
+  pairs: { slot: number; key: ComboKey }[];
+  stored: { defId: string; key: ComboKey }[];
+  focus: number[] | null;
+}
+export const NO_MARKS: BoardMarks = { triangles: [], pairs: [], stored: [], focus: null };
+
+/** Ready rows whose result lands on a board slot; a recipe made only from storage has no slot to mark or pick. */
+function boardReady(state: GameState, list: NextList): { result: string; slot: number }[] {
+  const out: { result: string; slot: number }[] = [];
+  for (const row of list.rows) {
+    if (!ready(row)) continue;
+    const slot = combinePlan(state, row.result)?.resultSlot ?? null;
+    if (slot !== null) out.push({ result: row.result, slot });
+  }
+  return out;
+}
+
+export function boardMarks(state: GameState, list: NextList, slot: number | null): BoardMarks {
+  if (slot === null) {
+    const triangles: number[] = [];
+    for (const r of boardReady(state, list)) {
+      if (triangles.length >= 3) break;
+      if (!triangles.includes(r.slot)) triangles.push(r.slot);
+    }
+    return { triangles, pairs: [], stored: [], focus: null };
+  }
+  const pairs: BoardMarks['pairs'] = [];
+  const stored: BoardMarks['stored'] = [];
+  const storage = state.storage ?? [];
+  for (const row of list.rows) {
+    if (!row.key) continue;
+    const plan = combinePlan(state, row.result, slot);
+    if (!plan) continue;
+    for (const i of plan.board) if (i !== slot && !pairs.some(p => p.slot === i)) pairs.push({ slot: i, key: row.key });
+    for (const j of plan.stored) {
+      const defId = storage[j]!.defId;
+      if (!stored.some(s => s.defId === defId)) stored.push({ defId, key: row.key });
+    }
+  }
+  pairs.sort((a, b) => a.slot - b.slot);
+  return { triangles: [], pairs, stored, focus: null };
+}
+
+/**
+ * Board cells the combine command would take for `result`, the selected slot left out. A row that cannot combine yet
+ * (a material missing) gets the board cells holding the materials it has, so hovering it still lights them.
+ */
+export function rowCells(state: GameState, result: string, slot: number | null): number[] {
+  const plan = combinePlan(state, result, slot ?? undefined);
+  if (plan) return plan.board.filter(i => i !== slot);
+  const recipe = state.data.recipes.find(r => r.result === result);
+  if (!recipe) return [];
+  const chosen = slot === null ? null : state.slots[slot];
+  if (slot !== null && (!chosen || !recipe.materials.includes(chosen.defId))) return [];
+  const used = new Set<number>(slot === null ? [] : [slot]);
+  let selfTaken = slot === null;
+  const cells: number[] = [];
+  for (const m of recipe.materials) {
+    if (!selfTaken && chosen!.defId === m) { selfTaken = true; continue; }
+    for (let i = state.slots.length - 1; i >= 0; i--) {
+      if (used.has(i) || state.slots[i]?.defId !== m) continue;
+      used.add(i);
+      cells.push(i);
+      break;
+    }
+  }
+  return cells;
+}
+
+/** W: the ready row after `after` in list order (wrapping), with the slot its result lands on. */
+export function nextPick(state: GameState, list: NextList, after: string | null): { result: string; slot: number } | null {
+  const picks = boardReady(state, list);
+  if (!picks.length) return null;
+  const at = after === null ? -1 : picks.findIndex(p => p.result === after);
+  return picks[at < 0 ? 0 : (at + 1) % picks.length]!;
+}
+
+const plainOption = ({ group: _g, uses: _u, ...option }: NextRow): CombineOption => option;
+
+/** Every recipe the unit in `slot` goes into, in next-list order (the far ones last). */
+export function combineOptions(state: GameState, slot: number, target?: string | null): CombineOption[] {
+  if (!state.slots[slot]) return [];
+  const list = nextCombines(state, { target, slot, scope: 'unit' });
+  return [...list.rows, ...list.far].map(plainOption);
+}
+
+/** Recipes whose materials are all there, in next-list order; stage 3 also lists those that only lack the cost, marked `short`. */
+export function helperModel(state: GameState, target?: string | null): HelperItem[] {
+  return nextCombines(state, { target }).rows.filter(row => !row.missing.length).map(row => {
+    const stored = storedMaterials(state, row.result);
+    return {
+      recipe: row.result, name: row.name, grade: row.grade, materials: row.materials,
+      ...(row.cost ? { cost: row.cost } : {}), ...(row.short ? { short: row.short } : {}), ...(stored ? { stored } : {}),
+      ...(row.eatsItem && { eatsItem: true as const }),
+    };
+  });
+}
+
+const UPGRADE_TARGET: Record<UpgradeId, string> = { physical: '물딜 공격력', magical: '마딜 공격력', polish: '1~4등급 공격력' };
+
+/** Levels add up (pct × level), so the row says the total now and after the next level. */
+function upgradeEffectText(id: UpgradeId, p: number, level: number, max: number): string {
+  const total = (n: number) => `+${Math.round(p * n * 100)}%`;
+  return level >= max ? `${UPGRADE_TARGET[id]} ${total(level)} · 최대` : `${UPGRADE_TARGET[id]} 지금 ${total(level)} → 다음 ${total(level + 1)}`;
+}
+
+/** What the 강화 window weighs against: this round's resistance and how many board units each damage upgrade reaches. */
+export function upgradeInfoText(state: GameState): string {
+  const defs = state.slots.flatMap(u => (u ? [unitDefFast(state.data, u.defId)] : []));
+  const count = (type: DamageType) => defs.filter(d => d.damageType === type).length;
+  const resist = resistText(state.data, state.round);
+  return [resist ? `이번 라운드 ${resist}` : null, `내 물딜 ${count('physical')}기 · 마딜 ${count('magical')}기`].filter(Boolean).join(' · ');
+}
 
 export function upgradeRows(state: GameState): { id: UpgradeId; label: string; level: number; max: number; cost: number | null; effectText: string; affordable: boolean }[] {
   return state.data.upgrades.map(def => {
@@ -468,7 +724,7 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
     const cost = level >= def.max ? null : upgradeCost(def, level + 1);
     return {
       id: def.id, label: def.label, level, max: def.max, cost,
-      effectText: UPGRADE_TEXT[def.id](def.pct ?? 0),
+      effectText: upgradeEffectText(def.id, def.pct ?? 0, level, def.max),
       affordable: cost !== null && state.coins >= cost,
     };
   });
@@ -554,6 +810,24 @@ const SEARCH_ALIAS: [text: string, alias: string][] = [['스턴', '기절'], ['�
 export function skillSearchText(skillText: string, roles: readonly RoleTag[]): string {
   const aliases = SEARCH_ALIAS.filter(([t]) => skillText.includes(t)).map(([, a]) => a);
   return [skillText, ...roles.map(t => ROLE_LABEL[t.role]), ...aliases].join(' ').replace(/\s+/g, '');
+}
+
+/**
+ * Where a hidden unit is tamed: the enemy and when it first shows up ("지네각시 · 10라운드 보스"). The wave table, the 격파
+ * targets and the one-off 씨름·그늘 rounds are the places an enemy can come from. Null for a unit no enemy turns into.
+ */
+export function tameSourceText(data: GameData, unitId: string): string | null {
+  const eco = data.economy;
+  const texts = (eco?.tame?.targets ?? []).filter(t => t.unit === unitId).map(t => {
+    const name = data.enemies.find(e => e.id === t.enemy)?.name ?? t.enemy;
+    const wave = data.waves.find(w => (w.type === 'boss' ? w.boss === t.enemy : w.pattern.includes(t.enemy)));
+    const hunt = eco?.hunts?.targets.find(h => h.enemy === t.enemy);
+    const event = [eco?.ssireum, eco?.shadow].find(e => e?.enemy === t.enemy);
+    const when = wave ? `${wave.round}라운드${wave.type === 'boss' ? ' 보스' : '부터'}`
+      : hunt ? `${hunt.fromRound}라운드부터 격파` : event ? `${event.round}라운드` : null;
+    return when ? `${name} · ${when}` : name;
+  });
+  return texts.length ? texts.join(', ') : null;
 }
 
 export function dexEntries(data: GameData): DexEntry[] {
@@ -665,10 +939,16 @@ function markMaterials(top: RecipeNode[], reserve: (node: RecipeNode) => boolean
 }
 
 type MaterialLocation = 'board' | 'storage' | 'missing';
-export interface TargetNode { id: string; name: string; grade: number; location: MaterialLocation; children: TargetNode[] }
+/**
+ * `ready`: not owned, but every material it still needs is on the board or in storage, so it can be combined now.
+ * `blocked`: those materials are all there, but `pay` cannot cover the combine or an exclusive recipe still needs its recruit evolved ("진화 필요").
+ */
+export interface TargetNode {
+  id: string; name: string; grade: number; location: MaterialLocation; ready: boolean; blocked: string | null; children: TargetNode[];
+}
 
 export function pinnedTarget(
-  data: GameData, id: string, board: readonly ({ defId: string } | null)[], storage: readonly { defId: string }[] = [],
+  data: GameData, id: string, board: readonly ({ defId: string } | null)[], storage: readonly { defId: string }[] = [], pay?: GameState,
 ): TargetNode | null {
   const tree = materialTree(data, id);
   if (!tree) return null;
@@ -680,10 +960,13 @@ export function pinnedTarget(
     locations.set(node, location);
     return location !== 'missing';
   });
-  const display = (node: RecipeNode): TargetNode => ({
-    id: node.id, name: node.name, grade: node.grade, location: locations.get(node) ?? 'missing',
-    children: node.children.filter(child => child.mark !== 'covered').map(display),
-  });
+  const display = (node: RecipeNode): TargetNode => {
+    const location = locations.get(node) ?? 'missing';
+    const children = node.children.filter(child => child.mark !== 'covered').map(display);
+    const onHand = location === 'missing' && children.length > 0 && children.every(child => child.location !== 'missing');
+    const blocked = onHand && pay ? blockedText(pay, data.recipes.find(r => r.result === node.id)) : null;
+    return { id: node.id, name: node.name, grade: node.grade, location, ready: onHand && blocked === null, blocked, children };
+  };
   return display(tree);
 }
 
@@ -706,8 +989,8 @@ export function storageStacks(state: GameState): StorageStack[] {
   }).sort((a, b) => a.grade - b.grade || (order.get(a.defId) ?? 0) - (order.get(b.defId) ?? 0));
 }
 
-/** Where a material link came from, to go back to it with the list as it was. */
-export interface DexStep { id: string; filter: string; query: string }
+/** Where a material link came from, to go back to it with the list as it was (every criterion a link may clear). */
+export interface DexStep { id: string; filter: string; query: string; kind?: string; role?: string; skill?: string; mine?: string[] }
 
 /**
  * The dex's browsing state: grade/hidden filter, search, the units followed through material links (newest last),
@@ -772,7 +1055,7 @@ export function dexShows(
 export function dexGo(data: GameData, nav: DexNav, target: string, from: string, state?: GameState): DexNav {
   const entry = dexEntries(data).find(e => e.id === target);
   if (!entry) return nav;
-  const back = [...nav.back, { id: from, filter: nav.filter, query: nav.query }].slice(-DEX_BACK_MAX);
+  const back = [...nav.back, { id: from, filter: nav.filter, query: nav.query, kind: nav.kind, role: nav.role, skill: nav.skill, mine: nav.mine }].slice(-DEX_BACK_MAX);
   const tries: [string, string][] = [[nav.filter, nav.query], [nav.filter, ''], ['all', nav.query], ['all', '']];
   // 계열/역할 stay when they show the target; otherwise they are cleared before the grade and search are given up
   const found = tries.find(([f, q]) => dexShows(data, entry, f, q, { ...nav, state }));
@@ -781,11 +1064,14 @@ export function dexGo(data: GameData, nav: DexNav, target: string, from: string,
   return { ...nav, filter, query, kind: 'all', role: 'all', skill: '', mine: [], back, focus: target };
 }
 
-/** Goes back to the entry the last material link was followed from, with its filter and search. */
+/** Goes back to the entry the last material link was followed from, with its filter, search and the other criteria. */
 export function dexBack(nav: DexNav): DexNav {
   const step = nav.back[nav.back.length - 1];
   if (!step) return nav;
-  return { ...nav, filter: step.filter, query: step.query, back: nav.back.slice(0, -1), focus: step.id };
+  return {
+    ...nav, filter: step.filter, query: step.query, kind: step.kind ?? nav.kind, role: step.role ?? nav.role, skill: step.skill ?? nav.skill,
+    mine: step.mine ?? nav.mine, back: nav.back.slice(0, -1), focus: step.id,
+  };
 }
 
 /** The key of a tree branch for `DexNav.unfold`. */

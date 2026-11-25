@@ -90,6 +90,13 @@ describe('NetDriver', () => {
     expect(s.enemies.map(e => e.id)).toEqual(view.lane.enemies.map(e => e.id));
     expect(s.enemies[0]!.d).toBeCloseTo(view.lane.enemies[0]!.d, 9);
   });
+  test('viewToGameState counts the over-limit time of the watched lane, whose enemies it carries', () => {
+    const { view, data } = fixtureView();
+    const rows = view.rows.map(r => (r.seat === 1 ? { ...r, status: 'spirit' as const, overLimitTicks: 0 } : r.seat === 2 ? { ...r, overLimitTicks: 40 } : r));
+    expect(viewToGameState({ ...view, rows, watching: 2 }, data, view.mine.units, view.clock.tick).overLimitTicks).toBe(40);
+    const mine = view.rows.map(r => (r.seat === 1 ? { ...r, overLimitTicks: 7 } : r));
+    expect(viewToGameState({ ...view, rows: mine }, data, view.mine.units, view.clock.tick).overLimitTicks).toBe(7);
+  });
   test('an enemy moving below its own speed reads as slowed, a stopped one as stunned (drawn by the effect layer)', () => {
     const { view, data } = fixtureView();
     const e = view.lane.enemies[0]!;

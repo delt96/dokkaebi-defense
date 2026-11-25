@@ -16,6 +16,7 @@ export const EFFECTS = {
   heavyHit: { file: 'heavy-hit.ogg', volume: 0.09, interval: 250, pitch: 0.05 },
   bossDown: { file: 'boss-down.ogg', volume: 0.36, interval: 450 },
   gong: { file: 'gong.ogg', volume: 0.40, interval: 450 },
+  fallen: { file: 'gong.ogg', volume: 0.2, interval: 450 },
   round: { file: 'round.ogg', volume: 0.19 },
   upgrade: { file: 'upgrade.ogg', volume: 0.27 },
   sell: { file: 'sell.ogg', volume: 0.28 },
@@ -30,6 +31,8 @@ export const EFFECTS = {
   huntFlee: { file: 'flee.ogg', volume: 0.26 },
   click: { file: 'click.ogg', volume: 0.13, interval: 55 },
   error: { file: 'error.ogg', volume: 0.18, interval: 200 },
+  // going back over the limit within 2 seconds stays silent
+  limitOver: { file: 'error.ogg', volume: 0.1, interval: 2000 },
   clear: { file: 'clear.ogg', volume: 0.53 },
   defeat: { file: 'defeat.ogg', volume: 0.48 },
 } as const satisfies Record<string, Effect>;

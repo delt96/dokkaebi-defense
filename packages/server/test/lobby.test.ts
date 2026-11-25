@@ -19,13 +19,13 @@ describe('lobby', () => {
     const n = new FakeLink('j'); core.join(n, { name: '새' });
     expect(n.last('lobby')!.you).toBe(1);
   });
-  test('start needs host and everyone ready; double start makes one match', () => {
+  test('start needs the host and every guest ready; the host itself never readies; double start makes one match', () => {
     const { core, deps } = room();
     const a = new FakeLink('a'), b = new FakeLink('b');
     core.join(a, { name: '가' }); core.join(b, { name: '나' });
     core.message('b', 'start', {});
     expect(b.last('notice')).toEqual({ kind: 'roomError', reason: 'notHost' });
-    core.message('a', 'ready', { ready: true }); core.message('a', 'start', {});
+    core.message('a', 'start', {});
     expect(a.last('notice')).toEqual({ kind: 'roomError', reason: 'notReady' });
     core.message('b', 'ready', { ready: true });
     core.message('a', 'start', {}); core.message('a', 'start', {});
@@ -38,7 +38,7 @@ describe('lobby', () => {
   });
   test('one player can start alone', () => {
     const { core } = room(); const a = new FakeLink('a');
-    core.join(a, { name: '혼자' }); core.message('a', 'ready', { ready: true }); core.message('a', 'start', {});
+    core.join(a, { name: '혼자' }); core.message('a', 'start', {});
     expect(core.match!.ring).toEqual([1]);
   });
   test('after start a new name cannot join', () => {

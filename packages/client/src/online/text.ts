@@ -2,6 +2,10 @@ import { JOIN_ERROR_CODES } from '@dorandi/logic';
 
 export const TEXT = {
   title: '도깨비 랜덤 디펜스',
+  tagline: '최대 6명이 함께 잡귀를 막는 협동 랜덤 디펜스',
+  firstTime: '처음이라면',
+  inviteNote: '초대받은 방에 들어갑니다 · 난이도는 방장이 정합니다',
+  home: '처음 화면으로',
   nameLabel: '닉네임',
   namePlaceholder: '한글·영문·숫자 1~8자',
   create: '방 만들기',
@@ -17,6 +21,10 @@ export const TEXT = {
   soundSettings: '소리 설정',
   copy: '링크 복사',
   copied: '복사했습니다',
+  leave: '나가기',
+  left: '방을 나왔습니다',
+  copyByHand: '자동으로 복사하지 못했습니다. 아래 주소를 복사해 보내세요',
+  linkLabel: '방 주소',
   host: '방장',
   me: '나',
   ready: '준비',
@@ -25,7 +33,6 @@ export const TEXT = {
   readyBtn: '준비',
   unreadyBtn: '준비 취소',
   start: '시작',
-  startHint: '모두 준비하면 시작할 수 있습니다',
   notReady: '아직 준비하지 않은 사람이 있습니다',
   badName: '닉네임은 한글·영문·숫자 1~8자입니다',
   dupName: '방에 같은 닉네임이 있습니다',
@@ -41,6 +48,14 @@ export const TEXT = {
 } as const;
 
 export const NO_ROOM_CODE = 522;
+
+export function startHintText(ready: number, guests: number): string {
+  return `모두 준비하면 시작할 수 있습니다 · ${ready}/${guests}명 준비`;
+}
+
+export function startFewText(players: number): string {
+  return `${players === 1 ? '혼자' : `${players}명으로`} 시작합니다 · 시작하면 더 들어올 수 없습니다`;
+}
 
 export function joinErrorText(code: number): string {
   switch (code) {

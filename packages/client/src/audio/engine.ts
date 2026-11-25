@@ -166,7 +166,7 @@ export function installAudioInput(): void {
   const unlock = () => gameAudio.unlock();
   const click = (event: MouseEvent | PointerEvent) => {
     unlock();
-    const control = (event.target as HTMLElement).closest?.('button:not(:disabled), a.entry-link');
+    const control = (event.target as HTMLElement).closest?.('button:not(:disabled), a.entry-link, a.big, a.entry-home');
     if (control) gameAudio.play('click');
   };
   // Capture before the UI redraws the button. Pointerup also unlocks touch input.

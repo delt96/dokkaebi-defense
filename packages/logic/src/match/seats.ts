@@ -205,11 +205,12 @@ export function judgeSeats(match: MatchState, overLimit: number[], ctx: StepMatc
 function seatResult(match: MatchState, seat: number, outcome: TeamOutcome): SeatResult {
   const st = match.seats[seat]!;
   const yeoksinDamage = st.yeoksinDamage.reduce((a, b) => a + b, 0);
+  const support = { supportSent: st.supportSent, supportReceived: st.supportReceived };
   if (!st.alive) {
     const r = st.record!;
     return {
       seat, outcome: 'eliminated', cause: r.cause, round: r.round, lastEnemies: r.lastEnemies, maxEnemies: r.maxEnemies,
-      series: r.series, bestUnit: st.bestUnit, yeoksinDamage, helperOpens: r.helperOpens,
+      series: r.series, bestUnit: st.bestUnit, yeoksinDamage, helperOpens: r.helperOpens, ...support,
     };
   }
   const r = seatRecord(match, seat);
@@ -217,7 +218,7 @@ function seatResult(match: MatchState, seat: number, outcome: TeamOutcome): Seat
     seat,
     outcome: outcome === 'gate' ? 'aliveTeamLoss' : seatBossesKilled(st) ? 'finished' : 'unfinished',
     cause: null, round: r.round, lastEnemies: r.lastEnemies, maxEnemies: r.maxEnemies,
-    series: r.series, bestUnit: st.bestUnit, yeoksinDamage, helperOpens: r.helperOpens,
+    series: r.series, bestUnit: st.bestUnit, yeoksinDamage, helperOpens: r.helperOpens, ...support,
   };
 }
 

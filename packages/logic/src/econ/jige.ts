@@ -7,7 +7,7 @@ export function jigeCandidates(data: GameData, defId: string): UnitDef[] {
   const offered = data.units.find(u => u.id === defId);
   const market = data.economy?.market;
   if (!market || !offered || offered.hidden || offered.grade > market.maxSwapGrade) return [];
-  return data.units.filter(u => !u.hidden && u.grade === offered.grade);
+  return data.units.filter(u => !u.hidden && u.grade === offered.grade && u.id !== offered.id);
 }
 
 export function swapJige(state: GameState, source: JigeSource, result: string, events: GameEvent[]): RejectReason | null {

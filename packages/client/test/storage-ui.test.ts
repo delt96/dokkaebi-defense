@@ -60,7 +60,8 @@ describe('storage view models', () => {
     expect(stack.getAttribute('style')).toContain('#4f9dff');
     expect(stack.querySelector('img')!.getAttribute('src')).toBe('/sprites/ki.png');
     expect(stack.querySelector('.stack-n')!.textContent).toBe('×3');
-    expect(stack.querySelector('[data-action="sellStored"]')!.getAttribute('title')).toBe(`키 1개 판매 +${d2.balance.sellPrice[0]}냥`);
+    expect(stack.querySelector('[data-action="sellStack"]')!.getAttribute('title')).toBe(`키 1개 판매 +${d2.balance.sellPrice[0]}냥`);
+    expect(stack.querySelector('.stack-take [data-action]')).toBeNull();
     expect(document.querySelector('[data-action="storeAll"]')!.textContent).toBe('1·2등급모두 보관');
     expect(document.querySelector('.stacks.dense')).toBeNull();
     const kinds = d2.units.filter(u => u.grade <= 2).slice(0, 13).map(u => u.id);
@@ -167,6 +168,51 @@ describe('storage on the page', () => {
     expect(s.coins).toBe(coins + d1.balance.sellPrice[0]!);
   });
 
+  test('the stack whose info is open is marked in the column until the info closes', () => {
+    const { driver, s } = mount();
+    placeUnitForTest(s, 'ki', 0);
+    placeUnitForTest(s, 'sotlid', 1);
+    box().querySelector<HTMLElement>('[data-action="storeAll"]')!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0 }));
+    driver.update(50);
+    keydown(window, { code: 'Escape' });
+    expect(box().querySelector('.stack.inspected')).toBeNull();
+    box().querySelector<HTMLElement>('[data-stack="sotlid"]')!.click();
+    expect(box().querySelectorAll('.stack.inspected')).toHaveLength(1);
+    expect(box().querySelector('.stack.inspected [data-stack="sotlid"]')!.getAttribute('aria-current')).toBe('true');
+    expect(box().querySelector('[data-stack="ki"]')!.hasAttribute('aria-current')).toBe(false);
+    document.querySelector<HTMLElement>('.storage-info [data-action="closeStorageInfo"]')!.click();
+    expect(box().querySelector('.stack.inspected')).toBeNull();
+  });
+
+  test('the small sell button on a stack sells only on a second press within two seconds', () => {
+    let clock = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    const { driver, s } = mount();
+    placeUnitForTest(s, 'ki', 0);
+    placeUnitForTest(s, 'ki', 1);
+    step(s, [{ type: 'storeAll' }]);
+    keydown(window, { code: 'Escape' });
+    const sell = () => box().querySelector<HTMLButtonElement>('.stack-sell')!;
+    const coins = s.coins;
+    pointer(sell(), 'pointerdown');
+    driver.update(50);
+    expect(s.storage).toHaveLength(2);
+    expect(sell().classList.contains('armed')).toBe(true);
+    expect(sell().getAttribute('aria-label')).toContain('한 번 더');
+    clock += 2001;
+    keydown(window, { code: 'Escape' });
+    expect(sell().classList.contains('armed')).toBe(false);
+    pointer(sell(), 'pointerdown');
+    driver.update(50);
+    expect(s.storage).toHaveLength(2);
+    clock += 500;
+    pointer(sell(), 'pointerdown');
+    driver.update(50);
+    expect(s.storage).toHaveLength(1);
+    expect(s.coins).toBe(coins + d1.balance.sellPrice[0]!);
+    vi.restoreAllMocks();
+  });
+
   test('dragging a stack onto a board cell places it there', () => {
     const { driver, s } = mount();
     placeUnitForTest(s, 'ki', 0);
@@ -217,6 +263,8 @@ describe('storage on the page', () => {
     driver.queue({ type: 'store', slot: 0 });
     driver.update(50);
     keydown(window, { code: 'Escape' });
-    expect(document.getElementById('top')!.textContent).toContain('1·2등급만 보관할 수 있습니다');
+    // the store has no button of its own, so the refusal goes to the top slot
+    expect(document.getElementById('round-banner')!.textContent).toContain('1·2등급만 보관할 수 있습니다');
+    expect(document.querySelector('#top .notice')).toBeNull();
   });
 });

@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { FX_KEYS, areaSheet, hitKey, pierceSheet, quarterTurn, statusKey, textureKey } from './atlas';
 import { FX_SHEETS, type FxKey } from './manifest';
-import { FROST_ALPHA, FX_FLAGS, FxBudget, PRIORITY, gradeHex, slowLook, type EnemyStatus, type FxCmd, type FxFlags, type Priority, type ShotStyle } from './plan';
+import {
+  BLAST_ALPHA, BLAST_MAX, BLAST_MS, BLAST_TINT, FROST_ALPHA, FX_FLAGS, FxBudget, HALO_ALPHA, PRIORITY, PULSE_ALPHA, PULSE_MAX, gradeHex, slowLook, type EnemyStatus, type FxCmd, type FxFlags, type Priority, type ShotStyle,
+} from './plan';
 import { Pool } from './pool';
-import { BIRTH_MS, BirthQueue, birthBand, toastY, type BirthBanner } from '../ui/birth';
+import { BIRTH_MS, BirthQueue, birthBand, birthLine, type BirthBanner } from '../ui/birth';
 
 type Pt = { x: number; y: number };
 
@@ -32,14 +34,33 @@ export interface FxHost {
   pointAt(d: number): Pt;
   width: number;
   height: number;
+  /** The page shows toasts in its notice slot; true means it took this one and the board draws nothing. */
+  toast?(text: string, color: number): boolean;
+}
+
+/** Where toasts and birth bands centre (cx) and how far a band reaches either side (half), in canvas px. */
+export function noticeBand(hostWidth: number, span: { x: number; w: number } | null): { cx: number; half: number } {
+  if (!span) return { cx: hostWidth / 2, half: hostWidth / 2 };
+  return { cx: span.x + span.w / 2, half: span.w / 2 };
+}
+
+/** The boss band, slid in from the left `slide` (0..1) of the way, and the two warning marks near its ends. */
+export function bossBand(hostWidth: number, span: { x: number; w: number } | null, slide: number): { cx: number; x0: number; x1: number; marks: [number, number] } {
+  const { cx, half } = noticeBand(hostWidth, span);
+  const x0 = cx - half, x1 = cx + half;
+  return { cx, x0, x1: x0 + (x1 - x0) * slide, marks: [x0 + 18, x1 - 18] };
 }
 
 /** An enemy's status as drawn: `feet` is the bottom of its sprite, `scale` the sprite's scale. */
 export interface StatusView { id: number; defId: string; x: number; y: number; feet: number; scale: number; r: number; status: EnemyStatus }
-/** A unit standing in an ally aura (feet = bottom of its sprite). */
-export interface AuraView { id: number; x: number; feet: number }
+/** A unit standing in an ally aura (feet = bottom of its sprite); `live` when the selected aura unit reaches it, so its halo turns. */
+export interface AuraView { id: number; x: number; feet: number; live: boolean }
 
 const ease = (p: number) => 1 - (1 - p) * (1 - p);
+const TOAST_Y = 30;
+const BIRTH_OPEN_MS = 240, BIRTH_CLOSE_MS = 160;
+/** The band's picture (32 px art at 1.25) and the gap before its two lines. */
+const BIRTH_IMG = 40, BIRTH_GAP = 8;
 /** Shot flight times (ms): short, so a far target never leaves a dot hanging in the air. */
 const SHOT_MS = { magical: 170, physical: 130 };
 /** The sheet anchor sits this far below an enemy's centre (sparks fly at its body, debris lands at its feet). */
@@ -59,15 +80,15 @@ export class FxLayer {
   private readonly toastText: Phaser.GameObjects.Text;
   private readonly bannerText: Phaser.GameObjects.Text;
   private toastUntil = 0;
+  private noticeSpan: { x: number; w: number } | null = null;
   private toastStart = 0;
   private bannerUntil = 0;
   private bannerStart = 0;
   private readonly births = new BirthQueue();
   private shownBirth: BirthBanner | null = null;
   private readonly birthKeys = new Map<BirthBanner, string | null>();
-  private readonly birthWho: Phaser.GameObjects.Text;
+  private readonly birthHead: Phaser.GameObjects.Text;
   private readonly birthTitle: Phaser.GameObjects.Text;
-  private readonly birthSub: Phaser.GameObjects.Text;
   private readonly birthImage: Phaser.GameObjects.Image;
   private readonly recs: Rec[] = [];
   private readonly pool = new Pool<Rec>(
@@ -83,6 +104,10 @@ export class FxLayer {
   private readonly stunOn = new Map<number, Phaser.GameObjects.Sprite>();
   private readonly frostOn = new Map<number, Phaser.GameObjects.Sprite>();
   private readonly haloOn = new Map<number, Phaser.GameObjects.Sprite>();
+  private readonly haloLive = new Set<number>();
+  /** Aura pulses and blasts playing now, each capped (PULSE_MAX, BLAST_MAX) so a late board does not white out. */
+  private readonly pulses = new Set<Rec>();
+  private readonly blasts = new Set<Rec>();
   /** Yeoksin mist: where it stands and since when. */
   private mist: { x: number; y: number; since: number } | null = null;
   /** Bumped by clear() so delayed fireworks from a dropped lane never start. */
@@ -94,12 +119,11 @@ export class FxLayer {
     this.air = scene.add.graphics().setDepth(FX_DEPTH.air);
     this.top = scene.add.graphics().setDepth(FX_DEPTH.top);
     const label = { fontFamily: 'sans-serif', fontStyle: 'bold', stroke: '#140c18', strokeThickness: 3, padding: { top: 2 } };
-    this.toastText = scene.add.text(host.width / 2, 30, '', { ...label, fontSize: '13px', color: '#ffd28a' }).setOrigin(0.5).setDepth(FX_DEPTH.text).setVisible(false);
+    this.toastText = scene.add.text(host.width / 2, 30, '', { ...label, fontSize: '13px', color: '#ffd28a', align: 'center' }).setOrigin(0.5).setDepth(FX_DEPTH.text).setVisible(false);
     this.bannerText = scene.add.text(host.width / 2, Math.round(host.height * 0.5), '', { ...label, fontSize: '13px', color: '#ffe0d6' }).setOrigin(0.5).setDepth(FX_DEPTH.text).setVisible(false);
-    this.birthWho = scene.add.text(0, 0, '', { ...label, fontSize: '11px', color: '#f3e6c8' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
-    this.birthTitle = scene.add.text(0, 0, '', { ...label, fontSize: '20px', color: '#ffe35a' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
-    this.birthSub = scene.add.text(0, 0, '', { ...label, fontSize: '11px', color: '#d9c79a' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
-    this.birthImage = scene.add.image(0, 0, '__DEFAULT').setDepth(FX_DEPTH.text).setScale(2).setVisible(false);
+    this.birthHead = scene.add.text(0, 0, '', { ...label, fontSize: '10px', color: '#f3e6c8' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
+    this.birthTitle = scene.add.text(0, 0, '', { ...label, fontSize: '16px', color: '#ffe35a' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
+    this.birthImage = scene.add.image(0, 0, '__DEFAULT').setDepth(FX_DEPTH.text).setScale(BIRTH_IMG / 32).setVisible(false);
     this.numberPool = new Pool<Phaser.GameObjects.Text>(
       () => scene.add.text(0, 0, '', { fontFamily: 'sans-serif', fontSize: '11px', color: '#ffe08a', stroke: '#241522', strokeThickness: 2, padding: { top: 2 } }).setOrigin(0.5, 1).setDepth(8),
       t => { t.setVisible(false); },
@@ -107,7 +131,7 @@ export class FxLayer {
     );
     this.sprites = new Pool<Phaser.GameObjects.Sprite>(
       () => scene.add.sprite(0, 0, '__DEFAULT').setVisible(false),
-      s => { s.stop(); s.setVisible(false).setScale(1).setRotation(0).setAlpha(1).setFlipX(false).clearTint(); },
+      s => { s.stop(); s.anims.timeScale = 1; s.setVisible(false).setScale(1).setRotation(0).setAlpha(1).setFlipX(false).clearTint(); },
       { max: 160, dispose: s => s.destroy() },
     );
     for (const key of FX_KEYS) {
@@ -124,6 +148,13 @@ export class FxLayer {
       }
       this.ready.add(key);
     }
+  }
+
+  setNoticeSpan(span: { x: number; w: number } | null): void {
+    this.noticeSpan = span;
+    const { cx } = noticeBand(this.host.width, span);
+    this.toastText.setX(cx).setWordWrapWidth(span ? span.w : null);
+    this.bannerText.setX(cx);
   }
 
   setReduced(on: boolean): void {
@@ -153,11 +184,15 @@ export class FxLayer {
   }
 
   /** Play a one-shot sheet through the budget. */
-  private sheet(key: FxKey | null, priority: Priority, x: number, y: number, depth: number, opts: { scale?: number; rotation?: number; flip?: boolean; tint?: number; follow?: 'enemy' | 'unit'; id?: number } = {}, now = this.scene.time.now): Rec | null {
+  private sheet(key: FxKey | null, priority: Priority, x: number, y: number, depth: number, opts: { scale?: number; rotation?: number; flip?: boolean; tint?: number; alpha?: number; ms?: number; follow?: 'enemy' | 'unit'; id?: number } = {}, now = this.scene.time.now): Rec | null {
     if (!key || !this.ready.has(key)) return null;
-    const r = this.add('sheet', priority, sheetMs(key), now);
+    const full = sheetMs(key);
+    const ms = opts.ms !== undefined && opts.ms < full ? opts.ms : full;
+    const r = this.add('sheet', priority, ms, now);
     if (!r) return null;
     const s = this.sprite(key, x, y, depth);
+    if (ms < full) s.anims.timeScale = full / ms;
+    if (opts.alpha !== undefined) s.setAlpha(opts.alpha);
     if (opts.scale !== undefined && opts.scale !== 1) s.setScale(opts.scale);
     if (opts.rotation) s.setRotation(opts.rotation);
     if (opts.flip) s.setFlipX(true);
@@ -228,15 +263,21 @@ export class FxLayer {
         if (!at) return;
         const area = areaSheet(cmd.kind === 'splash' ? 'ring' : cmd.kind === 'frost' ? 'frost' : 'blast', cmd.radius);
         if (!area) return;
-        const depth = cmd.kind === 'explode' ? FX_DEPTH.air : FX_DEPTH.ground;
-        this.sheet(area.key, cmd.priority, at.x, at.y, depth, { scale: area.scale, tint: cmd.kind === 'splash' ? lighten(cmd.color) : undefined }, now);
+        if (cmd.kind === 'explode') {
+          if (this.blasts.size >= BLAST_MAX) return;
+          const r = this.sheet(area.key, cmd.priority, at.x, at.y, FX_DEPTH.air, { scale: area.scale, tint: BLAST_TINT, alpha: BLAST_ALPHA, ms: BLAST_MS }, now);
+          if (r) this.blasts.add(r);
+          return;
+        }
+        this.sheet(area.key, cmd.priority, at.x, at.y, FX_DEPTH.ground, { scale: area.scale, tint: cmd.kind === 'splash' ? lighten(cmd.color) : undefined }, now);
         return;
       }
       case 'pulse': {
         const at = h.unitPos(cmd.unitId);
         const area = areaSheet('ring', cmd.radius);
-        if (!at || !area) return;
-        this.sheet(area.key, cmd.priority, at.x, at.y, FX_DEPTH.ground, { scale: area.scale, tint: lighten(cmd.color), follow: 'unit', id: cmd.unitId }, now);
+        if (!at || !area || this.pulses.size >= PULSE_MAX) return;
+        const r = this.sheet(area.key, cmd.priority, at.x, at.y, FX_DEPTH.ground, { scale: area.scale, tint: lighten(cmd.color), alpha: PULSE_ALPHA, follow: 'unit', id: cmd.unitId }, now);
+        if (r) this.pulses.add(r);
         return;
       }
       case 'stunHit':
@@ -294,6 +335,7 @@ export class FxLayer {
   }
 
   toast(text: string, color: number, now: number): void {
+    if (this.host.toast?.(text, color)) return;
     this.toastText.setText(text).setColor(`#${color.toString(16).padStart(6, '0')}`).setVisible(true);
     this.toastStart = now;
     this.toastUntil = now + 1500;
@@ -304,8 +346,15 @@ export class FxLayer {
     this.births.push(b);
   }
 
+  clearBirths(): void {
+    this.births.clear();
+    this.birthKeys.clear();
+    this.shownBirth = null;
+    this.hideBirth();
+  }
+
   private hideBirth(): void {
-    for (const o of [this.birthWho, this.birthTitle, this.birthSub, this.birthImage]) o.setVisible(false);
+    for (const o of [this.birthHead, this.birthTitle, this.birthImage]) o.setVisible(false);
   }
 
   private drawBirth(now: number): void {
@@ -315,34 +364,35 @@ export class FxLayer {
       return;
     }
     const b = cur.banner;
-    const w = this.host.width;
-    const { y, half } = birthBand(this.host.height);
+    const { cx, half: reach } = noticeBand(this.host.width, this.noticeSpan);
+    const { y, half } = birthBand();
     if (this.shownBirth !== b) {
       if (this.shownBirth) this.birthKeys.delete(this.shownBirth);
       this.shownBirth = b;
       const key = this.birthKeys.get(b) ?? null;
-      this.birthWho.setText(b.who);
+      this.birthHead.setText(birthLine(b));
       this.birthTitle.setText(b.title).setColor(`#${b.color.toString(16).padStart(6, '0')}`);
-      this.birthSub.setText(b.sub);
-      const textW = Math.max(this.birthWho.width, this.birthTitle.width, this.birthSub.width);
-      const imgW = key ? 64 + 10 : 0;
-      const left = Math.round((w - imgW - textW) / 2);
-      if (key) this.birthImage.setTexture(key).setPosition(left + 32, y);
+      if (key) this.birthImage.setTexture(key);
       this.birthImage.setVisible(!!key);
-      const tx = left + imgW;
-      this.birthWho.setPosition(tx, y - 19).setVisible(true);
-      this.birthTitle.setPosition(tx, y).setVisible(true);
-      this.birthSub.setPosition(tx, y + 19).setVisible(true);
+      for (const o of [this.birthHead, this.birthTitle]) o.setVisible(true);
       if (this.flags.shake) this.scene.cameras.main.shake(140, 0.003);
     }
-    const p = (now - cur.start) / BIRTH_MS;
-    const alpha = p > 0.8 ? (1 - p) / 0.2 : 1;
-    const open = ease(Math.min(1, p * 6));
-    const span = (w / 2) * open;
-    this.top.fillStyle(0x1c120a, 0.88 * alpha).fillRect(w / 2 - span, y - half, span * 2, half * 2);
-    this.top.fillStyle(b.color, 0.18 * alpha).fillRect(w / 2 - span, y - half, span * 2, half * 2);
-    this.top.lineStyle(1, b.color, 0.9 * alpha).lineBetween(w / 2 - span, y - half, w / 2 + span, y - half).lineBetween(w / 2 - span, y + half, w / 2 + span, y + half);
-    for (const o of [this.birthWho, this.birthTitle, this.birthSub, this.birthImage]) o.setAlpha(alpha * open);
+    // laid out every frame: a pillar window opening mid-banner moves the centre
+    const textW = Math.max(this.birthHead.width, this.birthTitle.width);
+    const imgW = this.birthImage.visible ? BIRTH_IMG + BIRTH_GAP : 0;
+    const left = Math.round(cx - (imgW + textW) / 2);
+    this.birthImage.setPosition(left + BIRTH_IMG / 2, y);
+    const tx = left + imgW;
+    this.birthHead.setPosition(tx, y - 9);
+    this.birthTitle.setPosition(tx, y + 8);
+    const t = now - cur.start;
+    const alpha = Math.min(1, (BIRTH_MS - t) / BIRTH_CLOSE_MS);
+    const open = this.budget.reduced ? 1 : ease(Math.min(1, t / BIRTH_OPEN_MS));
+    const span = reach * open;
+    this.top.fillStyle(0x1c120a, 0.88 * alpha).fillRect(cx - span, y - half, span * 2, half * 2);
+    this.top.fillStyle(b.color, 0.18 * alpha).fillRect(cx - span, y - half, span * 2, half * 2);
+    this.top.lineStyle(1, b.color, 0.9 * alpha).lineBetween(cx - span, y - half, cx + span, y - half).lineBetween(cx - span, y + half, cx + span, y + half);
+    for (const o of [this.birthHead, this.birthTitle, this.birthImage]) o.setAlpha(alpha * open);
   }
 
   banner(text: string, now: number): void {
@@ -392,15 +442,14 @@ export class FxLayer {
     this.bannerUntil = 0;
     this.toastText.setVisible(false);
     this.bannerText.setVisible(false);
-    this.births.clear();
-    this.birthKeys.clear();
-    this.shownBirth = null;
-    this.hideBirth();
+    this.clearBirths();
     for (const g of [this.ground, this.status, this.air, this.top]) g.clear();
   }
 
   private finish(r: Rec): void {
     if (r.budgeted) this.budget.release();
+    this.pulses.delete(r);
+    this.blasts.delete(r);
     const t = this.numberOf.get(r);
     if (t) { this.numberOf.delete(r); this.numberPool.release(t); }
     if (r.sprite) this.sprites.release(r.sprite);
@@ -452,13 +501,18 @@ export class FxLayer {
 
   private syncHalos(auras: AuraView[]): void {
     const want = new Map<number, { key: FxKey; x: number; y: number; scale: number; depth: number }>();
-    for (const u of auras) want.set(u.id, { key: 'halo', x: u.x, y: u.feet + HALO_DROP, scale: 1, depth: FX_DEPTH.air - 0.1 });
+    this.haloLive.clear();
+    // scale 1: the frame is 35 px but only its alpha < 30 fringe passes 29 px, which HALO_ALPHA makes all but invisible in a 32 px cell
+    for (const u of auras) {
+      want.set(u.id, { key: 'halo', x: u.x, y: u.feet + HALO_DROP, scale: 1, depth: FX_DEPTH.air - 0.1 });
+      if (u.live) this.haloLive.add(u.id);
+    }
     this.syncLoop(this.haloOn, want);
-    // a quiet mark: a board full of buffed units should not glitter
-    for (const s of this.haloOn.values()) {
-      s.setAlpha(0.7);
-      // reduced effects: the halo stays as a still mark
-      if (this.flags.rays) { if (s.anims.isPaused) s.anims.resume(); } else if (!s.anims.isPaused) s.anims.pause();
+    // a board full of buffed units should not glitter: only the selected aura unit's reach turns, the rest (and all of
+    // them with reduced effects) stay a still mark
+    for (const [id, s] of this.haloOn) {
+      s.setAlpha(HALO_ALPHA);
+      if (this.flags.rays && this.haloLive.has(id)) { if (s.anims.isPaused) s.anims.resume(); } else if (!s.anims.isPaused) s.anims.pause();
     }
   }
 
@@ -490,13 +544,19 @@ export class FxLayer {
     for (const spr of this.frostOn.values()) spr.setAlpha(FROST_ALPHA);
   }
 
+  private toastTop(): number {
+    if (!this.shownBirth) return TOAST_Y;
+    const band = birthBand();
+    return band.y + band.half + 12;
+  }
+
   private drawText(now: number): void {
     this.drawBirth(now);
     if (this.toastText.visible) {
       if (now >= this.toastUntil) this.toastText.setVisible(false);
       else {
         const p = (now - this.toastStart) / 1500;
-        this.toastText.setAlpha(p < 0.12 ? p / 0.12 : p > 0.75 ? (1 - p) / 0.25 : 1).setY(toastY(this.host.height, this.shownBirth !== null) - 6 * ease(Math.min(1, p * 4)));
+        this.toastText.setAlpha(p < 0.12 ? p / 0.12 : p > 0.75 ? (1 - p) / 0.25 : 1).setY(this.toastTop() - 6 * ease(Math.min(1, p * 4)));
       }
     }
     if (this.bannerText.visible) {
@@ -505,12 +565,12 @@ export class FxLayer {
         const p = (now - this.bannerStart) / 1400;
         const alpha = p > 0.8 ? (1 - p) / 0.2 : 1;
         const slide = ease(Math.min(1, p * 8));
-        const w = this.host.width;
+        const { x0, x1, marks } = bossBand(this.host.width, this.noticeSpan, slide);
         const y = this.bannerText.y;
-        this.top.fillStyle(0x2a060c, 0.82 * alpha).fillRect(0, y - 12, w * slide, 24);
-        this.top.lineStyle(1, 0xff5a4a, 0.9 * alpha).lineBetween(0, y - 12, w * slide, y - 12).lineBetween(0, y + 12, w * slide, y + 12);
+        this.top.fillStyle(0x2a060c, 0.82 * alpha).fillRect(x0, y - 12, x1 - x0, 24);
+        this.top.lineStyle(1, 0xff5a4a, 0.9 * alpha).lineBetween(x0, y - 12, x1, y - 12).lineBetween(x0, y + 12, x1, y + 12);
         this.top.fillStyle(0xff5a4a, alpha);
-        for (const cx of [18, w - 18]) this.top.fillTriangle(cx - 5, y + 5, cx + 5, y + 5, cx, y - 6);
+        for (const cx of marks) this.top.fillTriangle(cx - 5, y + 5, cx + 5, y + 5, cx, y - 6);
         this.bannerText.setAlpha(alpha * slide);
       }
     }

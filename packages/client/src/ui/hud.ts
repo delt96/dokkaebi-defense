@@ -1,36 +1,52 @@
-import type { GameState } from '@dorandi/logic';
-import { hudModel } from './models';
+import { countNormalEnemies, type GameState } from '@dorandi/logic';
+import { hudModel, limitLevel, type LimitLevel } from './models';
 import { el, esc, setHtml } from './dom';
 import { SETTINGS_BUTTON } from './settings';
 
 const RESIST_HINT = '이번 라운드 잡귀가 받는 피해를 줄이는 비율입니다. 약화는 이 비율을 깎습니다.';
 
-export function renderHud(state: GameState, paused: boolean, notice: string | null = null): void {
-  const m = hudModel(state);
-  const boss = state.enemies.find(e => e.boss && e.hp > 0);
-  const crack = m.danger >= 1 ? '무너짐' : m.danger > 0.66 ? '금 감' : m.danger > 0.33 ? '흔들림' : '멀쩡함';
+export interface AlertOpts { still?: boolean }
+
+/** `pill` comes from `soloPause`: the dex pause stops the clock without one. */
+export function renderHud(state: GameState, pill: boolean, alert: AlertOpts = {}): void {
+  const m = hudModel(state, pill);
   const round = `<span class="round">${esc(m.roundText)}</span>`;
   // the 60-round resistance goes under the round label so the bar keeps its width
   const roundBlock = m.resistText
     ? `<span class="round-block">${round}<span class="resist" title="${RESIST_HINT}">${esc(m.resistText)}</span></span>`
     : round;
+  const tail = m.tail ? ` <i class="tail">· ${esc(m.tail)}</i>` : '';
   setHtml(el('top'), `
     <div class="hud">
       ${roundBlock}
-      <span class="time">남은 ${m.secondsLeft}초${paused ? ' · 멈춤' : ''}</span>
-      ${boss ? `<span class="boss">보스 체력 ${boss.hp} / ${boss.maxHp}</span>` : ''}
-      ${notice ? `<span class="notice">${esc(notice)}</span>` : ''}
-      <span class="enemies">${esc(m.enemyText)}</span>
-      <span class="gauge" title="장승: ${crack}"><i style="width:${Math.round(m.danger * 100)}%"></i></span><span class="gauge-text${m.danger > 0.66 ? ' bad' : ''}">장승 ${crack}</span>
-      ${SETTINGS_BUTTON}
+      <span class="time">남은 ${m.secondsLeft}초${pill ? ' <i class="pill">멈춤</i>' : ''}</span>
+      ${m.bossText ? `<span class="boss" title="${esc(m.bossTitle ?? '')}">${esc(m.bossText)}</span>` : ''}
+      <span class="enemies lv-${m.level}">내 잡귀 <b class="n">${m.count}</b> / ${m.limit}${tail}</span>
+      <span class="gauge lv-${m.level}" title="장승: ${m.crack}"><i style="width:${Math.round(m.danger * 100)}%"></i></span>${m.crackShown ? `<span class="gauge-text${m.danger > 0.66 ? ' bad' : ''}">장승 ${m.crack}</span>` : ''}
+      ${SETTINGS_BUTTON}<button class="menu-btn" data-action="openMenu">메뉴</button>
     </div>`);
-  renderAlert(state);
+  renderAlert(state, alert);
 }
 
-/** The red edge glow and the over-limit countdown; the online top bar leaves them to this. */
-export function renderAlert(state: GameState): void {
-  const danger = state.phase === 'round' && state.overLimitTicks > 0;
-  el('alert').classList.toggle('on', danger);
-  const remaining = Math.ceil(state.data.balance.limitSeconds - state.overLimitTicks * state.data.balance.tickMs / 1000);
-  setHtml(el('alert'), danger ? `<div class="countdown">잡귀 한도 초과<strong>${remaining}초</strong></div>` : '');
+/** What the board edge shows: nothing while calm or after the end; over only while the round clock counts it down. */
+export function edgeLevel(state: GameState): Exclude<LimitLevel, 'ok'> | null {
+  if (state.phase === 'ended') return null;
+  const { level } = limitLevel(state.data, countNormalEnemies(state), state.round);
+  if (level === 'over') return state.phase === 'round' ? 'over' : 'danger';
+  return level === 'ok' ? null : level;
+}
+
+/** The red edge glow and the over-limit countdown; the online top bar leaves them to this. `still` holds the breathing. */
+export function renderAlert(state: GameState, opts: AlertOpts = {}): void {
+  const edge = edgeLevel(state);
+  const box = el('alert');
+  box.classList.toggle('warn', edge === 'warn');
+  box.classList.toggle('danger', edge === 'danger');
+  box.classList.toggle('on', edge === 'over');
+  box.classList.toggle('still', edge === 'danger' && !!opts.still);
+  if (edge !== 'over') { setHtml(box, ''); return; }
+  const b = state.data.balance;
+  const remaining = Math.ceil(b.limitSeconds - state.overLimitTicks * b.tickMs / 1000);
+  const cut = countNormalEnemies(state) - b.limit;
+  setHtml(box, `<div class="countdown">잡귀 한도 초과<strong>${remaining}초</strong><span class="cut">${cut}마리 줄이면 멈춤</span></div>`);
 }

@@ -17,7 +17,7 @@ describe('ui models', () => {
     const s = createGame(data, 1);
     expect(hudModel(s).roundText).toBe('준비');
     for (let i = 0; i < 401; i++) step(s, []);
-    expect(hudModel(s)).toMatchObject({ roundText: '1 / 20 라운드', enemyText: '우리 고개 잡귀 1 / 60' });
+    expect(hudModel(s)).toMatchObject({ roundText: '1 / 20 라운드', enemyText: '내 잡귀 1 / 60' });
     expect(hudModel(s).secondsLeft).toBe(40);
   });
   test('helper and card', () => {
@@ -98,6 +98,9 @@ function mountTestUi(s: ReturnType<typeof createGame>, onRestart?: () => void, o
   vi.useFakeTimers();
   vi.stubGlobal('window', events);
   vi.stubGlobal('document', {
+    documentElement: { dataset: {} },
+    // a refused combine looks for its pressed row (refusalSpot); none is drawn here, so the refusal goes to the slot
+    querySelector: () => null,
     getElementById: (id: string) => {
       if (!panels.has(id)) panels.set(id, Object.assign(new EventTarget(), {
         innerHTML: '', querySelector: () => null, querySelectorAll: () => [], classList: { toggle: () => {} }, contains: () => true,
@@ -115,26 +118,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('the card and physical keys combine at the selected slot while the helper uses the default slot', () => {
+test('the card and physical keys combine at the selected slot while the whole list (nothing selected) uses the default slot', () => {
   const s = createGame(data, 1);
   placeUnitForTest(s, 'sotlid', 0);
   const chosen = placeUnitForTest(s, 'bujigaengi', 3);
   const { driver, queue, press, click, panels, select, scene } = mountTestUi(s);
   select(3);
   const card = panels.get('left')!;
-  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}" class="recipe-row">`);
+  expect(card.innerHTML).toContain(`data-action="combine" data-arg="gamasot@${chosen.id}" class="recipe-row" data-recipe="gamasot">`);
   expect(textOf(card.innerHTML)).toMatch(/\[Z\] 가마솥 [물마]/);
   expect(card.innerHTML).toContain('<b>화로</b> <span class="type-badge');
   expect(card.innerHTML).toContain('class="mat-chip lack" title="호롱 없음"');
   expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
   click('left', `gamasot@${chosen.id}`);
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
-  press('KeyQ');
+  press('Escape');
   expect(panels.get('left')!.innerHTML).toContain('data-arg="gamasot"');
   click('left', 'gamasot');
   expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot' });
 
   driver.reset(s);
+  select(3);
   queue.mockClear();
   press('KeyZ', { ctrlKey: true });
   press('KeyZ', { altKey: true });
@@ -216,9 +220,11 @@ test('moving then combining before a render selects the result', () => {
   expect(panels.get('left')!.innerHTML).toContain('<b>가마솥</b>');
 });
 
-test('paused helper opens are counted on resume and discarded on restart', () => {
+test('paused helper opens (Q to 전체 on a selected unit) are counted on resume and discarded on restart', () => {
   const s = createGame(data, 1);
-  const { driver, press, ui } = mountTestUi(s);
+  placeUnitForTest(s, 'sotlid', 0);
+  const { driver, press, select, ui } = mountTestUi(s);
+  select(0);
   press('KeyP');
   for (let i = 0; i < 4; i++) press('KeyQ');
   press('KeyP');
@@ -349,7 +355,7 @@ test('the solo result offers 다시 하기 and a way back to the first screen', 
   s.result = { outcome: 'defeat', reason: 'limit', round: 3 };
   const html = resultHtml(s, null);
   expect(html).toContain('data-action="restart"');
-  expect(html).toContain('<button class="big" data-action="home">처음 화면으로</button>');
+  expect(html).toContain('<button class="big secondary" data-action="home">처음 화면으로</button>');
   click('modal', '', 'home');
   expect(home).toHaveBeenCalledOnce();
   expect(restart).not.toHaveBeenCalled();
@@ -358,18 +364,19 @@ test('the solo result offers 다시 하기 and a way back to the first screen', 
 describe('upgrade window keys', () => {
   const buys = (q: { mock: { calls: unknown[][] } }) => q.mock.calls.filter(c => (c[0] as { type: string }).type === 'upgrade');
 
-  test('E opens and closes the window, Esc closes it, and nothing pauses', () => {
+  test('E opens and closes the window beside the board, Esc closes it, and nothing pauses', () => {
     const { press, panels, driver } = mountTestUi(createGame(data, 1));
-    const modal = () => panels.get('modal')!.innerHTML;
-    expect(modal()).toBe('');
+    const win = () => panels.get('win-right')!.innerHTML;
+    expect(win()).toBe('');
     press('KeyE');
-    expect(modal()).toContain('class="upgrades"');
-    expect(modal()).toContain('E·Esc 닫기');
+    expect(win()).toContain('class="win upgrades"');
+    expect(win()).toContain('aria-label="강화 닫기 (E)"');
+    expect(panels.get('modal')!.innerHTML).toBe('');
     press('KeyE');
-    expect(modal()).toBe('');
+    expect(win()).toBe('');
     press('KeyE');
     press('Escape');
-    expect(modal()).toBe('');
+    expect(win()).toBe('');
     expect(driver.paused).toBe(false);
   });
 
@@ -393,9 +400,9 @@ describe('upgrade window keys', () => {
     const { press, queue, panels } = mountTestUi(s);
     const input = { tagName: 'INPUT', isContentEditable: false, closest: (sel: string) => (sel.includes('input') ? input : null) };
     press('KeyE', { target: input as never });
-    expect(panels.get('modal')!.innerHTML).toBe('');
+    expect(panels.get('win-right')!.innerHTML).toBe('');
     press('KeyE', { isComposing: true });
-    expect(panels.get('modal')!.innerHTML).toBe('');
+    expect(panels.get('win-right')!.innerHTML).toBe('');
     press('KeyE');
     press('Digit1', { target: input as never });
     press('Digit1', { isComposing: true });
@@ -423,7 +430,7 @@ describe('dex hotkey', () => {
     expect(driver.paused).toBe(false);
   });
 
-  test('D does not replace another window and is ignored while typing or composing', () => {
+  test('D opens over an open side window, which stays, and is ignored while typing or composing', () => {
     const { press, panels } = mountTestUi(createGame(data, 1));
     const input = { tagName: 'INPUT', isContentEditable: false, closest: (sel: string) => (sel.includes('input') ? input : null) };
     press('KeyD', { target: input as never });
@@ -431,7 +438,8 @@ describe('dex hotkey', () => {
     expect(panels.get('modal')!.innerHTML).toBe('');
     press('KeyE');
     press('KeyD');
-    expect(panels.get('modal')!.innerHTML).toContain('class="upgrades"');
+    expect(panels.get('modal')!.innerHTML).toContain('class="dex"');
+    expect(panels.get('win-right')!.innerHTML).toContain('class="win upgrades"');
   });
 
   test('labels show the key', () => {
@@ -448,7 +456,7 @@ describe('settings window', () => {
   test('solo: helper, speed and reduce-effects rows show the current choice', () => {
     const html = settingsHtml({ helper: false, speed: 1, reducedFx: false, help: true });
     expect(html).toContain('설정');
-    expect(rows(html)).toEqual(['조합 도우미', '배속', '효과 줄이기', '도움말']);
+    expect(rows(html)).toEqual(['조합 도우미', '배속', '화면 효과', '단축키 안내 줄']);
     expect(pressed(html)).toEqual(['setHelper:off', 'speed:1', 'setFx:off', 'setHelp:on']);
     expect(html).toContain('data-action="closeModal"');
     expect(pressed(settingsHtml({ helper: true, speed: 3, reducedFx: true, help: false }))).toEqual(['setHelper:on', 'speed:3', 'setFx:on', 'setHelp:off']);
@@ -457,7 +465,7 @@ describe('settings window', () => {
 
   test('online: no speed row', () => {
     const html = settingsHtml({ helper: true, reducedFx: false, help: true });
-    expect(rows(html)).toEqual(['조합 도우미', '효과 줄이기', '도움말']);
+    expect(rows(html)).toEqual(['조합 도우미', '화면 효과', '단축키 안내 줄']);
     expect(html).not.toContain('data-action="speed"');
   });
 });
@@ -487,9 +495,9 @@ test('S sells grades 1-2 at once; grade 3 and up asks for a second press within 
 test('a P pause outlives opening and closing the dex; the other windows never pause', () => {
   const s = createGame(data, 1);
   const { driver, press, click } = mountTestUi(s);
-  click('left', '', 'openUpgrades');
+  click('right', '', 'openUpgrades');
   expect(driver.paused).toBe(false);
-  click('modal', '', 'closeModal', true);
+  click('win-right', 'right', 'closeWin', true);
   press('KeyP');
   expect(driver.paused).toBe(true);
   press('KeyD');

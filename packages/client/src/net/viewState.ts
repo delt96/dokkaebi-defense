@@ -15,6 +15,7 @@ export function viewToGameState(
   view: ClientView, data: GameData, units: (MineUnitView | null)[], renderTick: number, storage?: MineUnitView[],
 ): GameState {
   const myRow = view.rows.find(r => r.seat === view.me.seat);
+  const watchedRow = view.rows.find(r => r.seat === view.watching);
   const spirit = myRow?.status === 'spirit';
   const mine = view.mine;
   const ownLane = view.watching === view.me.seat;
@@ -53,7 +54,8 @@ export function viewToGameState(
     })),
     fires: view.lane.fires.map(f => ({ source: f.source, from: f.from, to: f.to, basePerPulse: 0, nextPulse: 0, endTick: f.endTick })),
     upgrades: spirit ? { ...NO_UPGRADES } : { ...mine.upgrades },
-    overLimitTicks: myRow?.overLimitTicks ?? 0,
+    // the enemies are the watched lane's, so the over-limit time must be too (a spirit's own row is always 0)
+    overLimitTicks: watchedRow?.overLimitTicks ?? 0,
     helperOpens: spirit ? 0 : mine.helperOpens,
     stats: [],
     rng: { summon: { s: 0 }, combat: { s: 0 } },

@@ -16,10 +16,10 @@ describe('help line and labels', () => {
     const s = createGame(d3, 1);
     placeUnitForTest(s, 'sotlid', 0);
     renderBottom(s, 0, false, 'B 장터');
-    expect(document.getElementById('bottom')!.textContent).toBe('Z/X/C 조합 · S 판매 · A 보관 · R 지게 · Tab 상세 · W 다음 유닛 · Space 소환 · Esc 선택 해제');
+    expect(document.getElementById('bottom')!.textContent).toBe('Z/X/C 조합(판에 짝 표시) · S 판매 · A 보관 · R 지게 · Tab 상세 · M 옮기기 · W 다음 조합 · Esc 해제');
     renderBottom(s, null, false, 'B 장터');
     expect(document.getElementById('bottom')!.textContent).toBe(
-      '유닛을 눌러 선택하고 끌어서 옮기세요. · W 다음 유닛 · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤');
+      '조합할 재료가 아직 모자랍니다 · Space로 더 뽑으세요 (도깨비불 4개) · W 다음 조합 고르기 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤');
   });
 
   test('online has no P in the help line', () => {

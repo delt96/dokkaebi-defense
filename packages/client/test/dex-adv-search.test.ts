@@ -5,7 +5,7 @@ import { placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import { dexHtml } from '../src/ui/dex';
 import { loadView } from '../src/ui/dex-memory';
-import { dexEntries, dexGo, dexNavStart, dexShows, mineMatches, roleList, skillSearchText, type DexMore } from '../src/ui/models';
+import { dexBack, dexEntries, dexGo, dexNavStart, dexShows, mineMatches, roleList, skillSearchText, type DexMore } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
 import { STAGE_HTML, key, press } from './fixtures/net';
 
@@ -135,6 +135,15 @@ describe('내 판 기준', () => {
     expect(dexShows(d3, away, next.filter, next.query, { ...next, state: s })).toBe(true);
     expect(next.focus).toBe(away.id);
   });
+
+  test('going back after a link restores every criterion the link cleared', () => {
+    const s = board(true, false);
+    const nav = { ...dexNavStart('3'), query: '짚', kind: 'magical', mine: ['one'], skill: '폭발', role: 'slow,stun' };
+    const away = entries3.find(e => !shown(d3, { ...nav, state: s }).includes(e.id) && e.id !== pair.result)!;
+    const next = dexGo(d3, nav, away.id, pair.result, s);
+    expect(next).toMatchObject({ mine: [], skill: '', role: 'all', kind: 'all' });
+    expect(dexBack(next)).toMatchObject({ filter: '3', query: '짚', kind: 'magical', mine: ['one'], skill: '폭발', role: 'slow,stun', focus: pair.result, back: [] });
+  });
 });
 
 describe('dex html', () => {
@@ -149,6 +158,14 @@ describe('dex html', () => {
     for (const k of ['ready', 'one', 'uses']) expect(withGame).toContain(`data-action="dexMine" data-arg="${k}"`);
     expect(dexHtml(d2, 'all', '', 1, { adv: true })).toContain('dex-skillsearch');
     expect(dexHtml(d2, 'all', '', 1, { adv: true })).not.toContain('dex-search"');
+  });
+
+  test('list chips mark each material as on hand or missing, like the combine row', () => {
+    const html = dexHtml(d3, 'all', '', 1, { state: board(true, false) });
+    const row = html.split('data-dex-id=').find(r => r.startsWith(`"${pair.result}"`))!;
+    expect(row).toMatch(new RegExp(`class="mat-chip have dex-link" data-action="dexGo" data-arg="${matA}@`));
+    expect(row).toMatch(new RegExp(`class="mat-chip lack dex-link" data-action="dexGo" data-arg="${matB}@[^"]*" title="[^"]* 없음"`));
+    expect(dexHtml(d3)).not.toMatch(/mat-chip (have|lack)/);
   });
 
   test('the toggle counts the criteria that are on, and the list follows them', () => {

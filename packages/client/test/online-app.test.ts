@@ -210,3 +210,154 @@ describe('online app: music in the ready room', () => {
     music.mockRestore();
   });
 });
+
+describe('online app: the sound panel in the ready room closes like a popup', () => {
+  test('a press outside or Esc closes it; a press inside keeps it open', async () => {
+    saveSession('r1', { key: 'k0', name: '하나' });
+    const room = new FakeRoom('r1');
+    join.mockResolvedValueOnce(room);
+    startOnline({ roomId: 'r1' });
+    await vi.advanceTimersByTimeAsync(0);
+    room.emit('lobby', { roomId: 'r1', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: false }] });
+    const panel = screen().querySelector<HTMLDetailsElement>('.lobby .lobby-audio')!;
+    const down = (target: Element) => target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    panel.open = true;
+    down(panel.querySelector('#audio-music')!);
+    expect(panel.open).toBe(true);
+    down(screen().querySelector('.lobby')!);
+    expect(panel.open).toBe(false);
+    panel.open = true;
+    panel.querySelector<HTMLElement>('#audio-music')!.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(panel.open).toBe(false);
+    expect(document.activeElement).toBe(panel.querySelector('summary'));
+  });
+});
+
+describe('online app: the room link in the ready room', () => {
+  async function inLobby(): Promise<FakeRoom> {
+    saveSession('r1', { key: 'k0', name: '하나' });
+    const room = new FakeRoom('r1');
+    join.mockResolvedValueOnce(room);
+    startOnline({ roomId: 'r1' });
+    await vi.advanceTimersByTimeAsync(0);
+    room.emit('lobby', { roomId: 'r1', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: false }] });
+    return room;
+  }
+  const copyButton = () => Array.from(screen().querySelectorAll('button')).find(b => b.textContent === TEXT.copy || b.textContent === TEXT.copied)!;
+  const setClipboard = (clipboard: unknown) => Object.defineProperty(navigator, 'clipboard', { value: clipboard, configurable: true });
+  afterEach(() => { Reflect.deleteProperty(navigator, 'clipboard'); });
+
+  test('says copied only after the clipboard took the address', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    setClipboard({ writeText });
+    await inLobby();
+    copyButton().click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(writeText).toHaveBeenCalledWith('http://localhost/room/r1');
+    expect(copyButton().textContent).toBe(TEXT.copied);
+    expect(screen().querySelector('.lobby-link')).toBeNull();
+  });
+
+  for (const [label, clipboard] of [
+    ['there is no clipboard (plain http)', undefined],
+    ['the clipboard refuses', { writeText: () => Promise.reject(new Error('denied')) }],
+  ] as const) {
+    test(`shows the address to copy by hand when ${label}`, async () => {
+      setClipboard(clipboard);
+      const room = await inLobby();
+      copyButton().click();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(copyButton().textContent).toBe(TEXT.copy);
+      const field = screen().querySelector<HTMLInputElement>('input.lobby-link')!;
+      expect(field.value).toBe('http://localhost/room/r1');
+      expect(field.readOnly).toBe(true);
+      expect(document.activeElement).toBe(field);
+      expect(screen().textContent).toContain(TEXT.copyByHand);
+      // a lobby update redraws the screen; the address stays
+      room.emit('lobby', { roomId: 'r1', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: true }] });
+      expect(screen().querySelector<HTMLInputElement>('input.lobby-link')?.value).toBe('http://localhost/room/r1');
+    });
+  }
+
+  test('a lobby update while the hand-copy address is selected keeps it focused and selected', async () => {
+    setClipboard(undefined);
+    const room = await inLobby();
+    copyButton().click();
+    await vi.advanceTimersByTimeAsync(0);
+    const old = screen().querySelector<HTMLInputElement>('input.lobby-link')!;
+    old.setSelectionRange(7, 16);
+    room.emit('lobby', { roomId: 'r1', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: true }, { seat: 2, name: '둘', ready: false }] });
+    const field = screen().querySelector<HTMLInputElement>('input.lobby-link')!;
+    expect(field).not.toBe(old);
+    expect(document.activeElement).toBe(field);
+    expect([field.selectionStart, field.selectionEnd]).toEqual([7, 16]);
+  });
+});
+
+describe('online app: leaving the ready room (design 3-2, 3-3)', () => {
+  test('leaving the lobby goes back to a new-room start screen with a 4 s note (review focus 2)', async () => {
+    const replace = vi.spyOn(history, 'replaceState');
+    saveSession('r1', { name: '하나' });
+    const room = new FakeRoom('r1');
+    join.mockResolvedValueOnce(room);
+    startOnline({ roomId: 'r1' });
+    screen().querySelector('input')!.value = '하나';
+    screen().querySelector('form')!.dispatchEvent(new Event('submit'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(join).toHaveBeenLastCalledWith('r1', { name: '하나' });
+    saveSession('r1', { key: 'k0', name: '하나' });
+    room.emit('lobby', { roomId: 'r1', you: 2, hostSeat: 1, seats: [{ seat: 1, name: '가', ready: false }, { seat: 2, name: '하나', ready: false }] });
+    Array.from(screen().querySelectorAll('button')).find(b => b.textContent === TEXT.leave)!.click();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(room.left).toBe(1);
+    expect(replace).toHaveBeenLastCalledWith(null, '', '/');
+    expect(sessionStorage.getItem('dorandi:room:r1')).toBeNull();
+    const submit = screen().querySelector('button[type="submit"]');
+    expect(submit?.textContent).toBe(TEXT.create);
+    expect(screen().querySelector('[data-difficulty]')).not.toBeNull();
+    expect(screen().querySelector('.entry-invite')).toBeNull();
+    const toast = document.querySelector('.screen-toast');
+    expect(toast?.textContent).toBe(TEXT.left);
+    expect(toast?.getAttribute('role')).toBe('status');
+    expect(screen().contains(toast)).toBe(false);
+
+    // the old link's consented close can arrive late; the start screen stays as it is
+    room.close(4000);
+    expect(screen().textContent).not.toContain(TEXT.connectFail);
+    expect(screen().querySelector('button[type="submit"]')?.textContent).toBe(TEXT.create);
+
+    await vi.advanceTimersByTimeAsync(3999);
+    expect(document.querySelector('.screen-toast')).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(document.querySelector('.screen-toast')).toBeNull();
+    replace.mockRestore();
+  });
+
+  test('a room made after leaving is not disturbed by the old link closing late', async () => {
+    const room = new FakeRoom('r1');
+    join.mockResolvedValueOnce(room);
+    startOnline({ roomId: 'r1' });
+    screen().querySelector('input')!.value = '하나';
+    screen().querySelector('form')!.dispatchEvent(new Event('submit'));
+    await vi.advanceTimersByTimeAsync(0);
+    room.emit('lobby', { roomId: 'r1', you: 2, hostSeat: 1, seats: [{ seat: 1, name: '가', ready: false }, { seat: 2, name: '하나', ready: false }] });
+    Array.from(screen().querySelectorAll('button')).find(b => b.textContent === TEXT.leave)!.click();
+    await vi.advanceTimersByTimeAsync(0);
+
+    let resolveCreate!: (r: FakeRoom) => void;
+    create.mockReturnValueOnce(new Promise(r => { resolveCreate = r; }) as never);
+    screen().querySelector('input')!.value = '하나';
+    screen().querySelector('form')!.dispatchEvent(new Event('submit'));
+    expect(screen().textContent).toBe(TEXT.connecting);
+    room.close(4000);
+    expect(screen().textContent).toBe(TEXT.connecting);
+    const next = new FakeRoom('r2');
+    resolveCreate(next);
+    await vi.advanceTimersByTimeAsync(0);
+    next.emit('lobby', { roomId: 'r2', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: false }] });
+    expect(screen().querySelector('.lobby')).not.toBeNull();
+  });
+});
+

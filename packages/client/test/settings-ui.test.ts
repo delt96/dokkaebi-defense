@@ -21,7 +21,7 @@ const modal = () => document.getElementById('modal')!;
 const gear = () => document.querySelector<HTMLElement>('#top [data-action="openSettings"]')!;
 const row = (name: string) => modal().querySelector<HTMLElement>(`.settings-row[data-setting="${name}"]`);
 const choice = (action: string, arg: string) => modal().querySelector<HTMLButtonElement>(`[data-action="${action}"][data-arg="${arg}"]`)!;
-const helperList = () => document.querySelector('#left .helper li');
+const wholeList = () => document.querySelector('#left .nc-list');
 const bottom = () => document.getElementById('bottom')!;
 const left = () => document.getElementById('left')!;
 
@@ -41,7 +41,9 @@ describe('solo settings window', () => {
 
   test('the gear sits at the right end of the top bar, not in the right panel', () => {
     expect(gear().getAttribute('aria-label')).toBe('설정');
-    expect(document.querySelector('#top')!.lastElementChild!.lastElementChild).toBe(gear());
+    // design B4 5-1: the gear, then 메뉴 at the end of the row
+    expect(document.querySelector('#top')!.lastElementChild!.lastElementChild).toBe(gear().nextElementSibling);
+    expect(gear().nextElementSibling!.getAttribute('data-action')).toBe('openMenu');
     expect(document.querySelector('#right [data-action="openSettings"]')).toBeNull();
   });
 
@@ -49,42 +51,39 @@ describe('solo settings window', () => {
     expect(modal().textContent).toBe('');
     press(gear());
     expect(Array.from(modal().querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'speed', 'fx', 'help']);
-    expect(row('help')!.textContent).toContain('도움말');
+    expect(row('help')!.textContent).toContain('단축키 안내 줄');
     expect(choice('setHelp', 'on').getAttribute('aria-pressed')).toBe('true');
-    expect(row('helper')!.textContent).toContain('조합 도우미');
-    expect(choice('setHelper', 'off').getAttribute('aria-pressed')).toBe('true');
+    expect(row('helper')!.textContent).toContain('고르지 않았을 때 전체 목록');
+    expect(choice('setHelper', 'on').getAttribute('aria-pressed')).toBe('true');
     expect(choice('speed', '1').getAttribute('aria-pressed')).toBe('true');
     expect(choice('setFx', 'off').getAttribute('aria-pressed')).toBe('true');
     key('Escape');
     expect(modal().textContent).toBe('');
   });
 
-  test('the helper row shows the list in the left panel and keeps the window open', () => {
+  test('the helper row hides and shows the whole list with nothing selected and keeps the window open', () => {
     press(gear());
-    expect(helperList()).toBeNull();
-    press(choice('setHelper', 'on'));
-    expect(helperList()).not.toBeNull();
-    expect(choice('setHelper', 'on').getAttribute('aria-pressed')).toBe('true');
-    expect(document.activeElement).toBe(choice('setHelper', 'on'));
-    press(choice('setHelper', 'on'));
-    expect(helperList()).not.toBeNull();
+    expect(wholeList()).not.toBeNull();
     press(choice('setHelper', 'off'));
-    expect(helperList()).toBeNull();
+    expect(wholeList()).toBeNull();
+    expect(choice('setHelper', 'off').getAttribute('aria-pressed')).toBe('true');
+    expect(document.activeElement).toBe(choice('setHelper', 'off'));
+    press(choice('setHelper', 'off'));
+    expect(wholeList()).toBeNull();
+    press(choice('setHelper', 'on'));
+    expect(wholeList()).not.toBeNull();
     expect(row('helper')).not.toBeNull();
   });
 
-  test('Q flips the helper with the window open and leaves the window as it is', () => {
+  test('Q with the window open leaves the setting and the window as they are', () => {
     press(gear());
     key('KeyQ');
-    expect(helperList()).not.toBeNull();
     expect(choice('setHelper', 'on').getAttribute('aria-pressed')).toBe('true');
+    expect(wholeList()).not.toBeNull();
+    press(choice('setHelper', 'off'));
     key('KeyQ');
-    expect(helperList()).toBeNull();
-    expect(row('helper')).not.toBeNull();
-    key('Escape');
-    key('KeyQ');
-    expect(helperList()).not.toBeNull();
-    expect(modal().textContent).toBe('');
+    expect(choice('setHelper', 'off').getAttribute('aria-pressed')).toBe('true');
+    expect(wholeList()).toBeNull();
   });
 
   test('the speed row sets the game speed', () => {
@@ -127,7 +126,7 @@ describe('solo help line and unit card', () => {
   });
 
   test('도움말 끔 hides the hotkey line under the board and is remembered', () => {
-    expect(bottom().textContent).toContain('Space 소환');
+    expect(bottom().textContent).toContain('E 강화');
     press(gear());
     press(choice('setHelp', 'off'));
     expect(bottom().textContent).toBe('');
@@ -136,37 +135,38 @@ describe('solo help line and unit card', () => {
     expect(bottom().textContent).toBe('');
     press(gear());
     press(choice('setHelp', 'on'));
-    expect(bottom().textContent).toContain('Space 소환');
+    expect(bottom().textContent).toContain('E 강화');
   });
 
   test('the selected unit shows in the left panel, not under the board', () => {
-    expect(left().textContent).toContain('유닛을 누르면 여기에 정보가 나옵니다');
+    expect(left().textContent).toContain('다음 할 일');
     scene.select(3);
-    const card = left().querySelector('.unit-panel')!;
+    const card = left().querySelector('.solo-panel')!;
     expect(card.textContent).toContain('짚신');
     expect(card.querySelector('.type-badge')).not.toBeNull();
     expect(card.textContent).toMatch(/공격 \d+/);
     expect(card.querySelector('[data-action="unitDetails"]')).not.toBeNull();
-    expect(card.querySelector('[data-action="sell"]')!.textContent).toContain('판매(S)');
-    // with the panel to itself the skill text is shown whole
-    expect(card.querySelector('.up-skill:not(.compact)')).not.toBeNull();
-    expect(left().textContent).not.toContain('유닛을 누르면');
+    expect(card.querySelector('[data-action="sell"]')!.textContent).toContain('판매 +');
+    expect(card.querySelector('.skill-line')).not.toBeNull();
+    expect(left().textContent).not.toContain('다음 할 일');
     expect(bottom().querySelector('[data-action="sell"], .unit-info')).toBeNull();
-    expect(bottom().textContent).toContain('Space 소환');
+    expect(bottom().textContent).toContain('Z/X/C 조합(판에 짝 표시)');
     press(card.querySelector('[data-action="unitDetails"]'));
-    expect(modal().querySelector('.unit-details')).not.toBeNull();
+    expect(document.querySelector('#win-left .unit-details')).not.toBeNull();
   });
 
-  test('with the helper on the list comes first and the card stays under it', () => {
+  test('one panel: head, scope buttons, the list, the 지게 row, then the actions; Q keeps that order', () => {
     scene.select(3);
+    const order = () => Array.from(left().querySelector('.solo-panel')!.children).map(c => c.className.split(' ')[0]);
+    expect(order()).toEqual(['nc-head', 'nc-scope', 'nc-list', 'up-actions']);
+    driver.state.econ!.jige = 1;
+    scene.select(3);
+    expect(order()).toEqual(['nc-head', 'nc-scope', 'nc-list', 'up-jige', 'up-actions']);
     key('KeyQ');
-    const kids = Array.from(left().children).map(c => c.className.split(' ')[0]);
-    expect(kids.indexOf('helper')).toBeGreaterThanOrEqual(0);
-    expect(kids.indexOf('unit-panel')).toBeGreaterThan(kids.indexOf('helper'));
-    expect(left().querySelector('.unit-panel .up-skill.compact')).not.toBeNull();
+    expect(order()).toEqual(['nc-head', 'nc-scope', 'nc-list', 'up-jige', 'up-actions']);
     key('Escape');
-    expect(left().querySelector('.unit-panel')!.textContent).toContain('유닛을 누르면');
-    expect(helperList()).not.toBeNull();
+    expect(order()).toEqual(['nc-head', 'nc-scope', 'nc-list']);
+    expect(left().querySelector('.unit-panel, .helper')).toBeNull();
   });
 });
 
