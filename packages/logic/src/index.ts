@@ -11,7 +11,7 @@ export { jigeCandidates, swapJige } from './econ/jige';
 export { gambleCheck, gambleTier, type GambleView } from './econ/gamble';
 export { applyItemVuln, buyBlock, itemBonus, itemOf, shopItem, unitRange } from './econ/shop';
 export { marketView, placePendingDrops, type MarketView } from './econ/market';
-export { econView, type EconHuntView, type EconMarketView, type EconTameView, type EconView } from './econ/view';
+export { econView, type EconHuntView, type EconMarketView, type EconTameView, type EconView, type ShopItemView, type ShopView } from './econ/view';
 export { spawnEventEnemy, type EventKind } from './econ/events';
 export { onCollectionCombine } from './econ/quests';
 export { pickResultSlot } from './combine';
