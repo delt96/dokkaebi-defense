@@ -1,0 +1,114 @@
+<title>아이템 장터 목업</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  :root {color-scheme:dark;--bg:#0d0a14;--panel:#17121f;--edge:#392d46;--ink:#e8e0d0;--dim:#c9bdd3;--gold:#ffe08a;--new:#7fd6a8}
+  * {box-sizing:border-box}
+  body {margin:0;background:#0b0810;color:var(--ink);font:14px/1.4 Pretendard,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:8px 24px}
+  h1 {font-size:18px;margin:10px 0 4px}
+  .lead {margin:0 0 14px;color:var(--dim);max-width:70ch}
+  .views {display:flex;flex-wrap:wrap;gap:24px;overflow-x:auto;padding-bottom:8px}
+  figure {margin:0}
+  figcaption {margin-bottom:6px;color:var(--gold)}
+  .stage {position:relative;width:640px;height:360px;overflow:hidden;background:var(--bg);font-size:10px;line-height:1.3;flex:none}
+  .hud,.left,.actions,.foot,.drawer {position:absolute;background:var(--panel);border:1px solid #2a2236}
+  .hud {inset:0 0 auto;height:24px;padding:4px 7px;display:flex;gap:9px}
+  .gold {color:var(--gold)}
+  .left {left:0;top:24px;width:128px;height:308px;padding:7px}
+  .field {position:absolute;left:128px;top:24px;width:400px;height:308px;background:#191722}
+  .path {position:absolute;inset:33px 30px 42px 70px;border:19px solid #43363b;background:#272333}
+  .grid {position:absolute;left:108px;top:70px;display:grid;grid-template-columns:repeat(6,28px);gap:3px}
+  .cell {width:28px;height:28px;background:#242034;border:1px solid #3a3046;position:relative}
+  .cell.sel {border-color:#ffb347}
+  .cell .tag {position:absolute;right:-3px;top:-3px;width:11px;height:11px;border-radius:50%;background:var(--new);color:#0d0a14;font-size:8px;line-height:11px;text-align:center;font-weight:700}
+  .actions {right:0;top:24px;width:112px;height:308px;padding:7px}
+  .actions button {display:block;width:100%;margin-top:5px;min-height:22px}
+  .foot {inset:auto 0 0;height:28px;padding:6px 8px;color:var(--dim)}
+  button {font:inherit;color:inherit;background:#2a2236;border:1px solid #584663;border-radius:2px;padding:1px 4px}
+  button:disabled {opacity:.45}
+  .new {outline:1px dashed var(--new);outline-offset:1px}
+  .mark {display:inline-block;min-width:13px;height:13px;border-radius:50%;background:var(--new);color:#0d0a14;font-size:9px;line-height:13px;text-align:center;font-weight:700;margin-left:2px}
+  .drawer {z-index:2;inset:24px 0 28px auto;width:214px;border-color:#82663f;padding:5px;display:grid;align-content:start;gap:4px}
+  .tabs {display:flex;gap:3px}
+  .tabs button.on {border-color:var(--gold);color:var(--gold)}
+  .row {display:grid;grid-template-columns:1fr auto auto;gap:4px;align-items:center;padding:3px;border:1px solid var(--edge);background:#201829}
+  .row small {display:block;color:var(--dim);font-size:8px}
+  .held {color:var(--dim);font-size:9px;padding:2px 3px;border-top:1px solid var(--edge)}
+  .unit {display:flex;gap:6px;align-items:center}
+  .face {width:32px;height:32px;background:#242034;border:1px solid #ffb347}
+  .stats {color:var(--dim);margin:6px 0}
+  .itemline {margin:6px 0;padding:4px;border:1px solid var(--edge);background:#201829}
+  .itemline button {width:100%;margin-top:3px}
+  .onlinecard {position:absolute;inset:auto 0 0;height:44px;padding:4px 6px;background:var(--panel);border:1px solid #2a2236;display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:9px}
+  .pop {position:absolute;bottom:46px;right:120px;width:170px;padding:5px;background:#201829;border:1px solid var(--gold);z-index:3;display:grid;gap:3px;font-size:9px}
+  .legend {max-width:75ch;margin:8px 0 24px;padding-left:20px}
+  .legend li {margin:6px 0}
+  .legend b {color:var(--gold)}
+  .k {color:var(--new)}
+</style>
+<h1>아이템 장터 목업 (3스테이지)</h1>
+<p class="lead">초록 점선과 번호가 새로 생기거나 바뀌는 곳입니다. 나머지는 지금 화면 그대로입니다. 값(○○냥)과 수치는 측정 뒤 정합니다.</p>
+<div class="views">
+  <figure>
+    <figcaption>혼자 하기: 장터를 열고 아이템 탭을 고른 모습</figcaption>
+    <div class="stage">
+      <div class="hud"><b>32라운드</b><span>보통</span><span>엽전 <b class="gold">412</b>냥</span><span>메밀묵 <b class="gold">3</b>개</span></div>
+      <aside class="left">
+        <div class="unit"><div class="face"></div><b style="color:#ffb347">천년맷방석</b></div>
+        <div>6등급 · 물딜</div>
+        <div class="stats">공격 820 · 1.1초마다<br><span class="new">사거리 3.5칸 (+0.5 사거리 부적)</span><span class="mark">5</span></div>
+        <div class="itemline new"><b>아이템</b> 사거리 부적<span class="mark">4</span>
+          <button>붙이기: 힘 부적 (1)</button>
+          <small style="color:var(--dim)">붙이면 지금 아이템은 사라집니다</small></div>
+        <div style="margin-top:6px;display:flex;gap:3px"><button>상세(Tab)</button><button>판매(S) +180냥</button></div>
+      </aside>
+      <div class="field"><div class="path"></div>
+        <div class="grid">
+          <div class="cell"></div><div class="cell"></div><div class="cell sel"><span class="tag">사</span></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          <div class="cell"></div><div class="cell"><span class="tag">힘</span></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        </div>
+        <span class="mark" style="position:absolute;left:300px;top:52px">6</span>
+      </div>
+      <section class="drawer">
+        <div style="display:flex;justify-content:space-between"><b>장터</b><button>닫기 B</button></div>
+        <div class="tabs new"><button>뽑기</button><button class="on">아이템</button><span class="mark">1</span></div>
+        <div class="row new"><span><b>사거리 부적</b><small>유닛 하나 사거리 +0.5 · 한 판 1번</small></span><span class="gold">○○○냥</span><button disabled>삼</button></div>
+        <div class="row new"><span><b>힘 부적</b><small>유닛 하나 공격력 +20%</small></span><span class="gold">○○○냥</span><button>사기</button></div>
+        <div class="row new"><span><b>날쌘 부적</b><small>유닛 하나 공격 속도 +15%</small></span><span class="gold">○○○냥</span><button>사기</button></div>
+        <div class="row new"><span><b>약화 부적</b><small>때린 적이 받는 피해 +10% · 3초</small></span><span class="gold">○○○냥</span><button>사기</button></div>
+        <span class="mark">2</span>
+        <div class="held new">들고 있는 아이템: 힘 부적 1 · 날쌘 부적 0 · 약화 부적 0<span class="mark">3</span></div>
+      </section>
+      <footer class="foot">선택한 유닛: 천년맷방석</footer>
+    </div>
+  </figure>
+  <figure>
+    <figcaption>온라인: 아래 한 줄 카드에서 아이템 붙이기를 연 모습</figcaption>
+    <div class="stage">
+      <div class="hud"><b>32라운드</b><span>엽전 <b class="gold">412</b>냥</span></div>
+      <aside class="left" style="height:292px">고개 현황 (그대로)</aside>
+      <div class="field" style="height:292px"><div class="path"></div>
+        <div class="grid">
+          <div class="cell"></div><div class="cell"></div><div class="cell sel"><span class="tag">사</span></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        </div>
+      </div>
+      <aside class="actions" style="height:292px"><button>강화 (E)</button><button>장터 (B)</button></aside>
+      <div class="pop new"><b>아이템 붙이기</b><span class="mark">7</span>
+        <button>힘 부적 (1개) 붙이기</button><button disabled>날쌘 부적 (0개)</button>
+        <small style="color:var(--dim)">지금 붙은 사거리 부적은 사라집니다</small></div>
+      <div class="onlinecard">● <b>천년맷방석</b> · 6등급 · 물딜 · 공격 820 · <span class="new">사거리 3.5칸(+0.5)</span><span class="mark">5</span>
+        <button>상세(Tab)</button><button class="new">아이템 ▾</button><span class="mark">7</span><button>판매(S) +180냥</button></div>
+    </div>
+  </figure>
+</div>
+<ol class="legend">
+  <li><b class="k">새로 생김</b> <b>① 장터 탭.</b> 장터 서랍 위에 [뽑기] [아이템] 탭을 둡니다. [뽑기]는 지금 장터(도박·보따리·최근 결과) 그대로입니다. 장터처럼 10R 보스를 잡은 뒤에 엽니다.</li>
+  <li><b class="k">새로 생김</b> <b>② 아이템 목록.</b> 이름, 효과 한 줄, 값, 사기 버튼. 엽전이 모자라면 버튼이 흐려지고 모자란 냥을 보여 줍니다. 사거리 부적은 한 판에 한 번이라 산 뒤에는 "삼"으로 바뀝니다.</li>
+  <li><b class="k">새로 생김</b> <b>③ 들고 있는 아이템.</b> 산 아이템은 유닛에 붙이기 전까지 여기 쌓입니다(지게처럼).</li>
+  <li><b class="k">새로 생김</b> <b>④ 유닛 칸의 아이템 줄.</b> 붙은 아이템 이름과, 들고 있는 아이템마다 "붙이기" 버튼. 유닛 하나에 하나만 붙고, 이미 붙어 있으면 바꿔 끼우며 옛 아이템은 사라진다고 적어 둡니다.</li>
+  <li><b class="k">바뀜</b> <b>⑤ 능력치.</b> 아이템이 바꾼 값(사거리·공격력·공격 속도)에 늘어난 몫을 붙입니다. 선택 시 사거리 원도 넓어집니다.</li>
+  <li><b class="k">새로 생김</b> <b>⑥ 판 위 표시.</b> 아이템을 붙인 유닛 칸 귀퉁이에 아이템 첫 글자(사·힘·날·약)를 띄웁니다. 그 유닛이 조합·판매·지게로 사라지면 같이 사라집니다.</li>
+  <li><b class="k">새로 생김</b> <b>⑦ 온라인 카드.</b> 한 줄 카드에는 "아이템 ▾" 버튼 하나만 두고, 누르면 작은 목록이 열립니다.</li>
+</ol>
