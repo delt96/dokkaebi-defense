@@ -442,7 +442,7 @@ body.online #top .settings-open { position: absolute; right: 46px; top: 3px; }
 #modal .solo-menu .modal-head { font-size: 12px; margin-bottom: 8px; }
 .solo-menu .modal-actions { gap: 8px; }
 .solo-menu .modal-actions button { flex: 1; min-height: 24px; font-size: 11px; }
-.solo-menu .modal-text { margin: 8px 0 0; line-height: 1.45; }
+.solo-menu .modal-text { margin: 8px 0 0; line-height: 1.45; word-break: keep-all; }
 .solo-menu .modal-actions + .modal-text { color: var(--ink-dim); }
 .solo-menu .modal-text + .modal-actions { margin-top: 10px; }
 #modal .solo-menu button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -462,7 +462,7 @@ body.online #top .settings-open { position: absolute; right: 46px; top: 3px; }
 #portrait-guide[hidden] { display: none; }
 .pg-box { display: flex; flex-direction: column; gap: 12px; max-width: 360px; text-align: center; }
 .pg-title { font-size: 22px; color: var(--accent); }
-.pg-text { margin: 0; font-size: 15px; line-height: 1.5; }
+.pg-text { margin: 0; font-size: 15px; line-height: 1.5; word-break: keep-all; }
 #portrait-guide button { min-height: 44px; font-size: 15px; }
 #portrait-guide button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
