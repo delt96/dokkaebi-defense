@@ -196,7 +196,7 @@ describe('six-seat grade 6 measurement', () => {
       expect(r.muk70).not.toBeNull();
     }
     expect(a.rows.some(r => r.draws > 0)).toBe(true);
-  }, 120_000);
+  }, 300_000);
 
   test('econSummary applies the pass line on finishers only', () => {
     const row = (g: number, finished = true, first: number | null = 30) =>

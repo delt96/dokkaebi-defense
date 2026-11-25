@@ -42,7 +42,7 @@ describe('items in the streamed views', () => {
     const lane = m.lanes[1]!;
     const unit = placeUnitForTest(lane, 'jipsin', 3);
     placeUnitForTest(lane, 'dunggumi', 4);
-    lane.coins = 1000;
+    lane.coins = shopItem(d3, 'powerCharm')!.coins + shopItem(d3, 'swiftCharm')!.coins;
     const streamer = new MatchStreamer(m);
     let n = 0;
     const owner: ClientView = applyFull(buildFull(m, 1, opts(1, n)));
@@ -87,7 +87,7 @@ describe('items in the streamed views', () => {
     const m = match();
     const lane = m.lanes[1]!;
     const unit = placeUnitForTest(lane, 'jipsin', 3);
-    lane.coins = 1000;
+    lane.coins = shopItem(d3, 'weakCharm')!.coins;
     const streamer = new MatchStreamer(m);
     const r = stepMatch(m, [
       { seat: 1, seq: 1, cmd: { type: 'buyItem', item: 'weakCharm' } },

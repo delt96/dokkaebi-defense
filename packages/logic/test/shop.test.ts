@@ -292,19 +292,22 @@ describe('combine and storage use the copy without an item first', () => {
 
   test('a bare clicked unit is still used first', () => {
     const s = game();
-    const e = equip(placeUnitForTest(s, 'dunggumi', 0));
+    placeUnitForTest(s, 'dunggumi', 0);
     const clicked = placeUnitForTest(s, 'jipsin', 1);
     const keep = placeUnitForTest(s, 'jipsin', 4);
     placeUnitForTest(s, 'jipsin', 6);
-    placeUnitForTest(s, 'dunggumi', 7);
+    const e = equip(placeUnitForTest(s, 'dunggumi', 8));
+    const item = e.item;
     expect(combineEatsItem(s, 'jipsingol', 1)).toBe(false);
     ok(s, { type: 'combine', result: 'jipsingol', slot: 1 });
     expect(s.slots[1]!.defId).toBe('jipsingol');
     expect(s.slots.includes(clicked)).toBe(false);
-    expect(s.slots[0]).toBe(e);
+    expect(s.slots[0]).toBeNull();
+    expect(s.slots[8]).toBe(e);
+    expect(s.slots[8]!.id).toBe(e.id);
+    expect(e.item).toBe(item);
     expect(s.slots[4]).toBe(keep);
     expect(s.slots[6]).toBeNull();
-    expect(s.slots[7]).toBeNull();
   });
 
   test('a full board without a slot eats the board copy instead of refusing', () => {

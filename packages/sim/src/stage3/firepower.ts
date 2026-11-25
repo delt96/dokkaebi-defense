@@ -237,7 +237,7 @@ export function firepowerRun(
 ): FirepowerRunResult {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
-    const driver = new EconDriver(match, SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), econPolicy(c))), c.gamble);
+  const driver = new EconDriver(match, SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), econPolicy(c))), c.gamble);
   const at = new Map(rounds.filter(r => r <= d.balance.rounds).map(r => [roundStartTick(d, r), r]));
   const bossAt = new Map(bossRounds.map(r => [roundStartTick(d, r), r]));
   const bossEnd = (r: number) => roundStartTick(d, r) + Math.round(d.balance.bossRoundSeconds * TICKS_PER_SECOND);

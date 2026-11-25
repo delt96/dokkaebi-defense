@@ -75,6 +75,7 @@ const shred = arg('shred', 'off') === 'on';
 const out = arg('out', 'sim-out/shred-variants');
 const data = variantData(loadGameData('stage3'), variant);
 const item = arg('item', '');
+if (!item && process.argv.includes('--price')) throw new Error('--price needs --item <id>');
 const shop = item ? shopItem(data, item) : undefined;
 if (item && !shop) throw new Error(`--item ${item}: one of ${data.economy?.shop?.items.map(i => i.id).join(', ')}`);
 const price = shop ? Number(arg('price', String(shop.coins))) : 0;

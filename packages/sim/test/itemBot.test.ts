@@ -151,7 +151,9 @@ describe('firepowerRun item record', () => {
   const data = loadGameData('stage3');
 
   test('records the charms each seat bought and attached', () => {
-    const on = firepowerRun(data, 1, { ...base, noDefeat: true, item: 'powerCharm' }, [41], []);
+    const cheap = structuredClone(data);
+    shopItem(cheap, 'powerCharm')!.coins = 1;
+    const on = firepowerRun(cheap, 1, { ...base, noDefeat: true, item: 'powerCharm' }, [41], []);
     expect(on.items.length).toBe(6);
     expect(on.items.some(x => x.bought >= 1)).toBe(true);
     for (const x of on.items) {
