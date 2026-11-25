@@ -902,7 +902,7 @@ ${dex.mine.join()}`;
     if (panel) {
       // these parts change on their own clock (reveal frames, settled draws), so they redraw in place
       const wallet = panel.querySelector<HTMLElement>('.gamble-wallet');
-      if (wallet) setHtml(wallet, `엽전 <b>${s.coins - held}</b> · 묵 <b>${s.buckwheat}</b>`);
+      if (wallet) setHtml(wallet, `<span class="nw">엽전 <b>${s.coins - held}</b> ·</span> <span class="nw">묵 <b>${s.buckwheat}</b></span>`);
       renderMarketInfo();
       const result = panel.querySelector<HTMLElement>('.gamble-result');
       const history = panel.querySelector<HTMLElement>('.gamble-history');

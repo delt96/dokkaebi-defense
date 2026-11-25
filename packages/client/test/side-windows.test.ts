@@ -317,6 +317,8 @@ describe('solo side windows', () => {
     frame();
     expect(market()!.querySelector('.win-bar')).toBeNull();
     expect(market()!.querySelector('.win-head')!.textContent).toContain('엽전 5000 · 묵 7');
+    // 156px wide: the wallet breaks between its two parts so the close button stays inside the window
+    expect(Array.from(market()!.querySelectorAll('.win-wallet .nw'), n => n.textContent)).toEqual(['엽전 5000 ·', '묵 7']);
     key('KeyB');
     expect(market()).toBeNull();
     key('KeyB');
