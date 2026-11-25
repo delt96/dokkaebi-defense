@@ -36,7 +36,7 @@ import { resultHtml } from './result';
 import { readHelpLine, settingsHtml, writeHelpLine } from './settings';
 import { STORE_ALL_KEY, STORE_KEY, storageHtml, storageInfoHtml, storageInfoModel, wireStorage } from './storage';
 import { readTarget, targetHtml, writeTarget } from './target';
-import { closeSide, coveredIds, escStep, NO_SIDES, sidesLocked, toggleSide, type Side, type SideWin, type Sides } from './windows';
+import { closeSide, coveredIds, escStep, NO_SIDES, openSide, rightBarHtml, sidesLocked, toggleSide, type Side, type SideWin, type Sides } from './windows';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
   Digit1: 'physical', Digit2: 'magical', Digit3: 'polish',
@@ -61,7 +61,10 @@ const GAME_ACTIONS: ReadonlySet<string> = new Set([
 const PRESS_MS = 120;
 const SIDES: readonly Side[] = ['left', 'right'];
 /** The panel button that opens each side window; a window closed from inside gives the focus back to it. */
-const OPENERS: Partial<Record<SideWin, string>> = { upgrades: '#right [data-action="openUpgrades"]' };
+const OPENERS: Partial<Record<SideWin, string>> = {
+  upgrades: '#right [data-action="openUpgrades"]',
+  quests: '#right .quest-box > [data-action="openQuests"][data-arg=""]',
+};
 
 /** Online screens also read the server view for the scoreboard and the two-line top bar. */
 export interface OnlineActions { support(): void; watch(seat: number): void; forfeit(): void }
@@ -120,8 +123,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let userPaused = false;
   // the hotkey line under the board (단축키 안내 줄 in the settings window)
   let helpLine = readHelpLine();
-  // TODO: drop 'unitDetails', 'jige' and 'quests' once they move to the side windows (B2 Tasks 5 and 7); until then they lock the board
-  let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | 'unitDetails' | 'jige' | 'quests' | null = null;
+  // TODO: drop 'unitDetails' and 'jige' once they move to the side windows (B2 Task 7); until then they lock the board
+  let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | 'unitDetails' | 'jige' | null = null;
   let sides: Sides = NO_SIDES;
   const locked = () => sidesLocked({
     locking: modal !== null || (!online && driver.state.phase === 'ended'),
@@ -130,8 +133,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     portrait: false,
     failed: driver.failed,
   });
-  // the J list row to bring into view (a chip or a box line opened it)
+  // the J list row to bring into view (a chip or a box line opened it); shownQuest is the row last scrolled to
   let questFocus: QuestId | 'hunts' | null = null;
+  let shownQuest: QuestId | 'hunts' | null = null;
   let shownModal: string | null = null;
   // the open R list (modal 'jige'); see jigeStale for when a pick is dropped
   let jigeList: JigeList | null = null;
@@ -376,8 +380,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'closeWin': if (arg === 'left' || arg === 'right') sides = closeSide(sides, arg); break;
       case 'openQuests':
         if (!econ()) break;
+        // an open list stays open and only moves to the pressed row
         questFocus = (arg || null) as QuestId | 'hunts' | null;
-        modal = 'quests';
+        sides = openSide(sides, 'quests');
         break;
       case 'jigeOpen': {
         const e = econ();
@@ -594,10 +599,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     hooks.onEvents?.(events);
   });
 
-  /** The quest box at the bottom of the right panel (one J line online, where notices need the room); empty without an economy. */
-  function questBox(folded: boolean): string {
+  /** The quest box at the bottom of the right panel, the same short box solo and online; empty without an economy. */
+  function questBox(): string {
     const e = driver.state.phase === 'ended' ? null : econ();
-    return e ? questBoxHtml(questBoxModel(e, driver.state, online), folded) : '';
+    return e ? questBoxHtml(questBoxModel(e, driver.state, online)) : '';
   }
 
   function jigeStale(list: JigeList): boolean {
@@ -642,19 +647,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     }
     if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }
     if (online && modal === 'settings' && ev.code === 'KeyQ' && !ev.shiftKey && driver.state.phase !== 'ended') { act('toggleHelper', ''); return; }
-    // J opens the quest list from preparation on and closes it again; the clock never stops for it
-    if (ev.code === 'KeyJ' && driver.state.data.economy && driver.state.phase !== 'ended' && (modal === null || modal === 'quests')) {
-      act(modal === 'quests' ? 'closeModal' : 'openQuests', '');
-      return;
-    }
     // Tab opens the selected unit's 상세 and closes it again
     if (ev.code === 'Tab' && modal === 'unitDetails') { ev.preventDefault(); act('closeModal', ''); return; }
     if (modal || driver.state.phase === 'ended') return;
     // side-window keys do nothing under a lock (P pause too), so a paused board buys nothing
     const buy = UPGRADE_KEYS[ev.code];
-    if (ev.code === 'KeyE' || buy) {
+    const quests = ev.code === 'KeyJ' && !!driver.state.data.economy;
+    if (ev.code === 'KeyE' || buy || quests) {
       if (locked()) return;
       if (ev.code === 'KeyE') { act('openUpgrades', ''); return; }
+      // J opens the quest list from preparation on and closes it again; the clock never stops for it
+      if (quests) { act(sides.right === 'quests' ? 'closeWin' : 'openQuests', sides.right === 'quests' ? 'right' : ''); return; }
       if (sides.right === 'upgrades') { act('upgrade', buy!); return; }
     }
     if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button, .gamble-option[tabindex]')) return;
@@ -782,7 +785,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderRight(s, {
         ...(view ? { online: true, notices: [...moved, ...rightNotices(now)] } : {}),
         ...(s.data.economy?.market ? { market: econTab !== null } : {}),
-        quests: questBox(view !== null),
+        quests: questBox(),
         heldCoins: heldCoins(reveal),
       });
     }
@@ -825,13 +828,10 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected, targetId) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : modal === 'quests' && econ() ? questListHtml(questRows(econ()!, s, online), questFocus, huntRows(econ()!, s)) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected, targetId) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
-    }
-    if (modal === 'quests' && questFocus && modal !== shownModal) {
-      el('modal').querySelector<HTMLElement>(`.quest-row[data-quest="${questFocus}"]`)?.scrollIntoView?.({ block: 'nearest' });
     }
     if (modal === 'settings' && !soloResult) wireAudioSettings(el('modal'));
     if (shownModal === 'settings' && (modal !== 'settings' || soloResult)) gameAudio.previewTrack();
@@ -842,11 +842,20 @@ ${dex.mine.join()}`;
 
   /** Draws each side window into its box as a non-modal dialog named by its head title. */
   function renderSides(s: GameState, wins: WinPlace): void {
-    const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, heldCoins(reveal)) } : null;
+    const e = econ();
+    if (sides.right === 'quests' && !e) sides = closeSide(sides, 'right');
+    const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, heldCoins(reveal)) }
+      : sides.right === 'quests' && e ? {
+        cls: 'quest-modal',
+        html: questListHtml(questRows(e, s, online), questFocus, huntRows(e, s), { wins, bar: rightBarHtml(s, heldCoins(reveal)) }),
+      } : null;
     const section = (side: Side, w: { cls: string; html: string } | null) =>
       (w ? `<section class="win ${w.cls}" role="dialog" aria-labelledby="win-${side}-title">${w.html}</section>` : '');
     setHtml(el('win-left'), section('left', null));
     setHtml(el('win-right'), section('right', right));
+    const row = sides.right === 'quests' ? questFocus : null;
+    if (row && row !== shownQuest) el('win-right').querySelector<HTMLElement>(`.quest-row[data-quest="${row}"]`)?.scrollIntoView?.({ block: 'nearest' });
+    shownQuest = row;
   }
 
   /** The search texts as typed (the boxes are redrawn with the dex, so read them before a filter change). */

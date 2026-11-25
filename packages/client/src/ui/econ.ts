@@ -6,6 +6,8 @@ import { cellText, pinnedTarget, unitSkillText, type TargetNode } from './models
 import { unitFaceHtml } from './storage';
 import { withJosa } from './josa';
 import { gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
+import { winHeadHtml } from './windows';
+import type { WinPlace } from '../layout';
 
 // Stage 3 economy on screen: the market panel (B), the T button under a target's health bar and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
@@ -308,11 +310,12 @@ function settledProgress(id: QuestId, rec: QuestRecord, data: GameData): string 
 /**
  * One 격파 target for this seat as the quest box and the J list show it: the next level and its pay, and the summon
  * button, disabled with the reason the server would give (opening round, a target already out, the cooldown, coins).
- * `short` is the button text in the narrow box, `label` the full one in the J list.
+ * `short` is the button text in the narrow box, `label` the full one in the J list. `readyIn` is the seconds until it
+ * can be called again: the cooldown, or the time left while it is out; 0 otherwise.
  */
 export interface HuntRow {
   enemy: string; name: string; level: number; best: number; reward: string; muk: string; hp: string; open: boolean; seconds: number;
-  out: boolean; ready: boolean; poor: boolean; short: string; label: string; wait: string;
+  out: boolean; ready: boolean; poor: boolean; short: string; label: string; wait: string; readyIn: number;
 }
 
 const won = (n: number) => n.toLocaleString('ko-KR');
@@ -329,15 +332,16 @@ export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
     const fee = h.fee ? ` · ${h.fee}냥` : '';
     let short: string;
     let label: string;
+    let readyIn = 0;
     switch (h.why) {
       case null: short = '소환'; label = `소환${fee}`; break;
       case 'huntClosed': short = `${h.fromRound}R`; label = `${h.fromRound}라운드부터`; break;
       case 'huntOut': {
-        const left = secondsOf(data, h.deadlineTick - state.tick);
+        const left = readyIn = secondsOf(data, h.deadlineTick - state.tick);
         short = `${left}초`; label = `이미 나와 있음 · ${left}초 남음`; break;
       }
       case 'cooldown': {
-        const left = secondsOf(data, h.readyTick - state.tick);
+        const left = readyIn = secondsOf(data, h.readyTick - state.tick);
         const wait = left < 60 ? `${left}초` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
         short = `${wait} 뒤`; label = `${short} 다시 소환`; break;
       }
@@ -348,7 +352,7 @@ export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
     return {
       enemy: h.enemy, name: nameOf(data, h.enemy), level: h.level, best: h.best, reward, muk: h.reward.buckwheat ? `묵${h.reward.buckwheat}` : '', hp: `체력 ${won(h.hp)}`,
       seconds: rules.seconds, wait: huntWait(rules.targets.find(t => t.enemy === h.enemy)?.cooldownSeconds ?? rules.cooldownSeconds),
-      open: state.phase === 'round' && state.round >= h.fromRound, out: h.why === 'huntOut', ready: h.why === null, poor: h.why === 'noCoins', short, label,
+      open: state.phase === 'round' && state.round >= h.fromRound, out: h.why === 'huntOut', ready: h.why === null, poor: h.why === 'noCoins', short, label, readyIn,
     };
   });
 }
@@ -356,41 +360,42 @@ export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
 const huntButton = (r: HuntRow, text: string) =>
   `<button class="hunt-go${r.poor ? ' poor' : ''}" data-action="hunt" data-arg="${esc(r.enemy)}"${r.ready ? '' : ' disabled'} title="${esc(`${r.label} · 보상 ${r.reward} · ${huntFailure(r.seconds)} ${r.wait}`)}">${esc(text)}</button>`;
 
-export interface QuestBoxModel {
-  active: { id: QuestId; title: string; short: string }[]; next: string | null; count: number;
-  /** Open 격파 targets, each with its summon button. */
-  hunts: HuntRow[];
-}
+/**
+ * The compact box in the right panel. `count`: running quests plus open 격파 targets. `hunt`: the first open target that
+ * can be called now, else the one callable soonest. `more`: the other open targets, seen in the J list.
+ */
+export interface QuestBoxModel { count: number; hunt: HuntRow | null; more: number; next: string | null }
 
-/** The compact box: open 격파 targets, each running quest with its count, then the next one this seat can still take part in. */
 export function questBoxModel(econ: EconMine, state: GameState, online: boolean): QuestBoxModel {
   const rows = questRows(econ, state, online);
-  const active = rows.filter(r => r.group === '진행 중').map(r => ({ id: r.id, title: r.title, short: r.short }));
-  const allHunts = huntRows(econ, state);
-  const hunts = allHunts.filter(h => h.open);
+  const hunts = huntRows(econ, state).filter(h => h.open);
+  const hunt = hunts.find(h => h.ready) ?? hunts.reduce<HuntRow | null>((best, h) => (!best || h.readyIn < best.readyIn ? h : best), null);
   const round = state.phase === 'prep' ? 0 : state.round;
   const soon = [
     ...rows.filter(r => r.group === '곧 열림').map(r => ({ from: questWindow(state, r.id)![0], name: QUEST_SHORT[r.id] })),
     ...(econ.hunts ?? []).filter(h => round < h.fromRound).map(h => ({ from: h.fromRound, name: `${nameOf(state.data, h.enemy)} 격파` })),
   ].sort((a, b) => a.from - b.from)[0];
-  return { active, next: soon ? `다음 ${soon.from}라운드 ${soon.name}` : null, count: active.length + hunts.filter(h => h.out).length, hunts };
+  return {
+    count: rows.filter(r => r.group === '진행 중').length + hunts.length, hunt, more: hunts.length - (hunt ? 1 : 0),
+    next: soon ? `다음 ${soon.from}라운드 ${soon.name}` : null,
+  };
 }
 
-function huntBoxLines(hunts: HuntRow[]): string {
-  if (!hunts.length) return '';
-  return `<div class="hunt-failure">${huntFailure(hunts[0]!.seconds)}</div>${hunts.map(h => `<div class="hunt-line"><span class="hunt-name">${esc(h.name)}</span><i class="hunt-lv" title="${h.level}단계">${h.level}</i><b>${esc(h.muk)}</b>${huntButton(h, h.short)}</div><div class="hunt-wait">${h.wait}</div>`).join('')}`;
+/** Seconds under a minute, whole minutes rounded up above it. */
+const waitLeft = (seconds: number) => `재소환 대기 ${seconds < 60 ? `${seconds}초` : `${Math.ceil(seconds / 60)}분`}`;
+
+export function questBoxHtml(box: QuestBoxModel): string {
+  const h = box.hunt;
+  const hunt = h ? `<div class="hunt-line"><span class="hunt-name">${esc(h.name)}</span><i class="hunt-lv" title="${h.level}단계">${h.level}</i><b>${esc(h.muk)}</b>${huntButton(h, h.short)}</div>`
+    + (h.readyIn > 0 && !h.out ? `<div class="hunt-wait">${waitLeft(h.readyIn)}</div>` : '') : '';
+  const more = box.more > 0 ? `<button class="quest-more" data-action="openQuests" data-arg="hunts">+${box.more}개 더 · J에서</button>` : '';
+  const next = h ? '' : box.next ?? (box.count ? '' : '남은 퀘스트 없음');
+  return `<div class="quest-box"><button class="panel-title" data-action="openQuests" data-arg="">퀘스트 (J) · ${box.count}개</button>${hunt}${more}`
+    + `${next ? `<div class="quest-next">${esc(next)}</div>` : ''}</div>`;
 }
 
-export function questBoxHtml(box: QuestBoxModel, folded: boolean): string {
-  if (folded) return `<div class="quest-box folded"><button data-action="openQuests" data-arg="">퀘스트 (J) · 진행 ${box.count}개</button>${huntBoxLines(box.hunts)}</div>`;
-  const lines = box.active.map(a => `<button class="quest-line" data-action="openQuests" data-arg="${a.id}"><span>${esc(a.title)}</span><b>${esc(a.short)}</b></button>`).join('');
-  const hunts = huntBoxLines(box.hunts);
-  return `<div class="quest-box"><button class="panel-title" data-action="openQuests" data-arg="">퀘스트 (J)</button>${hunts}${lines}
-    ${box.next ? `<div class="quest-next">${esc(box.next)}</div>` : ''}${!lines && !hunts && !box.next ? '<div class="quest-next">남은 퀘스트 없음</div>' : ''}</div>`;
-}
-
-/** The J window: fixed title and close, the 격파 targets, then the three groups in a scrolled body. */
-export function questListHtml(rows: QuestRow[], focus: QuestId | 'hunts' | null, hunts: HuntRow[] = []): string {
+/** The J window: head and, on the board, the pillar bar stay put; the 격파 targets and the three groups scroll under them. */
+export function questListHtml(rows: QuestRow[], focus: QuestId | 'hunts' | null, hunts: HuntRow[], opts: { wins: WinPlace; bar: string }): string {
   const groups: QuestGroup[] = ['진행 중', '곧 열림', '끝남'];
   const huntSection = hunts.length ? `<section class="quest-group"><h3>격파</h3><div class="quest-row${focus === 'hunts' ? ' focus' : ''}" data-quest="hunts" tabindex="-1">
     <div class="quest-row-line">${huntFailure(hunts[0]!.seconds)} 시간 안에 잡으면 보상을 받고 다음 단계가 열립니다.</div>
@@ -403,8 +408,8 @@ export function questListHtml(rows: QuestRow[], focus: QuestId | 'hunts' | null,
       <div class="quest-row-head"><b>${esc(r.title)}</b><span>${esc(r.when)}</span>${r.outcome ? `<em>${esc(r.outcome)}</em>` : ''}</div>
       ${r.progress ? `<div class="quest-row-line">${esc(r.progress)}</div>` : ''}${r.reward ? `<div class="quest-row-reward">${esc(r.reward)}</div>` : ''}</div>`).join('')}</section>`;
   }).join('');
-  return `<div class="modal quest-modal"><div class="modal-head">퀘스트 <button data-action="closeModal">J·Esc 닫기</button></div>
-    <div class="quest-scroll">${huntSection}${body || (huntSection ? '' : '<p class="quest-empty">퀘스트가 없습니다</p>')}</div></div>`;
+  return winHeadHtml({ side: 'right', titleHtml: '퀘스트 (J)', closeLabel: '퀘스트 닫기 (J)' }) + (opts.wins === 'inside' ? opts.bar : '')
+    + `<div class="win-body quest-scroll">${huntSection}${body || (huntSection ? '' : '<p class="quest-empty">퀘스트가 없습니다</p>')}</div>`;
 }
 
 export interface Chip { title: string; text: string; tone?: 'hot' | 'done'; quest?: QuestId | 'hunts'; action?: { name: string; arg: string; label: string; disabled?: boolean } }

@@ -167,10 +167,8 @@ describe('market guide', () => {
 });
 
 describe('quest button', () => {
-  test('folded and open boxes both say 퀘스트 (J)', () => {
-    const box = { active: [], next: null, count: 2, hunts: [] };
-    expect(questBoxHtml(box, true)).toContain('>퀘스트 (J) · 진행 2개<');
-    expect(questBoxHtml(box, false)).toContain('>퀘스트 (J)<');
+  test('the box head says 퀘스트 (J) with the count, solo and online alike', () => {
+    expect(questBoxHtml({ count: 2, hunt: null, more: 0, next: null })).toContain('>퀘스트 (J) · 2개<');
   });
 });
 

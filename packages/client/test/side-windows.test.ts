@@ -196,6 +196,63 @@ describe('solo side windows', () => {
     expect(upgrades()).toBeNull();
     expect(document.activeElement).toBe($('#right [data-action="openUpgrades"]'));
   });
+
+  test('J opens 퀘스트 in #win-right; its 소환 sends hunt while the board keeps running', () => {
+    const { s, queue, frame } = mountSolo();
+    forceRound(s, 15);
+    s.spawned = s.data.balance.spawnCount;
+    frame();
+    const quests = () => $('#win-right .win.quest-modal');
+    key('KeyJ');
+    expect(quests()).not.toBeNull();
+    expect($('#win-right-title')!.textContent).toBe('퀘스트 (J)');
+    expect($('#modal')!.innerHTML).toBe('');
+    expect($('#lane')!.inert).toBe(false);
+    // the pillar bar sits under the head on the board
+    expect(quests()!.querySelector('.win-bar [data-action="summon"]')).not.toBeNull();
+    press($('#win-right .hunt-row [data-action="hunt"]'));
+    expect(queue).toHaveBeenCalledWith({ type: 'hunt', enemy: 'ev_soebap' });
+    key('Space');
+    expect(queue).toHaveBeenCalledWith({ type: 'summon' });
+    key('KeyJ');
+    expect(quests()).toBeNull();
+    key('KeyE');
+    key('KeyJ');
+    expect(quests()).not.toBeNull();
+    expect(upgrades()).toBeNull();
+  });
+
+  test('a box line opens the list on its row and scrolls to it, also when the list is already open', () => {
+    const { s, frame } = mountSolo();
+    forceRound(s, 15);
+    s.spawned = s.data.balance.spawnCount;
+    document.documentElement.dataset.wins = 'outside';
+    frame();
+    const scrolled: Element[] = [];
+    const proto = HTMLElement.prototype as { scrollIntoView?: (o?: unknown) => void };
+    const before = proto.scrollIntoView;
+    proto.scrollIntoView = function (this: Element) { scrolled.push(this); };
+    try {
+      key('KeyJ');
+      expect(scrolled).toHaveLength(0);
+      press($('#right .quest-box .quest-more'));
+      const row = $('#win-right .quest-row.focus')!;
+      expect(row.dataset.quest).toBe('hunts');
+      expect(scrolled).toEqual([row]);
+      expect($('#win-right .win.quest-modal')).not.toBeNull();
+      frame();
+      expect(scrolled).toHaveLength(1);
+    } finally {
+      proto.scrollIntoView = before;
+    }
+    // the outside layout has no pillar bar; the close button hands the focus back to the box head
+    expect($('#win-right .win-bar')).toBeNull();
+    const close = $<HTMLButtonElement>('#win-right .win-close')!;
+    close.focus();
+    press(close);
+    expect($('#win-right .quest-modal')).toBeNull();
+    expect(document.activeElement).toBe($('#right .quest-box .panel-title'));
+  });
 });
 
 describe('online side windows', () => {

@@ -747,40 +747,31 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 #tame-anchor button { min-height: 14px; padding: 0 3px; font-size: 9px; line-height: 12px; }
 #tame-anchor .tame-hp { color: var(--ink-dim); text-shadow: 0 0 2px #000; }
 
-/* J 퀘스트: the box between Q and D, its folded line, and the list window */
-.quest-box { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--panel-edge); padding: 1px 2px; }
-.quest-box .panel-title { text-align: left; }
-.quest-box .quest-line { display: flex; justify-content: space-between; gap: 4px; min-height: 14px; padding: 0 2px; border: 0; background: none; text-align: left; }
-.quest-box .quest-line b { color: var(--accent); }
+/* J 퀘스트: the box between Q and D (head, one 격파, +N more) and the list window on the right */
+.quest-box { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--panel-edge); padding: 1px 2px; }
+.quest-box .panel-title { min-height: 20px; text-align: left; }
 .quest-next { color: var(--ink-dim); line-height: 12px; padding: 0 2px; }
-.quest-box.folded { border: 0; padding: 0; }
-#right:has(.hunt-wait) { gap: 1px; padding: 3px 4px; overflow-y: auto; }
-#right:has(.hunt-wait) > .big { min-height: 25px; margin: 1px 0; }
-#right:has(.hunt-wait) > button:not(.big), #right:has(.hunt-wait) .dex-open, .quest-box:has(.hunt-wait) > button:first-child { min-height: 18px; }
-#right:has(.hunt-wait) .right-foot { gap: 2px; flex: none; }
-body.online #right:has(.hunt-wait) .notices { min-height: 0; overflow: auto; }
-.hunt-line { display: flex; align-items: center; gap: 1px; min-height: 12px; padding: 0 1px; font-size: 9px; line-height: 11px; white-space: nowrap; }
-.hunt-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.hunt-lv { font-style: normal; min-width: 9px; padding: 0 1px; border: 1px solid var(--panel-edge); text-align: center; color: var(--ink-dim); font-size: 8px; line-height: 9px; }
+.quest-more { min-height: 16px; padding: 0 2px; border: 0; background: none; color: var(--ink-dim); text-align: right; }
+.quest-more:hover:not([disabled]) { color: var(--accent); }
+/* the online panel is 292px high: the notices give way rather than push the box and D out of the panel */
+body.online #right .notices { min-height: 0; overflow: auto; }
+.hunt-line { display: flex; align-items: center; gap: 2px; min-height: 18px; padding: 0 1px; line-height: 12px; white-space: nowrap; }
+.hunt-name { flex-shrink: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.hunt-lv { font-style: normal; min-width: 10px; padding: 0 1px; border: 1px solid var(--panel-edge); text-align: center; color: var(--ink-dim); line-height: 11px; }
 .hunt-line b { margin-left: auto; color: var(--accent); }
-.hunt-failure, .hunt-wait { font-size: 9px; line-height: 11px; color: #d5c9df; }
-.hunt-failure { padding: 1px; word-break: keep-all; }
-.hunt-wait { text-align: right; padding-right: 1px; line-height: 10px; }
-.quest-box .hunt-go { min-height: 12px; padding: 0 1px; font-size: 9px; line-height: 10px; }
+.hunt-wait { line-height: 12px; text-align: right; padding-right: 1px; color: #d5c9df; }
+.quest-box .hunt-go { min-height: 18px; padding: 0 4px; line-height: 16px; }
 .hunt-go[disabled] { color: var(--ink-dim); opacity: 0.85; }
 .quest-box .hunt-go.poor[disabled] { color: var(--danger); }
-.hunt-name { flex-shrink: 0; }
-.hunt-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-.hunt-row-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.hunt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.hunt-row-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 96px; }
 .hunt-row-text span { color: #c9c0d6; }
-.hunt-row .hunt-go { min-height: 18px; padding: 0 6px; white-space: nowrap; }
-.quest-box.folded button { width: 100%; text-align: left; }
-.quest-modal { display: flex; flex-direction: column; max-height: 100%; }
-.quest-scroll { flex: 1; overflow-y: auto; padding: 2px 4px; }
+.hunt-row .hunt-go { min-height: 24px; margin-left: auto; padding: 0 8px; white-space: nowrap; }
+.win .quest-scroll { gap: 0; padding: 2px 6px 6px; word-break: keep-all; }
 .quest-group h3 { margin: 4px 0 2px; font-size: 10px; color: var(--accent); }
-.quest-row { padding: 2px 4px; border: 1px solid var(--panel-edge); margin-bottom: 2px; }
+.quest-row { padding: 2px 4px; border: 1px solid var(--panel-edge); margin-bottom: 4px; }
 .quest-row.focus { border-color: var(--accent); }
-.quest-row-head { display: flex; gap: 6px; align-items: baseline; }
+.quest-row-head { display: flex; flex-wrap: wrap; gap: 0 6px; align-items: baseline; }
 .quest-row-head span { color: var(--ink-dim); }
 .quest-row-head em { margin-left: auto; font-style: normal; color: #ffb396; }
 .quest-row-line { color: #c9c0d6; }
