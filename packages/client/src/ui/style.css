@@ -518,6 +518,8 @@ body.online #econ-bottom { top: 272px; height: 42px; }
 #stage.pillar-open .countdown { left: 327px; max-width: 254px; }
 /* design ⑧: in the pillar layout the chip row stays narrow with the windows closed too, so opening one does not rewrap it */
 :root[data-wins="inside"] #econ-bottom { left: 200px; width: 254px; }
+/* one chip fills a 254px line, so three would need 61px of the 56; two to a line keeps four chips in two lines */
+:root[data-wins="inside"] #econ-bottom:has(> .q:nth-child(3)) > .q { max-width: calc(50% - 1px); }
 .market-btn .badge { margin-left: 4px; padding: 0 3px; border-radius: 2px; background: #ff9a6a; color: #1d1626; font-weight: bold; }
 .market-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 

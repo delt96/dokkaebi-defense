@@ -150,6 +150,8 @@ describe('solo side windows', () => {
     expect(rule('#stage.pillar-open .countdown')).toContain('left: 327px');
     expect(rule('#stage.pillar-open .countdown')).toContain('max-width: 254px');
     expect(rule(':root[data-wins="inside"] #econ-bottom')).toMatch(/left: 200px;.*(^|[^-])width: 254px/s);
+    // a chip is 150-166px, one to a 254px line: from three chips on, two share a line so up to four stay in two lines
+    expect(rule(':root[data-wins="inside"] #econ-bottom:has(> .q:nth-child(3)) > .q')).toContain('max-width: calc(50% - 1px)');
   });
 
   test('the dex, the settings, P and the end of the game lock the side windows without closing them', () => {
