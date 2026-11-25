@@ -168,9 +168,10 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .pin-btn { flex: none; min-height: 15px; padding: 0 4px; }
 .pin-btn[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
-.up-jige { display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+/* 보유 지게 N개 (54px) + gap + R 지게 바꾸기 must fit the panel's 118px: 4px padding and a 3px gap cut the count off */
+.up-jige { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
 .up-jige .jige-held { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.up-jige button { flex: none; padding: 0 4px; }
+.up-jige button { flex: none; padding: 0 2px; }
 /* one row: the keys are in the titles and the help line, so 상세 · 보관 · 판매 +N냥 fit the 120px */
 .up-actions { display: flex; gap: 3px; }
 .up-actions button { flex: 1 1 auto; min-width: 0; min-height: 24px; padding: 0 3px; white-space: nowrap; }
