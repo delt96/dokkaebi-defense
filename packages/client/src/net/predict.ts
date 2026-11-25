@@ -1,4 +1,4 @@
-import { pickStored, type UnitView } from '@dorandi/logic';
+import { pickStored, type ShopView, type UnitView } from '@dorandi/logic';
 
 /** A command sent to the server that has no ack yet (wire form plus seq). */
 export interface PendingCmd { seq: number; type: string; args?: Record<string, unknown> }
@@ -8,10 +8,20 @@ const slotArg = (cmd: PendingCmd, name: string): number | null => {
   return typeof v === 'number' && Number.isInteger(v) ? v : null;
 };
 
-/** The server's board with the pending moves applied in order; a move whose source or target no longer fits is skipped. */
+/**
+ * The server's board with the pending moves and attaches applied in order; a move whose source or target no longer fits,
+ * or an attach whose unit left its slot, is skipped.
+ */
 export function predictUnits(server: (UnitView | null)[], open: boolean[], pending: PendingCmd[]): (UnitView | null)[] {
   const units = server.slice();
   for (const cmd of pending) {
+    if (cmd.type === 'attachItem') {
+      const slot = slotArg(cmd, 'slot');
+      const unit = slot === null ? null : units[slot];
+      const item = cmd.args?.item;
+      if (unit && unit.id === cmd.args?.unitId && typeof item === 'string') units[slot!] = { ...unit, item };
+      continue;
+    }
     if (cmd.type !== 'move') continue;
     const from = slotArg(cmd, 'from');
     const to = slotArg(cmd, 'to');
@@ -41,6 +51,17 @@ export function predictStorage(server: UnitView[] | undefined, pending: PendingC
     if (at >= 0) units.splice(at, 1);
   }
   return units;
+}
+
+/** The held charms less the ones pending attaches will use. */
+export function predictShop(server: ShopView, pending: PendingCmd[]): ShopView {
+  const used = new Map<string, number>();
+  for (const cmd of pending) {
+    const item = cmd.args?.item;
+    if (cmd.type === 'attachItem' && typeof item === 'string') used.set(item, (used.get(item) ?? 0) + 1);
+  }
+  if (!used.size) return server;
+  return { items: server.items.map(i => (used.has(i.id) ? { ...i, held: Math.max(0, i.held - used.get(i.id)!) } : i)) };
 }
 
 /** Summons the player can still press: server tokens minus summons not yet acked. */

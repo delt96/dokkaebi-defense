@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'vitest';
-import { buildFull, createMatch, loadGameData, stepMatch, toWire, type Command, type FullMsg, type TickMsg, type UnitView } from '@dorandi/logic';
+import { buildFull, createMatch, loadGameData, stepMatch, toWire, type Command, type FullMsg, type ShopView, type TickMsg, type UnitView } from '@dorandi/logic';
 import { placeUnitForTest, withoutMarketLock } from '@dorandi/logic/testing';
 
 const store = new Map<string, string>();
@@ -15,7 +15,7 @@ const store = new Map<string, string>();
 import { NetClient, stage2DataVersion } from '../src/net/NetClient';
 import type { RoomLike } from '../src/net/room';
 import { clearSession, lastName, loadSession, saveSession } from '../src/net/session';
-import { dimmedSlots, predictStorage, predictUnits, summonsLeft, type PendingCmd } from '../src/net/predict';
+import { dimmedSlots, predictShop, predictStorage, predictUnits, summonsLeft, type PendingCmd } from '../src/net/predict';
 
 class FakeRoom implements RoomLike {
   roomId = 'room-1';
@@ -232,6 +232,17 @@ describe('predict', () => {
     expect(predictUnits([a, null, null], open, [mv(1, 0, 1, 9)])).toEqual([a, null, null]);
     expect(predictUnits([null, a, null], open, [mv(1, 0, 1, 1)])).toEqual([null, a, null]);
     expect(predictUnits([a, null, null], open, [mv(1, 0, 1, 1), mv(2, 1, 0, 1)])).toEqual([a, null, null]);
+  });
+  test('a pending attach shows on its unit after earlier moves, is skipped once the unit left, and counts out of held', () => {
+    const at = (seq: number, slot: number, unitId: number, item = 'powerCharm'): PendingCmd => ({ seq, type: 'attachItem', args: { item, slot, unitId } });
+    expect(predictUnits([a, b, null], open, [at(1, 0, 1)])).toEqual([{ ...a, item: 'powerCharm' }, b, null]);
+    expect(predictUnits([a, b, null], open, [mv(1, 0, 1, 1, 2), at(2, 0, 1)])).toEqual([b, a, null]);
+    expect(predictUnits([a, b, null], open, [mv(1, 0, 1, 1, 2), at(2, 1, 1)])).toEqual([b, { ...a, item: 'powerCharm' }, null]);
+    expect(a).toEqual({ id: 1, defId: 'x' });
+    const shop = { items: [{ id: 'powerCharm', held: 2 }, { id: 'swiftCharm', held: 1 }] } as ShopView;
+    expect(predictShop(shop, [])).toBe(shop);
+    expect(predictShop(shop, [at(1, 0, 1), at(2, 1, 2, 'swiftCharm'), at(3, 0, 1, 'swiftCharm')]).items.map(i => i.held)).toEqual([1, 0]);
+    expect(shop.items.map(i => i.held)).toEqual([2, 1]);
   });
   test('summonsLeft and dimmedSlots', () => {
     const pending: PendingCmd[] = [{ seq: 1, type: 'summon' }, { seq: 2, type: 'combine', args: { result: 'r', slot: 3, unitId: 1 } }, { seq: 3, type: 'sell', args: { slot: 5, unitId: 2 } }];

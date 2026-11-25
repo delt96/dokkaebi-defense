@@ -248,9 +248,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'buyItem': if (arg) driver.queue({ type: 'buyItem', item: arg }); break;
       case 'attachItem': {
         const [item = '', target] = arg.split('@');
-        const slot = selectedSlot(driver.state, Number(target));
+        const unitId = Number(target);
+        const slot = selectedSlot(driver.state, unitId);
         itemMenuId = null;
-        if (item && slot !== null) driver.queue({ type: 'attachItem', item, slot });
+        if (item && slot !== null) driver.queue({ type: 'attachItem', item, slot, unitId });
         break;
       }
       case 'itemMenu': itemMenuId = itemMenuId === Number(arg) ? null : Number(arg); break;
