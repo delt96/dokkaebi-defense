@@ -587,6 +587,16 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 .dense .stack-disc { width: 14px; height: 14px; font-size: 8px; }
 .stack-n { position: absolute; right: 1px; bottom: 0; font-size: 9px; line-height: 10px; font-weight: bold; color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 0 1px #000; pointer-events: none; }
 .dense .stack-n { font-size: 8px; line-height: 9px; }
+/* the board's cream pair brackets and key tag; the tag takes the bottom left since ×N holds the bottom right */
+#storage .stack.pair .stack-take::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(var(--ink) 0 0) left top / 6px 2px no-repeat, linear-gradient(var(--ink) 0 0) left top / 2px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) right top / 6px 2px no-repeat, linear-gradient(var(--ink) 0 0) right top / 2px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) left bottom / 6px 2px no-repeat, linear-gradient(var(--ink) 0 0) left bottom / 2px 6px no-repeat,
+    linear-gradient(var(--ink) 0 0) right bottom / 6px 2px no-repeat, linear-gradient(var(--ink) 0 0) right bottom / 2px 6px no-repeat;
+}
+.pair-key { position: absolute; left: 0; bottom: 0; z-index: 1; width: 12px; height: 12px; font-style: normal; font-size: 10px; line-height: 12px; font-weight: bold; text-align: center; color: var(--panel); background: var(--ink); pointer-events: none; }
 #storage .stack-sell { width: 100%; min-height: 0; padding: 0; border-radius: 2px; font-size: 8px; line-height: 10px; text-align: center; color: #3a2a10; background: #d9b25a; border: 1px solid #7a5a22; opacity: 0.85; }
 #storage .stack-sell:hover { opacity: 1; border-color: #fff2c0; }
 #storage .stack-sell.armed { opacity: 1; color: #ffb396; background: #3a1f22; border-color: var(--danger); }

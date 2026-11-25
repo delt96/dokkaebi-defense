@@ -2,7 +2,7 @@ import { unitDefFast, type GameState } from '@dorandi/logic';
 import type { Lane } from '@dorandi/logic';
 import { GRADE_COLOR, STAGE_W, gradeShape, stageToCell } from '../layout';
 import { esc } from './dom';
-import { storageStacks, storedCombineOptions, unitSkillText } from './models';
+import { storageStacks, storedCombineOptions, unitSkillText, type ComboKey } from './models';
 import { typeBadgeHtml } from './badge';
 import { SPRITE_IDS } from '../art';
 
@@ -49,14 +49,22 @@ export function storageInfoHtml(state: GameState, info: NonNullable<ReturnType<t
 /** `jige` is the 지게 held on a 60-round lane (each stack then gets its swap button), undefined elsewhere. */
 /** `sellArmed` says which stack's sell strip has had its first press and waits for the second. */
 /** `inspected` is the stack whose info is open; it stays marked in the column while that info shows. */
-export function storageHtml(state: GameState, jige?: number, sellArmed: (defId: string) => boolean = () => false, inspected: string | null = null): string {
+/** `pairs`: stacks the selected unit's Z/X/C combines take from, with the first key that takes each (the board's brackets). */
+export function storageHtml(
+  state: GameState, jige?: number, sellArmed: (defId: string) => boolean = () => false, inspected: string | null = null,
+  pairs: ReadonlyMap<string, ComboKey> = new Map(),
+): string {
   const stacks = storageStacks(state);
   const total = stacks.reduce((n, s) => n + s.count, 0);
-  const list = stacks.map(s => `<div class="stack${s.defId === inspected ? ' inspected' : ''}" style="--g:${GRADE_COLOR[s.grade]}">
-      <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(s.name)} ×${s.count} · 눌러서 정보, 끌어서 꺼내기"${s.defId === inspected ? ' aria-current="true"' : ''}><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span></button>
+  const list = stacks.map(s => {
+    const key = pairs.get(s.defId);
+    const title = `${s.name} ×${s.count}${key ? ` · ${key} 조합 재료` : ''} · 눌러서 정보, 끌어서 꺼내기`;
+    return `<div class="stack${s.defId === inspected ? ' inspected' : ''}${key ? ' pair' : ''}" style="--g:${GRADE_COLOR[s.grade]}">
+      <button class="stack-take" data-stack="${esc(s.defId)}" title="${esc(title)}"${s.defId === inspected ? ' aria-current="true"' : ''}><span class="stack-icon">${iconHtml(s.defId, s.name, s.grade)}</span><span class="stack-n">×${s.count}</span>${key ? `<i class="pair-key" aria-hidden="true">${key}</i>` : ''}</button>
       ${stackSellHtml(s.defId, s.name, s.sellPrice, sellArmed(s.defId))}${jige === undefined ? '' : `
       <button class="stack-swap" data-action="jigeOpen" data-arg="storage:${esc(s.defId)}" title="${esc(s.name)} 지게 바꾸기 · 보유 지게 ${jige}개" aria-label="${esc(s.name)} 지게 바꾸기"${jige < 1 ? ' disabled' : ''}>R</button>`}
-    </div>`).join('');
+    </div>`;
+  }).join('');
   return `<div class="storage-head"><b>보관함</b>${total ? `<span>${total}</span>` : ''}</div>
     <button class="storage-all" data-action="storeAll" title="판 위의 1·2등급을 모두 보관 (${STORE_ALL_KEY})">1·2등급<br>모두 보관</button>
     ${list ? `<div class="storage-hint">눌러서 정보<br>끌어서 꺼내기</div><div class="stacks${stacks.length > ROOMY_STACKS ? ' dense' : ''}">${list}</div>` : '<p class="storage-empty">1·2등급 유닛을 여기로 끌어 놓으세요</p>'}`;

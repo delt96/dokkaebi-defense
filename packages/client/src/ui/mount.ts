@@ -27,8 +27,8 @@ import { helperPopHtml } from './helper';
 import { renderAlert, renderHud } from './hud';
 import { PressConfirm } from './confirm';
 import {
-  activeNotice, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, nextCombines, nextPick, nextUnitId, pinnedTarget, rejectText, selectedSlot,
-  type DexNav, type NextScope, type Notice,
+  activeNotice, boardMarks, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, NO_MARKS, nextCombines, nextPick, nextUnitId,
+  pinnedTarget, rejectText, rowCells, selectedSlot, type DexNav, type NextScope, type Notice,
 } from './models';
 import { renderBottom, renderRight, soloPanelHtml, unitDetailsHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
@@ -87,6 +87,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let lastSelectedId: number | null = null;
   // the row W picked and the unit it selected for it; any other selection drops it (render)
   let wPick: { result: string; unitId: number } | null = null;
+  // the next-list row under the mouse (left panel or online helper); render drops it once the row is gone
+  let hoverRow: string | null = null;
   function syncSelection(id: number | null): void {
     if (id === lastSelectedId) return;
     lastSelectedId = id;
@@ -441,6 +443,19 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     else delete el('storage').dataset.drop;
   };
   scene.onBoardDrag = on => el('storage').classList.toggle('board-drag', on);
+  // a hovered row lights its cells on the board; touch has no hover (selecting a unit shows its pairs instead)
+  el('left').addEventListener('pointerover', ev => {
+    if (ev.pointerType === 'touch') return;
+    const row = (ev.target as Element).closest<HTMLElement>('[data-recipe]')?.dataset.recipe ?? null;
+    if (row === hoverRow) return;
+    hoverRow = row;
+    render();
+  });
+  el('left').addEventListener('pointerleave', () => {
+    if (hoverRow === null) return;
+    hoverRow = null;
+    render();
+  });
   el('modal').addEventListener('submit', ev => {
     const form = ev.target as HTMLFormElement;
     if (!form.matches('.dex-search, .dex-skillsearch')) return;
@@ -641,6 +656,18 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const info = selected === null && storageVisible() ? storageInfoModel(s, inspectedStack) : null;
     if (!info) inspectedStack = null;
     const infoHtml = info ? storageInfoHtml(s, info) : '';
+    const list = nextCombines(s, { target: targetId, slot: selected, scope });
+    const listShown = view && opts.data ? helperOpen : s.phase !== 'ended' && !infoHtml;
+    const hovered = (listShown && list.rows.find(r => r.result === hoverRow)) || null;
+    if (!hovered) hoverRow = null;
+    // Z/X/C keys come from the selected unit's own list whatever scope the panel shows
+    const keyList = selected === null || scope === 'unit' ? list : nextCombines(s, { target: targetId, slot: selected });
+    const marks = driver.readOnly || s.phase === 'ended' ? NO_MARKS : {
+      ...boardMarks(s, keyList, selected),
+      // a row the selected unit is not in combines without it (its button sends no slot)
+      focus: hovered ? rowCells(s, hovered.result, hovered.uses ? selected : null) : null,
+    };
+    scene.boardMarks = marks;
     const target = targetId && pinnedTarget(
       s.data, targetId, driver.readOnly && view ? view.mine.units : s.slots, driver.readOnly && view ? view.mine.storage : s.storage, s,
     );
@@ -648,16 +675,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     el('stage').classList.toggle('has-target', !!el('target-overlay').firstChild);
     if (view && opts.data) {
       renderTop(view, opts.data);
-      const helper = helperOpen ? helperPopHtml(s, nextCombines(s, { target: targetId, slot: selected, scope }), {
-        unitId: selected === null ? null : s.slots[selected]?.id ?? null, scope, wPick: wPick?.result ?? null, hover: null, showAllOne,
+      const helper = helperOpen ? helperPopHtml(s, list, {
+        unitId: selected === null ? null : s.slots[selected]?.id ?? null, scope, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne,
       }) : '';
       renderRows(view, opts.data, helper, flashingSeats(now));
       renderAlert(s);
     } else {
       renderHud(s, driver.paused, activeNotice(notice, now));
-      const list = nextCombines(s, { target: targetId, slot: selected, scope });
       setHtml(el('left'), s.phase === 'ended' ? '' : infoHtml || soloPanelHtml(s, {
-        selected, list, idleList, wPick: wPick?.result ?? null, hover: null, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
+        selected, list, idleList, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
       }));
     }
     // the banner sits over the top of the lane; prompts there push it down a row, and with two prompts the band above the
@@ -688,7 +714,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), infoHtml);
     } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected), targetId);
-    setHtml(el('storage'), storageVisible() ? storageHtml(s, held, defId => confirm.armed(`sellStored:${defId}`, now), info ? info.defId : null) : '');
+    setHtml(el('storage'), storageVisible() ? storageHtml(
+      s, held, defId => confirm.armed(`sellStored:${defId}`, now), info ? info.defId : null, new Map(marks.stored.map(p => [p.defId, p.key])),
+    ) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
@@ -850,6 +878,7 @@ ${dex.mine.join()}`;
     targetFolded = false;
     helperOpen = false;
     scope = 'all';
+    hoverRow = null;
     lastSelectedId = null;
     skillOpen = false;
     showAllOne = false;

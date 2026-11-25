@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import {
-  STORAGE_MAX_GRADE, availableRecipes, countNormalEnemies, laneOf, loopPos, unitDefFast, type GameEvent, type GameState, type Lane,
+  STORAGE_MAX_GRADE, countNormalEnemies, laneOf, loopPos, unitDefFast, type GameEvent, type GameState, type Lane,
 } from '@dorandi/logic';
-import { selectedSlot } from './ui/models';
+import { NO_MARKS, selectedSlot, type BoardMarks } from './ui/models';
 import type { Driver } from './driver';
 import type { BirthBanner } from './ui/birth';
-import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
+import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, canvasInStorage, gradeShape, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_FILES, SMALL_IDS, SPRITE_IDS, loadArt, smallFile, smallKey, spriteFile } from './art';
 import { spriteKey, tameArt } from './sprites';
@@ -36,9 +36,21 @@ class LaneArtFile extends Phaser.Loader.File {
   }
 }
 
-const COMBINE_MARKER_RADIUS = 3;
+/** Board marks for combining (▲, pair brackets, key tags) are cream; yellow around a cell means the selected unit. */
+const MARK_CREAM = 0xe8e0d0;
+const GRADE_RADIUS = 2.5;
+/** A diamond's half-diagonal, so it covers about as much as the circle and square. */
+const DIAMOND_REACH = 3.25;
+const BRACKET_ARM = 7;
+const TAG_PX = 12;
 
-type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; gradeColor: number; combineMarker: Phaser.GameObjects.Arc };
+/** The first ▲ breathes once a second; reduced effects, or a higher-priority loop on the board (B3), hold it bright. */
+export function triangleAlpha(now: number, reduced: boolean, held: boolean): number {
+  if (reduced || held) return 1;
+  return 0.55 + 0.45 * (0.5 + 0.5 * Math.sin((2 * Math.PI * now) / 1000));
+}
+
+type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; grade: number; gradeColor: number };
 type EnemyContainer = Phaser.GameObjects.Container & {
   defId?: string; shared?: boolean; bar?: Phaser.GameObjects.Container; hp?: Phaser.GameObjects.Rectangle;
   /** Shared enemy only: when it came in (ms) and from which side, for the slide-in. */
@@ -74,7 +86,11 @@ export class LaneScene extends Phaser.Scene {
   private lastD = new Map<number, number>();
   private buffed = new Set<number>();
   private auraKey = '';
-  private storageKey = '';
+  private tags: Phaser.GameObjects.Text[] = [];
+  /** What the page wants marked on the board (set each render). */
+  boardMarks: BoardMarks = NO_MARKS;
+  /** Set by B3 while a higher-priority loop moves (gate countdown, over-limit jangseung, danger edge): the ▲ stays still and bright. */
+  pulseHeld = false;
   /** Told while a dragged board unit is over the storage column: 'ok' when it may go in, 'no' when not (grade 3+). */
   onStorageHover?: (hover: 'ok' | 'no' | null) => void;
   /** Told when a board unit drag starts and ends (the page lets the pointer through its storage column meanwhile). */
@@ -184,6 +200,7 @@ export class LaneScene extends Phaser.Scene {
     this.hoveredId = null;
     this.selectedId = null;
     this.overlay.clear();
+    for (const tag of this.tags) tag.setVisible(false);
     this.coverage.clear();
     this.units.clear();
     this.enemies.clear();
@@ -283,13 +300,12 @@ export class LaneScene extends Phaser.Scene {
 
   private drawSelection(): void {
     this.overlay.clear();
+    // brackets first: a bracket's top-left arm runs under the grade shape, which keeps its black edge on top
+    this.drawPairs();
     for (const view of this.units.values()) {
-      if (!view.visible) continue;
-      this.overlay.fillStyle(view.gradeColor, view.alpha);
-      // grade at the top-left corner; the combine dot takes the top-right
-      const corner = 12 * this.lane.pitch * view.scaleY;
-      this.overlay.fillCircle(view.x - corner, view.y - corner, 2 * view.scaleY);
+      if (view.visible) this.drawGradeShape(view);
     }
+    this.drawTriangles();
     this.coverage.clear();
     const draw = (id: number | null, alpha: number) => {
       const slot = selectedSlot(this.state, id);
@@ -315,11 +331,99 @@ export class LaneScene extends Phaser.Scene {
     draw(this.selectedId, 0.65);
   }
 
+  private drawGradeShape(view: UnitView): void {
+    const g = this.overlay;
+    const corner = 12 * this.lane.pitch * view.scaleY;
+    const x = view.x - corner;
+    const y = view.y - corner;
+    const r = GRADE_RADIUS * view.scaleY;
+    g.fillStyle(view.gradeColor, view.alpha);
+    g.lineStyle(1, 0x000000, view.alpha);
+    const shape = gradeShape(view.grade);
+    if (shape === 'c') {
+      g.fillCircle(x, y, r);
+      g.strokeCircle(x, y, r);
+    } else if (shape === 's') {
+      g.fillRect(x - r, y - r, r * 2, r * 2);
+      g.strokeRect(x - r, y - r, r * 2, r * 2);
+    } else {
+      const d = DIAMOND_REACH * view.scaleY;
+      const points = [{ x, y: y - d }, { x: x + d, y }, { x, y: y + d }, { x: x - d, y }];
+      g.fillPoints(points, true);
+      g.strokePoints(points, true);
+    }
+  }
+
+  /** ▲ at the top right of the result slots of the next list's top three (nothing selected). */
+  private drawTriangles(): void {
+    const g = this.overlay;
+    this.boardMarks.triangles.forEach((slot, i) => {
+      const unit = this.state.slots[slot];
+      const view = unit && this.units.get(unit.id);
+      if (!view?.visible) return;
+      const k = this.lane.pitch * view.scaleY;
+      const cx = view.x + 11 * k;
+      const cy = view.y - 11 * k;
+      const w = 3.5 * view.scaleY;
+      const h = 3 * view.scaleY;
+      const alpha = (i === 0 ? triangleAlpha(this.time?.now ?? 0, this.reduceFx, this.pulseHeld) : 0.7) * view.alpha;
+      g.fillStyle(MARK_CREAM, alpha);
+      g.fillTriangle(cx, cy - h, cx - w, cy + h, cx + w, cy + h);
+      g.lineStyle(1, 0x000000, alpha);
+      g.strokeTriangle(cx, cy - h, cx - w, cy + h, cx + w, cy + h);
+    });
+  }
+
+  /**
+   * Corner brackets on the selected unit's partner cells (each with the first key that takes it) and on the hovered
+   * row's cells; while a row is hovered, brackets outside it drop to 0.3.
+   */
+  private drawPairs(): void {
+    const { pairs, focus } = this.boardMarks;
+    const keyOf = new Map(pairs.map(p => [p.slot, p.key]));
+    const cells = [...new Set([...pairs.map(p => p.slot), ...(focus ?? [])])];
+    const size = cellPx(this.lane);
+    const arm = Math.min(BRACKET_ARM, size / 3);
+    const g = this.overlay;
+    let used = 0;
+    for (const slot of cells) {
+      const alpha = focus && !focus.includes(slot) ? 0.3 : 1;
+      const p = cellCorner(this.lane, slot);
+      const x0 = p.x + 1;
+      const y0 = p.y + 1;
+      const x1 = p.x + size - 1;
+      const y1 = p.y + size - 1;
+      g.lineStyle(2, MARK_CREAM, alpha);
+      g.lineBetween(x0, y0, x0 + arm, y0);
+      g.lineBetween(x0, y0, x0, y0 + arm);
+      g.lineBetween(x1, y0, x1 - arm, y0);
+      g.lineBetween(x1, y0, x1, y0 + arm);
+      g.lineBetween(x0, y1, x0 + arm, y1);
+      g.lineBetween(x0, y1, x0, y1 - arm);
+      g.lineBetween(x1, y1, x1 - arm, y1);
+      g.lineBetween(x1, y1, x1, y1 - arm);
+      const key = keyOf.get(slot);
+      if (!key) continue;
+      // bottom right: the grade shape holds the top left and the ▲ the top right
+      const tx = x1 - TAG_PX;
+      const ty = y1 - TAG_PX;
+      g.fillStyle(MARK_CREAM, alpha);
+      g.fillRect(tx, ty, TAG_PX, TAG_PX);
+      const tag = this.tags[used] ?? (this.tags[used] = this.add.text(0, 0, '', {
+        fontFamily: 'sans-serif', fontSize: '10px', fontStyle: 'bold', color: '#17121f',
+      }).setOrigin(0.5).setDepth(FX_DEPTH.unitOverlay + 0.1));
+      tag.setText(key).setPosition(tx + TAG_PX / 2, ty + TAG_PX / 2).setAlpha(alpha).setVisible(true);
+      used++;
+    }
+    for (let i = used; i < this.tags.length; i++) this.tags[i]!.setVisible(false);
+  }
+
   private makeUnitView(unitId: number, defId: string): UnitView {
     const def = unitDefFast(this.state.data, defId);
     const view = this.add.container(0, 0) as UnitView;
     view.unitId = unitId;
     view.defId = defId;
+    view.grade = def.grade;
     view.gradeColor = hex(GRADE_COLOR[def.grade] ?? '#ffffff');
     const k = this.lane.pitch;
     if (this.hasTexture(defId)) {
@@ -328,9 +432,6 @@ export class LaneScene extends Phaser.Scene {
       view.add(this.add.circle(0, 0, 11 * k, view.gradeColor).setStrokeStyle(1, 0x000000));
       view.add(this.add.text(0, 0, def.name.slice(0, 1), { fontSize: '11px', color: '#10101a', fontFamily: 'sans-serif' }).setOrigin(0.5));
     }
-    // the top-right corner, across from the grade dot at the top-left
-    view.combineMarker = this.add.circle(11 * k, -11 * k, COMBINE_MARKER_RADIUS, 0xffd65c).setStrokeStyle(1, 0x10101a);
-    view.add(view.combineMarker);
     view.setSize(cellPx(this.lane), cellPx(this.lane)).setInteractive({ draggable: true, useHandCursor: true }).setDepth(3);
     view.on('pointerover', () => { this.hoveredId = unitId; });
     view.on('pointerout', () => { if (this.hoveredId === unitId) this.hoveredId = null; });
@@ -380,7 +481,6 @@ export class LaneScene extends Phaser.Scene {
 
   private placeUnits(): void {
     const seen = new Set<number>();
-    let unitsChanged = false;
     const dimmed = this.driver.dimmed;
     this.state.slots.forEach((u, slot) => {
       if (!u) return;
@@ -397,7 +497,6 @@ export class LaneScene extends Phaser.Scene {
       if (!view) {
         view = this.makeUnitView(u.id, u.defId);
         this.units.set(u.id, view);
-        unitsChanged = true;
       }
       // a combine or sell waiting for the server fades its slot
       const alpha = dimmed.has(slot) ? 0.4 : 1;
@@ -418,32 +517,11 @@ export class LaneScene extends Phaser.Scene {
       view.motion?.stop();
       view.destroy();
       this.units.delete(id);
-      unitsChanged = true;
     }
-    // stored materials count for the markers too
-    const storageKey = (this.state.storage ?? []).map(u => u.id).join(',');
-    if (storageKey !== this.storageKey) { this.storageKey = storageKey; unitsChanged = true; }
-    if (unitsChanged) this.updateCombineMarkers();
     const auraKey = this.state.slots.map(u => u?.defId ?? '').join(',');
     if (auraKey !== this.auraKey) {
       this.auraKey = auraKey;
       this.buffed = auraBuffedSlots(this.state);
-    }
-  }
-
-  /** The ready-to-combine dot breathes so it reads against busy sprites; reduced effects keep it still. */
-  private pulseCombineMarkers(now: number): void {
-    const alpha = this.reduceFx ? 1 : 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(now / 220));
-    for (const view of this.units.values()) view.combineMarker.alpha = alpha;
-  }
-
-  private updateCombineMarkers(): void {
-    const ready = new Set(availableRecipes(this.state));
-    const materials = new Set(
-      this.state.data.recipes.filter(recipe => ready.has(recipe.result)).flatMap(recipe => recipe.materials),
-    );
-    for (const unit of this.state.slots) {
-      if (unit) this.units.get(unit.id)?.combineMarker.setVisible(materials.has(unit.defId));
     }
   }
 
@@ -746,7 +824,6 @@ export class LaneScene extends Phaser.Scene {
     const key = this.state.open.map(o => (o ? 1 : 0)).join('');
     if (key !== this.openKey) this.drawBoard();
     this.placeUnits();
-    this.pulseCombineMarkers(this.time.now);
     this.placeEnemies();
     this.drawFires();
     this.drawSelection();

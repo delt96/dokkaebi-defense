@@ -1,16 +1,20 @@
 import { EventEmitter } from 'node:events';
-import { laneToCanvas } from '../src/layout';
-import { createGame, loadGameData } from '@dorandi/logic';
+import { cellCorner, cellPx, laneToCanvas } from '../src/layout';
+import { createGame, loadGameData, type GameData } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { expect, test, vi } from 'vitest';
 import { GameDriver } from '../src/driver';
-import { LaneScene } from '../src/LaneScene';
+import { LaneScene, triangleAlpha } from '../src/LaneScene';
 import { FX_DEPTH } from '../src/fx/FxLayer';
+import { NO_MARKS } from '../src/ui/models';
 
 vi.mock('phaser', () => ({ default: { Scene: class {}, Loader: { File: class {} } } }));
 
-function setupScene() {
-  const state = createGame(loadGameData(), 1);
+const CREAM = 0xe8e0d0;
+type Mock = ReturnType<typeof vi.fn>;
+
+function setupScene(data: GameData = loadGameData()) {
+  const state = createGame(data, 1);
   const driver = new GameDriver(state);
   const scene = new LaneScene(driver);
   const circle = vi.fn((_x: number, _y: number, _radius: number, _color: number) => {
@@ -25,33 +29,159 @@ function setupScene() {
     });
     return view;
   });
+  const text = vi.fn(() => {
+    const tag: Record<string, Mock> = {};
+    for (const name of ['setOrigin', 'setDepth', 'setText', 'setPosition', 'setAlpha', 'setVisible']) tag[name] = vi.fn(() => tag);
+    return tag;
+  });
   const tweens = { add: vi.fn() };
   Object.assign(scene, {
     textures: { exists: () => true },
-    add: { circle, container, image: vi.fn() },
+    add: { circle, container, image: vi.fn(), text },
     tweens,
   });
-  return { state, driver, scene, circle, tweens, container };
+  return { state, driver, scene, circle, tweens, container, text };
 }
 
-test('the unit grade dot sits at the top-left corner above attack effects and follows the visible unit', () => {
-  const { scene, state, container } = setupScene();
-  placeUnitForTest(state, 'sotlid', 0);
-  scene['placeUnits']();
-  const view = container.mock.results[0]!.value;
-  view.visible = true;
-  view.scaleY = 1;
-  view.setPosition(80, 90);
-  const overlay = { clear: vi.fn(), fillStyle: vi.fn(), fillCircle: vi.fn() };
-  Object.assign(scene, { overlay, coverage: { clear: vi.fn() } });
+const OVERLAY_CALLS = [
+  'clear', 'fillStyle', 'fillCircle', 'strokeCircle', 'fillRect', 'strokeRect', 'fillPoints', 'strokePoints',
+  'fillTriangle', 'strokeTriangle', 'lineStyle', 'lineBetween',
+] as const;
+type Overlay = Record<(typeof OVERLAY_CALLS)[number], Mock>;
+
+function mockOverlay(): Overlay {
+  const g = {} as Overlay;
+  for (const name of OVERLAY_CALLS) g[name] = vi.fn(() => g);
+  return g;
+}
+
+/** Places the units, shows every view at scale 1 on its cell and swaps in a recording overlay. */
+function drawn(ids: string[], data?: GameData) {
+  const setup = setupScene(data);
+  ids.forEach((id, slot) => placeUnitForTest(setup.state, id, slot));
+  setup.scene['placeUnits']();
+  const views = setup.container.mock.results.map(r => r.value);
+  views.forEach((view, i) => {
+    const c = laneToCanvas(setup.scene.lane.cells[i]!);
+    Object.assign(view, { visible: true, scaleY: 1, alpha: 1 });
+    view.setPosition(c.x, c.y);
+  });
+  const overlay = mockOverlay();
+  Object.assign(setup.scene, { overlay, coverage: { clear: vi.fn() } });
+  return { ...setup, views, overlay };
+}
+
+/** The arguments of the last `style` call made before the n-th `draw` call. */
+function styleBefore(g: Overlay, style: keyof Overlay, draw: keyof Overlay, n = 0): unknown[] {
+  const at = g[draw].mock.invocationCallOrder[n]!;
+  const orders = g[style].mock.invocationCallOrder;
+  let i = orders.length - 1;
+  while (i >= 0 && orders[i]! > at) i--;
+  return g[style].mock.calls[i]!;
+}
+
+test('the grade shape sits at the top-left corner above attack effects: circle, square, diamond with a black edge', () => {
+  const { scene, views, overlay, circle } = drawn(['sotlid', 'jangdok', 'top'], loadGameData('stage3'));
+  views.forEach((view, i) => view.setPosition(80 + 40 * i, 90));
+  expect(circle).not.toHaveBeenCalled();
   expect(FX_DEPTH.unitOverlay).toBeGreaterThan(FX_DEPTH.air);
+  const k = 12 * scene.lane.pitch;
 
   scene['drawSelection']();
-  expect(overlay.fillCircle).toHaveBeenCalledWith(68, 78, 2);
-  overlay.fillCircle.mockClear();
-  view.visible = false;
+  expect(overlay.fillCircle).toHaveBeenCalledExactlyOnceWith(80 - k, 90 - k, 2.5);
+  expect(overlay.strokeCircle).toHaveBeenCalledExactlyOnceWith(80 - k, 90 - k, 2.5);
+  expect(styleBefore(overlay, 'lineStyle', 'strokeCircle')).toEqual([1, 0x000000, 1]);
+  expect(overlay.fillRect).toHaveBeenCalledExactlyOnceWith(120 - k - 2.5, 90 - k - 2.5, 5, 5);
+  expect(overlay.strokeRect).toHaveBeenCalledOnce();
+  expect(overlay.fillPoints).toHaveBeenCalledOnce();
+  expect(overlay.strokePoints).toHaveBeenCalledOnce();
+  const diamond = overlay.fillPoints.mock.calls[0]![0] as { x: number; y: number }[];
+  expect(diamond).toHaveLength(4);
+  for (const p of diamond) expect(Math.abs(p.x - (160 - k)) + Math.abs(p.y - (90 - k))).toBeGreaterThan(2.5);
+
+  for (const fn of Object.values(overlay)) fn.mockClear();
+  for (const view of views) view.visible = false;
   scene['drawSelection']();
   expect(overlay.fillCircle).not.toHaveBeenCalled();
+  expect(overlay.fillRect).not.toHaveBeenCalled();
+  expect(overlay.fillPoints).not.toHaveBeenCalled();
+});
+
+test('▲ goes to the triangle slots only, cream with a black edge at the top right', () => {
+  const { scene, views, overlay } = drawn(['sotlid', 'bujigaengi', 'buchae']);
+  scene['drawSelection']();
+  expect(overlay.fillTriangle).not.toHaveBeenCalled();
+
+  scene.boardMarks = { ...NO_MARKS, triangles: [0] };
+  scene['drawSelection']();
+  expect(overlay.fillTriangle).toHaveBeenCalledOnce();
+  expect(overlay.strokeTriangle).toHaveBeenCalledOnce();
+  expect(styleBefore(overlay, 'fillStyle', 'fillTriangle')[0]).toBe(CREAM);
+  expect(styleBefore(overlay, 'lineStyle', 'strokeTriangle').slice(0, 2)).toEqual([1, 0x000000]);
+  const [x1, y1, x2, y2, x3, y3] = overlay.fillTriangle.mock.calls[0] as number[];
+  const view = views[0]!;
+  expect(Math.min(x1!, x2!, x3!)).toBeGreaterThan(view.x);
+  expect(Math.max(y1!, y2!, y3!)).toBeLessThan(view.y);
+  expect(y1).toBeLessThan(y2!);
+});
+
+test('only the first ▲ breathes; the others stay at 0.7, and reduced effects keep the first bright', () => {
+  const { scene, overlay } = drawn(['sotlid', 'bujigaengi', 'buchae']);
+  scene['reduceFx'] = true;
+  scene.boardMarks = { ...NO_MARKS, triangles: [2, 0] };
+  scene['drawSelection']();
+  expect(overlay.fillTriangle).toHaveBeenCalledTimes(2);
+  expect(styleBefore(overlay, 'fillStyle', 'fillTriangle', 0)).toEqual([CREAM, 1]);
+  expect(styleBefore(overlay, 'fillStyle', 'fillTriangle', 1)).toEqual([CREAM, 0.7]);
+});
+
+test('triangleAlpha breathes once a second and holds still when reduced or held by a higher loop', () => {
+  expect(triangleAlpha(0, true, false)).toBe(1);
+  expect(triangleAlpha(750, false, true)).toBe(1);
+  expect(triangleAlpha(250, false, false)).toBeCloseTo(1);
+  expect(triangleAlpha(750, false, false)).toBeCloseTo(0.55);
+  expect(triangleAlpha(1250, false, false)).toBeCloseTo(1);
+});
+
+test('brackets and a key tag on pair cells; a hovered row dims the other brackets to 0.3', () => {
+  const { scene, overlay, text } = drawn(['sotlid', 'bujigaengi', 'buchae']);
+  scene.boardMarks = { ...NO_MARKS, pairs: [{ slot: 1, key: 'Z' }] };
+  scene['drawSelection']();
+  expect(overlay.lineBetween).toHaveBeenCalledTimes(8);
+  expect(styleBefore(overlay, 'lineStyle', 'lineBetween')).toEqual([expect.any(Number), CREAM, 1]);
+  expect(text).toHaveBeenCalledOnce();
+  const tag = text.mock.results[0]!.value as Record<string, Mock>;
+  expect(tag.setText).toHaveBeenLastCalledWith('Z');
+  expect(tag.setVisible).toHaveBeenLastCalledWith(true);
+  const corner = cellCorner(scene.lane, 1);
+  const size = cellPx(scene.lane);
+  const [tx, ty] = tag.setPosition!.mock.lastCall as number[];
+  expect(tx).toBeGreaterThan(corner.x + size / 2);
+  expect(ty).toBeGreaterThan(corner.y + size / 2);
+  expect(tx).toBeLessThan(corner.x + size);
+  expect(ty).toBeLessThan(corner.y + size);
+  expect(styleBefore(overlay, 'fillStyle', 'fillRect')[0]).toBe(CREAM);
+
+  for (const fn of Object.values(overlay)) fn.mockClear();
+  scene.boardMarks = { ...NO_MARKS, pairs: [{ slot: 1, key: 'Z' }], focus: [2] };
+  scene['drawSelection']();
+  expect(overlay.lineStyle).toHaveBeenCalledWith(expect.any(Number), CREAM, 0.3);
+  expect(overlay.lineStyle).toHaveBeenCalledWith(expect.any(Number), CREAM, 1);
+  expect(tag.setAlpha).toHaveBeenLastCalledWith(0.3);
+  expect(text).toHaveBeenCalledOnce();
+
+  scene.boardMarks = NO_MARKS;
+  scene['drawSelection']();
+  expect(tag.setVisible).toHaveBeenLastCalledWith(false);
+});
+
+test('nothing selected: a hovered row brackets its cells without key tags', () => {
+  const { scene, overlay, text } = drawn(['sotlid', 'bujigaengi', 'buchae']);
+  scene.boardMarks = { ...NO_MARKS, focus: [0, 2] };
+  scene['drawSelection']();
+  expect(overlay.lineBetween).toHaveBeenCalledTimes(16);
+  expect(overlay.lineStyle).not.toHaveBeenCalledWith(expect.any(Number), CREAM, 0.3);
+  expect(text).not.toHaveBeenCalled();
 });
 
 test('drop moves the dragged unit after a pending swap', () => {
@@ -71,33 +201,19 @@ test('drop moves the dragged unit after a pending swap', () => {
   expect(state.slots[1]?.id).toBe(a.id);
 });
 
-test('combine markers appear for every eligible copy and clear when a material is consumed', () => {
-  const { state, driver, scene, circle, tweens } = setupScene();
-  const markers = () => circle.mock.calls.flatMap(([, , radius], i) =>
-    radius === 3 ? [circle.mock.results[i]!.value.setVisible] : [],
-  );
-
+test('redrawing an unchanged board starts no slide, a move slides once', () => {
+  const { state, driver, scene, tweens } = setupScene();
   placeUnitForTest(state, 'sotlid', 0);
   placeUnitForTest(state, 'sotlid', 1);
   placeUnitForTest(state, 'buchae', 2);
-  scene['placeUnits']();
-  expect(markers().map(marker => marker.mock.lastCall)).toEqual([[false], [false], [false]]);
-
   placeUnitForTest(state, 'bujigaengi', 3);
   scene['placeUnits']();
-  expect(markers().map(marker => marker.mock.lastCall)).toEqual([[true], [true], [false], [true]]);
-
-  const visibilityUpdates = markers().map(marker => marker.mock.calls.length);
   scene['placeUnits']();
-  expect(markers().map(marker => marker.mock.calls.length)).toEqual(visibilityUpdates);
   expect(tweens.add).not.toHaveBeenCalled();
 
   driver.queue({ type: 'combine', result: 'gamasot', slot: 0 });
   driver.update(state.data.balance.tickMs);
   scene['placeUnits']();
-  expect(markers()[1]).toHaveBeenLastCalledWith(false);
-  expect(markers()[4]).toHaveBeenLastCalledWith(false);
-
   driver.queue({ type: 'move', from: 1, to: 8 });
   driver.update(state.data.balance.tickMs);
   scene['placeUnits']();
