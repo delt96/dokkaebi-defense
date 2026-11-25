@@ -1,6 +1,6 @@
 import { difficultySuffix } from './difficulty';
 import {
-  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineLockRound, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
+  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineLockRound, countNormalEnemies, missingMaterials, storedMaterials, availableRecipes, unitDefFast,
   upgradeCost, summonOddsForRound, roundResistRange,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
@@ -398,60 +398,116 @@ export function materialsOf(state: GameState, result: string, missingIds: readon
   });
 }
 
-/** Recipes that can be made now (in table order); stage 3 also lists those that only lack the cost, marked `short`. */
-export function helperModel(state: GameState): HelperItem[] {
-  const out: HelperItem[] = [];
-  for (const recipe of state.data.recipes) {
-    const missing = missingMaterials(state, recipe.result);
-    if (missing.length) continue;
-    const cost = costText(recipe);
-    const short = blockedText(state, recipe);
-    const def = unitDefFast(state.data, recipe.result);
-    const stored = storedMaterials(state, recipe.result);
-    out.push({
-      recipe: recipe.result, name: def.name, grade: def.grade, materials: materialsOf(state, recipe.result, missing), ...(cost ? { cost } : {}), ...(short ? { short } : {}), ...(stored ? { stored } : {}),
-    });
-  }
-  return out;
-}
-
 const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
 
 /** `short` describes any currency shortfall. */
 export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
 
-function optionsFor(state: GameState, recipes: { result: string; missing: string[] }[]): CombineOption[] {
-  return recipes.map(({ result, missing }): CombineOption => {
-    const { name, grade } = unitDefFast(state.data, result);
-    const recipe = state.data.recipes.find(r => r.result === result);
-    const cost = costText(recipe);
-    const short = blockedText(state, recipe);
-    return {
-      result, name, grade,
-      missing: missing.map(id => unitDefFast(state.data, id).name),
-      materials: materialsOf(state, result, missing),
-      key: null,
-      ...(cost ? { cost } : {}),
-      ...(short ? { short } : {}),
-    };
-  });
+function optionFor(state: GameState, result: string, missing: readonly string[]): CombineOption {
+  const { name, grade } = unitDefFast(state.data, result);
+  const recipe = state.data.recipes.find(r => r.result === result);
+  const cost = costText(recipe);
+  const short = blockedText(state, recipe);
+  return {
+    result, name, grade,
+    missing: missing.map(id => unitDefFast(state.data, id).name),
+    materials: materialsOf(state, result, missing),
+    key: null,
+    ...(cost ? { cost } : {}),
+    ...(short ? { short } : {}),
+  };
 }
 
 const ready = (option: CombineOption) => !option.missing.length && !option.short;
 
 /** Recipes a stored kind can go into right now (board units first, then storage, as the combine command takes them). */
 export function storedCombineOptions(state: GameState, defId: string): CombineOption[] {
-  const recipes = state.data.recipes.filter(r => r.materials.includes(defId))
-    .map(r => ({ result: r.result, missing: missingMaterials(state, r.result) }));
-  return optionsFor(state, recipes).filter(ready);
+  return state.data.recipes.filter(r => r.materials.includes(defId))
+    .map(r => optionFor(state, r.result, missingMaterials(state, r.result))).filter(ready);
 }
 
-export function combineOptions(state: GameState, slot: number): CombineOption[] {
-  const options = optionsFor(state, recipesUsing(state, slot));
-  options.sort((a, b) => Number(ready(b)) - Number(ready(a)) || a.missing.length - b.missing.length);
-  let nextKey = 0;
-  for (const option of options) if (ready(option)) option.key = COMBINE_KEYS[nextKey++] ?? null;
-  return options;
+export type NextScope = 'unit' | 'all';
+export type NextGroup = 'target' | 'ready' | 'one' | 'far';
+/** uses: the selected unit is one of the materials. */
+export interface NextRow extends CombineOption { group: NextGroup; uses: boolean }
+/** `far` (unit scope only): recipes two or more materials short. `counts`: ready rows (no shortfall) per scope, `unit` null with nothing selected. */
+export interface NextList {
+  scope: NextScope; rows: NextRow[]; far: NextRow[];
+  counts: { unit: number | null; all: number };
+  target: { id: string; name: string } | null;
+}
+export interface NextOpts { target?: string | null; slot?: number | null; scope?: NextScope }
+
+/** Recipe results of the target tree's missing nodes, each at its shallowest depth. */
+function targetDepths(state: GameState, target: string | null): Map<string, number> {
+  const depths = new Map<string, number>();
+  const tree = target ? pinnedTarget(state.data, target, state.slots, state.storage ?? [], state) : null;
+  let level = tree ? [tree] : [];
+  for (let depth = 0; level.length; depth++) {
+    for (const node of level) if (node.location === 'missing' && node.children.length && !depths.has(node.id)) depths.set(node.id, depth);
+    level = level.flatMap(node => node.children);
+  }
+  return depths;
+}
+
+/** The one "what to combine next" list the helper, the unit panel, the keys and the board marks all read. */
+export function nextCombines(state: GameState, opts: NextOpts = {}): NextList {
+  const slot = opts.slot ?? null;
+  const unitDef = slot === null ? null : state.slots[slot]?.defId ?? null;
+  const scope: NextScope = unitDef === null ? 'all' : opts.scope ?? 'unit';
+  const tableOrder = new Map(state.data.recipes.map((r, i) => [r.result, i]));
+  const depths = targetDepths(state, opts.target ?? null);
+  const makeable = new Set(availableRecipes(state));
+  const byGrade = (a: NextRow, b: NextRow) => b.grade - a.grade || tableOrder.get(a.result)! - tableOrder.get(b.result)!;
+
+  const groups: Record<NextGroup, NextRow[]> = { target: [], ready: [], one: [], far: [] };
+  const lacking = new Map<string, string>();
+  let all = 0;
+  let unit = 0;
+  for (const recipe of state.data.recipes) {
+    const missing = missingMaterials(state, recipe.result);
+    const uses = unitDef !== null && recipe.materials.includes(unitDef);
+    const option = optionFor(state, recipe.result, missing);
+    if (ready(option)) { all++; if (uses) unit++; }
+    if (scope === 'unit' && !uses) continue;
+    const group: NextGroup = depths.has(recipe.result) && missing.length <= 1 ? 'target'
+      : !missing.length ? 'ready' : missing.length === 1 ? 'one' : 'far';
+    if (group === 'far' && scope === 'all') continue;
+    if (missing.length === 1) lacking.set(recipe.result, missing[0]!);
+    groups[group].push({ ...option, group, uses });
+  }
+  groups.target.sort((a, b) => depths.get(a.result)! - depths.get(b.result)! || byGrade(a, b));
+  groups.ready.sort((a, b) => Number(!!a.short) - Number(!!b.short) || byGrade(a, b));
+  const unmakeable = (row: NextRow) => Number(!makeable.has(lacking.get(row.result)!));
+  groups.one.sort((a, b) => unmakeable(a) - unmakeable(b) || byGrade(a, b));
+
+  const rows = [...groups.target, ...groups.ready, ...groups.one];
+  if (unitDef !== null) {
+    let next = 0;
+    for (const row of rows) if (row.uses && ready(row)) row.key = COMBINE_KEYS[next++] ?? null;
+  }
+  const target = opts.target && tableOrder.has(opts.target) ? { id: opts.target, name: unitDefFast(state.data, opts.target).name } : null;
+  return { scope, rows, far: groups.far, counts: { unit: unitDef === null ? null : unit, all }, target };
+}
+
+const plainOption = ({ group: _g, uses: _u, ...option }: NextRow): CombineOption => option;
+
+/** Every recipe the unit in `slot` goes into, in next-list order (the far ones last). */
+export function combineOptions(state: GameState, slot: number, target?: string | null): CombineOption[] {
+  if (!state.slots[slot]) return [];
+  const list = nextCombines(state, { target, slot, scope: 'unit' });
+  return [...list.rows, ...list.far].map(plainOption);
+}
+
+/** Recipes whose materials are all there, in next-list order; stage 3 also lists those that only lack the cost, marked `short`. */
+export function helperModel(state: GameState, target?: string | null): HelperItem[] {
+  return nextCombines(state, { target }).rows.filter(row => !row.missing.length).map(row => {
+    const stored = storedMaterials(state, row.result);
+    return {
+      recipe: row.result, name: row.name, grade: row.grade, materials: row.materials,
+      ...(row.cost ? { cost: row.cost } : {}), ...(row.short ? { short: row.short } : {}), ...(stored ? { stored } : {}),
+    };
+  });
 }
 
 const UPGRADE_TARGET: Record<UpgradeId, string> = { physical: '물딜 공격력', magical: '마딜 공격력', polish: '1~4등급 공격력' };

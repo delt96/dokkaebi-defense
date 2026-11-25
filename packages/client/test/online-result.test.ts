@@ -23,11 +23,11 @@ describe('team result', () => {
     const s = createGame(data, 1); placeUnitForTest(s, 'byeoru', 0);
     expect(unitCard(s, 0)!.skillText).toContain('실제 35%');
   });
-  test('four ready recipes: Z/X/C on the first three in table order, the fourth still listed', () => {
+  test('four ready recipes: Z/X/C on the first three by grade then table order, the fourth still listed', () => {
     const s = createGame(data, 1);
     ['horong', 'bujigaengi', 'buchae', 'dadeumi', 'hwaetbul', 'bitjaru'].forEach((id, i) => placeUnitForTest(s, id, i));
     const opts = combineOptions(s, 0).filter(o => o.missing.length === 0);
-    expect(opts.map(o => [o.result, o.key])).toEqual([['hwaro', 'Z'], ['cheongsachorong', 'X'], ['mumyeong', 'C'], ['jwibul', null]]);
+    expect(opts.map(o => [o.result, o.key])).toEqual([['jwibul', 'Z'], ['hwaro', 'X'], ['cheongsachorong', 'C'], ['mumyeong', null]]);
   });
   test('dex lists 40 units for stage 2', () => {
     expect(dexEntries(data).length).toBe(40);
