@@ -1,7 +1,7 @@
 import { difficultySuffix } from './difficulty';
 import {
-  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineLockRound, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
-  upgradeCost, unitRange, summonOddsForRound, roundResistRange,
+  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineEatsItem, combineLockRound, countNormalEnemies, itemOf, missingMaterials, recipesUsing,
+  storedMaterials, unitDefFast, upgradeCost, unitRange, summonOddsForRound, roundResistRange,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 import { ROLE_LABEL, unitRoles, type RoleTag } from './dex-roles';
@@ -41,6 +41,10 @@ export interface SkillCtx {
  */
 export const attackRangeText = (data: GameData, range: number): string =>
   `${Math.round((range / laneOf({ data }).pitch) * 10) / 10}칸`;
+/** Under a combine that uses up a unit's item (combineEatsItem with the same arguments the button sends). */
+export const EATS_ITEM_TEXT = '아이템이 사라집니다';
+/** Under the attach buttons of a unit that already has an item: the old one is lost, never returned. */
+export const REPLACE_ITEM_TEXT = '붙이면 지금 아이템은 사라집니다';
 export const ATTACK_RANGE_HINT = '칸 가운데에서 적까지 잰 직선거리입니다. 유닛을 고르면 닿는 길이 노랗게 보입니다.';
 
 /** Who a status lands on (stage 3 `radius` / `area`); empty for the plain target. */
@@ -369,7 +373,7 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
  * `cost` is set on recipes with a cost (stage 3 grades 5 and 6), `short` when every material is there but the cost is not,
  * `stored` when some materials would come out of storage (how many).
  */
-export interface HelperItem { recipe: string; name: string; grade: number; materials: Material[]; cost?: string; short?: string; stored?: number }
+export interface HelperItem { recipe: string; name: string; grade: number; materials: Material[]; cost?: string; short?: string; stored?: number; eatsItem?: true }
 
 /** A recipe material as the chips draw it; `have` is false for the copies the board and storage cannot cover. */
 export interface Material { id: string; name: string; grade: number; have: boolean }
@@ -401,6 +405,7 @@ export function helperModel(state: GameState): HelperItem[] {
     const stored = storedMaterials(state, recipe.result);
     out.push({
       recipe: recipe.result, name: def.name, grade: def.grade, materials: materialsOf(state, recipe.result, missing), ...(cost ? { cost } : {}), ...(short ? { short } : {}), ...(stored ? { stored } : {}),
+      ...(combineEatsItem(state, recipe.result) && { eatsItem: true as const }),
     });
   }
   return out;
@@ -409,9 +414,10 @@ export function helperModel(state: GameState): HelperItem[] {
 const COMBINE_KEYS = ['Z', 'X', 'C'] as const;
 
 /** `short` describes any currency shortfall. */
-export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string }
+export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string; eatsItem?: true }
 
-function optionsFor(state: GameState, recipes: { result: string; missing: string[] }[]): CombineOption[] {
+/** `slot`: the cell the option's button sends (none for storage and the helper), as combineEatsItem takes it. */
+function optionsFor(state: GameState, recipes: { result: string; missing: string[] }[], slot?: number): CombineOption[] {
   return recipes.map(({ result, missing }): CombineOption => {
     const { name, grade } = unitDefFast(state.data, result);
     const recipe = state.data.recipes.find(r => r.result === result);
@@ -424,6 +430,7 @@ function optionsFor(state: GameState, recipes: { result: string; missing: string
       key: null,
       ...(cost ? { cost } : {}),
       ...(short ? { short } : {}),
+      ...(combineEatsItem(state, result, slot) && { eatsItem: true as const }),
     };
   });
 }
@@ -438,7 +445,7 @@ export function storedCombineOptions(state: GameState, defId: string): CombineOp
 }
 
 export function combineOptions(state: GameState, slot: number): CombineOption[] {
-  const options = optionsFor(state, recipesUsing(state, slot));
+  const options = optionsFor(state, recipesUsing(state, slot), slot);
   options.sort((a, b) => Number(ready(b)) - Number(ready(a)) || a.missing.length - b.missing.length);
   let nextKey = 0;
   for (const option of options) if (ready(option)) option.key = COMBINE_KEYS[nextKey++] ?? null;
@@ -470,6 +477,28 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
 export interface UnitCard {
   name: string; grade: number; hidden: boolean; typeText: '물딜' | '마딜'; skillText: string; notes: string[]; usedIn: string[]; roles: RoleTag[];
   attack: number; attackBonus: number; interval: number; speedBonus: number; range: number; sellPrice: number;
+  /** The attached stage 3 item; `short` is the board's corner letter. `share` is its part of attackBonus / speedBonus / range. */
+  item: { id: string; name: string; short: string } | null;
+  share: { attack: number; speed: number; range: number };
+}
+
+/** The corner letter of the item on the unit in `slot`, or null. */
+export function itemShort(state: GameState, slot: number): string | null {
+  return itemOf(state, slot)?.name.slice(0, 1) ?? null;
+}
+
+/** "+20% 힘 부적" after an attack or interval figure; empty without that kind of item. */
+export function itemShareText(card: UnitCard, kind: 'attack' | 'speed'): string {
+  const share = card.share[kind];
+  return card.item && share ? ` (+${pct(share)} ${card.item.name})` : '';
+}
+
+/** "사거리 2칸 (+0.5 사거리 부적)"; `compact` (the one-line online card) drops the item name. */
+export function cardRangeText(data: GameData, card: UnitCard, compact = false): string {
+  const base = `사거리 ${attackRangeText(data, card.range)}`;
+  if (!card.item || !card.share.range) return base;
+  const amount = Math.round((card.share.range / laneOf({ data }).pitch) * 10) / 10;
+  return compact ? `${base}(+${amount})` : `${base} (+${amount} ${card.item.name})`;
 }
 
 export function unitCard(state: GameState, slot: number): UnitCard | null {
@@ -484,7 +513,14 @@ export function unitCard(state: GameState, slot: number): UnitCard | null {
   }
   const attackBonus = damageBonus(state, slot);
   const fast = speedBonus(state, slot);
+  const item = itemOf(state, slot);
+  const effect = item?.effect;
   return {
+    item: item ? { id: item.id, name: item.name, short: item.name.slice(0, 1) } : null,
+    share: {
+      attack: effect?.kind === 'attack' ? effect.pct : 0, speed: effect?.kind === 'speed' ? effect.pct : 0,
+      range: effect?.kind === 'range' ? effect.amount : 0,
+    },
     name: def.name, grade: def.grade, hidden: def.hidden === true, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
     attack: Math.round(unitAttack(def, state.data.balance) * (1 + attackBonus)), attackBonus,
     interval: attackIntervalTicks(def.interval, fast) * state.data.balance.tickMs / 1000, speedBonus: fast,

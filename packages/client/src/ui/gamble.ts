@@ -48,7 +48,7 @@ const gradeText = (result: number | 'hidden') => result === 0 ? '꽝' : result =
 const percent = (chance: number) => `${+(chance * 100).toFixed(4)}%`;
 const remaining = (left: number, limit: number) => `남은 횟수 ${left}/${limit}`;
 
-function blockedText(why: RejectReason | null, price: number, balance: number, fromRound?: number): string | null {
+export function blockedText(why: RejectReason | null, price: number, balance: number, fromRound?: number): string | null {
   switch (why) {
     case null: return null;
     case 'marketLocked': return '10라운드 보스 격파 후';

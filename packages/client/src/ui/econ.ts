@@ -1,10 +1,10 @@
 import {
-  jigeCandidates, shopItem, toTicks, type ClientView, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
+  jigeCandidates, shopItem, toTicks, type ClientView, type ItemEffect, type DamageType, type EconHuntView, type JigeSource, type QuestId, type QuestRecord, type UnitDef, type EconMine, type EconNote, type GameData, type GameState, type RejectReason,
 } from '@dorandi/logic';
 import { esc } from './dom';
 import { unitSkillText } from './models';
 import { withJosa } from './josa';
-import { gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
+import { blockedText, gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
 
 // Stage 3 economy on screen: the market panel (B), the T button under a target's health bar and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
@@ -18,17 +18,59 @@ const secondsOf = (data: GameData, ticks: number): number => Math.max(0, Math.ce
 
 // ---------- market ----------
 
+/** `shop`: the item tab's rows, left out where the data has no shop. */
 export interface MarketModel {
-  jige: GambleJige; gamble?: GambleModel;
+  jige: GambleJige; gamble?: GambleModel; shop?: ShopRow[];
 }
+export type MarketTab = 'market' | 'items';
 
 export function marketModel(econ: EconMine, state: GameState): MarketModel | null {
   const m = econ.market;
   if (!m) return null;
+  const shop = shopModel(econ, state.coins);
   return {
     ...(m.gamble && { gamble: gambleModel(m.gamble, state.coins, state.buckwheat) }),
     jige: { chance: m.jigeChance, held: econ.jige, maxGrade: state.data.economy?.market?.maxSwapGrade ?? 4 },
+    ...(shop && { shop }),
   };
+}
+
+// ---------- item shop ----------
+
+/** One item tab row. `done`: a per-game item bought up (the button reads 삼); `blocked` says why it cannot be bought now. */
+export interface ShopRow { id: string; name: string; effectText: string; price: string; held: number; blocked: string | null; done: boolean }
+
+export function itemEffectText(effect: ItemEffect, perGame: number | null): string {
+  const once = perGame === null ? '' : ` · 한 판 ${perGame}번`;
+  switch (effect.kind) {
+    case 'range': return `유닛 하나 사거리 +${effect.amount}${once}`;
+    case 'attack': return `유닛 하나 공격력 +${pct(effect.pct)}${once}`;
+    case 'speed': return `유닛 하나 공격 속도 +${pct(effect.pct)}${once}`;
+    case 'vuln': return `때린 적이 받는 피해 +${pct(effect.pct)} · ${effect.seconds}초${once}`;
+  }
+}
+
+/** `coins`: solo the lane's state.coins, online the seat's coins from its MineView. */
+export function shopModel(econ: EconMine, coins: number): ShopRow[] | null {
+  if (!econ.shop) return null;
+  return econ.shop.items.map(i => ({
+    id: i.id, name: i.name, effectText: itemEffectText(i.effect, i.perGame), price: `${i.coins}냥`, held: i.held,
+    blocked: i.why === 'itemLimit' ? null : blockedText(i.why, i.coins, coins), done: i.why === 'itemLimit',
+  }));
+}
+
+function shopHtml(rows: ShopRow[], readOnly: boolean): string {
+  const list = rows.map(r => {
+    const why = readOnly ? '관전 중에는 살 수 없어요' : r.blocked;
+    const label = r.done ? '삼' : '사기';
+    const reasonId = `shop-why-${esc(r.id)}`;
+    return `<div class="shop-row"><span class="shop-name"><b>${esc(r.name)}</b><small>${esc(r.effectText)}</small></span>
+      <span class="shop-price">${esc(r.price)}</span><button type="button" class="shop-buy" data-action="buyItem" data-arg="${esc(r.id)}" data-market-focus="item-${esc(r.id)}"
+      aria-label="${esc(`${r.name} · ${r.price} · ${label}`)}"${why ? ` aria-describedby="${reasonId}"` : ''}${r.done || why ? ' disabled' : ''}>${label}</button>
+      ${why && !r.done ? `<span class="gamble-why" id="${reasonId}">${esc(why)}</span>` : ''}</div>`;
+  }).join('');
+  const held = rows.map(r => `${esc(r.name)}${NBSP}${r.held}`).join(' · ');
+  return `<div class="shop-rows">${list}</div><div class="shop-held">들고 있는 아이템: ${held}</div>`;
 }
 
 // ---------- jige swap (R) ----------
@@ -437,15 +479,21 @@ const button = (action: string, arg: string, label: string, disabled = false, cl
   `<button data-action="${action}" data-arg="${esc(arg)}"${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
 
 /** The B drawer leaves the board and both unit-card positions visible. */
-export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay | null = null, readOnly = false): string {
+export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay | null = null, readOnly = false, tab: MarketTab = 'market'): string {
+  const items = tab === 'items' && !!market?.shop;
   const head = `<div class="econ-head"><b>장터</b><span class="gamble-wallet"></span>
-    ${market?.gamble ? '<span class="gamble-refill" aria-label="매 라운드 횟수가 다시 차요">라운드마다 충전</span>' : ''}
+    ${market?.gamble && !items ? '<span class="gamble-refill" aria-label="매 라운드 횟수가 다시 차요">라운드마다 충전</span>' : ''}
     <button type="button" data-action="toggleMarket" data-market-focus="close" class="econ-close" aria-label="장터 닫기 (B)">닫기 B</button></div>`;
-  const body = market?.gamble ? `<div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
+  const tabButton = (id: MarketTab, label: string) => {
+    const on = (id === 'items') === items;
+    return `<button type="button" data-action="econTab" data-arg="${id}" data-market-focus="tab-${id}" aria-pressed="${on}"${on ? ' class="on"' : ''}>${label}</button>`;
+  };
+  const tabs = market?.shop ? `<div class="econ-tabs">${tabButton('market', '뽑기')}${tabButton('items', '아이템')}</div>` : '';
+  const body = items ? shopHtml(market!.shop!, readOnly) : market?.gamble ? `<div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
     <div class="gamble-info" id="gamble-info" aria-live="polite"></div>
     <div class="gamble-result"></div><section class="gamble-history" aria-label="최근 장터 결과"></section>`
     : market ? `<div>보유 지게 ${market.jige.held}개</div>` : '';
-  return `<section class="econ-panel" aria-label="장터">${head}<div class="econ-body">${body}</div></section>`;
+  return `<section class="econ-panel" aria-label="장터">${head}${tabs}<div class="econ-body">${body}</div></section>`;
 }
 
 /** The T button under the target's health bar (placed by mount from the scene's bar anchor). */

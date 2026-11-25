@@ -687,3 +687,25 @@ button[data-action="sell"].armed { color: #ffb396; border-color: var(--danger); 
 /* the lobby, waiting room and team result are laid out in real pixels; big windows scale them up a step at a time */
 @media (min-width: 1280px) and (min-height: 720px) { #screen > * { zoom: 1.25; } }
 @media (min-width: 1920px) and (min-height: 1080px) { #screen > * { zoom: 1.5; } }
+/* stage 3 item shop: the market tabs, the item rows, the unit card's item line and the online 아이템 ▾ list */
+.econ-tabs { display: flex; gap: 3px; padding: 0 4px 2px; }
+.econ-tabs button { flex: 1; min-height: 15px; padding: 0 3px; font-size: 9px; }
+.econ-tabs button.on { color: var(--accent); border-color: var(--accent); }
+.shop-rows { display: grid; gap: 2px; }
+.shop-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 34px; align-items: center; gap: 3px; padding: 2px 3px; background: #241b30; border: 1px solid #473653; }
+.shop-name b { color: var(--accent); }
+.shop-name small { display: block; color: #c9bdd3; font-size: 8px; line-height: 9px; word-break: keep-all; }
+.shop-price { color: var(--accent); white-space: nowrap; }
+.shop-buy { min-height: 15px; padding: 0 2px; color: var(--accent); background: #3b2b23; border-color: #8e6a40; font-size: 9px; font-weight: bold; }
+.shop-buy:disabled { opacity: 1; color: #ddd0e4; background: #30283b; border-color: #51445c; }
+.shop-held { margin-top: 2px; padding: 2px 3px; border-top: 1px solid #473653; color: #c9bdd3; font-size: 8px; }
+.up-item { display: grid; gap: 2px; padding: 3px; border: 1px solid #473653; background: #201829; }
+.up-item button { min-height: 16px; }
+.item-warn, .item-hint { color: var(--ink-dim); font-size: 9px; line-height: 1.2; }
+.item-tag { display: inline-block; min-width: 11px; padding: 0 1px; border-radius: 6px; background: #7fd6a8; color: #0d0a14; font-size: 8px; line-height: 11px; text-align: center; font-weight: bold; }
+.combine-eats { color: #ffcf8a; }
+.storage-combine .combine-eats { display: block; font-size: 8px; }
+.ud-item { margin: 2px 0 0; color: #bfbbca; }
+#bottom .item-menu { flex-shrink: 0; }
+#bottom .item-pop { position: absolute; right: 120px; bottom: calc(100% + 2px); width: 170px; z-index: 3; display: grid; gap: 3px; padding: 5px; background: #201829; border: 1px solid var(--accent); font-size: 9px; }
+#bottom .item-pop button { min-height: 18px; }

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import {
   STORAGE_MAX_GRADE, availableRecipes, countNormalEnemies, laneOf, loopPos, unitDefFast, unitRange, type GameEvent, type GameState, type Lane,
 } from '@dorandi/logic';
-import { selectedSlot } from './ui/models';
+import { itemShort, selectedSlot } from './ui/models';
 import type { Driver } from './driver';
 import type { BirthBanner } from './ui/birth';
 import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, canvasInStorage, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
@@ -38,7 +38,10 @@ class LaneArtFile extends Phaser.Loader.File {
 
 const COMBINE_MARKER_RADIUS = 3;
 
-type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; gradeColor: number; combineMarker: Phaser.GameObjects.Arc };
+type UnitView = Phaser.GameObjects.Container & {
+  targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; gradeColor: number; combineMarker: Phaser.GameObjects.Arc;
+  itemTag?: Phaser.GameObjects.Text; itemShort?: string | null;
+};
 type EnemyContainer = Phaser.GameObjects.Container & {
   defId?: string; shared?: boolean; bar?: Phaser.GameObjects.Container; hp?: Phaser.GameObjects.Rectangle;
   /** Shared enemy only: when it came in (ms) and from which side, for the slide-in. */
@@ -399,6 +402,7 @@ export class LaneScene extends Phaser.Scene {
         this.units.set(u.id, view);
         unitsChanged = true;
       }
+      this.syncItemTag(view, itemShort(this.state, slot));
       // a combine or sell waiting for the server fades its slot
       const alpha = dimmed.has(slot) ? 0.4 : 1;
       if (view.alpha !== alpha) view.alpha = alpha;
@@ -429,6 +433,22 @@ export class LaneScene extends Phaser.Scene {
       this.auraKey = auraKey;
       this.buffed = auraBuffedSlots(this.state);
     }
+  }
+
+  /** The item letter takes the top-right corner; the combine dot then moves down to the bottom-right. */
+  private syncItemTag(view: UnitView, short: string | null): void {
+    if ((view.itemShort ?? null) === short) return;
+    view.itemShort = short;
+    view.itemTag?.destroy();
+    view.itemTag = undefined;
+    const k = this.lane.pitch;
+    if (short) {
+      view.itemTag = this.add.text(11 * k, -11 * k, short, {
+        fontSize: '8px', color: '#0d0a14', backgroundColor: '#7fd6a8', fontFamily: 'sans-serif', fontStyle: 'bold', padding: { x: 1, y: 0 },
+      }).setOrigin(0.5);
+      view.add(view.itemTag);
+    }
+    view.combineMarker.setPosition(11 * k, (short ? 1 : -1) * 11 * k);
   }
 
   /** The ready-to-combine dot breathes so it reads against busy sprites; reduced effects keep it still. */
