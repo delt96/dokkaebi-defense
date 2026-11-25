@@ -201,6 +201,115 @@ test('drop moves the dragged unit after a pending swap', () => {
   expect(state.slots[1]?.id).toBe(a.id);
 });
 
+const DANGER = 0xff3b2f;
+const press = (downTime: number) => ({ rightButtonDown: () => false, button: 0, getDistance: () => 0, downTime });
+
+/** The cell's frame as drawn: inset by one pixel like the selected unit's frame. */
+function frameOf(scene: LaneScene, slot: number) {
+  const p = cellCorner(scene.lane, slot);
+  const size = cellPx(scene.lane);
+  return { x0: p.x, y0: p.y, x1: p.x + size, y1: p.y + size };
+}
+const inside = (f: ReturnType<typeof frameOf>, x: number, y: number) => x >= f.x0 && x <= f.x1 && y >= f.y0 && y <= f.y1;
+
+test('while dragging, the cell under the pointer gets a cream frame and its unit fades to 0.5 until the drop', () => {
+  const { scene, views, overlay } = drawn(['sotlid', 'bujigaengi']);
+  const [a, b] = views;
+  a.emit('dragstart', press(1));
+  const over = laneToCanvas(scene.lane.cells[1]!);
+  a.emit('drag', press(1), over.x, over.y);
+  expect(scene['dropCell']).toBe(1);
+
+  scene['drawSelection']();
+  const f = frameOf(scene, 1);
+  const frame = overlay.strokeRect.mock.calls.findIndex(([x, y]) => inside(f, x as number, y as number));
+  expect(frame).toBeGreaterThanOrEqual(0);
+  expect(styleBefore(overlay, 'lineStyle', 'strokeRect', frame)).toEqual([2, CREAM, 1]);
+  // the swap arrow sits on the partner's cell
+  expect(overlay.lineBetween.mock.calls.some(([x, y]) => inside(f, x as number, y as number))).toBe(true);
+
+  scene['placeUnits']();
+  expect(b.alpha).toBe(0.5);
+  expect(a.alpha).toBe(1);
+  a.emit('dragend');
+  expect(scene['dropCell']).toBeNull();
+  scene['placeUnits']();
+  expect(b.alpha).toBe(1);
+});
+
+test('the own cell gets no drop frame; a closed cell gets a red dashed one', () => {
+  const { scene, state, views, overlay } = drawn(['sotlid']);
+  const [a] = views;
+  a.emit('dragstart', press(1));
+  const home = laneToCanvas(scene.lane.cells[0]!);
+  a.emit('drag', press(1), home.x, home.y);
+  scene['drawSelection']();
+  expect(overlay.lineStyle).not.toHaveBeenCalledWith(2, CREAM, 1);
+
+  state.open[5] = false;
+  const closed = laneToCanvas(scene.lane.cells[5]!);
+  a.emit('drag', press(1), closed.x, closed.y);
+  for (const fn of Object.values(overlay)) fn.mockClear();
+  scene['drawSelection']();
+  expect(overlay.lineStyle).not.toHaveBeenCalledWith(2, CREAM, 1);
+  const f = frameOf(scene, 5);
+  const dashes = overlay.lineBetween.mock.calls.map((c, i) => ({ c, i })).filter(({ c }) => inside(f, c[0] as number, c[1] as number));
+  expect(dashes.length).toBeGreaterThan(4);
+  expect(styleBefore(overlay, 'lineStyle', 'lineBetween', dashes[0]!.i).slice(1, 2)).toEqual([DANGER]);
+});
+
+test('moving: drags do not start and only the empty open cells get a cream dashed frame', () => {
+  const { scene, state, views, overlay } = drawn(['sotlid', 'bujigaengi']);
+  scene.moving = true;
+  views[0].emit('dragstart', press(1));
+  expect(scene['dragging']).toBeNull();
+
+  state.open[5] = false;
+  scene['drawSelection']();
+  expect(overlay.lineBetween).toHaveBeenCalled();
+  const empty = scene.lane.cells.map(c => c.index).filter(i => !state.slots[i] && state.open[i]);
+  overlay.lineBetween.mock.calls.forEach(([x, y], i) => {
+    expect(empty.some(slot => inside(frameOf(scene, slot), x as number, y as number))).toBe(true);
+    expect(styleBefore(overlay, 'lineStyle', 'lineBetween', i)[1]).toBe(CREAM);
+  });
+  const dashed = new Set(overlay.lineBetween.mock.calls.map(([x, y]) => empty.find(slot => inside(frameOf(scene, slot), x as number, y as number))));
+  expect(dashed.size).toBe(empty.length);
+
+  for (const fn of Object.values(overlay)) fn.mockClear();
+  scene.moving = false;
+  scene['drawSelection']();
+  expect(overlay.lineBetween).not.toHaveBeenCalled();
+});
+
+test('a short press tells the page whether it was on the unit already selected', () => {
+  const { scene, views, state } = drawn(['sotlid', 'bujigaengi']);
+  const seen: [number | null, string | undefined][] = [];
+  scene.onSelect((slot, how) => seen.push([slot, how]));
+  const [a, b] = views;
+  scene.selectedId = state.slots[0]!.id;
+  // Phaser starts a drag (threshold 0) before the object's pointerdown, and ends it before pointerup
+  a.emit('dragstart', press(1));
+  a.emit('pointerdown', press(1));
+  a.emit('dragend');
+  a.emit('pointerup', press(1));
+  expect(seen).toEqual([[0, 'press'], [0, 'again']]);
+
+  seen.length = 0;
+  b.emit('dragstart', press(2));
+  scene.selectedId = state.slots[1]!.id;
+  b.emit('pointerdown', press(2));
+  b.emit('dragend');
+  b.emit('pointerup', press(2));
+  expect(seen).toEqual([[1, 'press'], [1, 'tap']]);
+
+  seen.length = 0;
+  scene.moving = true;
+  b.emit('dragstart', press(3));
+  b.emit('pointerdown', press(3));
+  b.emit('pointerup', press(3));
+  expect(seen).toEqual([[1, 'tap']]);
+});
+
 test('redrawing an unchanged board starts no slide, a move slides once', () => {
   const { state, driver, scene, tweens } = setupScene();
   placeUnitForTest(state, 'sotlid', 0);

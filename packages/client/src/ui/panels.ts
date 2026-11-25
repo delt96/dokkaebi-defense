@@ -149,16 +149,18 @@ function jigeHtml(state: GameState, selected: number, unitId: number | null, jig
 
 /**
  * Online: the selected unit's one-line card under the board, or the help line (null hotkeys = 단축키 안내 줄 off).
- * Solo shows the card in the left panel (soloPanelHtml) and only the help line here.
+ * Solo shows the card in the left panel (soloPanelHtml) and only the help line here. `moving`: the line asks for the cell
+ * to move to, in place of the online card and even with the help line off (it is the only word on what the press waits for).
  */
 export function renderBottom(
   state: GameState, selected: number | null, online = false, hotkeys?: string | null, jige?: number, sellArmed = false, target: string | null = null,
+  moving = false,
 ) {
   const pick = cardRecipes(state, selected, target);
-  const card = online && selected !== null ? unitCard(state, selected) : null;
-  const help = hotkeys === null ? '' : helpLineHtml(hotkeys, {
+  const card = online && selected !== null && !moving ? unitCard(state, selected) : null;
+  const help = hotkeys === null && !moving ? '' : helpLineHtml(hotkeys ?? undefined, {
     selected: selected !== null && !!state.slots[selected], storable: storable(state, selected), quests: !!state.data.economy, jige: !!state.data.economy?.market, pause: !online, online,
-    empty: state.slots.every(u => !u),
+    empty: state.slots.every(u => !u), moving,
   });
   if (!card) {
     setHtml(el('bottom'), help);

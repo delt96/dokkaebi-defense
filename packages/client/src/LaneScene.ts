@@ -43,12 +43,19 @@ const GRADE_RADIUS = 2.5;
 const DIAMOND_REACH = 3.25;
 const BRACKET_ARM = 7;
 const TAG_PX = 12;
+/** The red of a cell a dragged unit cannot go to (--danger). */
+const MARK_DANGER = 0xff3b2f;
+const DASH = 3;
+const DASH_GAP = 3;
 
 /** The first ▲ breathes once a second; reduced effects, or a higher-priority loop on the board (B3), hold it bright. */
 export function triangleAlpha(now: number, reduced: boolean, held: boolean): number {
   if (reduced || held) return 1;
   return 0.55 + 0.45 * (0.5 + 0.5 * Math.sin((2 * Math.PI * now) / 1000));
 }
+
+/** How a board press selected (see moveStep): a drag start, a short press on the selected unit, any other press, a right click. */
+export type SelectHow = 'press' | 'again' | 'tap' | 'cancel';
 
 type UnitView = Phaser.GameObjects.Container & { targetSlot?: number; motion?: Phaser.Tweens.Tween; unitId: number; defId: string; grade: number; gradeColor: number };
 type EnemyContainer = Phaser.GameObjects.Container & {
@@ -74,7 +81,14 @@ export class LaneScene extends Phaser.Scene {
   private fires!: Phaser.GameObjects.Graphics;
   private jangseung!: Phaser.GameObjects.Rectangle;
   private dragging: UnitView | null = null;
-  private selectListeners: ((slot: number | null) => void)[] = [];
+  /** The cell under a dragged unit (null outside the grid). */
+  private dropCell: number | null = null;
+  /**
+   * Whether the unit pressed was already selected, read before the press selects it. Keyed by the press's downTime because
+   * Phaser (drag threshold 0) fires dragstart before the object's pointerdown, and with a threshold it would be the other way.
+   */
+  private press: { at: number; selected: boolean } | null = null;
+  private selectListeners: ((slot: number | null, how?: SelectHow) => void)[] = [];
   private eventListeners: ((events: GameEvent[]) => void)[] = [];
   selectedId: number | null = null;
   private hoveredId: number | null = null;
@@ -89,6 +103,8 @@ export class LaneScene extends Phaser.Scene {
   private tags: Phaser.GameObjects.Text[] = [];
   /** What the page wants marked on the board (set each render). */
   boardMarks: BoardMarks = NO_MARKS;
+  /** Set by the page while the selected unit waits for the cell to move to: drags do not start, empty open cells get a dashed frame. */
+  moving = false;
   /** Set by B3 while a higher-priority loop moves (gate countdown, over-limit jangseung, danger edge): the ▲ stays still and bright. */
   pulseHeld = false;
   /** Told while a dragged board unit is over the storage column: 'ok' when it may go in, 'no' when not (grade 3+). */
@@ -112,7 +128,7 @@ export class LaneScene extends Phaser.Scene {
     this.canvasHeight = opts.height ?? CENTER_H;
   }
 
-  onSelect(cb: (slot: number | null) => void): void { this.selectListeners.push(cb); }
+  onSelect(cb: (slot: number | null, how?: SelectHow) => void): void { this.selectListeners.push(cb); }
   onEvents(cb: (events: GameEvent[]) => void): void { this.eventListeners.push(cb); }
 
   get state(): GameState { return this.driver.state; }
@@ -175,8 +191,8 @@ export class LaneScene extends Phaser.Scene {
     this.driver.onEvents(events => this.handleEvents(events));
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', (p: Phaser.Input.Pointer, hit: Phaser.GameObjects.GameObject[]) => {
-      if (p.rightButtonDown()) this.emitSelect(null);
-      else if (!hit.length) this.emitSelect(canvasToCell(this.lane, p.x, p.y));
+      if (p.rightButtonDown()) this.emitSelect(null, 'cancel');
+      else if (!hit.length) this.emitSelect(canvasToCell(this.lane, p.x, p.y), 'tap');
     });
   }
 
@@ -240,6 +256,7 @@ export class LaneScene extends Phaser.Scene {
   /** A dragged unit's view went away (sold, combined, another lane): the drag ends without a drop. */
   private endBoardDrag(): void {
     this.dragging = null;
+    this.dropCell = null;
     this.setStorageHover(null);
     this.onBoardDrag?.(false);
   }
@@ -250,8 +267,8 @@ export class LaneScene extends Phaser.Scene {
     this.onStorageHover?.(hover);
   }
 
-  private emitSelect(slot: number | null): void {
-    for (const cb of this.selectListeners) cb(slot);
+  private emitSelect(slot: number | null, how?: SelectHow): void {
+    for (const cb of this.selectListeners) cb(slot, how);
   }
 
   private drawBoard(): void {
@@ -306,6 +323,7 @@ export class LaneScene extends Phaser.Scene {
       if (view.visible) this.drawGradeShape(view);
     }
     this.drawTriangles();
+    this.drawMoveCells();
     this.coverage.clear();
     const draw = (id: number | null, alpha: number) => {
       const slot = selectedSlot(this.state, id);
@@ -329,6 +347,74 @@ export class LaneScene extends Phaser.Scene {
     };
     if (this.hoveredId !== this.selectedId) draw(this.hoveredId, 0.22);
     draw(this.selectedId, 0.65);
+  }
+
+  /**
+   * ⑭ while dragging: a cream frame on the cell under the pointer (red dashes when it is closed, nothing on the own cell) and
+   * ⇄ on the unit a drop would swap with. ⑯ while moving: cream dashes on every empty open cell.
+   */
+  private drawMoveCells(): void {
+    const g = this.overlay;
+    const size = cellPx(this.lane);
+    if (this.moving && !this.dragging) {
+      g.lineStyle(1, MARK_CREAM, 0.8);
+      this.state.slots.forEach((u, slot) => {
+        if (!u && this.state.open[slot]) this.dashedFrame(slot);
+      });
+      return;
+    }
+    const cell = this.dropCell;
+    const from = this.dragging ? selectedSlot(this.state, this.dragging.unitId) : null;
+    if (cell === null || from === null || cell === from) return;
+    if (!this.state.open[cell]) {
+      g.lineStyle(1, MARK_DANGER, 1);
+      this.dashedFrame(cell);
+      return;
+    }
+    const p = cellCorner(this.lane, cell);
+    g.lineStyle(2, MARK_CREAM, 1);
+    g.strokeRect(p.x + 1, p.y + 1, size - 2, size - 2);
+    if (this.swapPartner()) this.drawSwapArrow(cell, from);
+  }
+
+  /** Dashes along a cell's frame, inset like the solid frame; the line style is the caller's. */
+  private dashedFrame(slot: number): void {
+    const g = this.overlay;
+    const p = cellCorner(this.lane, slot);
+    const x0 = p.x + 1.5;
+    const y0 = p.y + 1.5;
+    const len = cellPx(this.lane) - 3;
+    for (let d = 0; d < len; d += DASH + DASH_GAP) {
+      const e = Math.min(len, d + DASH);
+      g.lineBetween(x0 + d, y0, x0 + e, y0);
+      g.lineBetween(x0 + d, y0 + len, x0 + e, y0 + len);
+      g.lineBetween(x0, y0 + d, x0, y0 + e);
+      g.lineBetween(x0 + len, y0 + d, x0 + len, y0 + e);
+    }
+  }
+
+  /** ⇄ in the partner's cell, lying along the line to the dragged unit's own cell. */
+  private drawSwapArrow(cell: number, from: number): void {
+    const g = this.overlay;
+    const c = laneToCanvas(this.lane.cells[cell]!);
+    const o = laneToCanvas(this.lane.cells[from]!);
+    const dist = Math.hypot(o.x - c.x, o.y - c.y) || 1;
+    const ux = (o.x - c.x) / dist;
+    const uy = (o.y - c.y) / dist;
+    const half = 5;
+    const gap = 2;
+    const head = 3;
+    g.lineStyle(2, MARK_CREAM, 1);
+    for (const side of [1, -1]) {
+      // the upper shaft points at the own cell, the lower one back
+      const sx = c.x - uy * gap * side;
+      const sy = c.y + ux * gap * side;
+      const tipX = sx + ux * half * side;
+      const tipY = sy + uy * half * side;
+      g.lineBetween(sx - ux * half * side, sy - uy * half * side, tipX, tipY);
+      g.lineBetween(tipX, tipY, tipX - (ux + uy) * head * side, tipY - (uy - ux) * head * side);
+      g.lineBetween(tipX, tipY, tipX - (ux - uy) * head * side, tipY - (uy + ux) * head * side);
+    }
   }
 
   private drawGradeShape(view: UnitView): void {
@@ -435,24 +521,29 @@ export class LaneScene extends Phaser.Scene {
     view.setSize(cellPx(this.lane), cellPx(this.lane)).setInteractive({ draggable: true, useHandCursor: true }).setDepth(3);
     view.on('pointerover', () => { this.hoveredId = unitId; });
     view.on('pointerout', () => { if (this.hoveredId === unitId) this.hoveredId = null; });
+    view.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.notePress(unitId, pointer));
     view.on('dragstart', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.rightButtonDown() || this.driver.readOnly) return;
+      this.notePress(unitId, pointer);
+      if (pointer.rightButtonDown() || this.driver.readOnly || this.moving) return;
       const from = this.state.slots.findIndex(u => u?.id === unitId);
       if (from < 0) return;
-      this.emitSelect(from);
+      this.emitSelect(from, 'press');
       view.motion?.stop();
       this.dragging = view;
+      this.dropCell = from;
       view.setDepth(10);
       this.onBoardDrag?.(true);
     });
     view.on('drag', (_p: Phaser.Input.Pointer, x: number, y: number) => {
       if (this.dragging !== view) return;
       view.setPosition(x, y);
+      this.dropCell = canvasToCell(this.lane, x, y);
       const over = this.storageOpen() && canvasInStorage(x, y);
       this.setStorageHover(over ? (unitDefFast(this.state.data, defId).grade <= STORAGE_MAX_GRADE ? 'ok' : 'no') : null);
     });
     view.on('dragend', () => {
       if (this.dragging !== view) return;
+      this.dropCell = null;
       this.setStorageHover(null);
       this.onBoardDrag?.(false);
       const cell = canvasToCell(this.lane, view.x, view.y);
@@ -471,17 +562,32 @@ export class LaneScene extends Phaser.Scene {
       view.setDepth(3);
     });
     view.on('pointerup', (p: Phaser.Input.Pointer) => {
+      const again = this.press?.at === p.downTime && this.press.selected;
+      this.press = null;
       if (p.button === 0 && p.getDistance() < 4) {
         const slot = this.state.slots.findIndex(u => u?.id === unitId);
-        this.emitSelect(slot);
+        this.emitSelect(slot, !this.moving && again ? 'again' : 'tap');
       }
     });
     return view;
   }
 
+  private notePress(unitId: number, pointer: Phaser.Input.Pointer): void {
+    if (!this.press || this.press.at !== pointer.downTime) this.press = { at: pointer.downTime, selected: this.selectedId === unitId };
+  }
+
+  /** The unit a dragged one would swap with if dropped now (on an open cell other than its own). */
+  private swapPartner(): { slot: number; from: number } | null {
+    const cell = this.dropCell;
+    const from = this.dragging ? selectedSlot(this.state, this.dragging.unitId) : null;
+    if (cell === null || from === null || cell === from || !this.state.open[cell] || !this.state.slots[cell]) return null;
+    return { slot: cell, from };
+  }
+
   private placeUnits(): void {
     const seen = new Set<number>();
     const dimmed = this.driver.dimmed;
+    const partner = this.swapPartner()?.slot ?? null;
     this.state.slots.forEach((u, slot) => {
       if (!u) return;
       seen.add(u.id);
@@ -498,8 +604,8 @@ export class LaneScene extends Phaser.Scene {
         view = this.makeUnitView(u.id, u.defId);
         this.units.set(u.id, view);
       }
-      // a combine or sell waiting for the server fades its slot
-      const alpha = dimmed.has(slot) ? 0.4 : 1;
+      // a combine or sell waiting for the server fades its slot; the unit a drop would swap with fades less
+      const alpha = dimmed.has(slot) ? 0.4 : slot === partner ? 0.5 : 1;
       if (view.alpha !== alpha) view.alpha = alpha;
       if (this.dragging === view) return;
       if (view.targetSlot === slot) return;

@@ -27,8 +27,8 @@ import { helperPopHtml } from './helper';
 import { renderAlert, renderHud } from './hud';
 import { PressConfirm } from './confirm';
 import {
-  activeNotice, boardMarks, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, NO_MARKS, nextCombines, nextPick, nextUnitId,
-  pinnedTarget, rejectText, rowCells, selectedSlot, type DexNav, type NextScope, type Notice,
+  activeNotice, boardMarks, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, NO_MARKS, moveStep, nextCombines, nextPick, nextUnitId,
+  pinnedTarget, rejectText, rowCells, selectedSlot, type DexNav, type MoveInput, type NextScope, type Notice,
 } from './models';
 import { renderBottom, renderRight, soloPanelHtml, unitDetailsHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
@@ -89,6 +89,21 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let wPick: { result: string; unitId: number } | null = null;
   // the next-list row under the mouse (left panel or online helper); render drops it once the row is gone
   let hoverRow: string | null = null;
+  // press-to-move: the id of the selected unit waiting for the cell to move to; any other selection drops it (render)
+  let movingId: number | null = null;
+  const isMoving = () => movingId !== null && movingId === scene.selectedId && selectedSlot(driver.state, movingId) !== null;
+  /** Applies a board press, M or Esc to the selection and the moving state (see moveStep). */
+  function stepMove(input: MoveInput): void {
+    const s = driver.state;
+    const step = moveStep(s, selectedSlot(s, scene.selectedId), isMoving(), input);
+    if (step.move) {
+      // paused or watching, nothing is sent and the unit keeps waiting for a cell
+      if (driver.paused || driver.readOnly) return;
+      driver.queue({ type: 'move', ...step.move });
+    }
+    if (step.select !== undefined) scene.selectedId = step.select === null ? null : s.slots[step.select]?.id ?? null;
+    movingId = step.moving && !driver.readOnly ? scene.selectedId : null;
+  }
   function syncSelection(id: number | null): void {
     if (id === lastSelectedId) return;
     lastSelectedId = id;
@@ -467,15 +482,20 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     render();
     el('modal').querySelector<HTMLInputElement>(byName ? '.dex-search input' : '.dex-skillsearch input')?.focus();
   });
-  scene.onSelect(slot => {
+  scene.onSelect((slot, how = 'tap') => {
     if (modal || driver.failed || driver.state.phase === 'ended') return;
     inspectedStack = null;
-    scene.selectedId = slot === null ? null : driver.state.slots[slot]?.id ?? null;
+    if (how === 'cancel') stepMove({ kind: 'cancel' });
+    else if (how === 'press' && slot !== null) stepMove({ kind: 'press', slot });
+    else if (how === 'again' && slot !== null) stepMove({ kind: 'again', slot });
+    else stepMove({ kind: 'tap', slot });
     render();
   });
   driver.onRemap?.(ids => {
     const next = scene.selectedId === null ? undefined : ids.get(scene.selectedId);
-    if (next !== undefined) scene.selectedId = next;
+    if (next === undefined) return;
+    if (movingId === scene.selectedId) movingId = next;
+    scene.selectedId = next;
   });
   driver.onEvents((events, rejected) => {
     const priorSelection = scene.selectedId;
@@ -568,8 +588,13 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const target = ev.target as HTMLElement | null;
     if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
     if (ev.code === 'Escape') {
+      // a window first, then a waiting move, then the selection
       if (modal) act('closeModal', '');
-      else { scene.selectedId = null; inspectedStack = null; render(); }
+      else {
+        if (!isMoving()) inspectedStack = null;
+        stepMove({ kind: 'cancel' });
+        render();
+      }
       return;
     }
     if (modal === 'upgrades') {
@@ -614,6 +639,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     else if (ev.code === 'KeyT' && driver.state.data.economy?.tame) act('tame', '');
     else if (ev.code === 'KeyR' && driver.state.data.economy?.market && card?.unitId != null) act('jigeOpen', `board:${card.unitId}`);
     else if (ev.code === 'KeyP' && !online) { userPaused = !userPaused; render(); }
+    else if (ev.code === 'KeyM') {
+      if (selectedSlot(driver.state, scene.selectedId) === null) return;
+      stepMove({ kind: 'toggle' });
+      render();
+    }
     else if (ev.code === 'Tab') {
       ev.preventDefault();
       if (card?.unitId != null) act('unitDetails', '');
@@ -647,6 +677,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const selected = selectedSlot(s, scene.selectedId);
     if (selected === null) scene.selectedId = null;
     if (wPick && scene.selectedId !== wPick.unitId) wPick = null;
+    if (!isMoving()) movingId = null;
+    scene.moving = movingId !== null;
     syncSelection(scene.selectedId);
     const held = s.data.economy?.market ? econ()?.jige : undefined;
     // the unit an open R list was opened on moved, sold or the lane changed: the list goes, nothing is sent
@@ -713,7 +745,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else if (online && info) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), infoHtml);
-    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected), targetId);
+    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected), targetId, movingId !== null);
     setHtml(el('storage'), storageVisible() ? storageHtml(
       s, held, defId => confirm.armed(`sellStored:${defId}`, now), info ? info.defId : null, new Map(marks.stored.map(p => [p.defId, p.key])),
     ) : '');
@@ -879,6 +911,7 @@ ${dex.mine.join()}`;
     helperOpen = false;
     scope = 'all';
     hoverRow = null;
+    movingId = null;
     lastSelectedId = null;
     skillOpen = false;
     showAllOne = false;

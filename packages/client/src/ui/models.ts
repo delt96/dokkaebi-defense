@@ -278,6 +278,30 @@ export function nextUnitId(state: GameState, selected: number | null): number | 
   return (units[next] ?? units[0])?.id ?? null;
 }
 
+/**
+ * What a press on the board (or M, Esc) means for press-to-move. `press`: a drag started on a unit; `again`: a short
+ * press on the unit already selected; `tap`: a cell, another unit or outside the grid; `toggle`: M; `cancel`: Esc or a right click.
+ */
+export type MoveInput =
+  | { kind: 'press'; slot: number }
+  | { kind: 'again'; slot: number }
+  | { kind: 'tap'; slot: number | null }
+  | { kind: 'toggle' }
+  | { kind: 'cancel' };
+/** `select`: the slot to select (null drops the selection); absent keeps it. */
+export interface MoveStep { moving: boolean; select?: number | null; move?: { from: number; to: number } }
+
+export function moveStep(state: GameState, selected: number | null, moving: boolean, input: MoveInput): MoveStep {
+  if (input.kind === 'toggle') return { moving: selected !== null && !moving };
+  if (input.kind === 'cancel') return selected !== null && moving ? { moving: false } : { moving: false, select: null };
+  if (selected === null || !moving) {
+    return input.kind === 'again' && selected !== null ? { moving: true } : { moving: false, select: input.slot };
+  }
+  const to = input.slot;
+  if (to === null || to === selected || !state.open[to]) return { moving: false };
+  return { moving: false, move: { from: selected, to } };
+}
+
 export interface Notice { text: string; until: number }
 
 export function activeNotice(notice: Notice | null, now: number): string | null {
