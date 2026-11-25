@@ -124,7 +124,7 @@ describe('solo help line and unit card', () => {
   });
 
   test('도움말 끔 hides the hotkey line under the board and is remembered', () => {
-    expect(bottom().textContent).toContain('Space 소환');
+    expect(bottom().textContent).toContain('E 강화');
     press(gear());
     press(choice('setHelp', 'off'));
     expect(bottom().textContent).toBe('');
@@ -133,7 +133,7 @@ describe('solo help line and unit card', () => {
     expect(bottom().textContent).toBe('');
     press(gear());
     press(choice('setHelp', 'on'));
-    expect(bottom().textContent).toContain('Space 소환');
+    expect(bottom().textContent).toContain('E 강화');
   });
 
   test('the selected unit shows in the left panel, not under the board', () => {

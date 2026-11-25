@@ -1,6 +1,6 @@
 import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type GameState } from '@dorandi/logic';
 import { GRADE_COLOR, type WinPlace } from '../layout';
-import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combineOptions, rightModel, summonOddsText, unitCard, upgradeInfoText, upgradeRows, type CombineOption, type NextList, type UnitCard } from './models';
+import { ATTACK_RANGE_HINT, attackRangeText, baseSpec, combineNoteLines, combineOptions, nextCombines, rightModel, summonOddsText, unitCard, upgradeInfoText, upgradeRows, type CombineOption, type NextList, type UnitCard } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
@@ -8,6 +8,7 @@ import { nextListHtml, recipeRowHtml } from './next-list';
 import { roleText } from './dex-roles';
 import { pinButton } from './target';
 import { rightBarHtml, winHeadHtml } from './windows';
+import { firstTip, type FirstTip, type TipKey } from './first-visit';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `quests`: the 60-round quest box, laid at the
  * bottom above the dex button; the settings gear sits under both. */
@@ -94,23 +95,32 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
 
 /**
  * What the help line can name: a selected unit (and whether it fits in storage), stage 3's quests (J) and 지게 (R), the solo pause (P).
- * `empty`: no unit on the board yet, so the line opens with how to summon. `online`: Q opens the helper there instead of
+ * `tip`: what to do now, leading the line when nothing is selected (firstTip). `online`: Q opens the helper there instead of
  * flipping the scope. `moving`: the selected unit waits for the cell to move to.
  */
-export interface HelpContext { selected?: boolean; storable?: boolean; quests?: boolean; jige?: boolean; pause?: boolean; empty?: boolean; online?: boolean; moving?: boolean }
+export interface HelpContext { selected?: boolean; storable?: boolean; quests?: boolean; jige?: boolean; pause?: boolean; tip?: FirstTip | null; online?: boolean; moving?: boolean }
 
 /**
  * The hotkey help line under the board (the 단축키 안내 줄 setting hides it). With a unit selected it lists what that unit takes;
  * otherwise the board-wide keys. `hotkeys`: extra keys (stage 3 adds the market).
  */
 export function helpLineHtml(hotkeys?: string, ctx: HelpContext = {}): string {
-  const keys = ctx.moving
-    ? ['옮길 칸을 누르세요', 'Esc 취소']
-    : ctx.selected
-    ? ['Z/X/C 조합(판에 짝 표시)', 'S 판매', ...(ctx.storable ? [`${STORE_KEY} 보관`] : []), ...(ctx.jige ? ['R 지게'] : []), 'Tab 상세', 'M 옮기기', 'W 다음 조합', 'Esc 해제']
-    : [...(ctx.empty ? ['Space나 뚝딱!으로 유닛을 뽑으세요.'] : []), 'W 다음 조합 고르기', 'Space 소환', 'E 강화', 'D 도감', ctx.online ? 'Q 도우미' : 'Q 이 유닛/전체',
-      `${STORE_ALL_KEY} 1·2등급 보관`, ...(hotkeys ? [hotkeys] : []), ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : [])];
-  return `<div class="card hint">${keys.map(esc).join(' · ')}</div>`;
+  if (ctx.moving) return helpHtml(['옮길 칸을 누르세요', 'Esc 취소']);
+  if (ctx.selected) {
+    return helpHtml(['Z/X/C 조합(판에 짝 표시)', 'S 판매', ...(ctx.storable ? [`${STORE_KEY} 보관`] : []), ...(ctx.jige ? ['R 지게'] : []), 'Tab 상세', 'M 옮기기', 'W 다음 조합', 'Esc 해제']);
+  }
+  const drop = new Set<TipKey>(ctx.tip?.drop ?? []);
+  const keys = [
+    ...(drop.has('W') ? [] : ['W 다음 조합 고르기']), ...(drop.has('Space') ? [] : ['Space 소환']), 'E 강화', 'D 도감', ctx.online ? 'Q 도우미' : 'Q 이 유닛/전체',
+    ...(drop.has('G') ? [] : [`${STORE_ALL_KEY} 1·2등급 보관`]), ...(hotkeys ? [hotkeys] : []), ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : []),
+  ];
+  return helpHtml(keys, ctx.tip?.text);
+}
+
+function helpHtml(keys: string[], tip?: string): string {
+  const line = keys.map(esc).join(' · ');
+  // one inline run: as separate items of the flex .card, the tip and the keys would lose the space around the first ' · '
+  return tip ? `<div class="card hint"><span><b class="tip">${esc(tip)}</b> · ${line}</span></div>` : `<div class="card hint">${line}</div>`;
 }
 
 /** The selected unit and the recipes its card offers (Z/X/C press them), in the next-list order for `target`. */
@@ -162,9 +172,10 @@ export function renderBottom(
 ) {
   const pick = cardRecipes(state, selected, target);
   const card = online && selected !== null && !moving ? unitCard(state, selected) : null;
+  const tip = hotkeys !== null && selected === null && !moving ? firstTip(state, nextCombines(state).counts.all > 0) : null;
   const help = hotkeys === null && !moving ? '' : helpLineHtml(hotkeys ?? undefined, {
     selected: selected !== null && !!state.slots[selected], storable: storable(state, selected), quests: !!state.data.economy, jige: !!state.data.economy?.market, pause: !online, online,
-    empty: state.slots.every(u => !u), moving,
+    tip, moving,
   });
   if (!card) {
     setHtml(el('bottom'), help);

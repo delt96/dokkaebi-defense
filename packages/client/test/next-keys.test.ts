@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GameDriver } from '../src/driver';
 import { mountUi } from '../src/ui/mount';
 import { helpLineHtml } from '../src/ui/panels';
+import type { FirstTip } from '../src/ui/first-visit';
 import { key, STAGE_HTML } from './fixtures/net';
 import { MOCK_TARGET, mockBoardState } from './fixtures/next-board';
 
@@ -28,8 +29,9 @@ describe('help line', () => {
   });
 
   test('an empty board still opens with how to summon', () => {
-    expect(text(helpLineHtml(undefined, { empty: true, pause: true }))).toBe(
-      'Space나 뚝딱!으로 유닛을 뽑으세요. · W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · P 멈춤');
+    const tip: FirstTip = { step: 'summon', text: 'Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개)', drop: ['W', 'Space', 'G'] };
+    expect(text(helpLineHtml('B 장터', { quests: true, pause: true, tip }))).toBe(
+      'Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개) · E 강화 · D 도감 · Q 이 유닛/전체 · B 장터 · J 퀘스트 · P 멈춤');
   });
 
   test('solo with a unit selected', () => {

@@ -6,6 +6,7 @@ import { cellText, crackText, hudModel, tameSourceText, upgradeInfoText, upgrade
 import { renderHud } from '../src/ui/hud';
 import { helpLineHtml, renderBottom, upgradesHtml } from '../src/ui/panels';
 import { settingsHtml } from '../src/ui/settings';
+import { firstTip } from '../src/ui/first-visit';
 import { jigeListHtml } from '../src/ui/econ';
 import { gambleInfoHtml, gambleModel } from '../src/ui/gamble';
 import { dexHtml } from '../src/ui/dex';
@@ -225,15 +226,16 @@ describe('spirit card', () => {
 
 describe('first help line', () => {
   test('an empty board starts with how to summon', () => {
-    expect(helpLineHtml(undefined, { empty: true })).toContain('Space나 뚝딱!으로 유닛을 뽑으세요.');
+    const s = createGame(d1, 1);
+    s.tokens = 3;
+    expect(helpLineHtml(undefined, { tip: firstTip(s, false) })).toContain('Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 3개)');
     expect(helpLineHtml(undefined, {}).startsWith('<div class="card hint">W 다음 조합 고르기')).toBe(true);
     document.body.innerHTML = '<div id="bottom"></div>';
-    const s = createGame(d1, 1);
     renderBottom(s, null, false);
-    expect(document.getElementById('bottom')!.textContent!.startsWith('Space나 뚝딱!으로 유닛을 뽑으세요.')).toBe(true);
+    expect(document.getElementById('bottom')!.textContent!.startsWith('Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 3개) · E 강화')).toBe(true);
     placeUnitForTest(s, 'sotlid', 0);
     renderBottom(s, null, false);
-    expect(document.getElementById('bottom')!.textContent!.startsWith('W 다음 조합 고르기')).toBe(true);
+    expect(document.getElementById('bottom')!.textContent!.startsWith('조합할 재료가 아직 모자랍니다 · Space로 더 뽑으세요 (도깨비불 3개) · W 다음 조합 고르기')).toBe(true);
   });
 });
 

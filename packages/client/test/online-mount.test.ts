@@ -234,7 +234,7 @@ describe('online mountUi', () => {
   test('online 도움말 끔 hides the hotkey line but not the unit card', () => {
     localStorage.clear();
     const { scene } = mountOnline();
-    expect(document.getElementById('bottom')!.textContent).toContain('Space 소환');
+    expect(document.getElementById('bottom')!.textContent).toContain('E 강화');
     press(document.querySelector('#top [data-action="openSettings"]'));
     press(document.querySelector('#modal [data-action="setHelp"][data-arg="off"]'));
     key('Escape');
