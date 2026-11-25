@@ -290,7 +290,7 @@ describe('economy measurement additions', () => {
       expect(row.earnedMuk).toBe(row.bossMuk! + row.huntMuk + row.questMuk! + row.yeoksinMuk!);
       expect(row.yeoksinMuk).toBe(row.yeoksinKills * d3.coop!.killReward.buckwheat);
       expect(row.lostMuk).toBe(0);
-      expect(row.startMuk! + row.earnedMuk!).toBe(row.unitMuk! + row.grade5Muk! + row.finalMuk! + row.tameMuk! + row.endMuk!);
+      expect(row.startMuk! + row.earnedMuk!).toBe(row.unitMuk! + row.grade5Muk! + row.finalMuk! + row.tameMuk! + row.itemMuk! + row.endMuk!);
       expect(row.jigeGrants - row.jigeUses).toBe(row.jigeHeld);
       expect(row.tameTries).toBeGreaterThanOrEqual(row.tames);
       expect(typeof row.muk10 === 'number' || row.muk10 === null).toBe(true);
