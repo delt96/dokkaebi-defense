@@ -2,7 +2,7 @@ import { difficultySuffix } from './difficulty';
 import {
   attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineLockRound, countNormalEnemies, missingMaterials, recipesUsing, storedMaterials, unitDefFast,
   upgradeCost, unitRange, summonOddsForRound, roundResistRange,
-  type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeDef, type UpgradeId,
+  type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
 import { ROLE_LABEL, unitRoles, type RoleTag } from './dex-roles';
 
@@ -442,20 +442,19 @@ export function combineOptions(state: GameState, slot: number): CombineOption[] 
   return options;
 }
 
-const UPGRADE_TEXT: Record<UpgradeId, (def: UpgradeDef) => string> = {
-  physical: d => `물딜 공격력 +${pct(d.pct ?? 0)}`,
-  magical: d => `마딜 공격력 +${pct(d.pct ?? 0)}`,
-  polish: d => `1~4등급 공격력 +${pct(d.pct ?? 0)}`,
-  range: d => `모든 유닛 사거리 +${d.amount ?? 0}`,
+const UPGRADE_TEXT: Record<UpgradeId, (p: number) => string> = {
+  physical: p => `물딜 공격력 +${pct(p)}`,
+  magical: p => `마딜 공격력 +${pct(p)}`,
+  polish: p => `1~4등급 공격력 +${pct(p)}`,
 };
 
 export function upgradeRows(state: GameState): { id: UpgradeId; label: string; level: number; max: number; cost: number | null; effectText: string; affordable: boolean }[] {
   return state.data.upgrades.map(def => {
-    const level = state.upgrades[def.id] ?? 0;
+    const level = state.upgrades[def.id];
     const cost = level >= def.max ? null : upgradeCost(def, level + 1);
     return {
       id: def.id, label: def.label, level, max: def.max, cost,
-      effectText: UPGRADE_TEXT[def.id](def),
+      effectText: UPGRADE_TEXT[def.id](def.pct ?? 0),
       affordable: cost !== null && state.coins >= cost,
     };
   });

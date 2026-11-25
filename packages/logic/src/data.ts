@@ -18,14 +18,13 @@ import balance3 from '../data/stage3/balance.json';
 import onBasicHit3 from '../data/stage3/onBasicHit.json';
 import economy3 from '../data/stage3/economy.json';
 import coop3 from '../data/stage3/coop.json';
-import upgrades3 from '../data/stage3/upgrades.json';
 
 const SOURCES = {
   stage1: { units, recipes, enemies, waves, balance, upgrades },
   stage2: { units: units2, recipes: recipes2, enemies: enemies2, balance: balance2, coop: coop2 },
   stage3: {
     units: units3, recipes: recipes3, enemies: enemies3, waves: waves3, balance: balance3,
-    onBasicHit: onBasicHit3, economy: economy3, coop: coop3, upgrades: upgrades3,
+    onBasicHit: onBasicHit3, economy: economy3, coop: coop3,
   },
 };
 
@@ -64,7 +63,7 @@ export function buildGameData(stage: DataStage, src: DataSources): GameData {
     enemies: [...s1.enemies, ...s2.enemies, ...(three ? s3.enemies : [])],
     waves: three ? s3.waves : s1.waves,
     balance: three ? s3.balance : { ...s1.balance, ...s2.balance },
-    upgrades: three ? [...s1.upgrades, ...s3.upgrades] : s1.upgrades,
+    upgrades: s1.upgrades,
     coop: (three ? s3.coop : s2.coop) as CoopDef,
   }) as GameData;
   if (three) {

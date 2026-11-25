@@ -36,7 +36,7 @@ import { STORE_ALL_KEY, STORE_KEY, storageHtml, storageInfoHtml, storageInfoMode
 import { readTarget, targetHtml, writeTarget } from './target';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
-  Digit1: 'physical', Digit2: 'magical', Digit3: 'polish', Digit4: 'range',
+  Digit1: 'physical', Digit2: 'magical', Digit3: 'polish',
 };
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
@@ -513,10 +513,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       return;
     }
     if (modal === 'upgrades') {
-      // the window never pauses anything; E toggles it and 1-4 buy only while it is open (4 only where the stage sells range)
+      // the window never pauses anything; E toggles it and 1-3 buy only while it is open
       const open = UPGRADE_KEYS[ev.code];
       if (ev.code === 'KeyE') act('closeModal', '');
-      else if (open && driver.state.data.upgrades.some(u => u.id === open)) act('upgrade', open);
+      else if (open) act('upgrade', open);
       return;
     }
     if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }

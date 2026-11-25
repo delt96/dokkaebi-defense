@@ -13,8 +13,6 @@ export interface EconPolicy {
   quests: boolean; tame: boolean; jige?: boolean; hunts?: boolean;
   /** Build and keep a grade 5 shredder of the main type next to the dealers (missing: off). */
   shred?: boolean;
-  /** Save for the range upgrade before any other upgrade and buy it once the coins past the grade 6 reserve cover it (missing: never). */
-  range?: boolean;
 }
 export type TargetBot = Bot & { currentTarget(): string | null };
 

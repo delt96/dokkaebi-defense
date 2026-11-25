@@ -82,7 +82,7 @@ export function synergyUpgrade(state: GameState, main: DamageType, coins: number
     let bestCost = Infinity;
     for (const def of state.data.upgrades) {
       if (!ids.includes(def.id)) continue;
-      const level = state.upgrades[def.id] ?? 0;
+      const level = state.upgrades[def.id];
       if (level >= def.max) continue;
       const cost = upgradeCost(def, level + 1);
       if (cost < bestCost) { best = def.id; bestCost = cost; }
@@ -92,7 +92,7 @@ export function synergyUpgrade(state: GameState, main: DamageType, coins: number
   const choice = pick([main, 'polish']) ?? pick([off]);
   if (!choice) return null;
   const def = state.data.upgrades.find(u => u.id === choice)!;
-  return upgradeCost(def, (state.upgrades[choice] ?? 0) + 1) <= coins ? choice : null;
+  return upgradeCost(def, state.upgrades[choice] + 1) <= coins ? choice : null;
 }
 
 /** Slots of up to `n` units outside `tree` that support the main type, strongest support first. */

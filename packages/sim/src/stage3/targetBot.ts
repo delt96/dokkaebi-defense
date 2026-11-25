@@ -2,7 +2,7 @@ import {
   availableRecipes, createRng, deriveSeed, nextInt, unitAttack, unitDefFast,
   type Command, type DamageType, type GameData, type GameState,
 } from '@dorandi/logic';
-import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, rangeUpgrade, summonAll } from '../bots';
+import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
 import {
   betterTarget, huntCommands, jigeCommands, questCommands, remainingValue, reserveCoins, tameCommands, type EconPolicy, type TargetBot,
 } from './econBot';
@@ -217,10 +217,7 @@ export function targetBot(
       }
 
       const keep = reserveCoins(state, target);
-      // the range policy saves for the range upgrade before any other upgrade
-      const savingForRange = policy?.range === true && rangeUpgrade(state, Infinity) !== null;
-      const up = savingForRange ? rangeUpgrade(state, state.coins - keep)
-        : main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
+      const up = main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
       if (up) cmds.push({ type: 'upgrade', id: up });
       const fix = placementFix(state);
       const shredMove = reservedSlot >= 0 && decisions % 4 === 1 ? shredPlacement(state, reservedSlot, shredMain) : null;

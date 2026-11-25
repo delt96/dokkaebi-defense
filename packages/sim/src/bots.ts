@@ -41,20 +41,11 @@ function bestRecipe(state: GameState): string | null {
   return best;
 }
 
-/** 'range' when the stage sells the range upgrade, it is not bought yet and `coins` cover it. */
-export function rangeUpgrade(state: GameState, coins: number): 'range' | null {
-  const def = state.data.upgrades.find(u => u.id === 'range');
-  if (!def || (state.upgrades.range ?? 0) >= def.max) return null;
-  return upgradeCost(def, (state.upgrades.range ?? 0) + 1) <= coins ? 'range' : null;
-}
-
 export function cheapestUpgrade(state: GameState): UpgradeId | null {
   let best: UpgradeId | null = null;
   let bestCost = Infinity;
   for (const def of state.data.upgrades) {
-    // the range upgrade is bought by its own policy (rangeUpgrade), not as the cheapest
-    if (def.id === 'range') continue;
-    const level = state.upgrades[def.id] ?? 0;
+    const level = state.upgrades[def.id];
     if (level >= def.max) continue;
     const cost = upgradeCost(def, level + 1);
     if (cost < bestCost) { best = def.id; bestCost = cost; }

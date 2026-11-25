@@ -73,17 +73,13 @@ const bot = arg('bot', 'switch');
 const seeds = Number(arg('seeds', '30'));
 const shred = arg('shred', 'off') === 'on';
 const out = arg('out', 'sim-out/shred-variants');
-const range = arg('range', 'off') === 'on';
-const price = arg('price', '');
 const data = variantData(loadGameData('stage3'), variant);
-if (price) data.upgrades.find(u => u.id === 'range')!.costPerLevel = Number(price);
 if (arg('show', 'off') === 'on') {
   for (const id of SHREDDERS) console.log(JSON.stringify(data.units.find(u => u.id === id)));
   process.exit(0);
 }
 const base = STANDARD_CONFIGS.find(x => x.name === `${bot}-full-q2`)!;
-const tag = range ? `-range${price || data.upgrades.find(u => u.id === 'range')!.costPerLevel}` : '';
-const c = { ...base, noDefeat: false, shred, range, name: `${base.name}${shred ? '-shred' : ''}${tag}-${variant}` };
+const c = { ...base, noDefeat: false, shred, name: `${base.name}${shred ? '-shred' : ''}-${variant}` };
 const rows: FirepowerRow[] = [];
 const bosses: BossRow[] = [];
 for (let seed = 1; seed <= seeds; seed++) {
