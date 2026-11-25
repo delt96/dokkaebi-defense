@@ -64,3 +64,10 @@ export function firstTip(state: GameState, canCombine: boolean): FirstTip | null
   }
   return null;
 }
+
+export const PORTRAIT_TITLE = '가로로 돌려 주세요';
+
+export function portraitText(online: boolean): string {
+  const cut = '세로 화면에서는 판 오른쪽(뚝딱·설정)이 잘립니다.';
+  return online ? `${cut} 함께 하는 판이라 시간은 계속 흐릅니다.` : `${cut} 시간은 멈춰 있고, 돌리면 이어서 합니다.`;
+}

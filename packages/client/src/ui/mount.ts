@@ -41,8 +41,9 @@ import { resultHtml } from './result';
 import { readHelpLine, settingsHtml, writeHelpLine } from './settings';
 import { STORE_ALL_KEY, STORE_KEY, storageHtml, storageInfoHtml, storageInfoModel, wireStorage } from './storage';
 import { readTarget, targetHtml, writeTarget } from './target';
-import { closeSide, coveredIds, escStep, NO_SIDES, openSide, rightBarHtml, sidesLocked, soloPause, toggleSide, type Side, type SideWin, type Sides } from './windows';
+import { closeSide, coveredIds, escStep, NO_SIDES, openSide, portraitGuide, rightBarHtml, sidesLocked, soloPause, toggleSide, type Side, type SideWin, type Sides } from './windows';
 import { soloMenuHtml } from './solo-menu';
+import { PORTRAIT_TITLE, portraitText } from './first-visit';
 
 const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
   Digit1: 'physical', Digit2: 'magical', Digit3: 'polish',
@@ -169,11 +170,14 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let coverUntil = 0;
   // online Q: the left window beside the board, or laid over the six rows when the windows sit on the board
   const helperOpen = () => sides.left === 'helper';
+  let guideOn = false;
+  // 이대로 보기 lasts for the page: resetUi must not clear it
+  let guideDismissed = false;
   const locked = () => sidesLocked({
     locking: modal !== null || (!online && driver.state.phase === 'ended'),
     paused: !online && userPaused,
     scene: driver.state.phase === 'ended' || sceneRunning,
-    portrait: false,
+    portrait: guideOn,
     failed: driver.failed,
   });
   // a lock hides the pillar boxes under the board, so the panels under them are in view and live again
@@ -320,6 +324,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     node.className = 'win-box';
     el('stage').insertAdjacentElement(side === 'left' ? 'beforebegin' : 'afterend', node);
   }
+  if (!document.getElementById('portrait-guide')) {
+    const node = document.createElement('div');
+    node.id = 'portrait-guide';
+    node.hidden = true;
+    node.setAttribute('role', 'dialog');
+    node.setAttribute('aria-modal', 'true');
+    node.setAttribute('aria-labelledby', 'pg-title');
+    document.body.append(node);
+  }
+  const guideBox = el('portrait-guide');
+  guideBox.innerHTML = `<div class="pg-box"><b id="pg-title" class="pg-title">${esc(PORTRAIT_TITLE)}</b><p class="pg-text">${esc(portraitText(online))}</p><button data-action="portraitDismiss">이대로 보기</button></div>`;
   const rightBox = el('win-right');
   const marketPanel = () => rightBox.querySelector<HTMLElement>('.econ-panel');
 
@@ -466,7 +481,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   }
 
   const act = (action: string, arg: string) => {
-    if (driver.failed && action !== 'restart' && action !== 'home') return;
+    if (driver.failed && action !== 'restart' && action !== 'home' && action !== 'portraitDismiss') return;
     if (driver.readOnly && GAME_ACTIONS.has(action)) return;
     // design ⑦: only a P pause says so; the dex pause takes the keys itself
     if (!online && userPaused && GAME_ACTIONS.has(action)) {
@@ -658,6 +673,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'setHelp': helpLine = arg === 'on'; writeHelpLine(helpLine); break;
       case 'setFx': if ((arg === 'on') !== !!scene.reduceEffects) scene.setReduceEffects(arg === 'on'); break;
       case 'resume': userPaused = false; break;
+      case 'portraitDismiss': guideDismissed = true; break;
       case 'restart': hooks.onRestart?.(); break;
       case 'home': hooks.onHome?.(); break;
     }
@@ -720,6 +736,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay', 'pause-cover']) onAction(el(id), act);
   // a press that reaches a locked box anyway (inert is not honoured everywhere) still buys nothing
   for (const side of SIDES) onAction(el(`win-${side}`), (a, g) => { if (!locked()) act(a, g); });
+  onAction(guideBox, act);
+  for (const type of ['resize', 'orientationchange']) window.addEventListener(type, () => render());
   // the storage column belongs to the own living lane; it takes presses while no locking window is open and no pillar covers it
   const storageVisible = () => !driver.readOnly && driver.state.phase !== 'ended';
   const storageLive = () => storageVisible() && !driver.failed && modal === null && !coveredNow(currentWins()).includes('storage');
@@ -854,6 +872,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     setHtml(el('win-left').querySelector<HTMLElement>('.jige-rows')!, jigeRowsHtml(driver.state.data, jigeList));
   });
   window.addEventListener('keydown', ev => {
+    // the focused 이대로 보기 still takes its own Enter and Space
+    if (guideOn) return;
     if (modal === 'settings' && ev.code === 'Escape' && !ev.isComposing) {
       ev.preventDefault();
       act('closeModal', '');
@@ -1030,8 +1050,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (modal === 'dex') dexRemember();
       modal = null;
     }
+    const guideWas = guideOn;
+    guideOn = portraitGuide({
+      portrait: !!window.matchMedia?.('(orientation: portrait)')?.matches,
+      width: window.innerWidth,
+      dismissed: guideDismissed,
+      screenOpen: !!document.getElementById('screen')?.firstElementChild,
+    });
     // commands wait for ticks, so only the windows that send none (dex, menu) stop the clock
-    const pause = soloPause({ userPaused, modal, ended: s.phase === 'ended', portrait: false });
+    const pause = soloPause({ userPaused, modal, ended: s.phase === 'ended', portrait: guideOn });
     if (!online) driver.paused = pause.paused;
     const selected = selectedSlot(s, scene.selectedId);
     if (selected === null) scene.selectedId = null;
@@ -1198,7 +1225,18 @@ ${dex.mine.join()}`;
     if (shownModal === 'settings' && (modal !== 'settings' || soloResult)) gameAudio.previewTrack();
     shownModal = modal;
     dexListKey = dexShown ? listKey : '';
+    renderGuide(guideWas);
     hooks.onRender?.();
+  }
+
+  function renderGuide(was: boolean): void {
+    if (!guideOn && was) {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && guideBox.contains(active)) active.blur();
+    }
+    el('stage').inert = guideOn;
+    if (guideBox.hidden === guideOn) guideBox.hidden = !guideOn;
+    if (guideOn && !was) guideBox.querySelector<HTMLButtonElement>('button')?.focus();
   }
 
   let slotItem: SlotItem | null = null;
