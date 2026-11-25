@@ -32,10 +32,11 @@ function withBoss(round: number, n: number): GameState {
 describe('the boss label in the top bar', () => {
   const pick = (s: GameState) => { const { bossText, bossTitle } = hudModel(s); return { bossText, bossTitle }; };
 
-  test('reads in full until the resist line or the danger step needs the room', () => {
-    expect(pick(withBoss(10, 31))).toEqual({ bossText: '보스 체력 18400 / 24000', bossTitle: '보스 체력 18400 / 24000' });
+  test('reads in full until the resist line or a count tail needs the room', () => {
+    expect(pick(withBoss(10, 47))).toEqual({ bossText: '보스 체력 18400 / 24000', bossTitle: '보스 체력 18400 / 24000' });
+    expect(pick(withBoss(10, 48))).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
     expect(pick(withBoss(10, 58))).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
-    expect(pick(withBoss(10, 63)).bossText).toBe('보스 체력 18400 / 24000');
+    expect(pick(withBoss(10, 63))).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
     const late = withBoss(61, 10);
     expect(hudModel(late).resistText).not.toBeNull();
     expect(pick(late)).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
@@ -90,7 +91,7 @@ describe('solo HUD in three steps', () => {
     expect($('#top .boss')!.title).toBe('보스 체력 18400 / 24000');
     expect($('#top .gauge-text')).toBeNull();
     renderHud(withBoss(10, 63), false);
-    expect($('#top .boss')!.textContent).toBe('보스 체력 18400 / 24000');
+    expect($('#top .boss')!.textContent).toBe('보스 18400');
     expect($('#top .gauge-text')!.textContent).toBe('장승 무너짐');
     const last = Array.from($('#top .hud')!.children).slice(-2);
     expect(last.map(c => c.classList.contains('settings-open'))).toEqual([true, false]);

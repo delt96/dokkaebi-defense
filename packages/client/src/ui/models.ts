@@ -424,6 +424,7 @@ export function hudModel(state: GameState): HudModel {
   const resist = resistText(state.data, state.round);
   const boss = state.enemies.find(e => e.boss && e.hp > 0);
   const bossTitle = boss ? `보스 체력 ${boss.hp} / ${boss.maxHp}` : null;
+  const tail = limitTail(level, n, b.limit);
   return {
     roundText: (state.phase === 'prep' ? '준비' : `${state.round} / ${b.rounds} 라운드`) + difficultySuffix(state.data, state.difficulty),
     secondsLeft: Math.max(0, Math.ceil(left / ticksPerSecond)),
@@ -431,9 +432,10 @@ export function hudModel(state: GameState): HudModel {
     danger: Math.min(1, n / b.limit),
     crack: crackText(n, b.limit),
     resistText: resist,
-    count: n, limit: b.limit, level, instant, tail: limitTail(level, n, b.limit),
+    count: n, limit: b.limit, level, instant, tail,
     crackShown: level !== 'danger', overBy: level === 'over' ? n - b.limit : 0,
-    bossText: boss && (resist !== null || level === 'danger') ? `보스 ${boss.hp}` : bossTitle,
+    // any count tail, not only the danger one: round 10 with a tail and the pause pill measured 654-663px of 638 in Malgun Gothic
+    bossText: boss && (resist !== null || tail !== null) ? `보스 ${boss.hp}` : bossTitle,
     bossTitle,
   };
 }
