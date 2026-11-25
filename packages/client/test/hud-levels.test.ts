@@ -5,6 +5,7 @@ import { forceRound, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import { gameAudio } from '../src/audio/engine';
 import { renderAlert, renderHud } from '../src/ui/hud';
+import { hudModel } from '../src/ui/models';
 import { mountUi } from '../src/ui/mount';
 import { STAGE_HTML } from './fixtures/net';
 
@@ -17,6 +18,36 @@ function withEnemies(n: number, s: GameState = createGame(d3, 1)): GameState {
 }
 
 const $ = (sel: string) => document.querySelector<HTMLElement>(sel);
+
+function withBoss(round: number, n: number): GameState {
+  const s = createGame(d3, 1);
+  forceRound(s, round);
+  s.enemies = [];
+  const boss = spawnEnemyForTest(s, 'jinegaksi', 0, 24000);
+  boss.hp = 18400;
+  for (let i = 0; i < n; i++) spawnEnemyForTest(s, 'japgwi', 0);
+  return s;
+}
+
+describe('the boss label in the top bar', () => {
+  const pick = (s: GameState) => { const { bossText, bossTitle } = hudModel(s); return { bossText, bossTitle }; };
+
+  test('reads in full until the resist line or the danger step needs the room', () => {
+    expect(pick(withBoss(10, 31))).toEqual({ bossText: '보스 체력 18400 / 24000', bossTitle: '보스 체력 18400 / 24000' });
+    expect(pick(withBoss(10, 58))).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
+    expect(pick(withBoss(10, 63)).bossText).toBe('보스 체력 18400 / 24000');
+    const late = withBoss(61, 10);
+    expect(hudModel(late).resistText).not.toBeNull();
+    expect(pick(late)).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
+  });
+
+  test('no living boss, no label', () => {
+    expect(pick(withEnemies(31))).toEqual({ bossText: null, bossTitle: null });
+    const s = withBoss(10, 5);
+    s.enemies.find(e => e.boss)!.hp = 0;
+    expect(pick(s)).toEqual({ bossText: null, bossTitle: null });
+  });
+});
 
 describe('solo HUD in three steps', () => {
   beforeEach(() => { document.body.innerHTML = STAGE_HTML; });

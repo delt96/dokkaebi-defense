@@ -40,6 +40,28 @@ export function sidesLocked(i: LockInput): boolean {
   return i.locking || i.paused || i.scene || i.portrait || i.failed;
 }
 
+export const MENU_MODALS = ['menu', 'restartAsk', 'homeAsk'] as const;
+
+export interface PauseInput { userPaused: boolean; modal: string | null; ended: boolean; portrait: boolean }
+
+/**
+ * What stops the solo clock and what shows it. Only P draws the board cover; the dex stops the clock without the pill
+ * (B3). Once the game has ended only P is left holding the clock, and nothing is drawn.
+ */
+export function soloPause(i: PauseInput): { paused: boolean; pill: boolean; cover: boolean } {
+  const menu = (MENU_MODALS as readonly string[]).includes(i.modal ?? '');
+  return {
+    paused: i.userPaused || (!i.ended && (i.modal === 'dex' || menu || i.portrait)),
+    pill: !i.ended && (i.userPaused || menu || i.portrait),
+    cover: i.userPaused && !i.ended,
+  };
+}
+
+/** The outer screens (#screen) fit a phone held upright, so only the board asks to be turned. */
+export function portraitGuide(i: { portrait: boolean; width: number; dismissed: boolean; screenOpen: boolean }): boolean {
+  return i.portrait && i.width < 640 && !i.dismissed && !i.screenOpen;
+}
+
 export type EscStep = 'scene' | 'locking' | Side | 'selection';
 
 export function escStep(i: { scene: boolean; locking: boolean; sidesLocked: boolean; sides: Sides }): EscStep {

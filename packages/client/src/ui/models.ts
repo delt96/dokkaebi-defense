@@ -410,6 +410,8 @@ export interface HudModel {
   count: number; limit: number; level: LimitLevel; instant: boolean; tail: string | null;
   /** the '장승 …' word hides in danger, where the tail already says it */
   crackShown: boolean; overBy: number;
+  /** Null without a living boss. Shortened to '보스 N' while the resist line or the danger tail needs the room. */
+  bossText: string | null; bossTitle: string | null;
 }
 
 export function hudModel(state: GameState): HudModel {
@@ -419,15 +421,20 @@ export function hudModel(state: GameState): HudModel {
   const prepTicks = b.prepSeconds * ticksPerSecond;
   const left = state.phase === 'prep' ? prepTicks - state.tick : state.roundEndTick - state.tick;
   const { level, instant } = limitLevel(state.data, n, state.round);
+  const resist = resistText(state.data, state.round);
+  const boss = state.enemies.find(e => e.boss && e.hp > 0);
+  const bossTitle = boss ? `보스 체력 ${boss.hp} / ${boss.maxHp}` : null;
   return {
     roundText: (state.phase === 'prep' ? '준비' : `${state.round} / ${b.rounds} 라운드`) + difficultySuffix(state.data, state.difficulty),
     secondsLeft: Math.max(0, Math.ceil(left / ticksPerSecond)),
     enemyText: `내 잡귀 ${n} / ${b.limit}`,
     danger: Math.min(1, n / b.limit),
     crack: crackText(n, b.limit),
-    resistText: resistText(state.data, state.round),
+    resistText: resist,
     count: n, limit: b.limit, level, instant, tail: limitTail(level, n, b.limit),
     crackShown: level !== 'danger', overBy: level === 'over' ? n - b.limit : 0,
+    bossText: boss && (resist !== null || level === 'danger') ? `보스 ${boss.hp}` : bossTitle,
+    bossTitle,
   };
 }
 
