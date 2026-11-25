@@ -7,7 +7,8 @@ const RESIST_HINT = '이번 라운드 잡귀가 받는 피해를 줄이는 비�
 
 export interface AlertOpts { still?: boolean }
 
-export function renderHud(state: GameState, paused: boolean, notice: string | null = null, alert: AlertOpts = {}): void {
+/** `userPaused` is the P pause only; the dex pause shows no pill. */
+export function renderHud(state: GameState, userPaused: boolean, alert: AlertOpts = {}): void {
   const m = hudModel(state);
   const boss = state.enemies.find(e => e.boss && e.hp > 0);
   const round = `<span class="round">${esc(m.roundText)}</span>`;
@@ -19,9 +20,8 @@ export function renderHud(state: GameState, paused: boolean, notice: string | nu
   setHtml(el('top'), `
     <div class="hud">
       ${roundBlock}
-      <span class="time">남은 ${m.secondsLeft}초${paused ? ' · 멈춤' : ''}</span>
+      <span class="time">남은 ${m.secondsLeft}초${userPaused ? ' <i class="pill">멈춤</i>' : ''}</span>
       ${boss ? `<span class="boss">보스 체력 ${boss.hp} / ${boss.maxHp}</span>` : ''}
-      ${notice ? `<span class="notice">${esc(notice)}</span>` : ''}
       <span class="enemies lv-${m.level}">내 잡귀 <b class="n">${m.count}</b> / ${m.limit}${tail}</span>
       <span class="gauge lv-${m.level}" title="장승: ${m.crack}"><i style="width:${Math.round(m.danger * 100)}%"></i></span>${m.crackShown ? `<span class="gauge-text${m.danger > 0.66 ? ' bad' : ''}">장승 ${m.crack}</span>` : ''}
       ${SETTINGS_BUTTON}

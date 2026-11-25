@@ -26,11 +26,11 @@ import {
 import { el, esc, focusedIn, onAction, refocusIn, setHtml } from './dom';
 import { helperPopHtml } from './helper';
 import { edgeLevel, renderAlert, renderHud } from './hud';
-import { loopOwner, TopSlot, type SlotItem, type SlotShown } from './signals';
+import { loopOwner, OneShots, refusalPos, refusalSpot, TopSlot, type RefusalSpot, type SlotItem, type SlotShown } from './signals';
 import { PressConfirm } from './confirm';
 import {
-  activeNotice, boardMarks, hudModel, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, NO_MARKS, moveStep, nextCombines, nextPick, nextUnitId,
-  pinnedTarget, rejectText, rowCells, selectedSlot, type DexNav, type MoveInput, type NextScope, type Notice,
+  boardMarks, hudModel, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, NO_MARKS, moveStep, nextCombines, nextPick, nextUnitId,
+  pinnedTarget, rejectText, rowCells, selectedSlot, type DexNav, type MoveInput, type NextScope,
 } from './models';
 import { renderBottom, renderRight, soloPanelHtml, unitDetailsHtml, upgradesHtml } from './panels';
 import { resultHtml } from './result';
@@ -63,6 +63,12 @@ const GAME_ACTIONS: ReadonlySet<string> = new Set([
   'store', 'storeAll', 'retrieve', 'sellStored', 'sellStack',
 ]);
 const PRESS_MS = 120;
+/** The refusal box fades in for 120 ms, then shakes for 160 ms; it fades out over its last 80 ms (CSS .refusal). */
+const REFUSAL_MOTION_MS = 280;
+const REFUSAL_OUT_MS = 80;
+const PAUSED_TEXT = '멈춤 중입니다 · P로 계속';
+/** The command a pressed action sends, so a refusal while paused finds the same button a refused command would. */
+const COMMAND_OF: Partial<Record<string, string>> = { summon: 'summon', convert: 'convertToken', sell: 'sell', upgrade: 'upgrade' };
 const SIDES: readonly Side[] = ['left', 'right'];
 /** The panel button that opens each side window; a window closed from inside gives the focus back to it. */
 const OPENERS: Partial<Record<SideWin, string>> = {
@@ -150,7 +156,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // the open R list (sides.left 'jige'); see jigeStale for when a pick is dropped
   let jigeList: JigeList | null = null;
   let best: { id: string; grade: number } | null = null;
-  let notice: Notice | null = null;
+  let refusal: { spot: Exclude<RefusalSpot, { at: 'slot' }>; text: string; until: number; node: HTMLElement | null } | null = null;
+  const oneShots = new OneShots();
   // the pillar market folds 최근 결과 to one line; this is whether it was pressed open
   let historyOpen = false;
   let reveal: Reveal | null = null;
@@ -204,8 +211,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   driver.onBirthNotice?.((alert, mine) => (mine ? ownBirth(alert) : showBirth(alert, false)));
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => slotNote(text, ms);
-  // refusals keep the HUD / banner fallback spot until they get their own box over the button
-  const refuse = (text: string) => { gameAudio.play('error'); notice = { text, until: performance.now() + NOTICE_MS }; };
   for (const id of ['econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
     if (document.getElementById(id)) continue;
     const node = document.createElement('div');
@@ -217,6 +222,13 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     row.id = 'slot-row';
     row.innerHTML = '<div id="gate-near" aria-hidden="true"></div><div id="limit-instant"></div>';
     el('stage').append(row);
+  }
+  if (!document.getElementById('pause-cover')) {
+    const node = document.createElement('div');
+    node.id = 'pause-cover';
+    node.hidden = true;
+    node.innerHTML = '<b class="pause-title">멈춤</b><button data-action="resume">계속 (P)</button>';
+    el('stage').append(node);
   }
   if (!document.getElementById('slot-say')) {
     const node = document.createElement('div');
@@ -235,6 +247,58 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   }
   const rightBox = el('win-right');
   const marketPanel = () => rightBox.querySelector<HTMLElement>('.econ-panel');
+
+  function shownNow(selector: string): boolean {
+    const node = document.querySelector<HTMLElement>(selector);
+    // a browser gives null for a node that is not drawn; happy-dom has no offsetParent at all (undefined)
+    return !!node && node.offsetParent !== null && !node.closest('[inert], [hidden]');
+  }
+  function showRefusal(text: string, command: { type: string; arg?: string }): void {
+    refusal?.node?.remove();
+    refusal = null;
+    const spot = refusalSpot(command, shownNow);
+    el('slot-say').textContent = text;
+    if (spot.at === 'slot') { slotNote(text, NOTICE_MS); return; }
+    const now = performance.now();
+    refusal = { spot, text, until: now + NOTICE_MS, node: null };
+    placeRefusal(now, true);
+  }
+  const refuse = (text: string, command: { type: string; arg?: string } = { type: '' }) => {
+    gameAudio.play('error');
+    showRefusal(text, command);
+  };
+  /** Keeps the box up for its time; a redraw of its window box takes it away, so it goes back in without moving again. */
+  function placeRefusal(now: number, fresh: boolean): void {
+    const r = refusal;
+    if (!r) return;
+    const target = document.querySelector(r.spot.selector);
+    if (now >= r.until || (r.spot.at === 'win' && !target)) {
+      r.node?.remove();
+      refusal = null;
+      return;
+    }
+    const container = r.spot.at === 'win' ? el(`win-${r.spot.side}`) : el('stage');
+    if (!r.node || !container.contains(r.node)) {
+      if (!target) return;
+      const node = document.createElement('div');
+      node.className = 'refusal';
+      node.setAttribute('aria-hidden', 'true');
+      node.textContent = r.text;
+      if (fresh) node.classList.add('enter');
+      if (fresh && !scene.reduceEffects && oneShots.begin(now, REFUSAL_MOTION_MS)) node.classList.add('shake');
+      container.append(node);
+      const box = container.getBoundingClientRect();
+      const scale = (container.offsetWidth ? box.width / container.offsetWidth : 1) || 1;
+      const at = target.getBoundingClientRect();
+      const pos = refusalPos(
+        { left: (at.left - box.left) / scale, top: (at.top - box.top) / scale, width: at.width / scale }, { w: node.offsetWidth }, box.width / scale,
+      );
+      node.style.left = `${pos.left}px`;
+      node.style.top = `${pos.top}px`;
+      r.node = node;
+    }
+    r.node.classList.toggle('out', r.until - now <= REFUSAL_OUT_MS);
+  }
 
   function inspectMarket(event: Event): void {
     const target = event.target as Element;
@@ -281,6 +345,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   const act = (action: string, arg: string) => {
     if (driver.failed && action !== 'restart' && action !== 'home') return;
     if (driver.readOnly && GAME_ACTIONS.has(action)) return;
+    // design ⑦: only a P pause says so; the dex pause takes the keys itself
+    if (!online && userPaused && GAME_ACTIONS.has(action)) {
+      refuse(PAUSED_TEXT, { type: COMMAND_OF[action] ?? action, arg });
+      return;
+    }
     const previousModal = modal;
     const previousSides = sides;
     const focusSide = focusedSide();
@@ -347,7 +416,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const t = e ? tameModel(e, driver.state) : null;
         if (!t) break;
         // the hotkey on a chance that is not ready says what is missing instead of sending a doomed command
-        if (!t.ready) { refuse(t.label); break; }
+        if (!t.ready) { refuse(t.label, { type: 'tame' }); break; }
         if (!confirm.press(`tame:${t.enemyId}`, performance.now())) break;
         driver.queue({ type: 'tame', enemyId: t.enemyId });
         break;
@@ -425,7 +494,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const index = zone === 'board' ? selectedSlot(s, Number(ref)) ?? -1 : (s.storage ?? []).findIndex(u => u.defId === ref);
         const unit = (zone === 'board' ? s.slots : s.storage ?? [])[index];
         if (!e || !unit || (zone !== 'board' && zone !== 'storage')) break;
-        if (e.jige < 1) { refuse(rejectText('noJige') ?? ''); break; }
+        if (e.jige < 1) { refuse(rejectText('noJige') ?? '', { type: 'jigeOpen' }); break; }
         const source: JigeList['source'] = { zone, index, unitId: unit.id };
         jigeList = {
           source, defId: unit.defId, cost: unit.cost ?? null,
@@ -444,7 +513,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         jigeList = null;
         if (!list) break;
         // the list belongs to one unit on one lane snapshot: anything else changed and the pick is not sent
-        if (jigeStale(list)) { refuse('유닛이 바뀌어 지게 바꾸기를 취소했습니다'); break; }
+        if (jigeStale(list)) { refuse('유닛이 바뀌어 지게 바꾸기를 취소했습니다', { type: 'jigeSwap' }); break; }
         driver.queue({ type: 'jigeSwap', source: { ...list.source }, result: arg });
         break;
       }
@@ -461,6 +530,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       case 'setHelp': helpLine = arg === 'on'; writeHelpLine(helpLine); break;
       case 'setFx': if ((arg === 'on') !== !!scene.reduceEffects) scene.setReduceEffects(arg === 'on'); break;
+      case 'resume': userPaused = false; break;
       case 'restart': hooks.onRestart?.(); break;
       case 'home': hooks.onHome?.(); break;
     }
@@ -518,7 +588,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (!driver.readOnly) driver.queue({ type: 'helperOpened' });
   }
 
-  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) onAction(el(id), act);
+  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay', 'pause-cover']) onAction(el(id), act);
   // a press that reaches a locked box anyway (inert is not honoured everywhere) still buys nothing
   for (const side of SIDES) onAction(el(`win-${side}`), (a, g) => { if (!locked()) act(a, g); });
   // the storage column belongs to the own living lane; it takes presses while no locking window is open and no pillar covers it
@@ -618,7 +688,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       const table = r.command.type === 'gambleUnit' ? econ()?.market?.gamble?.units.tables[r.command.table] : undefined;
       const gate = table && r.reason === 'gambleRound' ? `큰 보따리는 ${table.fromRound}라운드부터입니다` : null;
       const text = tame ?? gate ?? rejectText(fullBoard ? 'noSlot' : r.reason);
-      if (text) notice = { text, until: performance.now() + NOTICE_MS };
+      // the battle audio already rang the refusal
+      if (text) showRefusal(text, { type: r.command.type, ...(r.command.type === 'upgrade' ? { arg: r.command.id } : {}) });
     }
     if (drew || scene.selectedId !== priorSelection) render();
   });
@@ -826,7 +897,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderRows(view, opts.data, helperFrame === 'win' ? '' : helper, flashingSeats(now));
       renderAlert(s, alertOpts);
     } else {
-      renderHud(s, driver.paused, activeNotice(notice, now), alertOpts);
+      renderHud(s, userPaused, alertOpts);
       setHtml(el('left'), s.phase === 'ended' ? '' : infoHtml || soloPanelHtml(s, {
         selected, list, idleList, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
       }));
@@ -834,7 +905,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const prompts = renderEcon(view, selected);
     if (s.phase === 'ended') topSlot.clear();
     const shownSlot = s.phase === 'ended' ? null : topSlot.current(now, false);
-    const moved = renderSlot(shownSlot, prompts, view && s.phase !== 'ended' ? activeNotice(notice, now) : null, now);
+    const moved = renderSlot(shownSlot, prompts, now);
     renderSlotRow(s, view);
     if (view && driver.readOnly) {
       setHtml(el('right'), `<b class="watch-heading">고개 관전</b><p class="watch-hint">왼쪽에서 살아 있는 고개를 고르세요. 아래 카드로 엽전을 보낼 수 있습니다.</p>`);
@@ -864,6 +935,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const lockOpen = modal !== null || soloResult;
     const wins = currentWins();
     renderSides(s, wins, selected, helperWin);
+    placeRefusal(now, false);
+    const cover = el('pause-cover');
+    const coverOn = !online && userPaused && s.phase !== 'ended';
+    if (cover.hidden === coverOn) cover.hidden = !coverOn;
     const covered = coveredNow(wins);
     const leftCovered = covered.includes('left');
     // design ⑤: a pillar over the left panel leaves no focus behind it, or Space would press the hidden button
@@ -878,7 +953,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       noticeNarrow = narrow;
       scene.setNoticeSpan?.(narrow);
     }
-    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
+    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay', 'pause-cover']) {
       el(id).inert = lockOpen || covered.includes(id);
     }
     const sideLock = locked();
@@ -915,23 +990,22 @@ ${dex.mine.join()}`;
   /**
    * The top slot (#round-banner): words for banners, fallen notices and toasts; a birth is drawn on the board, so the
    * box stays empty for it. Prompts over the lane push the words down a row, and with two prompts the band above the
-   * lane is full, so the line goes to the notices in the right column instead (returned). Online, a refusal still
-   * shows here while the slot is free (`fallback`).
+   * lane is full, so the line goes to the notices in the right column instead (returned).
    */
-  function renderSlot(shown: SlotShown | null, prompts: number, fallback: string | null, now: number): string[] {
+  function renderSlot(shown: SlotShown | null, prompts: number, now: number): string[] {
     const item = shown?.item ?? null;
     if (item !== slotItem) {
       slotItem = item;
       if (item?.kind === 'birth' && item.birth) scene.showBirth(item.birth);
     }
-    const words = item ? (item.kind === 'birth' ? '' : item.text) : fallback ?? '';
+    const words = item ? (item.kind === 'birth' ? '' : item.text) : '';
     const tail = item && item.kind !== 'birth' ? item.tail ?? '' : '';
     const oneLine = words.replace(/\n/g, ' · ');
     const body = prompts >= 2 ? '' : prompts === 1 ? oneLine : words;
     const box = el('round-banner');
     box.classList.toggle('low', prompts === 1);
     box.classList.toggle('out', !!shown && shown.until - now <= SLOT_OUT_MS);
-    const kind = item?.kind ?? (fallback ? 'note' : '');
+    const kind = item?.kind ?? '';
     const key = `${kind}|${shown?.start ?? ''}|${body}|${tail}`;
     if (key !== slotKey) {
       slotKey = key;
@@ -941,7 +1015,7 @@ ${dex.mine.join()}`;
         ? `<span class="slot-text"${color}>${esc(body)}${tail ? `<b class="slot-tail">${esc(tail)}</b>` : ''}</span>`
         : '';
     }
-    const sentence = (item ? item.say ?? item.text + tail : fallback ?? '').replace(/\n/g, ' · ');
+    const sentence = (item ? item.say ?? item.text + tail : '').replace(/\n/g, ' · ');
     if (sentence !== spoken) {
       spoken = sentence;
       el('slot-say').textContent = sentence;
@@ -1140,7 +1214,8 @@ ${dex.mine.join()}`;
     modal = null;
     sides = NO_SIDES;
     best = null;
-    notice = null;
+    refusal?.node?.remove();
+    refusal = null;
     historyOpen = false;
     reveal = null;
     shownReveal = null;

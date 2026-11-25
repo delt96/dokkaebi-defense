@@ -263,6 +263,8 @@ describe('storage on the page', () => {
     driver.queue({ type: 'store', slot: 0 });
     driver.update(50);
     keydown(window, { code: 'Escape' });
-    expect(document.getElementById('top')!.textContent).toContain('1·2등급만 보관할 수 있습니다');
+    // the store has no button of its own, so the refusal goes to the top slot
+    expect(document.getElementById('round-banner')!.textContent).toContain('1·2등급만 보관할 수 있습니다');
+    expect(document.querySelector('#top .notice')).toBeNull();
   });
 });
