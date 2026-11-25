@@ -1,12 +1,8 @@
-import type { GameState, UnitDef, UpgradeDef } from './types';
+import type { UpgradeDef } from './types';
 import { registerCommand } from './registry';
 
 export function upgradeCost(def: UpgradeDef, nextLevel: number): number {
   return def.costPerLevel * nextLevel;
-}
-
-export function unitRange(state: GameState, def: UnitDef): number {
-  return def.range;
 }
 
 registerCommand('upgrade', (state, cmd) => {

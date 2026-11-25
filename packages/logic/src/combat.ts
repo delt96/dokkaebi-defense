@@ -10,7 +10,7 @@ import { econBossKill, econEventKill } from './econ/hooks';
 import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnKillExplosions, vulnOf } from './effects';
 import { runIncome } from './income';
-import { unitRange } from './upgrades';
+import { itemBonus, unitRange } from './econ/shop';
 
 /** `cutsResist` (stage 3 vulnCutsResist): weakening adds to what resistance leaves instead of multiplying it. */
 export function computeHitDamage(a: { attack: number; mult: number; bonus: number; resist: number; vuln: number; cutsResist?: boolean }): number {
@@ -44,7 +44,7 @@ export function damageBonus(state: GameState, slot: number): number {
   const def = unitDefFast(state.data, unit.defId);
   const polish = def.grade <= 4 ? upgradePct(state, 'polish') : 0;
   // a unit gets only its own damage type's upgrade, whatever its materials were
-  return upgradePct(state, def.damageType) + polish + auraAttackPower(state, slot);
+  return upgradePct(state, def.damageType) + polish + auraAttackPower(state, slot) + itemBonus(state, slot, 'attack');
 }
 
 /** The resistance added in `round` by resistByRound: 0 without it or up to fromRound, then linear to top at toRound. */
@@ -90,7 +90,7 @@ export function inRange(state: GameState, slot: number, enemy: Enemy, range: num
 export function pickTarget(state: GameState, slot: number): Enemy | null {
   const unit = state.slots[slot];
   if (!unit) return null;
-  const range = unitRange(state, unitDefFast(state.data, unit.defId));
+  const range = unitRange(state, slot);
   let best: Enemy | null = null;
   let bestRank = 3;
   for (const e of state.enemies) {

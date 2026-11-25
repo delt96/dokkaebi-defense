@@ -1,5 +1,7 @@
 import { registerCommand } from '../registry';
-import type { GameData, GameState, RejectReason, ShopItemDef } from '../types';
+import { toTicks } from '../flow';
+import { unitDefFast } from '../units';
+import type { Enemy, GameData, GameState, RejectReason, ShopItemDef } from '../types';
 
 export function shopItem(data: GameData, id: string): ShopItemDef | undefined {
   return data.economy?.shop?.items.find(i => i.id === id);
@@ -8,6 +10,30 @@ export function shopItem(data: GameData, id: string): ShopItemDef | undefined {
 export function itemOf(state: GameState, slot: number): ShopItemDef | null {
   const id = state.slots[slot]?.item;
   return id === undefined ? null : shopItem(state.data, id) ?? null;
+}
+
+export function unitRange(state: GameState, slot: number): number {
+  const unit = state.slots[slot];
+  if (!unit) return 0;
+  const effect = itemOf(state, slot)?.effect;
+  return unitDefFast(state.data, unit.defId).range + (effect?.kind === 'range' ? effect.amount : 0);
+}
+
+export function itemBonus(state: GameState, slot: number, kind: 'attack' | 'speed'): number {
+  const effect = itemOf(state, slot)?.effect;
+  return effect?.kind === kind ? effect.pct : 0;
+}
+
+/** Leaves vulnCaster alone: a weak charm must not arm another unit's kill explosion. */
+export function applyItemVuln(state: GameState, slot: number, target: Enemy): void {
+  const effect = itemOf(state, slot)?.effect;
+  if (effect?.kind !== 'vuln' || target.hp <= 0) return;
+  const damageType = unitDefFast(state.data, state.slots[slot]!.defId).damageType;
+  const key = `item:${state.slots[slot]!.item}:${damageType}`;
+  const ticks = toTicks(effect.seconds);
+  const cur = target.vulns[key];
+  if (cur) cur.ticks = ticks;
+  else target.vulns[key] = { pct: effect.pct, damageType, ticks, stacks: 1 };
 }
 
 function shopFor(state: GameState, id: string): ShopItemDef | null {

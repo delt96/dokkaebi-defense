@@ -485,7 +485,7 @@ export function unitCard(state: GameState, slot: number): UnitCard | null {
     name: def.name, grade: def.grade, hidden: def.hidden === true, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
     attack: Math.round(unitAttack(def, state.data.balance) * (1 + attackBonus)), attackBonus,
     interval: attackIntervalTicks(def.interval, fast) * state.data.balance.tickMs / 1000, speedBonus: fast,
-    range: unitRange(state, def), skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, roles: unitRoles(def),
+    range: unitRange(state, slot), skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, roles: unitRoles(def),
     sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
   };
 }

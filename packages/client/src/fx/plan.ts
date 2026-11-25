@@ -60,8 +60,8 @@ export interface PlanCtx {
   enemy(enemyId: number): PlanEnemy | undefined;
   /** Units holding `defId` whose range reaches one of these enemies (who fired a periodic pulse). */
   pulseUnits(defId: string, enemyIds: number[]): number[];
-  /** A unit's reach with the range upgrade; its own `range` when left out. */
-  range?(def: UnitDef): number;
+  /** The reach of unit `unitId` (a range item adds to it); `def.range` when left out. */
+  range?(unitId: number, def: UnitDef): number;
   perimeter: number;
 }
 
@@ -202,7 +202,7 @@ export function planEvents(events: readonly GameEvent[], ctx: PlanCtx): FxCmd[] 
   for (const [defId, enemyIds] of periodic) {
     const def = ctx.def(defId)!;
     for (const unitId of ctx.pulseUnits(defId, enemyIds)) {
-      out.push({ kind: 'pulse', unitId, radius: ctx.range?.(def) ?? def.range, color: gradeHex(def.grade), priority: PRIORITY.mid });
+      out.push({ kind: 'pulse', unitId, radius: ctx.range?.(unitId, def) ?? def.range, color: gradeHex(def.grade), priority: PRIORITY.mid });
     }
   }
   for (const [defId, ids] of detachedCasts) {
@@ -224,7 +224,10 @@ export function planFromState(state: GameState, prevD: ReadonlyMap<number, numbe
       return u ? unitDefFast(state.data, u.defId) : undefined;
     },
     def: id => state.data.units.find(u => u.id === id),
-    range: def => unitRange(state, def),
+    range: (unitId, def) => {
+      const slot = state.slots.findIndex(u => u?.id === unitId);
+      return slot < 0 ? def.range : unitRange(state, slot);
+    },
     enemyDef: id => names.get(id),
     enemy: id => {
       const e = byId.get(id);
@@ -243,7 +246,7 @@ export function planFromState(state: GameState, prevD: ReadonlyMap<number, numbe
       state.slots.forEach((u, slot) => {
         if (u?.defId !== defId) return;
         const cell = lane.cells[slot]!;
-        if (!points.length || points.some(p => dist(cell, p) <= unitRange(state, def) + 1e-9)) out.push(u.id);
+        if (!points.length || points.some(p => dist(cell, p) <= unitRange(state, slot) + 1e-9)) out.push(u.id);
       });
       return out;
     },
@@ -291,7 +294,7 @@ export function auraMarkedEnemies(state: GameState): Set<number> {
     const def = unitDefFast(state.data, u.defId);
     if (!auraEffects(def).some(e => e.kind === 'auraEnemyVuln')) return;
     const cell = lane.cells[slot]!;
-    for (const e of state.enemies) if (!out.has(e.id) && dist(cell, lane.pointAt(e.d)) <= unitRange(state, def) + 1e-9) out.add(e.id);
+    for (const e of state.enemies) if (!out.has(e.id) && dist(cell, lane.pointAt(e.d)) <= unitRange(state, slot) + 1e-9) out.add(e.id);
   });
   return out;
 }

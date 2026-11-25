@@ -9,7 +9,7 @@ export {
 } from './econ/ledger';
 export { jigeCandidates, swapJige } from './econ/jige';
 export { gambleCheck, gambleTier, type GambleView } from './econ/gamble';
-export { buyBlock, itemOf, shopItem } from './econ/shop';
+export { applyItemVuln, buyBlock, itemBonus, itemOf, shopItem, unitRange } from './econ/shop';
 export { marketView, placePendingDrops, type MarketView } from './econ/market';
 export { econView, type EconHuntView, type EconMarketView, type EconTameView, type EconView } from './econ/view';
 export { spawnEventEnemy, type EventKind } from './econ/events';
@@ -31,7 +31,7 @@ export {
   computeHitDamage, attackIntervalTicks, damageBonus, speedBonus, pickTarget, boardDps, resolveKills,
   roundResistBonus, resistAt, roundResistRange, vulnOf, type ResistRange,
 } from './combat';
-export { unitRange, upgradeCost } from './upgrades';
+export { upgradeCost } from './upgrades';
 export { applyBossKnockback, bossStunGate } from './bosscontrol';
 export * from './hash';
 export * from './match/types';
