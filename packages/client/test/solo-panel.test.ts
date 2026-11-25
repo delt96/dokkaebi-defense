@@ -130,6 +130,33 @@ describe('solo left panel', () => {
     expect(left().querySelector('.nc-skill')).toBeNull();
   });
 
+  test('keyboard focus stays on the pressed scope button and skill line through the redraw', () => {
+    scene.select(0);
+    scopeBtn('all').focus();
+    press(scopeBtn('all'));
+    expect(pressedScope()).toBe('전체 11');
+    expect(document.activeElement).toBe(scopeBtn('all'));
+    const skill = () => left().querySelector<HTMLButtonElement>('.skill-line')!;
+    skill().focus();
+    press(skill());
+    expect(skill().getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(skill());
+    press(document.activeElement);
+    expect(skill().getAttribute('aria-expanded')).toBe('false');
+  });
+
+  test('a hover redraw keeps the focus; +N개 더 hands it to the list it unfolded', () => {
+    scopeBtn('all').focus();
+    left().querySelector('[data-recipe="baneul"]')!.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+    expect(left().querySelector('.hov[data-recipe="baneul"]')).not.toBeNull();
+    expect(document.activeElement).toBe(scopeBtn('all'));
+    const more = left().querySelector<HTMLButtonElement>('.next-more')!;
+    more.focus();
+    press(more);
+    expect(left().querySelector('.next-more')).toBeNull();
+    expect(document.activeElement).toBe(left().querySelector('.nc-list'));
+  });
+
   test('a one-short row opens the dex on that unit', () => {
     scene.select(0);
     press(left().querySelector('span.recipe-row[data-recipe="saekkijul"]'));
@@ -185,6 +212,13 @@ describe('soloPanelHtml', () => {
     expect(jige.querySelector('[data-action="jigeOpen"]')!.getAttribute('title')).toBe('지게: 같은 등급의 다른 유닛으로 바꿉니다');
     expect(jige.querySelector('.jige-note')).toBeNull();
     expect(jige.nextElementSibling!.classList.contains('up-actions')).toBe(true);
+  });
+
+  test('no 지게 row while none is held: R and the help line still name it', () => {
+    const s = mockBoardState();
+    const box = dom(soloPanelHtml(s, base({ selected: 0, list: nextCombines(s, { slot: 0 }), jige: 0 })));
+    expect(box.querySelector('.up-jige')).toBeNull();
+    expect(box.querySelector('.nc-list')!.nextElementSibling!.classList.contains('up-actions')).toBe(true);
   });
 
   test('a grade 3 unit has no 보관 button', () => {

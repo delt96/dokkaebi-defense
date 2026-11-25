@@ -156,6 +156,9 @@ describe('solo help line and unit card', () => {
   test('one panel: head, scope buttons, the list, the 지게 row, then the actions; Q keeps that order', () => {
     scene.select(3);
     const order = () => Array.from(left().querySelector('.solo-panel')!.children).map(c => c.className.split(' ')[0]);
+    expect(order()).toEqual(['nc-head', 'nc-scope', 'nc-list', 'up-actions']);
+    driver.state.econ!.jige = 1;
+    scene.select(3);
     expect(order()).toEqual(['nc-head', 'nc-scope', 'nc-list', 'up-jige', 'up-actions']);
     key('KeyQ');
     expect(order()).toEqual(['nc-head', 'nc-scope', 'nc-list', 'up-jige', 'up-actions']);

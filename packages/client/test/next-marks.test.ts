@@ -96,4 +96,12 @@ describe('nextPick', () => {
     expect(rowCells(s, 'meongseok', 0)).toEqual([1]);
     expect(rowCells(s, 'mumyeong', 0)).toEqual([]);
   });
+
+  test('rowCells of a one-short row is the board cells that hold its materials', () => {
+    const s = mockBoardState();
+    expect([...rowCells(s, 'moru', null)].sort((a, b) => a - b)).toEqual([9, 11]);
+    expect([...rowCells(s, 'jipsingol', null)].sort((a, b) => a - b)).toEqual([0, 4]);
+    expect(rowCells(s, 'jipsingol', 0)).toEqual([4]);
+    expect(rowCells(s, 'moru', 0)).toEqual([]);
+  });
 });

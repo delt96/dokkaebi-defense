@@ -147,7 +147,8 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .mat-chip.make .mat-mark { color: var(--ink); }
 .recipe-row.w-pick { box-shadow: 0 0 0 1px var(--accent); }
 .recipe-row.hov { border-color: var(--accent); }
-.recipe-row.peer { outline: 1px dashed var(--accent); outline-offset: -1px; }
+/* a border, not an outline: the focus ring is the outline, and a row can be both */
+.recipe-row.peer { border-style: dashed; border-color: var(--accent); }
 .next-list { display: flex; flex-direction: column; gap: 4px; }
 .next-list > *, .next-one > * { flex: none; }
 .next-one { display: contents; }
@@ -163,6 +164,9 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .next-list button:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 /* inside the scrolled solo list an outline outside the row would be cut at the panel's edges */
 .nc-list button:focus-visible { outline-offset: -2px; }
+.nc-list:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* one more pixel in, so a focused row that is also a peer keeps its dashed border visible outside the ring */
+.nc-list .recipe-row:focus-visible, .helper-pop .recipe-row:focus-visible { outline-offset: -3px; }
 .mat-cost { align-self: center; font-size: 8px; color: var(--accent); white-space: nowrap; }
 .recipe-more { width: 100%; min-height: 16px; }
 .recipe-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }

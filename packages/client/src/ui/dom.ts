@@ -25,6 +25,28 @@ export function setHtml(node: HTMLElement, html: string): void {
   }));
 }
 
+/** A focused control named by its data attributes, so the copy a redraw puts in its place can be found again. */
+export interface FocusMark { action?: string; arg?: string; recipe?: string }
+
+export function focusedIn(node: HTMLElement): FocusMark | null {
+  const active = document.activeElement as HTMLElement | null | undefined;
+  if (!active?.dataset || active === node || !node.contains(active)) return null;
+  return { action: active.dataset.action, arg: active.dataset.arg, recipe: active.dataset.recipe };
+}
+
+/**
+ * After a redraw of `node` dropped the focus, give it to the same control again, or to `fallback` when the control is
+ * gone (a pressed '+N개 더'). Focus that moved out of `node` on its own is left alone.
+ */
+export function refocusIn(node: HTMLElement, mark: FocusMark | null, fallback: string): void {
+  if (!mark) return;
+  const active = document.activeElement;
+  if (active && active !== document.body && active.isConnected) return;
+  const same = Array.from(node.querySelectorAll<HTMLElement>('[data-action], [data-recipe]')).find(e =>
+    e.dataset.action === mark.action && e.dataset.arg === mark.arg && e.dataset.recipe === mark.recipe && !e.hasAttribute('disabled'));
+  (same ?? node.querySelector<HTMLElement>(fallback))?.focus({ preventScroll: true });
+}
+
 export function onAction(node: HTMLElement, handler: (action: string, arg: string) => void): void {
   const activate = (ev: Event) => {
     const target = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');

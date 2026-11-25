@@ -226,8 +226,10 @@ describe('R jige swap in solo', () => {
     s.econ!.jige = 0;
     board(normalsOf(2)[0]!, 0);
     scene.select!(0);
-    expect(document.querySelector<HTMLButtonElement>('#left [data-action="jigeOpen"]')!.disabled).toBe(true);
+    expect(document.querySelector('#left [data-action="jigeOpen"]')).toBeNull();
     s.econ!.jige = 3;
+    scene.select!(0);
+    expect(document.querySelector<HTMLButtonElement>('#left [data-action="jigeOpen"]')!.disabled).toBe(false);
     board(d3.units.find(u => !u.hidden && u.grade === 5)!.id, 1);
     scene.select!(1);
     expect(document.querySelector('#left [data-action="jigeOpen"]')).toBeNull();

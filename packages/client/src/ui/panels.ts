@@ -231,9 +231,10 @@ export function soloPanelHtml(state: GameState, opts: SoloPanelOpts): string {
   const head = card && slot !== null ? soloHeadHtml(state, slot, card, opts.skillOpen) : IDLE_HEAD;
   if (!card && !opts.idleList) return `<div class="solo-panel">${head}</div>`;
   const listHtml = nextListHtml(state, opts.list, { unitId, wPick: opts.wPick, hover: opts.hover, showAllOne: opts.showAllOne });
-  const list = `<div class="nc-list" data-scroll-key="${opts.list.scope}:${unitId ?? ''}">${listHtml}</div>`;
+  const list = `<div class="nc-list" tabindex="-1" data-scroll-key="${opts.list.scope}:${unitId ?? ''}">${listHtml}</div>`;
   if (!card || slot === null || unitId === null) return `<div class="solo-panel">${head}${scopeHtml(opts.list, false)}${list}</div>`;
-  const jige = jigeHtml(state, slot, unitId, opts.jige, true);
+  // design ⑦: the row only while a 지게 is held, so the list keeps its three rows at scale 1; R still answers with none
+  const jige = (opts.jige ?? 0) >= 1 ? jigeHtml(state, slot, unitId, opts.jige, true) : '';
   return `<div class="solo-panel">${head}${scopeHtml(opts.list, true)}${list}`
     + `${jige ? `<div class="up-jige">${jige}</div>` : ''}${soloActionsHtml(state, slot, unitId, card.sellPrice, opts.sellArmed === true)}</div>`;
 }

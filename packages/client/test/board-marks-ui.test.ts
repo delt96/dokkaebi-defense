@@ -104,6 +104,12 @@ describe('board marks from the page', () => {
     expect(scene.boardMarks.focus).toBeNull();
   });
 
+  test('a hovered one-short row lights the cells that hold its materials', () => {
+    mount(mockBoardState());
+    over(rowOf('moru')!);
+    expect([...scene.boardMarks.focus!].sort((a, b) => a - b)).toEqual([9, 11]);
+  });
+
   test('leaving the panel clears the hover; touch does not hover', () => {
     mount(mockBoardState());
     over(rowOf('baneul')!, 'touch');

@@ -591,9 +591,30 @@ export function boardMarks(state: GameState, list: NextList, slot: number | null
   return { triangles: [], pairs, stored, focus: null };
 }
 
-/** Board cells the combine command would take for `result`, the selected slot left out. */
+/**
+ * Board cells the combine command would take for `result`, the selected slot left out. A row that cannot combine yet
+ * (a material missing) gets the board cells holding the materials it has, so hovering it still lights them.
+ */
 export function rowCells(state: GameState, result: string, slot: number | null): number[] {
-  return (combinePlan(state, result, slot ?? undefined)?.board ?? []).filter(i => i !== slot);
+  const plan = combinePlan(state, result, slot ?? undefined);
+  if (plan) return plan.board.filter(i => i !== slot);
+  const recipe = state.data.recipes.find(r => r.result === result);
+  if (!recipe) return [];
+  const chosen = slot === null ? null : state.slots[slot];
+  if (slot !== null && (!chosen || !recipe.materials.includes(chosen.defId))) return [];
+  const used = new Set<number>(slot === null ? [] : [slot]);
+  let selfTaken = slot === null;
+  const cells: number[] = [];
+  for (const m of recipe.materials) {
+    if (!selfTaken && chosen!.defId === m) { selfTaken = true; continue; }
+    for (let i = state.slots.length - 1; i >= 0; i--) {
+      if (used.has(i) || state.slots[i]?.defId !== m) continue;
+      used.add(i);
+      cells.push(i);
+      break;
+    }
+  }
+  return cells;
 }
 
 /** W: the ready row after `after` in list order (wrapping), with the slot its result lands on. */

@@ -22,7 +22,7 @@ import {
   advanceReveal, gambleHistoryHtml, gambleInfoHtml, gambleRevealHtml, heldCoins, recordGamble,
   revealDisplay, revealResultAt, startReveal, type GambleHistoryEntry, type Reveal,
 } from './gamble';
-import { el, onAction, setHtml } from './dom';
+import { el, focusedIn, onAction, refocusIn, setHtml } from './dom';
 import { helperPopHtml } from './helper';
 import { renderAlert, renderHud } from './hud';
 import { PressConfirm } from './confirm';
@@ -705,6 +705,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     );
     setHtml(el('target-overlay'), target && s.phase !== 'ended' ? targetHtml(target, targetFolded) : '');
     el('stage').classList.toggle('has-target', !!el('target-overlay').firstChild);
+    const leftFocus = focusedIn(el('left'));
     if (view && opts.data) {
       renderTop(view, opts.data);
       const helper = helperOpen ? helperPopHtml(s, list, {
@@ -755,6 +756,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const dialogOpen = modal !== null || soloResult;
     for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) el(id).inert = dialogOpen;
     el('right').inert = dialogOpen || drawer.firstElementChild !== null;
+    if (!dialogOpen) refocusIn(el('left'), leftFocus, '.nc-list');
     // a redraw of the dex (a board change moves the tree marks) keeps its scroll position
     const dexShown = !soloResult && modal === 'dex';
     const listKey = `${dex.filter}

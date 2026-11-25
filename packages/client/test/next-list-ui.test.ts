@@ -182,4 +182,14 @@ describe('style', () => {
     expect(rule).toBeDefined();
     expect(rule).toContain('outline: 2px solid var(--accent)');
   });
+
+  test('the peer row is marked with its border, leaving the outline to the focus ring', () => {
+    const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/ui/style.css'), 'utf8');
+    const rule = css.split('}').find(r => r.includes('.recipe-row.peer'))?.split('{')[1];
+    expect(rule).toBeDefined();
+    expect(rule).not.toContain('outline');
+    expect(rule).toContain('border-style: dashed');
+    const ring = css.split('}').find(r => r.includes('.nc-list .recipe-row:focus-visible'))?.split('{')[1];
+    expect(ring).toContain('outline-offset: -3px');
+  });
 });
