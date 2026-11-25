@@ -341,8 +341,22 @@ function defaultStorage(): Storage | undefined {
   try { return globalThis.localStorage; } catch { return undefined; }
 }
 
-export function readReduceFx(storage: Storage | undefined = defaultStorage()): boolean {
-  try { return storage?.getItem(REDUCE_FX_KEY) === '1'; } catch { return false; }
+function defaultMotionQuery(): { matches: boolean } | null {
+  try { return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null; } catch { return null; }
+}
+
+export function storedReduceFx(storage: Storage | undefined = defaultStorage()): boolean | null {
+  try {
+    const v = storage?.getItem(REDUCE_FX_KEY);
+    return v === '1' ? true : v === '0' ? false : null;
+  } catch { return null; }
+}
+
+export function readReduceFx(
+  storage: Storage | undefined = defaultStorage(),
+  media: { matches: boolean } | null = defaultMotionQuery(),
+): boolean {
+  return storedReduceFx(storage) ?? media?.matches ?? false;
 }
 
 export function writeReduceFx(on: boolean, storage: Storage | undefined = defaultStorage()): void {

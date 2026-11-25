@@ -3,7 +3,7 @@ import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { describe, expect, test } from 'vitest';
 import {
   FROST_ALPHA, FX_FLAGS, FxBudget, PRIORITY, REDUCE_FX_KEY, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState,
-  readReduceFx, shotStyle, slowLook, writeReduceFx, type FxCmd, type PlanCtx,
+  readReduceFx, shotStyle, slowLook, storedReduceFx, writeReduceFx, type FxCmd, type PlanCtx,
 } from '../src/fx/plan';
 
 const data = loadGameData('stage2');
@@ -325,20 +325,62 @@ describe('reduce-effects toggle storage', () => {
     };
   }
 
+  const osReduce = { matches: true }, osMove = { matches: false };
+  const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } } as unknown as Storage;
+
   test('round trips through storage under one key', () => {
     const s = memory();
-    expect(readReduceFx(s)).toBe(false);
+    expect(readReduceFx(s, null)).toBe(false);
     writeReduceFx(true, s);
     expect(s.getItem(REDUCE_FX_KEY)).toBe('1');
-    expect(readReduceFx(s)).toBe(true);
+    expect(readReduceFx(s, null)).toBe(true);
     writeReduceFx(false, s);
-    expect(readReduceFx(s)).toBe(false);
+    expect(readReduceFx(s, null)).toBe(false);
   });
 
-  test('storage that throws reads as off and writes do not throw', () => {
-    const broken = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } } as unknown as Storage;
-    expect(readReduceFx(broken)).toBe(false);
+  test('a stored value wins over the OS setting', () => {
+    const s = memory();
+    writeReduceFx(true, s);
+    expect(readReduceFx(s, osMove)).toBe(true);
+    writeReduceFx(false, s);
+    expect(readReduceFx(s, osReduce)).toBe(false);
+  });
+
+  test('with nothing stored the OS reduced-motion setting decides', () => {
+    expect(readReduceFx(memory(), osReduce)).toBe(true);
+    expect(readReduceFx(memory(), osMove)).toBe(false);
+    expect(readReduceFx(memory(), null)).toBe(false);
+    expect(readReduceFx(undefined, osReduce)).toBe(true);
+  });
+
+  test('storage that throws follows the OS setting and writes do not throw', () => {
+    expect(readReduceFx(broken, null)).toBe(false);
+    expect(readReduceFx(broken, osReduce)).toBe(true);
     expect(() => writeReduceFx(true, broken)).not.toThrow();
-    expect(readReduceFx(undefined)).toBe(false);
+    expect(readReduceFx(undefined, null)).toBe(false);
+  });
+
+  test('storedReduceFx is null when nothing usable is stored', () => {
+    const s = memory();
+    expect(storedReduceFx(s)).toBeNull();
+    writeReduceFx(true, s);
+    expect(storedReduceFx(s)).toBe(true);
+    writeReduceFx(false, s);
+    expect(storedReduceFx(s)).toBe(false);
+    s.setItem(REDUCE_FX_KEY, 'junk');
+    expect(storedReduceFx(s)).toBeNull();
+    expect(storedReduceFx(broken)).toBeNull();
+    expect(storedReduceFx(undefined)).toBeNull();
+  });
+
+  test('the default OS reader asks for prefers-reduced-motion: reduce', () => {
+    const asked: string[] = [];
+    const g = globalThis as { matchMedia?: (q: string) => { matches: boolean } };
+    const before = g.matchMedia;
+    g.matchMedia = (q: string) => { asked.push(q); return { matches: true }; };
+    try {
+      expect(readReduceFx(memory())).toBe(true);
+    } finally { g.matchMedia = before; }
+    expect(asked).toEqual(['(prefers-reduced-motion: reduce)']);
   });
 });
