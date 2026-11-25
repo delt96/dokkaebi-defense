@@ -19,6 +19,7 @@ export type SeatOutcome = 'finished' | 'eliminated' | 'unfinished' | 'aliveTeamL
 export interface SeatResult {
   seat: number; outcome: SeatOutcome; cause: EliminationCause | null; round: number; lastEnemies: number; maxEnemies: number;
   series: number[]; bestUnit: { defId: string; grade: number } | null; yeoksinDamage: number; helperOpens: number;
+  supportSent: number; supportReceived: number;
 }
 export interface MatchResult { difficulty?: Difficulty; outcome: TeamOutcome; tick: number; round: number; yeoksinKills: number; started: number; alive: number; seats: SeatResult[] }
 export interface MatchOptions { difficulty?: Difficulty; noElimination?: boolean; noGate?: boolean }

@@ -2,8 +2,14 @@ import { DIFFICULTIES, loadGameData, type Difficulty, type GameData } from '@dor
 
 const labels: Record<Difficulty, string> = { easy: '쉬움', normal: '보통', hard: '어려움' };
 
+/** The difficulty's name, or '' when the stage has no difficulties. */
+export function difficultyLabel(data: GameData, difficulty?: Difficulty): string {
+  return data.balance.difficulties ? labels[difficulty ?? 'normal'] : '';
+}
+
 export function difficultySuffix(data: GameData, difficulty?: Difficulty): string {
-  return data.balance.difficulties ? ` · ${labels[difficulty ?? 'normal']}` : '';
+  const label = difficultyLabel(data, difficulty);
+  return label ? ` · ${label}` : '';
 }
 
 /** What a difficulty changes, read from the 70-round rules: "60라운드 · 적 체력 80%". */

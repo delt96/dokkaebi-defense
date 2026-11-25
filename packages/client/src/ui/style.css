@@ -169,6 +169,13 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 #modal .result { left: 160px; top: 30px; width: 320px; }
 #modal:has(> .modal.result) { background: #08061099; }
 #modal .result p { margin: 3px 0; }
+#modal .result .result-top { justify-content: flex-start; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.result-big { font-size: 20px; line-height: 1.1; }
+.result-big.result-clear { color: var(--accent); }
+.result-big.result-defeat { color: #ff9a8c; }
+.result-why { font-weight: normal; }
+#modal .result .graph { margin-bottom: 1px; }
+#modal .result .graph-scale { width: 300px; }
 .graph { display: block; background: #120e1a; border: 1px solid var(--panel-edge); margin: 4px 0; }
 
 .hud { font-size: 11px; gap: 8px; }
@@ -286,13 +293,18 @@ body.online #top .settings-open { position: absolute; right: 46px; top: 3px; }
 .result-head, .result-row { display: grid; grid-template-columns: 108px 1.2fr 94px 1fr 60px; gap: 6px; align-items: center; font-size: 12px; text-align: left; }
 .result-head { color: var(--ink-dim); padding: 0 8px; font-size: 11px; }
 .screen-box .result-row { min-height: 34px; font-size: 13px; padding: 0 8px; background: var(--panel); border: 1px solid var(--panel-edge); color: inherit; cursor: pointer; }
+.screen-box .result-row:not(.open):hover { border-color: var(--ink-dim); }
 .result-row.open { border-color: var(--accent); }
+.r-caret { display: inline-block; width: 1em; font-size: 1.3em; line-height: 1; vertical-align: -0.08em; color: var(--ink-dim); }
+.result-row.open .r-caret { color: var(--accent); }
+.result-credit { font-size: 13px; color: var(--accent); text-align: center; margin-bottom: 4px; }
 .result-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-notes { font-size: 11px; color: var(--ink-dim); text-align: center; }
 .result-detail { padding: 4px 8px 8px; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 12px; }
 .result-detail p { margin: 3px 0; }
 .result-detail .graph { width: 100%; height: clamp(64px, 14vh, 110px); }
-.result-detail .graph-scale { display: flex; justify-content: space-between; color: var(--ink-dim); }
+.graph-scale { display: flex; justify-content: space-between; color: var(--ink-dim); }
+.graph-scale span:only-child { margin: 0 auto; }
 body.online #modal:has(.modal) { background: #08061099; }
 body.online #modal .modal { top: 50%; transform: translateY(-50%); width: 350px; left: 145px; padding: 10px; font-size: 11px; box-shadow: 0 5px 22px #0009; }
 body.online #modal .modal-head { position: sticky; top: -10px; z-index: 1; background: var(--panel); padding: 5px 0; color: var(--accent); }

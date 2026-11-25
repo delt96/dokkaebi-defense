@@ -154,6 +154,16 @@ describe('support', () => {
     expect(reasons(r.acks)).toEqual(['ok', 'targetNotAlive', 'ok']);
     expect(m.lanes[1]!.enemies.length).toBe(before);
   });
+  test('the team result keeps how many supports each seat sent and received', () => {
+    const m = twoSpirits();
+    stepMatch(m, [{ seat: 2, seq: 2, cmd: { type: 'support', target: 1 } }]);
+    stepMatch(m, [{ seat: 1, seq: 1, cmd: { type: 'forfeit' } }]);
+    expect(m.result).toMatchObject({ outcome: 'wipe', seats: [
+      { seat: 1, supportSent: 0, supportReceived: 1 },
+      { seat: 2, supportSent: 1, supportReceived: 0 },
+      { seat: 3, supportSent: 0, supportReceived: 0 },
+    ] });
+  });
 });
 
 describe('team result', () => {

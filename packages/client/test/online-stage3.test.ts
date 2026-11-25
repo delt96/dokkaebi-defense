@@ -23,7 +23,7 @@ describe('70-round online screens', () => {
 
   test('team result graphs all 70 rounds and counts five gates', () => {
     const result: MatchResult = { outcome: 'clear', tick: 1, round: 70, yeoksinKills: 4, started: 1, alive: 1, seats: [
-      { seat: 1, outcome: 'finished', cause: null, round: 70, lastEnemies: 3, maxEnemies: 20, series: Array.from({ length: 70 }, (_, i) => i), bestUnit: null, yeoksinDamage: 1, helperOpens: 0 },
+      { seat: 1, outcome: 'finished', cause: null, round: 70, lastEnemies: 3, maxEnemies: 20, series: Array.from({ length: 70 }, (_, i) => i), bestUnit: null, yeoksinDamage: 1, helperOpens: 0, supportSent: 0, supportReceived: 0 },
     ] };
     const m = teamResultModel(result, { 1: '가' }, d3);
     expect(m.subtitle).toBe('도달 70라운드 · 역신 격파 4/5 · 생존 1/1');

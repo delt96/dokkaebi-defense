@@ -9,8 +9,8 @@ const data = loadGameData('stage2');
 describe('team result', () => {
   test('titles, rows and series with gaps after elimination', () => {
     const result: MatchResult = { outcome: 'gate', tick: 7799, round: 9, yeoksinKills: 0, started: 2, alive: 1, seats: [
-      { seat: 1, outcome: 'aliveTeamLoss', cause: null, round: 9, lastEnemies: 20, maxEnemies: 40, series: [1, 2, 3, 4, 5, 6, 7, 8, 20], bestUnit: { defId: 'gamasot', grade: 2 }, yeoksinDamage: 3000, helperOpens: 2 },
-      { seat: 2, outcome: 'eliminated', cause: 'limit', round: 4, lastEnemies: 61, maxEnemies: 61, series: [5, 9, 30, 61], bestUnit: null, yeoksinDamage: 0, helperOpens: 0 },
+      { seat: 1, outcome: 'aliveTeamLoss', cause: null, round: 9, lastEnemies: 20, maxEnemies: 40, series: [1, 2, 3, 4, 5, 6, 7, 8, 20], bestUnit: { defId: 'gamasot', grade: 2 }, yeoksinDamage: 3000, helperOpens: 2, supportSent: 0, supportReceived: 0 },
+      { seat: 2, outcome: 'eliminated', cause: 'limit', round: 4, lastEnemies: 61, maxEnemies: 61, series: [5, 9, 30, 61], bestUnit: null, yeoksinDamage: 0, helperOpens: 0, supportSent: 0, supportReceived: 0 },
     ] };
     const m = teamResultModel(result, { 1: '가', 2: '나' }, data);
     expect(m.title).toBe('스토리 관문 실패'); expect(m.subtitle).toBe('도달 9라운드 · 역신 격파 0/2 · 생존 1/2');

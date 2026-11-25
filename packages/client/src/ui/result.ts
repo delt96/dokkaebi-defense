@@ -1,4 +1,4 @@
-import { difficultySuffix } from './difficulty';
+import { difficultyLabel } from './difficulty';
 import type { GameState } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import { resultModel } from './models';
@@ -33,16 +33,23 @@ export function graph(series: (number | null)[], limit: number): string {
   </svg>`;
 }
 
+/** Round labels under a graph whose x axis runs from round 1 to `last`. */
+export function graphScale(last: number): string {
+  return `<div class="graph-scale"><span>1라운드</span>${last > 1 ? `<span>${last}라운드</span>` : ''}</div>`;
+}
+
 export function resultHtml(state: GameState, bestUnitId: string | null): string {
   const m = resultModel(state, bestUnitId);
   const best = m.bestUnit
     ? `<span class="dot" style="background:${GRADE_COLOR[m.bestUnit.grade]}"></span>${esc(m.bestUnit.name)} (${m.bestUnit.grade}등급)`
     : '없음';
+  const why = [difficultyLabel(state.data, state.difficulty), m.reasonText].filter(Boolean).join(' · ');
+  const plot = graph(m.series, state.data.balance.limit);
   return `<div class="modal result">
-    <div class="modal-head">${m.title}${difficultySuffix(state.data, state.difficulty)}${m.reasonText ? ` · ${esc(m.reasonText)}` : ''}</div>
+    <div class="modal-head result-top"><span class="result-big result-${m.title === '클리어' ? 'clear' : 'defeat'}">${m.title}</span>${why ? `<span class="result-why">${esc(why)}</span>` : ''}</div>
     <p>${m.roundReached}라운드까지 버텼습니다.</p>
     <p>라운드별 내 잡귀 (빨간 점선: 한도 ${state.data.balance.limit})</p>
-    ${graph(m.series, state.data.balance.limit)}
+    ${plot ? plot + graphScale(m.series.length) : ''}
     <p>마지막 ${m.lastEnemies}마리 · 가장 많았을 때 ${m.maxEnemies}마리</p>
     <p>최고 유닛: ${best} · ${esc(m.helperText)}</p>
     <div class="screen-actions"><button class="big" data-action="restart">다시 하기</button><button class="big" data-action="home">처음 화면으로</button></div>

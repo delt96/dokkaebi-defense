@@ -3,17 +3,42 @@ import { unitDefFast, type EliminationCause, type GameData, type MatchResult, ty
 import type { NetClient } from '../net/NetClient';
 import { esc } from '../ui/dom';
 import { TEXT } from './text';
-import { graph } from '../ui/result';
+import { graph, graphScale } from '../ui/result';
 
 export interface TeamRow {
   seat: number; name: string; status: string; last: number; max: number; best: string; damage: number;
-  series: (number | null)[]; helperText: string;
+  series: (number | null)[]; helperText: string; supportText: string;
 }
-/** `notes`: one-line meanings of the result words, on screen under the table (생존·팀 패배 only when a row says it). */
-export interface TeamResultModel { title: string; subtitle: string; rows: TeamRow[]; notes: string[] }
+/**
+ * `notes`: one-line meanings of the result words, on screen under the table (생존·팀 패배 only when a row says it).
+ * `credit`: the team praise line (top 역신 damage, top supporter), null when nobody has either.
+ */
+export interface TeamResultModel { title: string; subtitle: string; rows: TeamRow[]; notes: string[]; credit: string | null }
 
 const TITLE: Record<TeamOutcome, string> = { clear: '팀 클리어', wipe: '전멸', gate: '스토리 관문 실패' };
 const CAUSE: Record<EliminationCause, string> = { limit: '잡귀 한도', boss: '고개 보스', forfeit: '포기', disconnect: '단절' };
+
+function supportText(sent: number, received: number): string {
+  const parts = [...(sent ? [`보냄 ${sent}회`] : []), ...(received ? [`받음 ${received}회`] : [])];
+  return parts.length ? `넋 지원 ${parts.join(' · ')}` : '';
+}
+
+/** The seats sharing the highest positive value, as "가·나", or null when nobody is above 0. */
+function leaders(result: MatchResult, names: Record<number, string>, value: (s: MatchResult['seats'][number]) => number): { who: string; top: number } | null {
+  const top = Math.max(0, ...result.seats.map(value));
+  if (top <= 0) return null;
+  return { who: result.seats.filter(s => value(s) === top).map(s => names[s.seat] ?? `${s.seat}번`).join('·'), top };
+}
+
+function creditLine(result: MatchResult, names: Record<number, string>): string | null {
+  const damage = leaders(result, names, s => s.yeoksinDamage);
+  const support = leaders(result, names, s => s.supportSent);
+  const parts = [
+    ...(damage ? [`역신 피해 1위 ${damage.who} ${damage.top.toLocaleString('ko-KR')}`] : []),
+    ...(support ? [`넋 지원 1위 ${support.who} ${support.top}회`] : []),
+  ];
+  return parts.length ? parts.join(' · ') : null;
+}
 
 function statusText(outcome: SeatOutcome, cause: EliminationCause | null, round: number): string {
   switch (outcome) {
@@ -32,6 +57,7 @@ export function teamResultModel(result: MatchResult, names: Record<number, strin
   ];
   return {
     notes,
+    credit: creditLine(result, names),
     title: TITLE[result.outcome] + difficultySuffix(data, result.difficulty),
     subtitle: `도달 ${result.round}라운드 · 역신 격파 ${result.yeoksinKills}/${data.coop?.yeoksin.length ?? 2} · 생존 ${result.alive}/${result.started}`,
     rows: result.seats.map(s => {
@@ -42,6 +68,7 @@ export function teamResultModel(result: MatchResult, names: Record<number, strin
       return {
         seat: s.seat, name: names[s.seat] ?? `${s.seat}번`, status: statusText(s.outcome, s.cause, s.round),
         last: s.lastEnemies, max: s.maxEnemies, best, damage: s.yeoksinDamage, series, helperText: `도우미 ${s.helperOpens}회`,
+        supportText: supportText(s.supportSent, s.supportReceived),
       };
     }),
   };
@@ -74,24 +101,25 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
     const open = ui.opened === r.seat;
     const row = document.createElement('button');
     row.type = 'button';
-    row.title = r.name;
+    row.title = `${r.name} · 누르면 라운드별 그래프`;
     row.setAttribute('aria-expanded', String(open));
     row.className = open ? 'result-row open' : 'result-row';
-    row.innerHTML = `<span class="r-name">${esc(r.name)}</span><span class="r-status">${esc(r.status)}</span>`
+    row.innerHTML = `<span class="r-name"><span class="r-caret" aria-hidden="true">${open ? '▾' : '▸'}</span>${esc(r.name)}</span><span class="r-status">${esc(r.status)}</span>`
       + `<span class="r-count">${r.last} / ${r.max}</span><span class="r-best">${esc(r.best)}</span><span class="r-dmg">${r.damage.toLocaleString('ko-KR')}</span>`;
     row.addEventListener('click', () => { ui.opened = open ? null : r.seat; redraw(); });
     box.append(row);
     if (open) {
       const detail = div('result-detail');
       const plot = graph(r.series, data.balance.limit);
-      const scale = `<div class="graph-scale"><span>1라운드</span><span>${data.balance.rounds}라운드</span></div>`;
-      detail.innerHTML = `<p><b>${esc(r.name)}</b> · 라운드 끝 잡귀 · 한도 ${data.balance.limit}마리</p>${plot ? plot + scale : '<p>아직 라운드 기록이 없습니다.</p>'}<p>${esc(r.helperText)}</p>`;
+      const extra = [r.helperText, r.supportText].filter(Boolean).join(' · ');
+      detail.innerHTML = `<p><b>${esc(r.name)}</b> · 라운드 끝 잡귀 · 한도 ${data.balance.limit}마리</p>${plot ? plot + graphScale(data.balance.rounds) : '<p>아직 라운드 기록이 없습니다.</p>'}<p>${esc(extra)}</p>`;
       box.append(detail);
     }
   }
   const head = div('result-head');
   head.innerHTML = '<span>이름</span><span>상태</span><span>잡귀 마지막 / 최대</span><span>최고 유닛</span><span>역신 피해</span>';
   box.insertBefore(head, box.children[2] ?? null);
+  if (m.credit) box.insertBefore(div('result-credit', m.credit), head);
   box.append(div('result-notes', m.notes.join(' · ')));
 
   const again = document.createElement('button');

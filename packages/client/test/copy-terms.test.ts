@@ -227,8 +227,8 @@ describe('first help line', () => {
 describe('online result words', () => {
   test('short notes under the table explain 역신 격파, 잡귀 마지막/최대 and 생존·팀 패배', () => {
     const result: MatchResult = { outcome: 'gate', tick: 7799, round: 9, yeoksinKills: 0, started: 2, alive: 1, seats: [
-      { seat: 1, outcome: 'aliveTeamLoss', cause: null, round: 9, lastEnemies: 20, maxEnemies: 40, series: [1, 2, 3], bestUnit: null, yeoksinDamage: 3000, helperOpens: 2 },
-      { seat: 2, outcome: 'eliminated', cause: 'limit', round: 4, lastEnemies: 61, maxEnemies: 61, series: [5, 9, 30, 61], bestUnit: null, yeoksinDamage: 0, helperOpens: 0 },
+      { seat: 1, outcome: 'aliveTeamLoss', cause: null, round: 9, lastEnemies: 20, maxEnemies: 40, series: [1, 2, 3], bestUnit: null, yeoksinDamage: 3000, helperOpens: 2, supportSent: 0, supportReceived: 0 },
+      { seat: 2, outcome: 'eliminated', cause: 'limit', round: 4, lastEnemies: 61, maxEnemies: 61, series: [5, 9, 30, 61], bestUnit: null, yeoksinDamage: 0, helperOpens: 0, supportSent: 0, supportReceived: 0 },
     ] };
     const notes = teamResultModel(result, {}, d2).notes;
     expect(notes.some(n => n.startsWith('역신 격파'))).toBe(true);
