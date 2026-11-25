@@ -1,4 +1,4 @@
-import { canonicalJson, fnv1a, type Difficulty, type GameState, type SoloLogEntry } from '@dorandi/logic';
+import { baseData, canonicalJson, fnv1a, type Difficulty, type GameState, type SoloLogEntry } from '@dorandi/logic';
 import { serverUrl } from './net/room';
 
 export interface SoloLogBody {
@@ -11,7 +11,7 @@ export function soloLogBody(state: GameState, seed: number, difficulty: Difficul
   return {
     stage, seed, difficulty, log,
     // same hash an online match records, so solo and online records group by the same rules
-    dataVersion: fnv1a(canonicalJson(state.data, new Set())),
+    dataVersion: fnv1a(canonicalJson(baseData(state.data), new Set())),
     summary: {
       outcome: state.result?.outcome ?? null, reason: state.result?.reason ?? null, round: state.round,
       minutes: Math.round(state.tick * state.data.balance.tickMs / 60_000),

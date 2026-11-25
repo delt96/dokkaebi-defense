@@ -1,9 +1,9 @@
 import { gameAudio } from '../audio/engine';
 import { audioSettingsHtml, wireAudioSettings } from '../audio/settings-ui';
-import { NetClient, knownDataVersions, stageOfVersion, type NetEvent } from '../net/NetClient';
+import { NetClient, knownDataVersions, matchDataVersion, stageOfVersion, type NetEvent } from '../net/NetClient';
 import { connectCreate, connectJoin, devCreateOptions, type RoomLike } from '../net/room';
 import { clearSession, lastName, loadSession } from '../net/session';
-import { JOIN_ERROR_CODES, loadGameData, type Difficulty } from '@dorandi/logic';
+import { JOIN_ERROR_CODES, difficultyData, loadGameData, type Difficulty } from '@dorandi/logic';
 import { startBattle } from './battle';
 import { renderEntry } from './entry';
 import { renderLobby } from './lobby';
@@ -106,7 +106,11 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     // an empty #screen is hidden, which uncovers the stage underneath
     root.replaceChildren();
     // the snapshot's data version says which rules the room plays (20 or 70 rounds)
-    startBattle(n, loadGameData(stageOfVersion(n.view?.dataVersion ?? '') ?? 'stage2'), goRematch);
+    const stage = stageOfVersion(n.view?.dataVersion ?? '') ?? 'stage2';
+    const data = loadGameData(stage);
+    // a current 70-round room plays its difficulty's copy of the rules (round count, enemy hp)
+    const current = stage === 'stage3' && n.view?.dataVersion === matchDataVersion('stage3');
+    startBattle(n, current ? difficultyData(data, n.view!.difficulty) : data, goRematch);
   };
 
   let stopped = false;

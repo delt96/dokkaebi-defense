@@ -6,9 +6,9 @@
   "tokens": { "start": 4, "perRound": 3, "toCoins": 25 },
   "defaultDifficulty": "normal",
   "difficulties": {
-    "easy": { "tokensPerRound": 4 },
-    "normal": { "tokensPerRound": 3 },
-    "hard": { "tokensPerRound": 2 }
+    "easy": { "tokensPerRound": 3, "rounds": 60, "hpScale": 0.8 },
+    "normal": { "tokensPerRound": 3, "hpScale": 0.9 },
+    "hard": { "tokensPerRound": 3 }
   },
   "coins": { "perKill": 1, "roundEnd": 10, "boss": 60 },
   "bossBuckwheat": 2,

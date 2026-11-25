@@ -53,7 +53,7 @@ describe('stage 3 match schedule', () => {
   });
 
   test('third yeoksin spawns at round 35 with 138975 hp for six starters at ring index 2; missing it fails the gate at the end of 39', () => {
-    const m = createMatch(d3, 1, SIX);
+    const m = createMatch(d3, 1, SIX, { difficulty: 'hard' });
     jumpToTick(m, rst(35));
     const r = stepMatch(m, []);
     expect(r.events).toContainEqual({ type: 'yeoksinSpawn', stage: 3, maxHp: 138975 });
@@ -67,7 +67,7 @@ describe('stage 3 match schedule', () => {
   });
 
   test('fifth yeoksin spawns at round 65 with 203500 hp for two starters at ring index 4 % 2 = seat 1', () => {
-    const m = createMatch(d3, 1, [1, 2]);
+    const m = createMatch(d3, 1, [1, 2], { difficulty: 'hard' });
     jumpToTick(m, rst(65));
     const r = stepMatch(m, []);
     expect(r.events).toContainEqual({ type: 'yeoksinSpawn', stage: 5, maxHp: 203500 });

@@ -58,7 +58,8 @@ export function isDifficulty(value: unknown): value is Difficulty {
 
 export interface BalanceDef {
   defaultDifficulty?: Difficulty;
-  difficulties?: Record<Difficulty, { tokensPerRound: number }>;
+  /** `rounds` ends the game early (on a boss round); `hpScale` multiplies lane enemy, boss and 역신 hp (difficulty.ts). */
+  difficulties?: Record<Difficulty, { tokensPerRound: number; rounds?: number; hpScale?: number }>;
   tickMs: number; prepSeconds: number; roundSeconds: number; bossRoundSeconds: number;
   spawnCount: number; spawnIntervalSeconds: number; rounds: number;
   /** `late`: from `fromRound` on, normal enemies get `1 + perRound * (round - fromRound + 1)` times their hp. */

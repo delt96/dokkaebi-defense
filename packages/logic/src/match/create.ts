@@ -1,6 +1,7 @@
 import type { GameData, GameState } from '../types';
 import type { BossClock, MatchOptions, MatchState, SeatState } from './types';
 import { createGame } from '../game';
+import { baseData, difficultyData } from '../difficulty';
 import { deriveSeed } from '../rng';
 import { canonicalJson, fnv1a } from '../hash';
 import { roundStartTick } from './schedule';
@@ -35,6 +36,9 @@ export function createMatch(data: GameData, seed: number, seats: number[], optio
   if (new Set(seats).size !== seats.length) throw new Error('duplicate seat');
   const { difficulty, ...rules } = options;
   options = data.balance.difficulties ? { ...rules, difficulty: difficulty ?? data.balance.defaultDifficulty! } : rules;
+  // the version names the shared rule data; the difficulty's own copy is derived from it on both ends
+  const dataVersion = fnv1a(canonicalJson(baseData(data), new Set()));
+  data = difficultyData(data, options.difficulty);
   const ring = [...seats].sort((a, b) => a - b);
   const lanes: Record<number, GameState> = {};
   const seatStates: Record<number, SeatState> = {};
@@ -43,7 +47,7 @@ export function createMatch(data: GameData, seed: number, seats: number[], optio
     seatStates[s] = freshSeat(s, data);
   }
   const match: MatchState = {
-    data, dataVersion: fnv1a(canonicalJson(data, new Set())), seed, ring,
+    data, dataVersion, seed, ring,
     tick: 0, phase: 'prep', round: 0, roundStartTick: 0, roundEndTick: roundStartTick(data, 1),
     lanes, seats: seatStates,
     yeoksin: null, yeoksinKills: 0, result: null, options,

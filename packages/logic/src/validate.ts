@@ -21,6 +21,12 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     for (const d of DIFFICULTIES) {
       const grant = data.balance.difficulties?.[d]?.tokensPerRound;
       if (grant === undefined || !Number.isInteger(grant) || grant <= 0) errors.push(`invalid difficulties.${d}`);
+      const rule = data.balance.difficulties?.[d];
+      const rounds = rule?.rounds;
+      if (rounds !== undefined && !(Number.isInteger(rounds) && rounds >= 1 && rounds <= data.balance.rounds
+        && data.waves.some(w => w.round === rounds && w.type === 'boss'))) errors.push(`invalid difficulties.${d}.rounds`);
+      const scale = rule?.hpScale;
+      if (scale !== undefined && !(Number.isFinite(scale) && scale > 0 && scale <= 2)) errors.push(`invalid difficulties.${d}.hpScale`);
     }
   }
   const growth = data.balance.resistByRound;

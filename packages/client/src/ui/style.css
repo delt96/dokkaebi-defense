@@ -221,6 +221,7 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .difficulty-picker button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .difficulty-picker button:disabled { opacity: 0.7; }
 .difficulty-picker button[aria-pressed="true"]:disabled { opacity: 1; }
+.difficulty-note { margin-top: 3px; text-align: center; font-size: 11px; opacity: 0.75; }
 
 /* Online battle (spec 7, layout A): 44px bottom card, 292px middle row. */
 body.online #left, body.online #lane, body.online #right { height: 292px; }

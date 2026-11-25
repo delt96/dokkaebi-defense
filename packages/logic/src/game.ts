@@ -1,6 +1,7 @@
 import type { Command, Difficulty, GameData, GameEvent, GameState, RejectReason, StepResult } from './types';
 import { createRng, deriveSeed } from './rng';
 import { createEcon } from './econ/ledger';
+import { difficultyData } from './difficulty';
 import { eventsTick } from './econ/events';
 import { econRoundEnd } from './econ/hooks';
 import { checkEnd, moveEnemies, spawnTick } from './flow';
@@ -22,6 +23,7 @@ export { laneOf } from './lane';
 export { registerAfterCommands, registerCommand, registerPhase } from './registry';
 
 export function createGame(data: GameData, seed: number, difficulty?: Difficulty): GameState {
+  data = difficultyData(data, difficulty);
   const { cols, rows, initialOpenRows } = data.balance.grid;
   const total = cols * rows;
   const state: GameState = {

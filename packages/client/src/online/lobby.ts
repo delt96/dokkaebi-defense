@@ -1,4 +1,4 @@
-import { difficultyPicker } from '../ui/difficulty';
+import { difficultyNote, difficultyPicker } from '../ui/difficulty';
 import type { Difficulty, LobbyMsg, MatchStage } from '@dorandi/logic';
 import { TEXT } from './text';
 
@@ -60,6 +60,7 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
     modes.append(el('span', 'lobby-mode-label', TEXT.modeLabel), difficultyPicker(m.difficulty, m.isHost ? actions.difficulty : undefined));
   } else modes.append(el('span', 'lobby-mode-label', TEXT.legacyMode));
   box.append(modes);
+  if (m.difficulty) box.append(difficultyNote(m.difficulty));
   if (!m.isHost && m.difficulty) box.append(el('div', 'lobby-hint', TEXT.modeHostOnly));
 
   const list = el('ul', 'lobby-rows');

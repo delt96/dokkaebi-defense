@@ -1,6 +1,7 @@
 export * from './types';
 export * from './rng';
 export * from './data';
+export { baseData, difficultyData } from './difficulty';
 export * from './validate';
 export * from './lane';
 export * from './stats';

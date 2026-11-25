@@ -1,4 +1,4 @@
-import { difficultyPicker } from '../ui/difficulty';
+import { difficultyNote, difficultyPicker } from '../ui/difficulty';
 import { gameAudio } from '../audio/engine';
 import { musicCreditsHtml } from '../audio/settings-ui';
 import { normalizeNickname, type Difficulty } from '@dorandi/logic';
@@ -104,7 +104,7 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   function drawSolo(): void {
     const row = el('div', 'entry-difficulty');
     row.append(el('span', 'entry-difficulty-label', TEXT.modeLabel), difficultyPicker(difficulty, d => { difficulty = d; drawSolo(); }));
-    solo.replaceChildren(row);
+    solo.replaceChildren(row, difficultyNote(difficulty));
     link.href = `/solo?${SOLO_LONG_QUERY}&difficulty=${difficulty}`;
     solo.append(link);
   }
