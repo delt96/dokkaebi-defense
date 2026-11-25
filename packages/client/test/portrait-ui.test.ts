@@ -192,7 +192,25 @@ describe('portrait guide on the board', () => {
     turn(false);
     expect(guide().hidden).toBe(true);
     expect($('#modal .solo-menu')).not.toBeNull();
+    expect(document.activeElement).toBe($('#modal [data-action="closeModal"]'));
     expect(driver.paused).toBe(true);
     expect($('#pause-cover')!.hidden).toBe(true);
+  });
+
+  test('이대로 보기 over an open menu hands the focus to the menu', () => {
+    mountSolo();
+    press($('#top [data-action="openMenu"]'));
+    turn(true);
+    expect(document.activeElement!.textContent).toBe('이대로 보기');
+    press($('#portrait-guide button'));
+    expect(guide().hidden).toBe(true);
+    expect(document.activeElement).toBe($('#modal [data-action="closeModal"]'));
+  });
+
+  test('without a locking window the focus is let go as before', () => {
+    mountSolo();
+    turn(true);
+    turn(false);
+    expect(document.activeElement).toBe(document.body);
   });
 });

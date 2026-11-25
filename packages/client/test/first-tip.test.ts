@@ -160,6 +160,13 @@ describe('renderBottom', () => {
     expect(bottom().textContent).not.toContain('W 다음 조합 고르기');
   });
 
+  test('online: watching another lane drops the tip, the board on screen is not mine', () => {
+    document.body.innerHTML = STAGE_HTML;
+    renderBottom(emptyGame(4), null, true, 'B 장터', undefined, false, null, false, true);
+    expect(bottom().querySelector('.tip')).toBeNull();
+    expect(bottom().textContent).not.toContain('뽑으세요');
+  });
+
   test('online: the same tip leads the line with Q 도우미', () => {
     document.body.innerHTML = STAGE_HTML;
     renderBottom(emptyGame(4), null, true, 'B 장터');

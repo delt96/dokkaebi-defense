@@ -410,11 +410,12 @@ export interface HudModel {
   count: number; limit: number; level: LimitLevel; instant: boolean; tail: string | null;
   /** the '장승 …' word hides in danger, where the tail already says it */
   crackShown: boolean; overBy: number;
-  /** Null without a living boss. Shortened to '보스 N' while the resist line or the danger tail needs the room. */
+  /** Null without a living boss. Shortened to '보스 N' while the resist line, a count tail or the pause pill needs the room. */
   bossText: string | null; bossTitle: string | null;
 }
 
-export function hudModel(state: GameState): HudModel {
+/** `pill`: the solo pause pill is drawn, which takes the room the full boss value needs. */
+export function hudModel(state: GameState, pill = false): HudModel {
   const b = state.data.balance;
   const n = countNormalEnemies(state);
   const ticksPerSecond = 1000 / b.tickMs;
@@ -434,8 +435,8 @@ export function hudModel(state: GameState): HudModel {
     resistText: resist,
     count: n, limit: b.limit, level, instant, tail,
     crackShown: level !== 'danger', overBy: level === 'over' ? n - b.limit : 0,
-    // any count tail, not only the danger one: round 10 with a tail and the pause pill measured 654-663px of 638 in Malgun Gothic
-    bossText: boss && (resist !== null || tail !== null) ? `보스 ${boss.hp}` : bossTitle,
+    // any count tail or the pause pill, not only the danger tail: round 10 wrapped the 638px bar in Malgun Gothic with either
+    bossText: boss && (resist !== null || tail !== null || pill) ? `보스 ${boss.hp}` : bossTitle,
     bossTitle,
   };
 }

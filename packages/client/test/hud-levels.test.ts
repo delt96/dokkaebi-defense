@@ -42,6 +42,12 @@ describe('the boss label in the top bar', () => {
     expect(pick(late)).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
   });
 
+  test('the pause pill shortens the round-10 boss too: it wrapped the bar in Malgun Gothic', () => {
+    expect(hudModel(withBoss(10, 31), true).bossText).toBe('보스 18400');
+    expect(hudModel(withBoss(10, 31), false).bossText).toBe('보스 체력 18400 / 24000');
+    expect(hudModel(withBoss(10, 31), true).bossTitle).toBe('보스 체력 18400 / 24000');
+  });
+
   test('no living boss, no label', () => {
     expect(pick(withEnemies(31))).toEqual({ bossText: null, bossTitle: null });
     const s = withBoss(10, 5);
@@ -96,6 +102,12 @@ describe('solo HUD in three steps', () => {
     const last = Array.from($('#top .hud')!.children).slice(-2);
     expect(last.map(c => c.classList.contains('settings-open'))).toEqual([true, false]);
     expect(last[1]!.classList.contains('menu-btn')).toBe(true);
+  });
+
+  test('the paused bar shows the short boss with the full value in its title', () => {
+    renderHud(withBoss(10, 31), true);
+    expect($('#top .boss')!.textContent).toBe('보스 18400');
+    expect($('#top .boss')!.title).toBe('보스 체력 18400 / 24000');
   });
 
   test('no living boss, no boss label in the bar', () => {

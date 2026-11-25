@@ -1,5 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, test, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gameAudio, installAudioInput } from '../src/audio/engine';
 import { NICKNAME_MAX, normalizeNickname, type LobbyMsg } from '@dorandi/logic';
 import { renderEntry } from '../src/online/entry';
@@ -145,6 +148,35 @@ describe('entry and lobby', () => {
     await Promise.resolve();
     expect(sent).toEqual([['하나', 'normal']]);
     root.remove();
+  });
+
+  test('a name error puts the focus back in the name box, not on the submit button', () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+    renderEntry(root, { name: '하나', error: '방에 같은 닉네임이 있습니다', onSubmit: async () => {} });
+    expect(document.activeElement).toBe(root.querySelector('input'));
+    renderEntry(root, { roomId: 'r1', name: '하나', error: '닉네임은 한글·영문·숫자 1~8자입니다', onSubmit: async () => {} });
+    expect(document.activeElement).toBe(root.querySelector('input'));
+    root.remove();
+  });
+
+  test('혼자 하기 is the dark secondary button next to the gold 방 만들기 (design 1-6)', () => {
+    const style = document.createElement('style');
+    style.textContent = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/ui/style.css'), 'utf8');
+    document.head.append(style);
+    const root = document.createElement('div');
+    document.body.append(root);
+    renderEntry(root, { name: '하나', onSubmit: async () => {} });
+    const look = (sel: string) => {
+      const c = getComputedStyle(root.querySelector(sel)!);
+      return [c.backgroundColor, c.color, c.borderTopColor];
+    };
+    const primary = look('button[type="submit"]');
+    const solo = look('a.entry-solo');
+    expect(solo).not.toEqual(primary);
+    expect(solo).toEqual(['#2a2236', '#e8e0d0', '#574a65']);
+    root.remove();
+    style.remove();
   });
 
   test('the solo button and the way home click like the buttons do', () => {

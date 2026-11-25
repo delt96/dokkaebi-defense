@@ -1,5 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createGame, loadGameData, type MatchResult } from '@dorandi/logic';
 import { forceRound, withoutMarketLock } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
@@ -72,6 +75,19 @@ describe('soloMenuHtml', () => {
     expect(modal.querySelector('.modal-text')!.textContent)
       .toBe('시간이 멈춰 있습니다. 다시 시작하거나 처음 화면으로 가면 지금 판은 기록되지 않고 사라집니다.');
     expect(modal.querySelector('.danger')).toBeNull();
+  });
+
+  test('닫기 in the menu head is 24px high like the other new buttons', () => {
+    const style = document.createElement('style');
+    style.textContent = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/ui/style.css'), 'utf8');
+    document.head.append(style);
+    const box = document.createElement('div');
+    box.id = 'modal';
+    box.innerHTML = soloMenuHtml('menu');
+    document.body.append(box);
+    expect(getComputedStyle(box.querySelector('.modal-head button')!).minHeight).toBe('24px');
+    box.remove();
+    style.remove();
   });
 
   test('the two confirm windows: danger left, 취소 right with the focus', () => {

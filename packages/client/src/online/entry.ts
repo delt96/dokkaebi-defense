@@ -129,6 +129,6 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   footer.innerHTML = musicCreditsHtml();
   box.append(footer);
   root.append(box);
-  // a remembered name goes straight to the submit button: one Enter makes the room
-  (opts.name ? button : input).focus();
+  // a remembered name goes straight to the submit button: one Enter makes the room; an error asks for a fix first
+  (opts.name && !opts.error ? button : input).focus();
 }

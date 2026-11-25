@@ -1168,7 +1168,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else if (online && info) {
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), infoHtml);
-    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected), targetId, movingId !== null);
+    } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected), targetId, movingId !== null, driver.readOnly);
     setHtml(el('storage'), storageVisible() ? storageHtml(
       s, held, defId => confirm.armed(`sellStored:${defId}`, now), info ? info.defId : null, new Map(marks.stored.map(p => [p.defId, p.key])),
     ) : '');
@@ -1230,13 +1230,17 @@ ${dex.mine.join()}`;
   }
 
   function renderGuide(was: boolean): void {
+    let loose = false;
     if (!guideOn && was) {
       const active = document.activeElement as HTMLElement | null;
       if (active && guideBox.contains(active)) active.blur();
+      loose = !document.activeElement || document.activeElement === document.body;
     }
     el('stage').inert = guideOn;
     if (guideBox.hidden === guideOn) guideBox.hidden = !guideOn;
     if (guideOn && !was) guideBox.querySelector<HTMLButtonElement>('button')?.focus();
+    // after the stage stops being inert: a locking window left open under the guide takes the focus back, as on opening
+    if (loose) (el('modal').querySelector<HTMLButtonElement>('[data-autofocus]') ?? el('modal').querySelector<HTMLButtonElement>('button'))?.focus();
   }
 
   let slotItem: SlotItem | null = null;

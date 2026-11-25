@@ -9,7 +9,7 @@ export interface AlertOpts { still?: boolean }
 
 /** `pill` comes from `soloPause`: the dex pause stops the clock without one. */
 export function renderHud(state: GameState, pill: boolean, alert: AlertOpts = {}): void {
-  const m = hudModel(state);
+  const m = hudModel(state, pill);
   const round = `<span class="round">${esc(m.roundText)}</span>`;
   // the 60-round resistance goes under the round label so the bar keeps its width
   const roundBlock = m.resistText
