@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { FX_KEYS, areaSheet, hitKey, pierceSheet, quarterTurn, statusKey, textureKey } from './atlas';
 import { FX_SHEETS, type FxKey } from './manifest';
-import { FROST_ALPHA, FX_FLAGS, FxBudget, PRIORITY, gradeHex, slowLook, type EnemyStatus, type FxCmd, type FxFlags, type Priority, type ShotStyle } from './plan';
+import {
+  BLAST_ALPHA, BLAST_MAX, BLAST_MS, BLAST_TINT, FROST_ALPHA, FX_FLAGS, FxBudget, HALO_ALPHA, PRIORITY, PULSE_ALPHA, PULSE_MAX, gradeHex, slowLook, type EnemyStatus, type FxCmd, type FxFlags, type Priority, type ShotStyle,
+} from './plan';
 import { Pool } from './pool';
 import { BIRTH_MS, BirthQueue, birthBand, birthLine, type BirthBanner } from '../ui/birth';
 
@@ -51,8 +53,8 @@ export function bossBand(hostWidth: number, span: { x: number; w: number } | nul
 
 /** An enemy's status as drawn: `feet` is the bottom of its sprite, `scale` the sprite's scale. */
 export interface StatusView { id: number; defId: string; x: number; y: number; feet: number; scale: number; r: number; status: EnemyStatus }
-/** A unit standing in an ally aura (feet = bottom of its sprite). */
-export interface AuraView { id: number; x: number; feet: number }
+/** A unit standing in an ally aura (feet = bottom of its sprite); `live` when the selected aura unit reaches it, so its halo turns. */
+export interface AuraView { id: number; x: number; feet: number; live: boolean }
 
 const ease = (p: number) => 1 - (1 - p) * (1 - p);
 const TOAST_Y = 30;
@@ -102,6 +104,10 @@ export class FxLayer {
   private readonly stunOn = new Map<number, Phaser.GameObjects.Sprite>();
   private readonly frostOn = new Map<number, Phaser.GameObjects.Sprite>();
   private readonly haloOn = new Map<number, Phaser.GameObjects.Sprite>();
+  private readonly haloLive = new Set<number>();
+  /** Aura pulses and blasts playing now, each capped (PULSE_MAX, BLAST_MAX) so a late board does not white out. */
+  private readonly pulses = new Set<Rec>();
+  private readonly blasts = new Set<Rec>();
   /** Yeoksin mist: where it stands and since when. */
   private mist: { x: number; y: number; since: number } | null = null;
   /** Bumped by clear() so delayed fireworks from a dropped lane never start. */
@@ -125,7 +131,7 @@ export class FxLayer {
     );
     this.sprites = new Pool<Phaser.GameObjects.Sprite>(
       () => scene.add.sprite(0, 0, '__DEFAULT').setVisible(false),
-      s => { s.stop(); s.setVisible(false).setScale(1).setRotation(0).setAlpha(1).setFlipX(false).clearTint(); },
+      s => { s.stop(); s.anims.timeScale = 1; s.setVisible(false).setScale(1).setRotation(0).setAlpha(1).setFlipX(false).clearTint(); },
       { max: 160, dispose: s => s.destroy() },
     );
     for (const key of FX_KEYS) {
@@ -178,11 +184,15 @@ export class FxLayer {
   }
 
   /** Play a one-shot sheet through the budget. */
-  private sheet(key: FxKey | null, priority: Priority, x: number, y: number, depth: number, opts: { scale?: number; rotation?: number; flip?: boolean; tint?: number; follow?: 'enemy' | 'unit'; id?: number } = {}, now = this.scene.time.now): Rec | null {
+  private sheet(key: FxKey | null, priority: Priority, x: number, y: number, depth: number, opts: { scale?: number; rotation?: number; flip?: boolean; tint?: number; alpha?: number; ms?: number; follow?: 'enemy' | 'unit'; id?: number } = {}, now = this.scene.time.now): Rec | null {
     if (!key || !this.ready.has(key)) return null;
-    const r = this.add('sheet', priority, sheetMs(key), now);
+    const full = sheetMs(key);
+    const ms = opts.ms !== undefined && opts.ms < full ? opts.ms : full;
+    const r = this.add('sheet', priority, ms, now);
     if (!r) return null;
     const s = this.sprite(key, x, y, depth);
+    if (ms < full) s.anims.timeScale = full / ms;
+    if (opts.alpha !== undefined) s.setAlpha(opts.alpha);
     if (opts.scale !== undefined && opts.scale !== 1) s.setScale(opts.scale);
     if (opts.rotation) s.setRotation(opts.rotation);
     if (opts.flip) s.setFlipX(true);
@@ -253,15 +263,21 @@ export class FxLayer {
         if (!at) return;
         const area = areaSheet(cmd.kind === 'splash' ? 'ring' : cmd.kind === 'frost' ? 'frost' : 'blast', cmd.radius);
         if (!area) return;
-        const depth = cmd.kind === 'explode' ? FX_DEPTH.air : FX_DEPTH.ground;
-        this.sheet(area.key, cmd.priority, at.x, at.y, depth, { scale: area.scale, tint: cmd.kind === 'splash' ? lighten(cmd.color) : undefined }, now);
+        if (cmd.kind === 'explode') {
+          if (this.blasts.size >= BLAST_MAX) return;
+          const r = this.sheet(area.key, cmd.priority, at.x, at.y, FX_DEPTH.air, { scale: area.scale, tint: BLAST_TINT, alpha: BLAST_ALPHA, ms: BLAST_MS }, now);
+          if (r) this.blasts.add(r);
+          return;
+        }
+        this.sheet(area.key, cmd.priority, at.x, at.y, FX_DEPTH.ground, { scale: area.scale, tint: cmd.kind === 'splash' ? lighten(cmd.color) : undefined }, now);
         return;
       }
       case 'pulse': {
         const at = h.unitPos(cmd.unitId);
         const area = areaSheet('ring', cmd.radius);
-        if (!at || !area) return;
-        this.sheet(area.key, cmd.priority, at.x, at.y, FX_DEPTH.ground, { scale: area.scale, tint: lighten(cmd.color), follow: 'unit', id: cmd.unitId }, now);
+        if (!at || !area || this.pulses.size >= PULSE_MAX) return;
+        const r = this.sheet(area.key, cmd.priority, at.x, at.y, FX_DEPTH.ground, { scale: area.scale, tint: lighten(cmd.color), alpha: PULSE_ALPHA, follow: 'unit', id: cmd.unitId }, now);
+        if (r) this.pulses.add(r);
         return;
       }
       case 'stunHit':
@@ -428,6 +444,8 @@ export class FxLayer {
 
   private finish(r: Rec): void {
     if (r.budgeted) this.budget.release();
+    this.pulses.delete(r);
+    this.blasts.delete(r);
     const t = this.numberOf.get(r);
     if (t) { this.numberOf.delete(r); this.numberPool.release(t); }
     if (r.sprite) this.sprites.release(r.sprite);
@@ -479,13 +497,18 @@ export class FxLayer {
 
   private syncHalos(auras: AuraView[]): void {
     const want = new Map<number, { key: FxKey; x: number; y: number; scale: number; depth: number }>();
-    for (const u of auras) want.set(u.id, { key: 'halo', x: u.x, y: u.feet + HALO_DROP, scale: 1, depth: FX_DEPTH.air - 0.1 });
+    this.haloLive.clear();
+    // scale 1: the frame is 35 px but only its alpha < 30 fringe passes 29 px, which HALO_ALPHA makes all but invisible in a 32 px cell
+    for (const u of auras) {
+      want.set(u.id, { key: 'halo', x: u.x, y: u.feet + HALO_DROP, scale: 1, depth: FX_DEPTH.air - 0.1 });
+      if (u.live) this.haloLive.add(u.id);
+    }
     this.syncLoop(this.haloOn, want);
-    // a quiet mark: a board full of buffed units should not glitter
-    for (const s of this.haloOn.values()) {
-      s.setAlpha(0.7);
-      // reduced effects: the halo stays as a still mark
-      if (this.flags.rays) { if (s.anims.isPaused) s.anims.resume(); } else if (!s.anims.isPaused) s.anims.pause();
+    // a board full of buffed units should not glitter: only the selected aura unit's reach turns, the rest (and all of
+    // them with reduced effects) stay a still mark
+    for (const [id, s] of this.haloOn) {
+      s.setAlpha(HALO_ALPHA);
+      if (this.flags.rays && this.haloLive.has(id)) { if (s.anims.isPaused) s.anims.resume(); } else if (!s.anims.isPaused) s.anims.pause();
     }
   }
 

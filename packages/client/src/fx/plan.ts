@@ -259,23 +259,37 @@ export function enemyStatus(e: Pick<Enemy, 'stunTicks' | 'slow' | 'vulns'>, aura
 
 const auraEffects = (def: UnitDef): Effect[] => def.skills.filter(s => s.trigger.kind === 'aura').flatMap(s => s.effects);
 
-/** Slots whose unit gets an ally aura (attack speed or attack power) from another unit within the aura radius. */
-export function auraBuffedSlots(state: GameState): Set<number> {
+/** Late-game halos, aura pulses and blasts are kept faint so the boss, the top row and the grade marks show through. */
+export const HALO_ALPHA = 0.42;
+export const PULSE_ALPHA = 0.32;
+export const PULSE_MAX = 3;
+export const BLAST_TINT = 0xffa860;
+export const BLAST_ALPHA = 0.6;
+export const BLAST_MAX = 4;
+export const BLAST_MS = 300;
+
+/** Slots one unit's ally aura (attack speed or attack power) reaches within the aura radius, not counting itself. */
+export function auraBuffedBy(state: GameState, src: number): Set<number> {
+  const out = new Set<number>();
+  const u = state.slots[src];
+  if (!u) return out;
+  const auras = auraEffects(unitDefFast(state.data, u.defId)).filter(e => e.kind === 'auraAttackSpeed' || e.kind === 'auraAttackPower');
+  if (!auras.length) return out;
   const lane = laneOf(state);
   const radius = state.data.balance.auraRadius;
-  const out = new Set<number>();
-  state.slots.forEach((u, src) => {
-    if (!u) return;
-    const def = unitDefFast(state.data, u.defId);
-    const auras = auraEffects(def).filter(e => e.kind === 'auraAttackSpeed' || e.kind === 'auraAttackPower');
-    if (!auras.length) return;
-    state.slots.forEach((v, slot) => {
-      if (!v || slot === src || out.has(slot)) return;
-      if (cellDistance(lane, src, slot) > radius + 1e-9) return;
-      const type = unitDefFast(state.data, v.defId).damageType;
-      if (auras.some(e => e.kind === 'auraAttackSpeed' || (e.kind === 'auraAttackPower' && (e.damageType === 'all' || e.damageType === type)))) out.add(slot);
-    });
+  state.slots.forEach((v, slot) => {
+    if (!v || slot === src) return;
+    if (cellDistance(lane, src, slot) > radius + 1e-9) return;
+    const type = unitDefFast(state.data, v.defId).damageType;
+    if (auras.some(e => e.kind === 'auraAttackSpeed' || (e.kind === 'auraAttackPower' && (e.damageType === 'all' || e.damageType === type)))) out.add(slot);
   });
+  return out;
+}
+
+/** Slots whose unit gets an ally aura from another unit within the aura radius. */
+export function auraBuffedSlots(state: GameState): Set<number> {
+  const out = new Set<number>();
+  state.slots.forEach((_, src) => { for (const slot of auraBuffedBy(state, src)) out.add(slot); });
   return out;
 }
 

@@ -2,8 +2,8 @@ import { createGame, laneOf, loadGameData, type GameEvent, type GameState, type 
 import { placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { describe, expect, test } from 'vitest';
 import {
-  FROST_ALPHA, FX_FLAGS, FxBudget, PRIORITY, REDUCE_FX_KEY, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState,
-  readReduceFx, shotStyle, slowLook, storedReduceFx, writeReduceFx, type FxCmd, type PlanCtx,
+  BLAST_ALPHA, BLAST_MAX, BLAST_MS, BLAST_TINT, FROST_ALPHA, FX_FLAGS, FxBudget, HALO_ALPHA, PRIORITY, PULSE_ALPHA, PULSE_MAX, REDUCE_FX_KEY,
+  auraBuffedBy, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, shotStyle, slowLook, storedReduceFx, writeReduceFx, type FxCmd, type PlanCtx,
 } from '../src/fx/plan';
 
 const data = loadGameData('stage2');
@@ -249,6 +249,22 @@ describe('statuses from state', () => {
     expect(buffed.has(23)).toBe(false);
   });
 
+  test('auraBuffedBy is what one aura unit buffs; together they make auraBuffedSlots', () => {
+    const s = game();
+    placeUnitForTest(s, 'cheongsachorong', 7);
+    placeUnitForTest(s, 'cheongsachorong', 21);
+    for (const slot of [0, 8, 9, 15, 20, 22, 23]) placeUnitForTest(s, 'sotlid', slot);
+    const first = auraBuffedBy(s, 7);
+    expect(first.has(8)).toBe(true);
+    expect(first.has(7)).toBe(false);
+    expect(first.has(23)).toBe(false);
+    expect(auraBuffedBy(s, 8).size).toBe(0);
+    expect(auraBuffedBy(s, 1).size).toBe(0);
+    const union = new Set(s.slots.flatMap((_, src) => [...auraBuffedBy(s, src)]));
+    expect(union.size).toBeGreaterThan(first.size);
+    expect([...union].sort((a, b) => a - b)).toEqual([...auraBuffedSlots(s)].sort((a, b) => a - b));
+  });
+
   test('an enemy-vuln aura marks the enemies in that unit range', () => {
     const s = game();
     placeUnitForTest(s, 'jangdok', 0);
@@ -383,4 +399,17 @@ describe('reduce-effects toggle storage', () => {
     } finally { g.matchMedia = before; }
     expect(asked).toEqual(['(prefers-reduced-motion: reduce)']);
   });
+});
+
+test('late aura halos, pulses and blasts stay inside the agreed ranges', () => {
+  expect(HALO_ALPHA).toBeGreaterThanOrEqual(0.35);
+  expect(HALO_ALPHA).toBeLessThanOrEqual(0.5);
+  expect(PULSE_ALPHA).toBeGreaterThanOrEqual(0.25);
+  expect(PULSE_ALPHA).toBeLessThanOrEqual(0.4);
+  expect(BLAST_ALPHA).toBeGreaterThanOrEqual(0.5);
+  expect(BLAST_ALPHA).toBeLessThanOrEqual(0.7);
+  expect(BLAST_MS).toBeLessThanOrEqual(300);
+  expect([PULSE_MAX, BLAST_MAX]).toEqual([3, 4]);
+  const [r, g, b] = [BLAST_TINT >> 16, (BLAST_TINT >> 8) & 0xff, BLAST_TINT & 0xff];
+  expect(r > g && g > b).toBe(true);
 });

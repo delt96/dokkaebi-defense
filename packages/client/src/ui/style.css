@@ -564,6 +564,7 @@ button.sv-send:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .gamble-reveal.lose { color: #b5aaba; }
 .gamble-reveal.small { color: #ffdeb1; }
 .gamble-reveal.big { color: #ffdf7f; border-color: #b48942; background: #352239; }
+.gamble-reveal.gold { border-color: #ffe35a; background: #4a3718; }
 .gamble-reveal .coin { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; flex: 0 0 17px;
   border: 2px solid #dfa854; color: #ffdc8b; background: #6c492a; font-size: 10px; }
 .gamble-reveal.pop .coin { animation: gamble-pop .32s ease-out; }

@@ -108,7 +108,11 @@ export function gambleModel(view: GambleView, coins: number, buckwheat: number):
 export interface RevealDisplay {
   phase: Reveal['phase']; label: string; detail?: string; unit?: UnitDef;
   tier?: Tier; coin?: boolean; motion?: boolean; announcement: string;
+  /** A grade 6 prize: the line stays gold for GOLD_MS (with reduced effects too; only the flash is motion). */
+  gold?: boolean;
 }
+
+const GOLD_MS = 1200;
 
 function coinResult(event: Extract<GambleEvent, { type: 'gambleCoins' }>): string {
   const net = event.payout - event.stake;
@@ -149,6 +153,7 @@ export function revealDisplay(reveal: Reveal | null, now: number, data: GameData
   return {
     phase, tier, motion, unit, label: unit?.name ?? '꽝',
     detail,
+    ...(event.result === 6 && now - reveal.at < GOLD_MS && { gold: true }),
     announcement: [unit ? `${gradeText(event.result)} 당첨!` : '꽝', unit ? (event.jige ? '지게 획득' : '') : detail].filter(Boolean).join(' · '),
   };
 }
@@ -236,7 +241,7 @@ export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null, rea
 export function gambleRevealHtml(reveal: RevealDisplay | null): string {
   const face = reveal?.unit ? unitFaceHtml(reveal.unit.id, reveal.unit.name, reveal.unit.grade)
     : reveal?.coin ? '<span class="coin" aria-hidden="true">◇</span>' : '';
-  const effect = reveal?.motion ? (reveal.tier === 'big' ? ' flash pop' : reveal.tier === 'small' ? ' pop' : '') : '';
+  const effect = (reveal?.motion ? (reveal.tier === 'big' ? ' flash pop' : reveal.tier === 'small' ? ' pop' : '') : '') + (reveal?.gold ? ' gold' : '');
   return `<div class="gamble-reveal ${reveal?.phase ?? ''} ${reveal?.tier ?? ''}${effect}"${reveal?.phase === 'result' ? ' role="status"' : ''}>
     ${reveal ? `${face}<div><b>${esc(reveal.label)}</b>${reveal.detail ? `<small>${esc(reveal.detail)}</small>` : ''}</div>` : '아직 뽑은 결과가 없어요'}
   </div>`;

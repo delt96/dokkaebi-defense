@@ -9,7 +9,7 @@ import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, NOTICE_SPAN,
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_FILES, SMALL_IDS, SPRITE_IDS, loadArt, smallFile, smallKey, spriteFile } from './art';
 import { spriteKey, tameArt } from './sprites';
-import { FX_FLAGS, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, storedReduceFx, writeReduceFx, type FxCmd } from './fx/plan';
+import { FX_FLAGS, auraBuffedBy, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, storedReduceFx, writeReduceFx, type FxCmd } from './fx/plan';
 
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
 const hex = (c: string) => Number.parseInt(c.slice(1), 16);
@@ -61,6 +61,27 @@ export function triangleAlpha(now: number, reduced: boolean, held: boolean): num
   return 0.55 + 0.45 * (0.5 + 0.5 * Math.sin((2 * Math.PI * now) / 1000));
 }
 
+const PRIZE_HIDDEN = 0xc48cff;
+const PRIZE_GRADE: Record<number, number> = { 6: 0xffe35a, 5: 0xff4a3a };
+/** ㉒ A grade 5-6 (or hidden) market prize: its ring colour and the word over its cell. */
+export function prizeLook(def: { grade: number; hidden?: boolean }): { color: number; text: string } | null {
+  if (def.grade < 5) return null;
+  return { color: def.hidden ? PRIZE_HIDDEN : PRIZE_GRADE[def.grade] ?? PRIZE_GRADE[6]!, text: `${def.grade}등급!` };
+}
+
+const PRIZE_MS = 1200;
+const RING_ON_MS = 240;
+const RING_CYCLE_MS = 400;
+/** The prize ring blinks on 240 / off 160 three times (2.5 a second, under the 3 a second flash limit); reduced, it just stays on. */
+export function ringOn(ms: number, reduced: boolean): boolean {
+  if (ms < 0 || ms >= PRIZE_MS) return false;
+  return reduced || ms % RING_CYCLE_MS < RING_ON_MS;
+}
+const PRIZE_RING_R = 20;
+const PRIZE_RISE_MS = 160;
+const PRIZE_FADE_MS = 140;
+const PRIZE_RISE_PX = 4;
+
 /** How a board press selected (see moveStep): a drag start, a short press on the selected unit, any other press, a right click. */
 export type SelectHow = 'press' | 'again' | 'tap' | 'cancel';
 
@@ -107,6 +128,10 @@ export class LaneScene extends Phaser.Scene {
   private lastD = new Map<number, number>();
   private buffed = new Set<number>();
   private auraKey = '';
+  /** The slots the selected unit's aura reaches (their halos turn), cached by auraKey and the selected slot. */
+  private liveAura = new Set<number>();
+  private liveAuraKey = '';
+  private prize: { unitId: number; start: number; ring: Phaser.GameObjects.Arc; label: Phaser.GameObjects.Text } | null = null;
   private tags: Phaser.GameObjects.Text[] = [];
   /** What the page wants marked on the board (set each render). */
   boardMarks: BoardMarks = NO_MARKS;
@@ -260,6 +285,9 @@ export class LaneScene extends Phaser.Scene {
     this.lastD.clear();
     this.auraKey = '';
     this.buffed.clear();
+    this.liveAuraKey = '';
+    this.liveAura.clear();
+    this.dropPrize();
     this.yeoksinIn = false;
     this.freshLane = true;
   }
@@ -776,13 +804,19 @@ export class LaneScene extends Phaser.Scene {
       else if (this.yeoksinIn) this.fx.setMist(null, 1, now, this.yeoksinKilled);
       this.yeoksinIn = yeoksin !== null;
       this.yeoksinKilled = false;
+      const sel = selectedSlot(this.state, this.selectedId);
+      const liveKey = `${this.auraKey}|${sel ?? ''}`;
+      if (liveKey !== this.liveAuraKey) {
+        this.liveAuraKey = liveKey;
+        this.liveAura = sel === null ? new Set() : auraBuffedBy(this.state, sel);
+      }
       const auras: AuraView[] = [];
       for (const slot of this.buffed) {
         const u = this.state.slots[slot];
         const v = u && this.units.get(u.id);
         // a 48px unit (a tamed boss or its grade 6 result) stands lower than the 32px ones
         const body = v?.first;
-        if (v && v.visible) auras.push({ id: u.id, x: v.x, feet: v.y + (body instanceof Phaser.GameObjects.Image ? body.displayHeight / 2 : 16) });
+        if (v && v.visible) auras.push({ id: u.id, x: v.x, feet: v.y + (body instanceof Phaser.GameObjects.Image ? body.displayHeight / 2 : 16), live: this.liveAura.has(slot) });
       }
       this.fx.update(now, statuses, auras);
     }
@@ -898,6 +932,39 @@ export class LaneScene extends Phaser.Scene {
     if (unit && !this.reduceFx) {
       this.tweens.add({ targets: unit, scale: { from: 0.8, to: 1 }, duration: 220, ease: 'Back.Out' });
     }
+    const look = unit ? prizeLook(unitDefFast(this.state.data, unit.defId)) : null;
+    if (!unit || !look) return;
+    this.dropPrize();
+    const css = `#${look.color.toString(16).padStart(6, '0')}`;
+    // under the grade marks and ▲ (unitOverlay) so the ring never hides them
+    const ring = this.add.circle(unit.x, unit.y, PRIZE_RING_R).setStrokeStyle(2, look.color).setDepth(FX_DEPTH.unitOverlay - 0.05);
+    const label = this.add.text(unit.x, unit.y, look.text, { ...BOARD_LABEL, fontStyle: 'bold', color: css })
+      .setOrigin(0.5, 1).setDepth(FX_DEPTH.text);
+    this.prize = { unitId: unit.unitId, start: this.time.now, ring, label };
+    this.drawPrize();
+  }
+
+  private dropPrize(): void {
+    if (!this.prize) return;
+    this.prize.ring.destroy();
+    this.prize.label.destroy();
+    this.prize = null;
+  }
+
+  /** Follows the prize unit each frame (it can be dragged), blinking the ring and lifting then fading the word. */
+  private drawPrize(): void {
+    const p = this.prize;
+    if (!p) return;
+    const t = this.time.now - p.start;
+    const view = this.units.get(p.unitId);
+    if (t >= PRIZE_MS || !view) { this.dropPrize(); return; }
+    p.ring.setPosition(view.x, view.y).setVisible(ringOn(t, this.reduceFx));
+    const enter = this.reduceFx ? 1 : Math.min(1, t / PRIZE_RISE_MS);
+    const rise = 1 - (1 - enter) ** 3;
+    const out = Math.max(0, (t - (PRIZE_MS - PRIZE_FADE_MS)) / PRIZE_FADE_MS);
+    const bottom = view.y - PRIZE_RING_R - 1 - PRIZE_RISE_PX * rise;
+    // a top-row cell would push the word off the canvas
+    p.label.setPosition(view.x, Math.max(p.label.height, bottom)).setAlpha(Math.min(enter, 1 - out * out));
   }
 
   private revealSummon(view: UnitView, grade: number): void {
@@ -969,6 +1036,7 @@ export class LaneScene extends Phaser.Scene {
     this.placeEnemies();
     this.drawFires();
     this.drawSelection();
+    this.drawPrize();
     if (this.fx) {
       const round = this.state.phase === 'round';
       if (this.wasRound && this.state.phase === 'prep') this.fx.roundClear(this.time.now);
