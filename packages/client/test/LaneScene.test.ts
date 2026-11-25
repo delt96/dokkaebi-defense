@@ -4,7 +4,7 @@ import { createGame, loadGameData, type GameData } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { expect, test, vi } from 'vitest';
 import { GameDriver } from '../src/driver';
-import { LaneScene, triangleAlpha } from '../src/LaneScene';
+import { jangseungLook, LaneScene, triangleAlpha } from '../src/LaneScene';
 import { FX_DEPTH } from '../src/fx/FxLayer';
 import { NO_MARKS } from '../src/ui/models';
 
@@ -431,4 +431,37 @@ test('switching the drawn lane drops every view, effect and the selection (revie
   expect(scene['units'].size).toBe(0);
   scene['placeUnits']();
   expect(container).toHaveBeenCalledTimes(3);
+});
+
+test('the 장승 takes the limit step colour and shakes only when told to', () => {
+  expect(jangseungLook('ok', 0, false).fill).toBe(0x8a6a4a);
+  expect(jangseungLook('warn', 0, false).fill).toBe(0xd0884a);
+  expect(jangseungLook('danger', 0, false).fill).toBe(0xc04a3a);
+  expect(jangseungLook('over', 100, false)).toEqual({ fill: 0xc04a3a, angle: 0 });
+  expect(jangseungLook('over', 100, true).angle).not.toBe(0);
+});
+
+test('reduce effects follows the OS setting until the player picks one, and marks the page', () => {
+  const store = new Map<string, string>();
+  const changes: ((e: { matches: boolean }) => void)[] = [];
+  const media = { matches: true, addEventListener: (_: string, fn: (e: { matches: boolean }) => void) => { changes.push(fn); } };
+  const classes = new Set<string>();
+  vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); } });
+  vi.stubGlobal('matchMedia', () => media);
+  vi.stubGlobal('document', { body: { classList: { toggle: (c: string, on: boolean) => { if (on) classes.add(c); else classes.delete(c); } } } });
+  try {
+    const scene = new LaneScene(new GameDriver(createGame(loadGameData(), 1)));
+    expect(scene.reduceEffects).toBe(true);
+    expect(classes.has('fx-reduced')).toBe(true);
+    changes.forEach(fn => fn({ matches: false }));
+    expect(scene.reduceEffects).toBe(false);
+    expect(classes.has('fx-reduced')).toBe(false);
+    expect(store.size).toBe(0);
+    scene.setReduceEffects(true);
+    expect(classes.has('fx-reduced')).toBe(true);
+    changes.forEach(fn => fn({ matches: false }));
+    expect(scene.reduceEffects).toBe(true);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

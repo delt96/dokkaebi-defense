@@ -25,7 +25,8 @@ import {
 } from './gamble';
 import { el, focusedIn, onAction, refocusIn, setHtml } from './dom';
 import { helperPopHtml } from './helper';
-import { renderAlert, renderHud } from './hud';
+import { edgeLevel, renderAlert, renderHud } from './hud';
+import { loopOwner } from './signals';
 import { PressConfirm } from './confirm';
 import {
   activeNotice, boardMarks, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, NO_MARKS, moveStep, nextCombines, nextPick, nextUnitId,
@@ -123,6 +124,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   }
   // solo: P pauses until P again; the open dex pauses on top of that without touching the P state
   let userPaused = false;
+  // the over-limit cue rings on the step into over, not on every frame while over
+  let wasOver = false;
   // the hotkey line under the board (단축키 안내 줄 in the settings window)
   let helpLine = readHelpLine();
   let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | null = null;
@@ -777,6 +780,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     // design ⑩: beside the board the helper is the left window and the six rows stay in view
     const helperFrame = currentWins() === 'outside' ? 'win' : 'pop';
     let helperWin = '';
+    const edge = edgeLevel(s);
+    const owner = loopOwner({ countdownPulse: false, over: edge === 'over', danger: edge === 'danger' });
+    scene.pulseHeld = owner !== 'triangle';
+    scene.shakeJangseung = owner === 'jangseung' && !scene.reduceEffects;
+    const alertOpts = { still: owner !== 'edge' || !!scene.reduceEffects };
+    // online the stage shows the watched lane; another lane going over is not my alarm
+    const over = edge === 'over' && (!view || view.watching === view.me.seat);
+    if (over && !wasOver) gameAudio.play('limitOver');
+    wasOver = over;
     if (view && opts.data) {
       renderTop(view, opts.data);
       const helper = helperOpen() ? helperPopHtml(s, list, {
@@ -784,9 +796,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       }, helperFrame) : '';
       if (helperFrame === 'win') helperWin = helper;
       renderRows(view, opts.data, helperFrame === 'win' ? '' : helper, flashingSeats(now));
-      renderAlert(s);
+      renderAlert(s, alertOpts);
     } else {
-      renderHud(s, driver.paused, activeNotice(notice, now));
+      renderHud(s, driver.paused, activeNotice(notice, now), alertOpts);
       setHtml(el('left'), s.phase === 'ended' ? '' : infoHtml || soloPanelHtml(s, {
         selected, list, idleList, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected),
       }));

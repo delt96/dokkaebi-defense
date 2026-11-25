@@ -50,12 +50,14 @@ describe('the 장승 gauge follows the real loss rule', () => {
     expect(crackText(61, 60)).toBe('무너짐');
   });
 
-  test('the HUD shows 한계 with 60 on the board and 무너짐 with 61', () => {
+  test('the HUD gauge says 한계 with 60 on the board (the tail carries it, the word hides) and 무너짐 with 61', () => {
     const s = createGame(d1, 1);
     forceRound(s, 3);
     for (let i = 0; i < 60; i++) spawnEnemyForTest(s, 'japgwi', 0);
     renderHud(s, false);
-    expect(document.querySelector('#top .gauge-text')!.textContent).toBe('장승 한계');
+    expect(document.querySelector<HTMLElement>('#top .gauge')!.title).toBe('장승: 한계');
+    expect(document.querySelector('#top .gauge-text')).toBeNull();
+    expect(document.querySelector('#top .enemies .tail')!.textContent).toBe('· 한계');
     spawnEnemyForTest(s, 'japgwi', 0);
     renderHud(s, false);
     expect(document.querySelector('#top .gauge-text')!.textContent).toBe('장승 무너짐');
@@ -72,7 +74,7 @@ describe('online top bar', () => {
     expect(topModel(v, d2).line2).toBe('관문 1/2 · 마감까지 3라운드 · 역신(첫째) 체력 6,632 / 7,480');
   });
 
-  test('my count turns red at the same 위험 line as my left row', () => {
+  test('my count takes the step colour and tail from the same line as my left row', () => {
     const danger = d2.coop!.danger;
     const calm = viewWith({ me: 1, rows: [row({ seat: 1, count: danger - 1 })] });
     expect(topModel(calm, d2).mineLevel).toBe('ok');
@@ -80,9 +82,11 @@ describe('online top bar', () => {
     expect(topModel(hot, d2).mineLevel).toBe('warn');
     document.body.innerHTML = '<div id="top"></div>';
     renderTop(hot, d2);
-    expect(document.querySelector('#top .mine-danger')!.textContent).toBe(`내 잡귀 ${danger} / 60`);
+    expect(document.querySelector('#top .mine.lv-warn')!.textContent).toBe(`내 잡귀 ${danger} / 60 · 주의`);
+    expect(document.querySelector('#top .mine .tail')!.textContent).toBe('· 주의');
     renderTop(calm, d2);
-    expect(document.querySelector('#top .mine-danger')).toBeNull();
+    expect(document.querySelector('#top .mine.lv-ok')!.textContent).toBe(`내 잡귀 ${danger - 1} / 60`);
+    expect(document.querySelector('#top .mine .tail')).toBeNull();
     expect(document.querySelector('#top .line')!.textContent).toContain(`내 잡귀 ${danger - 1} / 60`);
   });
 });

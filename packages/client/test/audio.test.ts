@@ -136,6 +136,12 @@ describe('audio settings and attribution', () => {
     }
   });
 
+  test('going over the limit rings error softly, at most once in 2 seconds', () => {
+    expect(EFFECTS.limitOver.file).toBe('error.ogg');
+    expect(EFFECTS.limitOver.interval).toBe(2000);
+    expect(EFFECTS.limitOver.volume).toBeLessThan(EFFECTS.error.volume);
+  });
+
   test('every shipped effect is used and credited, next to the Kenney license', () => {
     const publicDir = new URL('../public/', import.meta.url);
     const credits = readFileSync(new URL('CREDITS.md', publicDir), 'utf8');

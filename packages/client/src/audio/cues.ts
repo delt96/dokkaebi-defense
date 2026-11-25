@@ -30,6 +30,8 @@ export const EFFECTS = {
   huntFlee: { file: 'flee.ogg', volume: 0.26 },
   click: { file: 'click.ogg', volume: 0.13, interval: 55 },
   error: { file: 'error.ogg', volume: 0.18, interval: 200 },
+  // going back over the limit within 2 seconds stays silent
+  limitOver: { file: 'error.ogg', volume: 0.1, interval: 2000 },
   clear: { file: 'clear.ogg', volume: 0.53 },
   defeat: { file: 'defeat.ogg', volume: 0.48 },
 } as const satisfies Record<string, Effect>;

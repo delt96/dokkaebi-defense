@@ -2,17 +2,24 @@ import Phaser from 'phaser';
 import {
   STORAGE_MAX_GRADE, countNormalEnemies, laneOf, loopPos, unitDefFast, type GameEvent, type GameState, type Lane,
 } from '@dorandi/logic';
-import { NO_MARKS, selectedSlot, type BoardMarks } from './ui/models';
+import { NO_MARKS, limitLevel, selectedSlot, type BoardMarks, type LimitLevel } from './ui/models';
 import type { Driver } from './driver';
 import type { BirthBanner } from './ui/birth';
 import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, NOTICE_SPAN, canvasInStorage, gradeShape, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_FILES, SMALL_IDS, SPRITE_IDS, loadArt, smallFile, smallKey, spriteFile } from './art';
 import { spriteKey, tameArt } from './sprites';
-import { FX_FLAGS, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, writeReduceFx, type FxCmd } from './fx/plan';
+import { FX_FLAGS, auraBuffedSlots, auraMarkedEnemies, enemyStatus, planEvents, planFromState, readReduceFx, slowLook, storedReduceFx, writeReduceFx, type FxCmd } from './fx/plan';
 
 const ENEMY_COLOR: Record<string, number> = { geuseundae: 0x5a4a7a, dueoksini: 0x6a4a3a, jinegaksi: 0x8a2a3a, gangcheori: 0x4a5a6a };
 const hex = (c: string) => Number.parseInt(c.slice(1), 16);
+const JANGSEUNG_FILL: Record<LimitLevel, number> = { ok: 0x8a6a4a, warn: 0xd0884a, danger: 0xc04a3a, over: 0xc04a3a };
+/** The 장승 post: its colour follows the limit step; it shakes only while it owns the one board-wide loop. */
+export function jangseungLook(level: LimitLevel, now: number, shake: boolean): { fill: number; angle: number } {
+  return { fill: JANGSEUNG_FILL[level], angle: shake ? Math.sin(now / 40) * 8 : 0 };
+}
+/** The '입구' and '장승' board labels share one look. */
+const BOARD_LABEL = { fontFamily: 'sans-serif', fontSize: '10px', color: '#ffe08a', stroke: '#0d0a14', strokeThickness: 2, padding: { top: 2 } };
 /** Register lobby-warmed assets through Phaser's loader before the board is created. */
 class LaneArtFile extends Phaser.Loader.File {
   private art?: Awaited<ReturnType<typeof loadArt>>;
@@ -107,6 +114,8 @@ export class LaneScene extends Phaser.Scene {
   moving = false;
   /** Set by B3 while a higher-priority loop moves (gate countdown, over-limit jangseung, danger edge): the ▲ stays still and bright. */
   pulseHeld = false;
+  /** Set by the page: the over-limit 장승 is the board's one moving loop (never under reduce effects). */
+  shakeJangseung = false;
   /** Told while a dragged board unit is over the storage column: 'ok' when it may go in, 'no' when not (grade 3+). */
   onStorageHover?: (hover: 'ok' | 'no' | null) => void;
   /** Told when a board unit drag starts and ends (the page lets the pointer through its storage column meanwhile). */
@@ -128,6 +137,12 @@ export class LaneScene extends Phaser.Scene {
     super('lane');
     this.driver = driver;
     this.canvasHeight = opts.height ?? CENTER_H;
+    this.applyReduceFx(this.reduceFx);
+    try {
+      globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.addEventListener?.('change', e => {
+        if (storedReduceFx() === null) this.applyReduceFx(e.matches);
+      });
+    } catch { /* no media queries here: the stored or default value stays */ }
   }
 
   onSelect(cb: (slot: number | null, how?: SelectHow) => void): void { this.selectListeners.push(cb); }
@@ -138,9 +153,14 @@ export class LaneScene extends Phaser.Scene {
   /** 'Reduce effects' (stored per browser): fewer, plainer effects and no shake. */
   get reduceEffects(): boolean { return this.reduceFx; }
   setReduceEffects(on: boolean): void {
-    this.reduceFx = on;
     writeReduceFx(on);
+    this.applyReduceFx(on);
+  }
+  /** body.fx-reduced stops the page's CSS loops the same way the flag stops the board's. */
+  private applyReduceFx(on: boolean): void {
+    this.reduceFx = on;
     this.fx?.setReduced(on);
+    globalThis.document?.body?.classList.toggle('fx-reduced', on);
   }
 
   private noticeNarrow = false;
@@ -180,13 +200,12 @@ export class LaneScene extends Phaser.Scene {
     this.coverage = this.add.graphics().setDepth(1);
     this.overlay = this.add.graphics().setDepth(FX_DEPTH.unitOverlay);
     const post = laneToCanvas({ x: this.lane.frame.cols + 0.9, y: this.lane.frame.rows + 0.4 });
-    this.jangseung = this.add.rectangle(post.x, post.y, 8, 22, 0x8a6a4a).setStrokeStyle(1, 0x2a1a0e);
+    this.jangseung = this.add.rectangle(post.x, post.y, 8, 22, JANGSEUNG_FILL.ok).setStrokeStyle(1, 0x2a1a0e);
+    this.add.text(post.x, post.y + 13, '장승', BOARD_LABEL).setOrigin(0.5, 0).setDepth(1);
     if (this.driver.online) {
       // where enemies really come in (d = 0), so a player can read the path direction
       const gate = laneToCanvas(this.lane.pointAt(0));
-      this.add.text(gate.x, gate.y - 13, '입구', {
-        fontFamily: 'sans-serif', fontSize: '9px', color: '#ffe08a', stroke: '#0d0a14', strokeThickness: 2, padding: { top: 2 },
-      }).setOrigin(0.5, 1).setDepth(1);
+      this.add.text(gate.x, gate.y - 13, '입구', BOARD_LABEL).setOrigin(0.5, 1).setDepth(1);
     }
     this.drawBoard();
     this.fx = new FxLayer(this, {
@@ -949,9 +968,10 @@ export class LaneScene extends Phaser.Scene {
       this.wasRound = round;
       this.setDesaturated(this.driver.laneEliminated?.() ?? this.state.result?.outcome === 'defeat');
     }
-    const danger = Math.min(1, countNormalEnemies(this.state) / this.state.data.balance.limit);
-    this.jangseung.setFillStyle(danger > 1 - 1e-9 ? 0xc04a3a : danger > 0.66 ? 0xa0704a : 0x8a6a4a);
-    this.jangseung.setAngle(this.state.overLimitTicks > 0 ? Math.sin(this.time.now / 40) * 8 : 0);
+    const { level } = limitLevel(this.state.data, countNormalEnemies(this.state), this.state.round);
+    const look = jangseungLook(level, this.time.now, this.shakeJangseung && !this.reduceFx);
+    this.jangseung.setFillStyle(look.fill);
+    this.jangseung.setAngle(look.angle);
   }
 }
 

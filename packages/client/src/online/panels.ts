@@ -28,6 +28,7 @@ export function renderRows(view: ClientView, data: GameData, overlay = '', flash
 /** Top bar: two 12px lines. */
 export function renderTop(view: ClientView, data: GameData): void {
   const m = topModel(view, data);
-  const line1 = m.mine && m.mineLevel !== null && m.mineLevel !== 'ok' ? esc(m.line1).replace(esc(m.mine), `<b class="mine-danger">${esc(m.mine)}</b>`) : esc(m.line1);
+  const tail = m.mineTail ? ` <i class="tail">· ${esc(m.mineTail)}</i>` : '';
+  const line1 = m.mine && m.mineLevel !== null ? esc(m.line1).replace(esc(m.mine), `<b class="mine lv-${m.mineLevel}">${esc(m.mine)}${tail}</b>`) : esc(m.line1);
   setHtml(el('top'), `<div class="line">${line1}</div><div class="line second">${esc(m.line2)}</div>${SETTINGS_BUTTON}<button class="menu-btn" data-action="openMenu">메뉴</button>`);
 }
