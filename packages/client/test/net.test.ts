@@ -211,10 +211,12 @@ describe('predict', () => {
     expect(full.mine.storage!.filter(u => u.item)).toHaveLength(3);
     const cmds: Command[] = [{ type: 'retrieve', defId: 'jipsin' }, { type: 'sellStored', defId: 'jipsin' }, { type: 'sellStored', defId: 'dunggumi' }];
     const pending: PendingCmd[] = cmds.map((cmd, i) => ({ seq: i + 2, ...toWire(cmd) }));
-    const predicted = predictStorage(full.mine.storage, pending)!.map(u => u.id);
-    const r = stepMatch(match, cmds.map((cmd, i) => ({ seat: 1, seq: i + 2, cmd })));
-    expect(r.acks.every(a => a.ok)).toBe(true);
-    expect(predicted).toEqual(lane.storage!.map(u => u.id));
+    cmds.forEach((cmd, i) => {
+      const predicted = predictStorage(full.mine.storage, pending.slice(0, i + 1))!.map(u => u.id);
+      const r = stepMatch(match, [{ seat: 1, seq: i + 2, cmd }]);
+      expect(r.acks.every(a => a.ok)).toBe(true);
+      expect(predicted).toEqual(lane.storage!.map(u => u.id));
+    });
     expect(lane.storage!.every(u => u.item)).toBe(true);
   });
 
