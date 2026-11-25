@@ -1,7 +1,7 @@
 import { difficultyNote, difficultyPicker } from '../ui/difficulty';
 import { gameAudio } from '../audio/engine';
 import { musicCreditsHtml } from '../audio/settings-ui';
-import { normalizeNickname, type Difficulty } from '@dorandi/logic';
+import { NICKNAME_MAX, normalizeNickname, type Difficulty } from '@dorandi/logic';
 import { TEXT } from './text';
 
 export interface EntryOptions {
@@ -46,7 +46,7 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   const label = el('label', 'entry-label', TEXT.nameLabel);
   const input = el('input', 'entry-input');
   input.type = 'text';
-  input.maxLength = 12;
+  input.maxLength = NICKNAME_MAX;
   input.autocomplete = 'off';
   input.placeholder = TEXT.namePlaceholder;
   input.value = opts.name ?? '';

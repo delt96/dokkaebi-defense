@@ -28,7 +28,8 @@ export function lobbyModel(msg: LobbyMsg): LobbyModel {
   };
 }
 
-export interface LobbyActions { ready(v: boolean): void; start(): void; copy(): void; difficulty?(d: Difficulty): void }
+/** `copy` resolves true only when the clipboard took the address. */
+export interface LobbyActions { ready(v: boolean): void; start(): void; copy(): Promise<boolean>; difficulty?(d: Difficulty): void }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -37,7 +38,8 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
   return e;
 }
 
-export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActions, notice?: string): void {
+/** `link` is the room address shown as a text box to copy by hand, once the clipboard has failed. */
+export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActions, notice?: string, link?: string): void {
   const m = lobbyModel(msg);
   root.replaceChildren();
   const box = el('div', 'screen-box lobby');
@@ -46,11 +48,22 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
   const copy = el('button', undefined, TEXT.copy);
   copy.type = 'button';
   copy.addEventListener('click', () => {
-    actions.copy();
-    copy.textContent = TEXT.copied;
-    setTimeout(() => { copy.textContent = TEXT.copy; }, 1500);
+    void actions.copy().then(ok => {
+      if (!ok) return;
+      copy.textContent = TEXT.copied;
+      setTimeout(() => { copy.textContent = TEXT.copy; }, 1500);
+    });
   });
   box.append(copy);
+  if (link !== undefined) {
+    const field = el('input', 'entry-input lobby-link');
+    field.type = 'text';
+    field.readOnly = true;
+    field.value = link;
+    field.setAttribute('aria-label', TEXT.linkLabel);
+    field.addEventListener('focus', () => field.select());
+    box.append(el('div', 'lobby-hint', TEXT.copyByHand), field);
+  }
 
   // new rooms are 70 rounds and the host picks the difficulty; a 20-round room from an old client only says so
   const modes = el('div', 'lobby-modes');

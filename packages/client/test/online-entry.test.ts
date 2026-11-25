@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, expect, test } from 'vitest';
+import { NICKNAME_MAX, normalizeNickname } from '@dorandi/logic';
 import { renderEntry } from '../src/online/entry';
 import { lobbyModel } from '../src/online/lobby';
-import { joinErrorText } from '../src/online/text';
+import { joinErrorText, TEXT } from '../src/online/text';
 
 describe('entry and lobby', () => {
   test('join error texts', () => {
@@ -29,6 +30,16 @@ describe('entry and lobby', () => {
     form.dispatchEvent(new Event('submit', { cancelable: true }));
     root.querySelector('button')!.click();
     expect(calls).toBe(1); release();
+  });
+  test('the name box stops at the length the hint and the server allow', () => {
+    const root = document.createElement('div');
+    renderEntry(root, { onSubmit: () => Promise.resolve() });
+    const input = root.querySelector('input')!;
+    expect(input.maxLength).toBe(NICKNAME_MAX);
+    expect(TEXT.namePlaceholder).toContain(`1~${NICKNAME_MAX}자`);
+    expect(TEXT.badName).toContain(`1~${NICKNAME_MAX}자`);
+    expect(normalizeNickname('가'.repeat(NICKNAME_MAX))).not.toBeNull();
+    expect(normalizeNickname('가'.repeat(NICKNAME_MAX + 1))).toBeNull();
   });
   test('Enter that only commits an IME composition does not submit; a plain Enter still does', () => {
     const root = document.createElement('div');

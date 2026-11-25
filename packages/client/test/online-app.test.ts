@@ -210,3 +210,50 @@ describe('online app: music in the ready room', () => {
     music.mockRestore();
   });
 });
+
+describe('online app: the room link in the ready room', () => {
+  async function inLobby(): Promise<FakeRoom> {
+    saveSession('r1', { key: 'k0', name: '하나' });
+    const room = new FakeRoom('r1');
+    join.mockResolvedValueOnce(room);
+    startOnline({ roomId: 'r1' });
+    await vi.advanceTimersByTimeAsync(0);
+    room.emit('lobby', { roomId: 'r1', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: false }] });
+    return room;
+  }
+  const copyButton = () => Array.from(screen().querySelectorAll('button')).find(b => b.textContent === TEXT.copy || b.textContent === TEXT.copied)!;
+  const setClipboard = (clipboard: unknown) => Object.defineProperty(navigator, 'clipboard', { value: clipboard, configurable: true });
+  afterEach(() => { Reflect.deleteProperty(navigator, 'clipboard'); });
+
+  test('says copied only after the clipboard took the address', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    setClipboard({ writeText });
+    await inLobby();
+    copyButton().click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(writeText).toHaveBeenCalledWith('http://localhost/room/r1');
+    expect(copyButton().textContent).toBe(TEXT.copied);
+    expect(screen().querySelector('.lobby-link')).toBeNull();
+  });
+
+  for (const [label, clipboard] of [
+    ['there is no clipboard (plain http)', undefined],
+    ['the clipboard refuses', { writeText: () => Promise.reject(new Error('denied')) }],
+  ] as const) {
+    test(`shows the address to copy by hand when ${label}`, async () => {
+      setClipboard(clipboard);
+      const room = await inLobby();
+      copyButton().click();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(copyButton().textContent).toBe(TEXT.copy);
+      const field = screen().querySelector<HTMLInputElement>('input.lobby-link')!;
+      expect(field.value).toBe('http://localhost/room/r1');
+      expect(field.readOnly).toBe(true);
+      expect(document.activeElement).toBe(field);
+      expect(screen().textContent).toContain(TEXT.copyByHand);
+      // a lobby update redraws the screen; the address stays
+      room.emit('lobby', { roomId: 'r1', you: 1, hostSeat: 1, seats: [{ seat: 1, name: '하나', ready: true }] });
+      expect(screen().querySelector<HTMLInputElement>('input.lobby-link')?.value).toBe('http://localhost/room/r1');
+    });
+  }
+});

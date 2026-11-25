@@ -53,7 +53,7 @@ const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'set
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
   'summon', 'convert', 'combine', 'sell', 'upgrade', 'gambleCoins', 'gambleUnit', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
-  'store', 'storeAll', 'retrieve', 'sellStored',
+  'store', 'storeAll', 'retrieve', 'sellStored', 'sellStack',
 ]);
 const PRESS_MS = 120;
 
@@ -223,6 +223,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       }
       case 'sellStored': driver.queue({ type: 'sellStored', defId: arg }); break;
+      case 'sellStack':
+        // the strip sits next to where a stack is grabbed: the first press only arms it
+        if (confirm.press(`sellStored:${arg}`, performance.now())) driver.queue({ type: 'sellStored', defId: arg });
+        break;
       case 'closeStorageInfo': inspectedStack = null; break;
       case 'pinTarget':
         if (modal === 'dex') dex = { ...dex, ...typedNow() };
@@ -370,7 +374,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       (el('modal').querySelector<HTMLButtonElement>('.dex-back') ?? row?.querySelector<HTMLButtonElement>('button'))?.focus({ preventScroll: true });
       dex = { ...dex, focus: null };
     }
-    if (modal && modal !== previousModal) el('modal').querySelector<HTMLButtonElement>('button')?.focus();
+    if (modal && modal !== previousModal) (el('modal').querySelector<HTMLButtonElement>('[data-autofocus]') ?? el('modal').querySelector<HTMLButtonElement>('button'))?.focus();
   };
 
   function setHelper(on: boolean): void {
@@ -612,7 +616,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       displayedCard = { unitId: null, recipes: [] };
       setHtml(el('bottom'), infoHtml);
     } else displayedCard = renderBottom(s, selected, online, helpLine ? (s.data.economy?.market ? 'B 장터' : undefined) : null, held, sellArmed(s, selected));
-    setHtml(el('storage'), storageVisible() ? storageHtml(s, held) : '');
+    setHtml(el('storage'), storageVisible() ? storageHtml(s, held, defId => confirm.armed(`sellStored:${defId}`, now)) : '');
     if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';

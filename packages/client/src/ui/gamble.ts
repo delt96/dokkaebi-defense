@@ -199,7 +199,7 @@ export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null, rea
   const buy = (b: ButtonModel) => {
     const why = reason(b);
     const reasonId = `gamble-why-${esc(b.arg)}`;
-    return `<button type="button" class="gamble-buy" data-action="${b.action}" data-arg="${esc(b.arg)}" data-market-focus="buy-${esc(b.arg)}" aria-label="${esc(b.stake === undefined ? b.name + ' · ' + b.price : b.price)}"${why ? ` aria-describedby="${reasonId}"` : ''}${busy || why ? ' disabled' : ''}>${esc(b.price)}</button>${why ? `<span class="gamble-why" id="${reasonId}">${esc(why)}</span>` : ''}`;
+    return `<button type="button" class="gamble-buy" data-action="${b.action}" data-arg="${esc(b.arg)}" data-market-focus="buy-${esc(b.arg)}" aria-label="${esc(b.stake === undefined ? b.name + ' · ' + b.price : b.price)}"${why ? ` aria-describedby="${reasonId}"` : ''}${busy || why ? ' disabled' : ''}>${esc(b.price)}</button>${why ? `<span class="gamble-why" id="${reasonId}">${esc(why)}</span>` : '<span class="gamble-why" aria-hidden="true"></span>'}`;
   };
   const heading = (group: GroupModel, item?: string) => `<div class="gamble-line">
     <strong>${item ? inspect(item, group.name) : esc(group.name)}</strong><span>${esc(group.summary)}</span><span class="gamble-count">${esc(group.count)}</span>

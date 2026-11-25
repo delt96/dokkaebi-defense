@@ -79,6 +79,7 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
     return (lobbyAudio = panel);
   };
 
+  let handLink: string | undefined;
   const showLobby = (): void => {
     const msg = net?.lobby;
     if (!net || !msg) return;
@@ -88,8 +89,23 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
       ready: v => n.ready(v, msg.stage, msg.difficulty),
       start: () => n.start(),
       difficulty: d => n.setDifficulty(d),
-      copy: () => { void navigator.clipboard?.writeText(location.href).catch(() => undefined); },
-    }, notice);
+      copy: async () => {
+        const href = location.href;
+        try {
+          // plain http on a LAN address has no navigator.clipboard at all
+          if (!navigator.clipboard) throw new Error('no clipboard');
+          await navigator.clipboard.writeText(href);
+          return true;
+        } catch {
+          handLink = href;
+          if (screen === 'lobby') {
+            showLobby();
+            root.querySelector<HTMLInputElement>('.lobby-link')?.focus();
+          }
+          return false;
+        }
+      },
+    }, notice, handLink);
     gameAudio.musicMode('normal');
     root.querySelector('.lobby .lobby-modes')?.append(lobbyAudioPanel());
   };

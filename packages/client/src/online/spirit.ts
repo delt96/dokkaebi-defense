@@ -33,7 +33,7 @@ export function menuHtml(kind: 'menu' | 'forfeit', spirit: boolean): string {
   if (kind === 'forfeit') {
     return `<div class="modal" role="alertdialog"><div class="modal-head">포기하고 나가기</div>
       <p class="modal-text">${esc(FORFEIT_TEXT)}</p>
-      <div class="modal-actions"><button class="danger" data-action="forfeit">포기</button><button data-action="closeModal">취소</button></div></div>`;
+      <div class="modal-actions"><button class="danger" data-action="forfeit">포기</button><button data-action="closeModal" data-autofocus>취소</button></div></div>`;
   }
   return `<div class="modal"><div class="modal-head">메뉴 <button data-action="closeModal">닫기</button></div>
     <div class="modal-actions"><button data-action="openDex">도감</button>

@@ -29,11 +29,30 @@ test('every group shows remaining uses and each unavailable purchase owns its re
     expect(button.parentElement?.querySelector('.gamble-why')?.textContent).toBe(reason);
   }
   expect(buy('10').disabled).toBe(false);
-  expect(buy('10').parentElement?.querySelector('.gamble-why')).toBeNull();
+  const free = buy('10').parentElement?.querySelector('.gamble-why');
+  expect([free?.textContent, free?.id, buy('10').hasAttribute('aria-describedby')]).toEqual(['', '', false]);
   expect(html.querySelector('[title], .gamble-odds')).toBeNull();
   s.econ!.marketOpen = false;
   const locked = panel(gambleHtml(gambleModel(econView(s)!.market!.gamble!, s.coins, s.buckwheat), null));
-  expect(Array.from(locked.querySelectorAll('.gamble-why'), e => e.textContent)).toEqual(Array(3).fill('10라운드 보스 격파 후'));
+  expect(Array.from(locked.querySelectorAll('.gamble-why'), e => e.textContent).filter(Boolean)).toEqual(Array(3).fill('10라운드 보스 격파 후'));
+});
+
+test('a reason appearing or going away keeps every buy button where it was', () => {
+  const s = createGame(data, 1);
+  forceRound(s, 29);
+  s.econ!.marketOpen = true;
+  s.coins = 500;
+  s.buckwheat = 10;
+  const layout = () => {
+    const html = panel(gambleHtml(gambleModel(econView(s)!.market!.gamble!, s.coins, s.buckwheat), null));
+    return Array.from(html.querySelectorAll('.gamble-option'), o => Array.from(o.children, c => c.className));
+  };
+  const open = layout();
+  s.econ!.gamble = { round: 29, coins: 5, units: 5 };
+  s.coins = 0;
+  s.buckwheat = 0;
+  expect(layout()).toEqual(open);
+  expect(open.every(row => row.includes('gamble-why'))).toBe(true);
 });
 
 test.each([

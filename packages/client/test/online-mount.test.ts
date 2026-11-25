@@ -110,6 +110,8 @@ describe('online mountUi', () => {
     press(document.querySelector('#top [data-action="openMenu"]'));
     press(modal.querySelector('[data-action="askForfeit"]'));
     expect(modal.textContent).toContain(FORFEIT_TEXT);
+    // Space is the summon key: a hand still mashing it must land on 취소, not 포기
+    expect((document.activeElement as HTMLElement).dataset.action).toBe('closeModal');
     press(modal.querySelector('[data-action="closeModal"]'));
     expect(actions.forfeit).not.toHaveBeenCalled();
     expect(modal.textContent).toBe('');
