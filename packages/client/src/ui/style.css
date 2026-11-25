@@ -257,6 +257,20 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 #slot-row { position: absolute; left: 128px; top: 68px; width: 400px; height: 14px; z-index: 1; pointer-events: none; font-size: 10px; line-height: 14px; }
 #limit-instant { position: absolute; right: 4px; top: 0; color: #ff9482; font-size: 10px; font-weight: bold; white-space: nowrap; text-shadow: 0 1px 2px #140c18; }
 #limit-instant:empty { display: none; }
+/* design ⑬: the box starts at stage x 232, right of the entrance label; its tail points left at the entrance */
+#gate-near { position: absolute; left: 104px; top: 0; height: 14px; }
+#gate-near:empty { display: none; }
+#gate-near .near { position: relative; display: block; height: 14px; padding: 0 6px; line-height: 12px; background: #2a1d26f0; border: 1px solid #ffb396; color: #ffd9c4; font-size: 10px; white-space: nowrap; }
+#gate-near .near::before { content: ''; position: absolute; left: -5px; top: 2px; border: 4px solid transparent; border-right-color: #ffb396; border-left: 0; }
+#gate-near .near-sec { color: #fff; font-size: 11px; }
+#gate-near .near-sec.urgent { color: #ff9482; }
+/* design ⑪: 200 x 40 inside the 42 px slot; the number on the left, the words and the health bar beside it */
+#round-banner .gate-countdown { width: 200px; height: 40px; display: grid; grid-template-columns: 40px 1fr; grid-template-rows: 1fr 2px; column-gap: 4px; align-items: center; padding: 2px 6px 3px; background: #32171ef0; border: 1px solid #ff836a; text-align: left; text-shadow: none; }
+#round-banner .cd-sec { grid-row: 1; color: #fff; font-size: 20px; line-height: 24px; text-align: center; }
+#round-banner .cd-text { grid-row: 1; min-width: 0; color: #ffb59f; font-size: 11px; font-weight: normal; line-height: 13px; white-space: nowrap; }
+#round-banner .cd-where { display: block; overflow: hidden; text-overflow: ellipsis; font-style: normal; color: #ffd0c4; font-size: 10px; }
+#round-banner .cd-bar { grid-column: 1 / 3; display: block; height: 2px; background: #2a2232; }
+#round-banner .cd-bar i { display: block; height: 100%; background: #ff6b5a; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .countdown { top: 50%; left: 328px; transform: translate(-50%, -50%); background: #32171ef0; border: 1px solid #ff836a; padding: 3px 10px; color: #ffb59f; font-size: 11px; }
 .countdown strong { display: block; color: white; font-size: 29px; }
@@ -350,7 +364,7 @@ body.online #top { border: 0; box-shadow: inset 0 -1px var(--panel-edge); paddin
 body.online #top .line { height: 11px; line-height: 11px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 body.online #top .line:first-child { color: var(--accent); font-weight: bold; }
 body.online #top .line.second { color: var(--ink); }
-body.online #top .line.turn { color: #ffb396; }
+body.online #top .line.second.urgent { color: #ff9482; }
 body.online #top .mine .tail { font-style: normal; }
 body.online #top .mine.lv-warn { color: #ffb396; }
 body.online #top .mine.lv-danger, body.online #top .mine.lv-over { color: #ff9482; }
@@ -369,7 +383,6 @@ body.online #left { border: 0; box-shadow: inset -1px 0 var(--panel-edge); paddi
 .lane-row.danger .count, .lane-row.danger .status { color: #ff9482; font-weight: bold; }
 .lane-row .status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-dim); }
 .lane-row .self { color: var(--accent); font-size: 10px; }
-.lane-row .arrival { font-size: 10px; line-height: 12px; color: #ffba95; }
 .lane-row.empty .title { color: var(--ink-dim); }
 .lane-row .mask { flex: none; color: var(--accent); font-weight: bold; }
 .lane-row .bar { flex: none; width: 34px; height: 5px; background: #2a2232; border: 1px solid #4a3e5a; }
@@ -550,12 +563,24 @@ body.online #econ-bottom { top: 272px; height: 42px; }
 /* design ⑯: an open pillar window (x <= 196, x >= 458) leaves the notices the board between them, x 200 to 454 */
 #stage.pillar-open #round-banner { left: 200px; width: 254px; }
 #stage.pillar-open #slot-row { left: 200px; width: 254px; }
+#stage.pillar-open #gate-near { left: 32px; }
 /* the round banner keeps its old stillness; toasts and fallen notices fade in from 4 px above and fade out */
 @media (prefers-reduced-motion: no-preference) {
   body:not(.fx-reduced) #round-banner:is(.k-note, .k-fallen) .slot-text { animation: slot-in 160ms cubic-bezier(.2, .8, .2, 1); }
   body:not(.fx-reduced) #round-banner:is(.k-note, .k-fallen).out .slot-text { opacity: 0; transition: opacity 110ms cubic-bezier(.4, 0, 1, 1); }
 }
 @keyframes slot-in { from { opacity: 0; transform: translateY(-4px); } }
+/* ⑪ comes in over 200 ms and goes over 140 ms; from 5 s the number swells 1 -> 1.15 (200 ms) -> 1 (140 ms) once a second.
+   ⑬ comes in over 160 ms and goes over 110 ms; its red seconds do not move. */
+@media (prefers-reduced-motion: no-preference) {
+  body:not(.fx-reduced) #round-banner.k-countdown { animation: slot-fade 200ms cubic-bezier(.2, .8, .2, 1); }
+  body:not(.fx-reduced) #round-banner.k-countdown.out { opacity: 0; transition: opacity 140ms cubic-bezier(.4, 0, 1, 1); }
+  body:not(.fx-reduced) #round-banner .cd-sec.pulse { animation: cd-pulse 340ms linear; }
+  body:not(.fx-reduced) #gate-near.on { animation: slot-fade 160ms cubic-bezier(.2, .8, .2, 1); }
+  body:not(.fx-reduced) #gate-near.out { opacity: 0; transition: opacity 110ms cubic-bezier(.4, 0, 1, 1); }
+}
+@keyframes slot-fade { from { opacity: 0; } }
+@keyframes cd-pulse { 0% { transform: scale(1); } 59% { transform: scale(1.15); } 100% { transform: scale(1); } }
 #stage.pillar-open #econ-top { left: 200px; width: 254px; }
 #stage.pillar-open .countdown { left: 327px; max-width: 254px; }
 /* design ⑧: in the pillar layout the chip row stays narrow with the windows closed too, so opening one does not rewrap it */

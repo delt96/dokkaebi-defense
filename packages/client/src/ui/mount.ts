@@ -3,8 +3,8 @@ import {
 } from '@dorandi/logic';
 import { SPEEDS, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
-import { rightNotices } from '../online/models';
-import { renderRows, renderTop } from '../online/panels';
+import { arrivalModel, gateCountdown, gateDeadlineRound, rightNotices, type GateCountdown } from '../online/models';
+import { arrivalHtml, countdownHtml, renderRows, renderTop } from '../online/panels';
 import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
 import { cellCorner, cellPx, CENTER_X, CENTER_Y, NOTICE_SPAN, type WinPlace } from '../layout';
@@ -47,9 +47,16 @@ const NOTICE_MS = 1500;
 const BANNER_MS = 1800;
 /** The slot's words fade out over this long before their time is up (CSS .out). */
 const SLOT_OUT_MS = 110;
+/** Design ⑪: the countdown box fades out over 140 ms, ⑬ over 110 ms (CSS #round-banner.k-countdown.out, #gate-near.out). */
+const COUNTDOWN_OUT_MS = 140;
+const NEAR_OUT_MS = 110;
+/** The countdown number swells once a second from this many seconds left. */
+const PULSE_FROM = 5;
+const DEADLINE_TAIL = ' · 관문 마감';
 const CONFIRM_SELL_GRADE = 3;
 /** Economy notices stay a little longer than a refusal. */
 const NOTE_MS = 2500;
+const SLOT_KINDS = ['banner', 'fallen', 'note', 'birth', 'countdown'] as const;
 const NOTE_TYPES: ReadonlySet<string> = new Set(['jigeSwap', 'questReward', 'tame', 'tameTry', 'hunt']);
 
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void; onHome?: () => void }
@@ -659,7 +666,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const boss = wave?.type === 'boss' && driver.state.data.enemies.find(e => e.id === wave.boss);
         const reward = event.round > 1 && !driver.readOnly ? `${event.round - 1}라운드 종료 · +${driver.state.data.balance.coins.roundEnd}냥` : '';
         const title = `${event.round}라운드${boss ? ' · 고개 보스: ' + boss.name : ''}`;
-        topSlot.push({ kind: 'banner', text: [reward, title].filter(Boolean).join('\n'), ms: BANNER_MS }, performance.now());
+        const v = online && opts.data ? opts.view?.() ?? null : null;
+        const deadline = !!v && event.round === gateDeadlineRound(v, opts.data!);
+        topSlot.push({ kind: 'banner', text: [reward, title].filter(Boolean).join('\n'), ms: BANNER_MS, ...(deadline ? { tail: DEADLINE_TAIL } : {}) }, performance.now());
       }
     }
     if (revealEpoch !== driver.laneEpoch) {
@@ -880,7 +889,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const helperFrame = currentWins() === 'outside' ? 'win' : 'pop';
     let helperWin = '';
     const edge = edgeLevel(s);
-    const owner = loopOwner({ countdownPulse: false, over: edge === 'over', danger: edge === 'danger' });
+    const cd = view && opts.data && s.phase !== 'ended' ? gateCountdown(view, opts.data) : null;
+    const pulse = cd !== null && cd.seconds <= PULSE_FROM && !scene.reduceEffects;
+    const owner = loopOwner({ countdownPulse: pulse, over: edge === 'over', danger: edge === 'danger' });
     scene.pulseHeld = owner !== 'triangle';
     scene.shakeJangseung = owner === 'jangseung' && !scene.reduceEffects;
     const alertOpts = { still: owner !== 'edge' || !!scene.reduceEffects };
@@ -903,10 +914,18 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       }));
     }
     const prompts = renderEcon(view, selected);
-    if (s.phase === 'ended') topSlot.clear();
-    const shownSlot = s.phase === 'ended' ? null : topSlot.current(now, false);
-    const moved = renderSlot(shownSlot, prompts, now);
-    renderSlotRow(s, view);
+    if (s.phase === 'ended') {
+      topSlot.clear();
+      countdownShown = null;
+    }
+    // design ⑪: the box holds the slot through its 140 ms fade too, then what waited comes up
+    if (cd) countdownGone = 0;
+    else if (countdownShown && countdownGone === 0) countdownGone = scene.reduceEffects ? now : now + COUNTDOWN_OUT_MS;
+    if (!cd && countdownShown && now >= countdownGone) countdownShown = null;
+    if (cd) countdownShown = cd;
+    const shownSlot = s.phase === 'ended' ? null : topSlot.current(now, countdownShown !== null);
+    const moved = renderSlot(shownSlot, prompts, now, countdownShown && { c: countdownShown, pulse, leaving: !cd });
+    renderSlotRow(s, view, now);
     if (view && driver.readOnly) {
       setHtml(el('right'), `<b class="watch-heading">고개 관전</b><p class="watch-hint">왼쪽에서 살아 있는 고개를 고르세요. 아래 카드로 엽전을 보낼 수 있습니다.</p>`);
     } else {
@@ -987,16 +1006,25 @@ ${dex.mine.join()}`;
   let slotItem: SlotItem | null = null;
   let slotKey = '';
   let spoken = '';
+  // the countdown last drawn, kept while its box fades out; countdownGone is when it goes (0 while it runs)
+  let countdownShown: GateCountdown | null = null;
+  let countdownGone = 0;
+  let nearHtml = '';
+  let nearGone = 0;
   /**
    * The top slot (#round-banner): words for banners, fallen notices and toasts; a birth is drawn on the board, so the
    * box stays empty for it. Prompts over the lane push the words down a row, and with two prompts the band above the
    * lane is full, so the line goes to the notices in the right column instead (returned).
    */
-  function renderSlot(shown: SlotShown | null, prompts: number, now: number): string[] {
+  function renderSlot(shown: SlotShown | null, prompts: number, now: number, countdown: { c: GateCountdown; pulse: boolean; leaving: boolean } | null): string[] {
     const item = shown?.item ?? null;
     if (item !== slotItem) {
       slotItem = item;
       if (item?.kind === 'birth' && item.birth) scene.showBirth(item.birth);
+    }
+    if (shown?.kind === 'countdown' && countdown) {
+      renderCountdown(countdown.c, countdown.pulse, countdown.leaving);
+      return [];
     }
     const words = item ? (item.kind === 'birth' ? '' : item.text) : '';
     const tail = item && item.kind !== 'birth' ? item.tail ?? '' : '';
@@ -1009,7 +1037,7 @@ ${dex.mine.join()}`;
     const key = `${kind}|${shown?.start ?? ''}|${body}|${tail}`;
     if (key !== slotKey) {
       slotKey = key;
-      for (const k of ['banner', 'fallen', 'note', 'birth']) box.classList.toggle(`k-${k}`, k === kind);
+      for (const k of SLOT_KINDS) box.classList.toggle(`k-${k}`, k === kind);
       const color = item?.color === undefined ? '' : ` style="color:#${item.color.toString(16).padStart(6, '0')}"`;
       box.innerHTML = body && prompts < 2
         ? `<span class="slot-text"${color}>${esc(body)}${tail ? `<b class="slot-tail">${esc(tail)}</b>` : ''}</span>`
@@ -1023,8 +1051,57 @@ ${dex.mine.join()}`;
     return prompts >= 2 && words ? [oneLine + tail] : [];
   }
 
-  /** The fixed row under the slot: design ⑤ on its right end (⑬ takes its left). */
-  function renderSlotRow(s: GameState, view: ClientView | null): void {
+  /**
+   * Design ⑪ in the top slot; prompts over the lane do not move it. The box is drawn again only when the second (or
+   * the pulse) changes, so the swell runs once a second; the health in between is written in place.
+   */
+  function renderCountdown(c: GateCountdown, pulse: boolean, leaving: boolean): void {
+    const box = el('round-banner');
+    box.classList.remove('low');
+    box.classList.toggle('out', leaving);
+    const key = `countdown|${c.seconds}|${pulse}`;
+    if (key !== slotKey) {
+      slotKey = key;
+      for (const k of SLOT_KINDS) box.classList.toggle(`k-${k}`, k === 'countdown');
+      box.innerHTML = countdownHtml(c, pulse);
+    } else {
+      const fresh = document.createElement('div');
+      fresh.innerHTML = countdownHtml(c, pulse);
+      for (const sel of ['.cd-where', '.cd-bar']) {
+        const cur = box.querySelector(sel);
+        const next = fresh.querySelector(sel)!;
+        if (cur && cur.innerHTML !== next.innerHTML) cur.innerHTML = next.innerHTML;
+      }
+    }
+    // read at 10 and 5 seconds only; the seconds between keep the last sentence
+    if (c.say && c.say !== spoken) {
+      spoken = c.say;
+      el('slot-say').textContent = c.say;
+    }
+  }
+
+  /** The fixed row under the slot: design ⑬ on its left (the 역신 and my lane), ⑤ on its right end. */
+  function renderSlotRow(s: GameState, view: ClientView | null, now: number): void {
+    const arrival = view && opts.data && s.phase !== 'ended' ? arrivalModel(view, opts.data) : null;
+    const html = arrival ? arrivalHtml(arrival) : '';
+    const near = el('gate-near');
+    if (html) {
+      nearGone = 0;
+      near.classList.remove('out');
+      near.classList.add('on');
+      if (html !== nearHtml) {
+        nearHtml = html;
+        near.innerHTML = html;
+      }
+    } else if (nearHtml) {
+      if (nearGone === 0) nearGone = scene.reduceEffects || s.phase === 'ended' ? now : now + NEAR_OUT_MS;
+      if (now >= nearGone) {
+        nearHtml = '';
+        nearGone = 0;
+        near.textContent = '';
+        near.classList.remove('out', 'on');
+      } else near.classList.add('out');
+    }
     const hud = hudModel(s);
     // online the stage may show another lane; the line is about my own
     const mine = !view || view.watching === view.me.seat;
@@ -1229,6 +1306,8 @@ ${dex.mine.join()}`;
     flashUntil.clear();
     peerBirth.clear();
     topSlot.clear();
+    countdownShown = null;
+    countdownGone = 0;
     marketCell?.remove();
     render();
   }

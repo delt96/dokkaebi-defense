@@ -53,14 +53,15 @@ describe('online rows', () => {
       yeoksin: { stage: 1, hp: 80, maxHp: 100, seat: 1, enterTick: 0, nextSeat: 1 } });
     expect(rowsModel(view, data)[0]).toMatchObject({ status: '생존', chip: 'current' });
   });
-  test('my row shows the arrival countdown alongside the warning', () => {
+  test('my row keeps its warning; the arrival moved over the entrance (design ⑬)', () => {
     document.body.innerHTML = '<div id="left"></div>';
     const v = viewWith({ me: 1, rows: [row({ count: 49 }), row({ seat: 2 })],
       yeoksin: { stage: 1, hp: 80, maxHp: 100, seat: 2, enterTick: 0, nextSeat: 1 } });
     renderRows(v, data);
     const mine = document.querySelector('.lane-row.me')!;
     expect(mine.textContent).toContain('주의');
-    expect(mine.textContent).toContain('역신이 옵니다 · 12초');
+    expect(mine.textContent).not.toContain('역신이 옵니다');
+    expect(mine.querySelector('.arrival')).toBeNull();
   });
 
   test('a seat that just got a grade 6 or hidden unit flashes its row', () => {
