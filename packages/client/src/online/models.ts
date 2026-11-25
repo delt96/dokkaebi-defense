@@ -17,7 +17,7 @@ export interface GateCountdown { seconds: number; hp: number; maxHp: number; whe
 export interface Arrival { text: string; seconds: number; urgent: boolean }
 
 const TICKS_PER_SECOND = 20;
-const CAUSE_TEXT: Record<EliminationCause, string> = { limit: '잡귀 한도', boss: '고개 보스', forfeit: '포기', disconnect: '단절' };
+export const CAUSE_TEXT: Record<EliminationCause, string> = { limit: '잡귀 한도', boss: '고개 보스', forfeit: '포기', disconnect: '단절' };
 /** The elimination cause stays on the row for 3 seconds before it says plain "탈락·넋". */
 const CAUSE_TICKS = 60;
 const NOTICE_MS = 3000;

@@ -16,6 +16,7 @@ export const EFFECTS = {
   heavyHit: { file: 'heavy-hit.ogg', volume: 0.09, interval: 250, pitch: 0.05 },
   bossDown: { file: 'boss-down.ogg', volume: 0.36, interval: 450 },
   gong: { file: 'gong.ogg', volume: 0.40, interval: 450 },
+  fallen: { file: 'gong.ogg', volume: 0.2, interval: 450 },
   round: { file: 'round.ogg', volume: 0.19 },
   upgrade: { file: 'upgrade.ogg', volume: 0.27 },
   sell: { file: 'sell.ogg', volume: 0.28 },

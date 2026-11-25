@@ -374,19 +374,38 @@ body.online #left { border: 0; box-shadow: inset -1px 0 var(--panel-edge); paddi
 .rows-title { height: 28px; line-height: 28px; padding: 0 6px; font-size: 10px; font-weight: bold; color: var(--ink-dim); border-bottom: 1px solid var(--panel-edge); }
 .lane-row { width: 100%; display: block; text-align: left; background: transparent; border: 0; border-radius: 0; color: var(--ink); height: 44px; padding: 2px 5px 1px 6px; border-bottom: 1px solid var(--panel-edge); border-left: 2px solid transparent; font-size: 11px; overflow: hidden; }
 .lane-row.me { border-left-color: var(--accent); }
-.lane-row.birth-flash { background: linear-gradient(90deg, rgba(255, 227, 90, 0.38), rgba(255, 227, 90, 0.06)); }
 .lane-row.current { background: #2a2030; }
 .lane-row.empty { color: var(--ink-dim); }
 .lane-row .line1, .lane-row .line2 { display: flex; align-items: center; gap: 3px; height: 14px; line-height: 14px; white-space: nowrap; }
 .lane-row .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .lane-row .count { flex: none; min-width: 14px; text-align: right; font-variant-numeric: tabular-nums; }
-.lane-row.danger .count, .lane-row.danger .status { color: #ff9482; font-weight: bold; }
 .lane-row .status { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--ink-dim); }
 .lane-row .self { color: var(--accent); font-size: 10px; }
 .lane-row.empty .title { color: var(--ink-dim); }
-.lane-row .mask { flex: none; color: var(--accent); font-weight: bold; }
+.lane-row .chip { flex: none; font-size: 10px; line-height: 12px; padding: 0 4px; border: 1px solid var(--accent); border-radius: 2px; color: var(--accent); }
+.lane-row .chip.current { background: var(--accent); color: var(--panel); font-weight: bold; }
 .lane-row .bar { flex: none; width: 34px; height: 5px; background: #2a2232; border: 1px solid #4a3e5a; }
 .lane-row .bar i { display: block; height: 100%; background: var(--accent); }
+/* Design ⑭⑮⑯⑲ and my lane's steps: later rules win over .current, .me and the birth wash. */
+.lane-row.lv-warn .count { color: #ffb396; font-weight: bold; }
+.lane-row.lv-danger, .lane-row.lv-over { background: rgba(255, 59, 47, 0.12); }
+.lane-row.birth-flash { background: linear-gradient(90deg, rgba(255, 227, 90, 0.38), rgba(255, 227, 90, 0.06)); }
+.lane-row:is(.lv-danger, .lv-over) .count, .lane-row:is(.lv-danger, .lv-over) .status { color: #ff9482; font-weight: bold; }
+.lane-row .status.birth { color: #ffe35a; font-weight: bold; }
+.lane-row .status.birth.hidden { color: #c48cff; }
+.lane-row.offline { border-left: 2px dashed #9a90a8; }
+.lane-row.offline > div { opacity: 0.75; }
+.lane-row.spirit, .lane-row.spirit .title, .lane-row.spirit .count, .lane-row.spirit .status { color: #9a90a8; }
+.lane-row.spirit { border-left-color: transparent; }
+.lane-row.fallen-flash, .lane-row.fallen-still { background: rgba(255, 59, 47, 0.35); }
+@keyframes row-fall {
+  from { background-color: rgba(255, 59, 47, 0); animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+  12% { background-color: rgba(255, 59, 47, 0.35); animation-timing-function: cubic-bezier(.4, 0, 1, 1); }
+  to { background-color: rgba(255, 59, 47, 0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  body:not(.fx-reduced) .lane-row.fallen-flash { background: rgba(255, 59, 47, 0); animation: row-fall 1000ms both; }
+}
 /* The open combine helper covers the rows below the title (Q or the menu closes it). */
 .helper-pop { position: absolute; left: 0; right: 0; top: 28px; bottom: 0; padding: 4px; display: flex; flex-direction: column; gap: 4px; background: var(--panel); border-top: 1px solid var(--accent); }
 .helper-pop > * { flex: none; }

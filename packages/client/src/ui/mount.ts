@@ -1,10 +1,12 @@
 import {
-  birthOf, laneOf, unitDefFast, type ClientView, type EconMine, type EconNote, type GameData, type GameEvent, type GameState, type GambleCommand, type QuestId, type UpgradeId,
+  birthOf, laneOf, unitDefFast, type ClientView, type EconMine, type EconNote, type GameData, type GameEvent, type GameState, type GambleCommand, type QuestId, type RowView, type UpgradeId,
 } from '@dorandi/logic';
 import { SPEEDS, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
-import { arrivalModel, gateCountdown, gateDeadlineRound, rightNotices, STAGE_NAME, type GateCountdown } from '../online/models';
-import { arrivalHtml, countdownHtml, renderRows, renderTop } from '../online/panels';
+import {
+  arrivalModel, CAUSE_TEXT, fallenSeats, gateCountdown, gateDeadlineRound, returnedSeats, rightNotices, STAGE_NAME, type GateCountdown,
+} from '../online/models';
+import { arrivalHtml, countdownHtml, renderRows, renderTop, type RowMarks } from '../online/panels';
 import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
 import { cellCorner, cellPx, CENTER_X, CENTER_Y, NOTICE_SPAN, type WinPlace } from '../layout';
@@ -57,6 +59,10 @@ const PULSE_FROM = 5;
 const DEADLINE_TAIL = ' · 관문 마감';
 /** Design ⑫: the result screen or window fades in over this long after the end scene (CSS :root[data-end-cover]). */
 const COVER_MS = 240;
+/** Design ⑮: a fallen row flashes (or stays red) this long, its notice holds the slot for FALLEN_NOTE_MS; ⑯ 돌아옴 for RETURNED_MS. */
+const FALLEN_MS = 1000;
+const FALLEN_NOTE_MS = 3000;
+const RETURNED_MS = 2000;
 const CONFIRM_SELL_GRADE = 3;
 /** Economy notices stay a little longer than a refusal. */
 const NOTE_MS = 2500;
@@ -225,6 +231,42 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   function flashingSeats(now: number): Set<number> {
     for (const [seat, until] of flashUntil) if (until <= now) flashUntil.delete(seat);
     return new Set(flashUntil.keys());
+  }
+  // the rows of the last drawn view, copied: a view may be patched in place before the next draw
+  let shownRows: RowView[] | null = null;
+  const fallenAt = new Map<number, { mode: 'flash' | 'still'; at: number }>();
+  const returnedUntil = new Map<number, number>();
+  function rowMarks(view: ClientView, now: number): RowMarks {
+    const fell = fallenSeats(shownRows, view.rows);
+    const peers = fell.filter(r => r.seat !== view.me.seat);
+    for (const r of fell) {
+      const mode = scene.reduceEffects || !oneShots.begin(now, FALLEN_MS) ? 'still' : 'flash';
+      fallenAt.set(r.seat, { mode, at: now });
+    }
+    // a pillar over the rows hides the flash; the notice and the gong still tell of it
+    if (!view.result) {
+      for (const r of peers) {
+        const cause = r.cause ? ` · ${CAUSE_TEXT[r.cause]}` : '';
+        topSlot.push({ kind: 'fallen', text: `${r.seat} ${r.name} 님이 쓰러졌습니다${cause}`, say: `${r.seat}번 ${r.name} 님이 쓰러졌습니다`, ms: FALLEN_NOTE_MS }, now);
+      }
+      if (peers.length) gameAudio.play('fallen');
+    }
+    for (const seat of returnedSeats(shownRows, view.rows)) returnedUntil.set(seat, now + RETURNED_MS);
+    shownRows = view.rows.map(r => ({ ...r }));
+    const fallen = new Map<number, 'flash' | 'still'>();
+    const fallenAge = new Map<number, number>();
+    for (const [seat, f] of fallenAt) {
+      if (now - f.at >= FALLEN_MS) { fallenAt.delete(seat); continue; }
+      fallen.set(seat, f.mode);
+      fallenAge.set(seat, now - f.at);
+    }
+    for (const [seat, until] of returnedUntil) if (until <= now) returnedUntil.delete(seat);
+    const births = new Map<number, { name: string; hidden: boolean }>();
+    for (const [seat, b] of peerBirth) {
+      if (b.until <= now) peerBirth.delete(seat);
+      else births.set(seat, { name: b.name, hidden: b.hidden });
+    }
+    return { birthFlash: flashingSeats(now), births, fallen, returned: new Set(returnedUntil.keys()), fallenAge };
   }
   driver.onBirthNotice?.((alert, mine) => (mine ? ownBirth(alert) : showBirth(alert, false)));
   const econ = (): EconMine | null => driver.econ?.() ?? null;
@@ -981,7 +1023,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         unitId: selected === null ? null : s.slots[selected]?.id ?? null, scope, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne,
       }, helperFrame) : '';
       if (helperFrame === 'win') helperWin = helper;
-      renderRows(view, opts.data, helperFrame === 'win' ? '' : helper, flashingSeats(now));
+      renderRows(view, opts.data, helperFrame === 'win' ? '' : helper, rowMarks(view, now));
       renderAlert(s, alertOpts);
     } else {
       renderHud(s, userPaused, alertOpts);
@@ -1388,6 +1430,9 @@ ${dex.mine.join()}`;
     firstSix.reset();
     flashUntil.clear();
     peerBirth.clear();
+    shownRows = null;
+    fallenAt.clear();
+    returnedUntil.clear();
     topSlot.clear();
     countdownShown = null;
     countdownGone = 0;

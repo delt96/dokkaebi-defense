@@ -67,7 +67,7 @@ describe('online rows', () => {
   test('a seat that just got a grade 6 or hidden unit flashes its row', () => {
     document.body.innerHTML = '<div id="left"></div>';
     const v = viewWith({ me: 1, rows: [row({}), row({ seat: 2 })], yeoksin: null });
-    renderRows(v, data, '', new Set([2]));
+    renderRows(v, data, '', { birthFlash: new Set([2]), births: new Map(), fallen: new Map(), returned: new Set() });
     const rows = Array.from(document.querySelectorAll('.lane-row'));
     expect(rows.map(r => r.classList.contains('birth-flash'))).toEqual([false, true, ...rows.slice(2).map(() => false)]);
   });
