@@ -4,7 +4,7 @@ import {
 } from '@dorandi/logic';
 import { cheapestUpgrade, emptyOpenSlots, followBoss, placementFix, summonAll } from '../bots';
 import {
-  betterTarget, huntCommands, jigeCommands, questCommands, remainingValue, reserveCoins, tameCommands, type EconPolicy, type TargetBot,
+  betterTarget, coinsSpent, huntCommands, itemCommands, jigeCommands, questCommands, remainingValue, reserveCoins, tameCommands, type EconPolicy, type TargetBot,
 } from './econBot';
 import { lacksShred, pickShredSupport, shredPlacement } from './shred';
 import { auraPlacement, mainType, supportSlots, synergyScore, synergyUpgrade } from './synergy';
@@ -217,7 +217,13 @@ export function targetBot(
       }
 
       const keep = reserveCoins(state, target);
-      const up = main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
+      let holdCoins = false;
+      if (policy?.item) {
+        const it = itemCommands(state, policy.item, keep + coinsSpent(state, cmds));
+        cmds.push(...it.commands);
+        holdCoins = it.saving || it.commands.length > 0;
+      }
+      const up = holdCoins ? null : main ? synergyUpgrade(state, main, state.coins - keep) : cheapestUpgrade(keep ? { ...state, coins: state.coins - keep } : state);
       if (up) cmds.push({ type: 'upgrade', id: up });
       const fix = placementFix(state);
       const shredMove = reservedSlot >= 0 && decisions % 4 === 1 ? shredPlacement(state, reservedSlot, shredMain) : null;

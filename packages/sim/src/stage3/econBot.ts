@@ -1,5 +1,6 @@
 import {
-  availableRecipes, boardDps, countNormalEnemies, gambleCheck, huntCheck, huntHp, jigeCandidates, tameCheck, unitDefFast,
+  availableRecipes, boardDps, buyBlock, countNormalEnemies, gambleCheck, huntCheck, huntHp, jigeCandidates, shopItem, tameCheck,
+  unitAttack, unitDefFast,
   type Command, type GambleCommand, type GameState,
 } from '@dorandi/logic';
 import type { Bot } from '../bots';
@@ -13,6 +14,8 @@ export interface EconPolicy {
   quests: boolean; tame: boolean; jige?: boolean; hunts?: boolean;
   /** Build and keep a grade 5 shredder of the main type next to the dealers (missing: off). */
   shred?: boolean;
+  /** Shop item bought and kept on the strongest grade 6 (missing: none). */
+  item?: string;
 }
 export type TargetBot = Bot & { currentTarget(): string | null };
 
@@ -183,4 +186,45 @@ export function switchBot(seed: number, policy: EconPolicy): TargetBot {
  */
 export function synergyBot(seed: number, policy: EconPolicy): TargetBot {
   return targetBot(seed, { policy, switchTargets: true, synergy: true });
+}
+
+/**
+ * Keeps `item` on one grade 6: nothing while a unit holding it is on the board; else attach a held one to the
+ * strongest grade 6 by attack, or buy one when the coins above `reserve` cover it. `saving` is true only when coins
+ * are what is missing, so the caller holds back other spending.
+ */
+export function itemCommands(state: GameState, item: string, reserve: number): { commands: Command[]; saving: boolean } {
+  const idle = { commands: [] as Command[], saving: false };
+  const def = shopItem(state.data, item);
+  if (!def || !state.econ || state.slots.some(u => u?.item === item)) return idle;
+  let slot = -1;
+  let best = -Infinity;
+  state.slots.forEach((u, i) => {
+    if (!u) return;
+    const d = unitDefFast(state.data, u.defId);
+    if (d.grade !== 6) return;
+    const a = unitAttack(d, state.data.balance);
+    if (a > best) { best = a; slot = i; }
+  });
+  if (slot < 0) return idle;
+  if ((state.econ.items?.[item] ?? 0) > 0) {
+    return { commands: [{ type: 'attachItem', item, slot, unitId: state.slots[slot]!.id }], saving: false };
+  }
+  const why = buyBlock(state, item);
+  if (why === null && state.coins - reserve >= def.coins) return { commands: [{ type: 'buyItem', item }], saving: false };
+  return { commands: [], saving: why === null || why === 'noCoins' };
+}
+
+/** Coins the commands would spend if applied in order (combine and tame costs, 격파 fees); sales are not counted. */
+export function coinsSpent(state: GameState, commands: Command[]): number {
+  let n = 0;
+  for (const c of commands) {
+    if (c.type === 'combine') n += state.data.recipes.find(r => r.result === c.result)?.cost?.coins ?? 0;
+    else if (c.type === 'hunt') n += state.data.economy?.hunts?.targets.find(t => t.enemy === c.enemy)?.fee ?? 0;
+    else if (c.type === 'tame') {
+      const e = state.enemies.find(x => x.id === c.enemyId);
+      n += (e && state.data.economy?.tame?.targets.find(t => t.enemy === e.defId)?.cost.coins) ?? 0;
+    }
+  }
+  return n;
 }

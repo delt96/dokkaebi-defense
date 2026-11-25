@@ -21,6 +21,8 @@ export interface EconConfig {
   gamble?: boolean;
   /** Bots build and keep a grade 5 shredder (missing: off). */
   shred?: boolean;
+  /** Shop item the bots buy and keep on their strongest grade 6 (missing: none). */
+  item?: string;
 }
 export interface EconRow {
   seed: number; config: string; bot: string; seat: number; finished: boolean; teamOutcome: string; endRound: number;
@@ -57,6 +59,12 @@ type BossCol = `boss${(typeof BOSS_ROUNDS)[number]}`;
 type MukCol = `muk${(typeof BOSS_ROUNDS)[number]}`;
 
 export type RunBot = Bot & { currentTarget?(): string | null };
+
+export function econPolicy(c: EconConfig): EconPolicy {
+  const p: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false, shred: c.shred === true };
+  if (c.item !== undefined) p.item = c.item;
+  return p;
+}
 
 export function makeBot(kind: EconBotKind, seed: number, policy: EconPolicy): RunBot {
   switch (kind) {
@@ -119,7 +127,7 @@ function dropTimedOutBosses(match: MatchState): void {
 export function econMatchRun(data: GameData, seed: number, c: EconConfig): { rows: EconRow[]; yeoksinSeconds: (number | null)[] } {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
-  const policy: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false, shred: c.shred === true };
+  const policy = econPolicy(c);
   const bots: RunBot[] = SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy));
   const driver = new EconDriver(match, bots, c.gamble);
   const finalTick = roundStartTick(d, Math.min(COMPARE_ROUND, d.balance.rounds));
