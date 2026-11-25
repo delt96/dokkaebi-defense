@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { createGame, loadGameData, type GameState } from '@dorandi/logic';
 import { forceRound, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import {
-  bossPlay, boardFirepower, firepowerCsvRows, firepowerMarkdown, firepowerRun, measureBoard, nextBoss, roundNeed, roundPlay, standOff,
+  bossCsvRows, bossPlay, boardFirepower, firepowerCsvRows, firepowerMarkdown, firepowerRun, measureBoard, nextBoss, roundNeed, roundPlay, standOff,
 } from '../src/stage3/firepower';
 import { STANDARD_CONFIGS } from '../src/stage3/econRun';
 
@@ -141,7 +141,8 @@ describe('round play', () => {
 describe('firepower run', () => {
   test('measures every live seat at the asked rounds and the markdown reports ratios, leftovers and the ratio bands', () => {
     const c = STANDARD_CONFIGS.find(x => x.name === 'switch-full-q2')!;
-    const rows = firepowerRun(d3, 1, c, [5, 11]);
+    const { rows, bosses } = firepowerRun(d3, 1, c, [5, 11], []);
+    expect(bosses).toEqual([]);
     expect(rows.map(r => r.round)).toEqual([...Array(6).fill(5), ...Array(6).fill(11)]);
     for (const r of rows) {
       expect(r.ratio).toBeCloseTo(r.firepower / r.need);
@@ -158,5 +159,25 @@ describe('firepower run', () => {
       'boss', 'bossKillSeconds', 'bossHpLeftPct', 'bossShredPhysical', 'bossShredMagical',
     ]));
     expect(csv.every(r => Object.values(r).every(v => typeof v !== 'object' || v === null))).toBe(true);
+  }, 120_000);
+});
+
+describe('boss at its round', () => {
+  test('plays each asked boss with the board its round starts with, next to what the run itself did', () => {
+    const c = STANDARD_CONFIGS.find(x => x.name === 'switch-full-q2')!;
+    const { rows, bosses } = firepowerRun(d3, 1, c, [], [10]);
+    expect(rows).toEqual([]);
+    expect(bosses.map(b => [b.boss, b.seat])).toEqual([1, 2, 3, 4, 5, 6].map(seat => [10, seat]));
+    for (const b of bosses) {
+      expect(b.killSeconds === null ? b.hpLeftPct > 0 : b.killSeconds > 0 && b.killSeconds <= 75).toBe(true);
+      expect(b.actualKillSeconds === null || (b.actualKillSeconds > 0 && b.actualKillSeconds <= 75)).toBe(true);
+    }
+    // the run went on through the boss round, so whether each seat killed it is known
+    expect(bosses.some(b => b.actualKillSeconds !== null)).toBe(true);
+    const md = firepowerMarkdown([], d3, bosses);
+    expect(md).toContain('| 보스 | 체력 | 잡은 판 | 처치 시간 | 못 잡은 판 남은 체력 | 물깎 / 마깎 | 실제로 잡은 판 |');
+    expect(md).toContain('| 10 | 5000 |');
+    const csv = bossCsvRows(bosses);
+    expect(Object.keys(csv[0]!)).toEqual(expect.arrayContaining(['boss', 'killSeconds', 'shredPhysical', 'shredMagical', 'actualKillSeconds']));
   }, 120_000);
 });

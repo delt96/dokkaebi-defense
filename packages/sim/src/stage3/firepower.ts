@@ -206,27 +206,53 @@ export function measureBoard(snapshot: GameState, round: number): BoardMeasure {
 
 export interface FirepowerRow extends BoardMeasure { config: string; bot: string; seed: number; seat: number; round: number }
 
-/** One six-seat match of `c`; every live seat's board is measured as each of `rounds` starts. */
-export function firepowerRun(data: GameData, seed: number, c: EconConfig, rounds: number[] = FIREPOWER_ROUNDS): FirepowerRow[] {
+export interface BossRow extends BossPlay {
+  config: string; bot: string; seed: number; seat: number;
+  /** When the seat killed this boss in the run itself; null when it did not. */
+  actualKillSeconds: number | null;
+}
+
+export interface FirepowerRunResult { rows: FirepowerRow[]; bosses: BossRow[] }
+
+const bossRoundsOf = (data: GameData) => data.waves.filter(w => w.type === 'boss').map(w => w.round);
+
+/**
+ * One six-seat match of `c`. Every live seat's board is measured as each of `rounds` starts, and plays each of
+ * `bossRounds` with the board that boss round starts with; the run goes on through those boss rounds to tell whether
+ * the seat killed the boss itself.
+ */
+export function firepowerRun(
+  data: GameData, seed: number, c: EconConfig, rounds: number[] = FIREPOWER_ROUNDS, bossRounds: number[] = bossRoundsOf(data),
+): FirepowerRunResult {
   const d = configData(data, c, seed);
   const match = createMatch(d, seed, SEATS, { noElimination: c.noDefeat, noGate: c.noDefeat });
   const policy: EconPolicy = { quests: c.quests > 0, tame: c.tame, jige: c.useJige, hunts: c.hunts !== false };
   const driver = new EconDriver(match, SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy)), c.gamble);
   const at = new Map(rounds.filter(r => r <= d.balance.rounds).map(r => [roundStartTick(d, r), r]));
-  const last = Math.max(...at.keys());
+  const bossAt = new Map(bossRounds.map(r => [roundStartTick(d, r), r]));
+  const bossEnd = (r: number) => roundStartTick(d, r) + Math.round(d.balance.bossRoundSeconds * TICKS_PER_SECOND);
+  const last = Math.max(-1, ...at.keys(), ...bossRounds.map(bossEnd));
   const rows: FirepowerRow[] = [];
+  const bosses: BossRow[] = [];
   while (match.result === null && match.tick <= last) {
     // the lanes are still in the round before here: the round to measure is passed on, not read from them
     const round = at.get(match.tick);
-    if (round !== undefined) {
-      for (const seat of SEATS) {
-        if (!match.seats[seat]!.alive) continue;
-        rows.push({ config: c.name, bot: c.bot, seed, seat, round, ...measureBoard(match.lanes[seat]!, round) });
-      }
+    const boss = bossAt.get(match.tick);
+    for (const seat of SEATS) {
+      if (!match.seats[seat]!.alive) continue;
+      const lane = match.lanes[seat]!;
+      if (round !== undefined) rows.push({ config: c.name, bot: c.bot, seed, seat, round, ...measureBoard(lane, round) });
+      if (boss !== undefined) bosses.push({ config: c.name, bot: c.bot, seed, seat, ...bossPlay(lane, boss), actualKillSeconds: null });
     }
     stepMatch(match, driver.inputs());
   }
-  return rows;
+  for (const b of bosses) b.actualKillSeconds = match.lanes[b.seat]!.stats.find(x => x.round === b.boss)?.bossKillSeconds ?? null;
+  return { rows, bosses };
+}
+
+/** Rows for toCsvRows with the shred spread into plain columns. */
+export function bossCsvRows(bosses: BossRow[]): Record<string, unknown>[] {
+  return bosses.map(({ shred, ...b }) => ({ ...b, shredPhysical: shred.physical, shredMagical: shred.magical }));
 }
 
 const median = (xs: number[]): number => {
@@ -267,36 +293,45 @@ function bossCell(xs: FirepowerRow[]): string {
   return `${plays[0]!.boss}R ${how} · 잡은 판 ${pct(killed.length, plays.length)}`;
 }
 
+const shredOf = (shreds: Shred[]) => (['physical', 'magical'] as const).map(t => {
+  const v = shreds.map(x => x[t]).filter((x): x is number => x !== null);
+  return v.length ? f2(median(v)) : '-';
+}).join(' / ');
+
 function shredCell(xs: FirepowerRow[]): string {
-  const of = (shreds: Shred[]) => (['physical', 'magical'] as const).map(t => {
-    const v = shreds.map(x => x[t]).filter((x): x is number => x !== null);
-    return v.length ? f2(median(v)) : '-';
-  }).join(' / ');
   const plays = xs.map(r => r.boss).filter((b): b is BossPlay => b !== null);
-  return `${of(xs.map(r => r.shred))} · ${plays.length ? of(plays.map(b => b.shred)) : '-'}`;
+  return `${shredOf(xs.map(r => r.shred))} · ${plays.length ? shredOf(plays.map(b => b.shred)) : '-'}`;
 }
 
 /**
  * One table per config, a row per round over the live seats (medians): the ratio (board firepower / round need), the
  * ratio against japgwi alone, the weakest kind, the shred on the crowd and on the next boss, the round's spawns left
- * when the board plays the round alone, and the next boss. Then how the round play turns out in each ratio band.
- * `data` gives the enemy names; without it the ids show.
+ * when the board plays the round alone, and the next boss. Then how the round play turns out in each ratio band, and
+ * each boss played with the board its round starts with next to how often the run itself killed it.
+ * `data` gives the enemy names and boss HP; without it the ids show.
  */
-export function firepowerMarkdown(rows: FirepowerRow[], data?: GameData): string {
+export function firepowerMarkdown(rows: FirepowerRow[], data?: GameData, bosses: BossRow[] = []): string {
   const name = (id: string) => data?.enemies.find(e => e.id === id)?.name ?? id;
   const enemyOf = (round: number) => {
     const p = data ? patternOf(data, round) : null;
     if (!p) return '-';
     return new Set(p).size > 1 ? '섞임' : name(p[0]!);
   };
+  const bossHp = (round: number) => {
+    const wave = data?.waves.find(w => w.round === round);
+    const hp = wave?.type === 'boss' ? data!.enemies.find(e => e.id === wave.boss)?.hp : undefined;
+    return hp === undefined ? '-' : String(hp);
+  };
   const out: string[] = [];
-  for (const config of [...new Set(rows.map(r => r.config))]) {
+  for (const config of [...new Set([...rows, ...bosses].map(r => r.config))]) {
     const mine = rows.filter(r => r.config === config);
-    const lines = [
-      `### ${config}`, '',
+    const theirs = bosses.filter(b => b.config === config);
+    const lines = [`### ${config}`];
+    if (mine.length) lines.push(
+      '',
       '| 라운드 | 적 | 요구 화력 | 배수 | 잡귀 | 약한 적 | 물깎 / 마깎 (무리 · 보스) | 남은 적 | 다음 보스 |',
       '| ---: | --- | ---: | ---: | ---: | --- | --- | --- | --- |',
-    ];
+    );
     for (const round of [...new Set(mine.map(r => r.round))].sort((a, b) => a - b)) {
       const xs = mine.filter(r => r.round === round);
       const japgwi = xs.map(r => r.alone.japgwi).filter((x): x is number => x !== undefined);
@@ -310,12 +345,29 @@ export function firepowerMarkdown(rows: FirepowerRow[], data?: GameData): string
         bossCell(xs), '',
       ].join(' | ').trim());
     }
-    lines.push('', '| 배수 구간 | 판 수 | 남은 적 중앙값 | 다 잡은 판 |', '| --- | ---: | ---: | ---: |');
-    for (const [lo, hi] of BANDS) {
+    if (mine.length) lines.push('', '| 배수 구간 | 판 수 | 남은 적 중앙값 | 다 잡은 판 |', '| --- | ---: | ---: | ---: |');
+    for (const [lo, hi] of mine.length ? BANDS : []) {
       const xs = mine.filter(r => r.ratio >= lo && r.ratio < hi);
       if (!xs.length) continue;
       const label = hi === Infinity ? `${lo} 이상` : `${lo}~${hi}`;
       lines.push(`| ${label} | ${xs.length} | ${median(xs.map(r => r.left))} | ${pct(xs.filter(r => r.left === 0).length, xs.length)} |`);
+    }
+    if (theirs.length) lines.push(
+      '', '보스 라운드가 시작할 때의 판으로 그 보스를 돌린 결과와, 같은 자리가 실제 판에서 그 보스를 잡은 비율.', '',
+      '| 보스 | 체력 | 잡은 판 | 처치 시간 | 못 잡은 판 남은 체력 | 물깎 / 마깎 | 실제로 잡은 판 |',
+      '| ---: | ---: | ---: | ---: | ---: | --- | ---: |',
+    );
+    for (const boss of [...new Set(theirs.map(b => b.boss))].sort((a, b) => a - b)) {
+      const xs = theirs.filter(b => b.boss === boss);
+      const killed = xs.filter(b => b.killSeconds !== null);
+      const missed = xs.filter(b => b.killSeconds === null);
+      lines.push([
+        '', boss, bossHp(boss), `${pct(killed.length, xs.length)} (${xs.length})`,
+        killed.length ? `${median(killed.map(b => b.killSeconds!)).toFixed(0)}초` : '-',
+        missed.length ? `${median(missed.map(b => b.hpLeftPct)).toFixed(0)}%` : '-',
+        shredOf(xs.map(b => b.shred)),
+        pct(xs.filter(b => b.actualKillSeconds !== null).length, xs.length), '',
+      ].join(' | ').trim());
     }
     out.push(lines.join('\n'));
   }

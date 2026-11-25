@@ -5,7 +5,7 @@ import { isDifficulty, loadGameData, stripEconomy, type GameData } from '@dorand
 import { normalBot } from '../bots';
 import { combineGainAll, parseCombinePlacement, parseUpgradeLevels } from './combineGain';
 import { controlAll } from './control';
-import { firepowerCsvRows, firepowerMarkdown, firepowerRun, type FirepowerRow } from './firepower';
+import { bossCsvRows, firepowerCsvRows, firepowerMarkdown, firepowerRun, type BossRow, type FirepowerRow } from './firepower';
 import { grade6Markdown, grade6Run, type Grade6Row } from './grade6';
 import { combineGainMarkdown, controlMarkdown, toCsvRows } from './report';
 import { targetBot } from './targetBot';
@@ -92,11 +92,19 @@ export function stage3Cli(arg: Arg): void {
       return { ...c, noDefeat };
     });
     const rows: FirepowerRow[] = [];
-    for (const c of configs) for (let seed = 1; seed <= seeds; seed++) rows.push(...firepowerRun(data, seed, c));
+    const bosses: BossRow[] = [];
+    for (const c of configs) {
+      for (let seed = 1; seed <= seeds; seed++) {
+        const run = firepowerRun(data, seed, c);
+        rows.push(...run.rows);
+        bosses.push(...run.bosses);
+      }
+    }
     const file = join(out, `firepower-${bots.join('-')}${noDefeat ? '' : '-defeat'}.csv`);
     writeFileSync(file, toCsvRows(firepowerCsvRows(rows)));
+    writeFileSync(file.replace(/\.csv$/, '-boss.csv'), toCsvRows(bossCsvRows(bosses)));
     console.log(`## board firepower, median of live seats (seeds ${seeds}, defeat ${noDefeat ? 'off' : 'on'}, ${elapsed()}, ${file})\n`);
-    console.log(firepowerMarkdown(rows, data) + '\n');
+    console.log(firepowerMarkdown(rows, data, bosses) + '\n');
   }
   if (check === 'r10probe') {
     const seeds = Number(arg('seeds', '20'));
