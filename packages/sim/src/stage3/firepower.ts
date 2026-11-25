@@ -261,8 +261,8 @@ export function firepowerRun(
     for (const seat of SEATS) {
       const rec = items.get(seat)!;
       for (const ev of res.lanes[seat]?.events ?? []) {
-        if (ev.type === 'itemBought') rec.bought++;
-        else if (ev.type === 'itemAttached') {
+        if (ev.type === 'itemBought' && ev.item === c.item) rec.bought++;
+        else if (ev.type === 'itemAttached' && ev.item === c.item) {
           rec.attached++;
           if (rec.firstDefId === null) { rec.firstDefId = ev.defId; rec.firstRange = d.units.find(u => u.id === ev.defId)!.range; }
         }

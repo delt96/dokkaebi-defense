@@ -32,8 +32,8 @@ function buy(s: GameState, item: string) {
   return events;
 }
 
-test('stage 3 lists the four charms; stages 1 and 2 have no shop', () => {
-  expect(d3.economy!.shop!.items.map(i => i.id)).toEqual(['rangeCharm', 'powerCharm', 'swiftCharm', 'weakCharm']);
+test('stage 3 lists the five charms; stages 1 and 2 have no shop', () => {
+  expect(d3.economy!.shop!.items.map(i => i.id)).toEqual(['rangeCharm', 'powerCharm', 'swiftCharm', 'weakCharm', 'evolveCharm']);
   expect(loadGameData('stage1').economy).toBeUndefined();
   expect(loadGameData('stage2').economy).toBeUndefined();
 });

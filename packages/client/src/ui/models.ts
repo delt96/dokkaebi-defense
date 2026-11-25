@@ -1,6 +1,6 @@
 import { difficultySuffix } from './difficulty';
 import {
-  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineEatsItem, combineLockRound, countNormalEnemies, itemOf, missingMaterials, recipesUsing,
+  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineEatsItem, countNormalEnemies, evolveMult, itemOf, needsEvolve, missingMaterials, recipesUsing,
   storedMaterials, unitDefFast, upgradeCost, unitRange, summonOddsForRound, roundResistRange,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
@@ -265,10 +265,11 @@ export function costShortText(state: GameState, recipe: RecipeDef | undefined): 
   return parts.length ? `${parts.join(', ')} 모자람` : null;
 }
 
-/** "20라운드부터" while a recipe is shut until a round, else what the player is short of to pay for it. */
+export const NEEDS_EVOLVE_TEXT = '진화부적을 붙여야 합니다';
+
+/** NEEDS_EVOLVE_TEXT while an exclusive recipe's recruit is not evolved, else what the player is short of to pay for it. */
 function blockedText(state: GameState, recipe: RecipeDef | undefined): string | null {
-  const from = combineLockRound(state, recipe);
-  return from !== null ? `${from}라운드부터` : costShortText(state, recipe);
+  return needsEvolve(state, recipe) ? NEEDS_EVOLVE_TEXT : costShortText(state, recipe);
 }
 
 export function selectedSlot(state: GameState, id: number | null): number | null {
@@ -328,7 +329,7 @@ const REJECT_TEXT: Record<string, string> = {
   tameCondition: '길들이기 조건이 풀렸습니다',
   cooldown: '아직 다시 시도할 수 없습니다',
   noJige: '지게가 없습니다',
-  tameLocked: '길들인 유닛 조합은 아직 열리지 않았습니다',
+  notEvolved: NEEDS_EVOLVE_TEXT,
   // storage
   notStorable: '1·2등급만 보관할 수 있습니다',
   nothingToStore: '보관할 1·2등급 유닛이 없습니다',
@@ -337,6 +338,8 @@ const REJECT_TEXT: Record<string, string> = {
   // item shop
   noItem: '가진 부적이 없습니다',
   itemLimit: '이 부적은 한 판에 살 수 있는 만큼 다 샀습니다',
+  itemTooEarly: '아직 팔지 않는 부적입니다',
+  notTamed: '진화부적은 길들인 유닛에만 붙습니다',
 };
 
 export function rejectText(reason: string): string | null {
@@ -477,8 +480,11 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
 export interface UnitCard {
   name: string; grade: number; hidden: boolean; typeText: '물딜' | '마딜'; skillText: string; notes: string[]; usedIn: string[]; roles: RoleTag[];
   attack: number; attackBonus: number; interval: number; speedBonus: number; range: number; sellPrice: number;
-  /** The attached stage 3 item; `short` is the board's corner letter. `share` is its part of attackBonus / speedBonus / range. */
-  item: { id: string; name: string; short: string } | null;
+  /**
+   * The attached stage 3 item; `short` is the board's corner letter, `evolved` marks the evolve charm.
+   * `share` is its part of attackBonus / speedBonus / range (for the evolve charm, its multiplier less 1).
+   */
+  item: { id: string; name: string; short: string; evolved?: true } | null;
   share: { attack: number; speed: number; range: number };
 }
 
@@ -486,10 +492,10 @@ export function itemShort(state: GameState, slot: number): string | null {
   return itemOf(state, slot)?.name.slice(0, 1) ?? null;
 }
 
-/** "+20% 힘 부적" after an attack or interval figure; empty without that kind of item. */
+/** "+20% 힘 부적" (or "+50% 진화") after an attack or interval figure; empty without that kind of item. */
 export function itemShareText(card: UnitCard, kind: 'attack' | 'speed'): string {
   const share = card.share[kind];
-  return card.item && share ? ` (+${pct(share)} ${card.item.name})` : '';
+  return card.item && share ? ` (+${pct(share)} ${card.item.evolved ? '진화' : card.item.name})` : '';
 }
 
 /** "사거리 2칸 (+0.5 사거리 부적)"; `compact` (the one-line online card) drops the item name. */
@@ -515,9 +521,9 @@ export function unitCard(state: GameState, slot: number): UnitCard | null {
   const item = itemOf(state, slot);
   const effect = item?.effect;
   return {
-    item: item ? { id: item.id, name: item.name, short: item.name.slice(0, 1) } : null,
+    item: item ? { id: item.id, name: item.name, short: item.name.slice(0, 1), ...(effect?.kind === 'evolve' && { evolved: true as const }) } : null,
     share: {
-      attack: effect?.kind === 'attack' ? effect.pct : 0, speed: effect?.kind === 'speed' ? effect.pct : 0,
+      attack: effect?.kind === 'attack' ? effect.pct : effect?.kind === 'evolve' ? evolveMult(state, slot) - 1 : 0, speed: effect?.kind === 'speed' ? effect.pct : 0,
       range: effect?.kind === 'range' ? effect.amount : 0,
     },
     name: def.name, grade: def.grade, hidden: def.hidden === true, typeText: def.damageType === 'physical' ? '물딜' : '마딜',

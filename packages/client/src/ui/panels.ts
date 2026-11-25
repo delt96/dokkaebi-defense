@@ -1,4 +1,4 @@
-import { STORAGE_MAX_GRADE, jigeCandidates, unitDefFast, type GameState, type ShopView } from '@dorandi/logic';
+import { STORAGE_MAX_GRADE, isTamedKind, jigeCandidates, unitDefFast, type GameState, type ShopView } from '@dorandi/logic';
 import { GRADE_COLOR } from '../layout';
 import {
   ATTACK_RANGE_HINT, EATS_ITEM_TEXT, REPLACE_ITEM_TEXT, attackRangeText, baseSpec, cardRangeText, combineNoteLines, combineOptions, itemShareText, rightModel,
@@ -103,7 +103,7 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
     return `<div class="recipe"><div class="recipe-head">${recipeHtml(state, option, unit.id, false)}${pinButton(option.result, target)}</div>${resultSpecHtml(state, unit.defId, option.result)}${notesHtml(notes)}</div>`;
   });
   const head = `<div class="modal-head ud-head">${unitFaceHtml(unit.defId, card.name, card.grade)}<b class="ud-name">${esc(card.name)}</b>
-    <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
+    <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}${card.item?.evolved ? ' · 진화' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
     <button class="ud-close" data-action="closeModal">Tab·Esc 닫기</button></div>`;
   const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', cardRangeText(state.data, card).replace('사거리 ', ''), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>
     ${card.item ? `<p class="ud-item">아이템 ${esc(card.item.name)}${itemShare(card, 'attack') || itemShare(card, 'speed')}</p>` : ''}`;
@@ -173,8 +173,8 @@ function jigeHtml(state: GameState, selected: number, unitId: number | null, jig
 }
 
 /** One 붙이기 button per held kind; the unit id rides along so a moved board never gets the item on another unit. */
-function attachButtons(shop: ShopView, unitId: number, menu: boolean): string {
-  return shop.items.filter(i => menu || i.held > 0).map(i => i.held > 0
+function attachButtons(shop: ShopView, unitId: number, menu: boolean, tamed: boolean): string {
+  return shop.items.filter(i => (menu || i.held > 0) && (tamed || i.effect.kind !== 'evolve')).map(i => i.held > 0
     ? `<button data-action="attachItem" data-arg="${esc(i.id)}@${unitId}">${menu ? `${esc(i.name)} (${i.held}개) 붙이기` : `붙이기: ${esc(i.name)} (${i.held})`}</button>`
     : `<button disabled>${esc(i.name)} (0개)</button>`).join('');
 }
@@ -182,15 +182,15 @@ function attachButtons(shop: ShopView, unitId: number, menu: boolean): string {
 /** Something is held, or the market is open to buy (every item is marketLocked until then). */
 const shopLive = (shop: ShopView) => shop.items.some(i => i.held > 0 || i.why !== 'marketLocked');
 
-function itemLineHtml(card: UnitCard, unitId: number | null, shop: ShopView | null | undefined): string {
+function itemLineHtml(card: UnitCard, unitId: number | null, shop: ShopView | null | undefined, tamed: boolean): string {
   if (!shop || unitId === null || (!card.item && !shopLive(shop))) return '';
-  const buttons = attachButtons(shop, unitId, false);
+  const buttons = attachButtons(shop, unitId, false, tamed);
   const hint = buttons ? (card.item ? `<small class="item-warn">${REPLACE_ITEM_TEXT}</small>` : '') : '<small class="item-hint">장터(B) 아이템 탭에서 삽니다</small>';
   return `<div class="up-item"><span><b>아이템</b> ${card.item ? esc(card.item.name) : '없음'}</span>${buttons}${hint}</div>`;
 }
 
-function itemPopHtml(card: UnitCard, unitId: number, shop: ShopView): string {
-  return `<div class="item-pop" role="group" aria-label="아이템 붙이기"><b>아이템 붙이기</b>${attachButtons(shop, unitId, true)}
+function itemPopHtml(card: UnitCard, unitId: number, shop: ShopView, tamed: boolean): string {
+  return `<div class="item-pop" role="group" aria-label="아이템 붙이기"><b>아이템 붙이기</b>${attachButtons(shop, unitId, true, tamed)}
     ${card.item ? `<small class="item-warn">${esc(card.item.name)} · ${REPLACE_ITEM_TEXT}</small>` : ''}</div>`;
 }
 
@@ -221,7 +221,7 @@ export function renderBottom(state: GameState, selected: number | null, online =
         ${shop ? `<button data-action="itemMenu" data-arg="${unitId}" aria-expanded="${items!.open}" class="item-menu">아이템 ▾</button>` : ''}
         ${jigeHtml(state, selected!, unitId, jige)}
         ${storeButton(state, selected!, unitId)}
-        ${sellButton(unitId, card.sellPrice, sellArmed)}</div>${shop && items!.open ? itemPopHtml(card, unitId!, shop) : ''}`);
+        ${sellButton(unitId, card.sellPrice, sellArmed)}</div>${shop && items!.open ? itemPopHtml(card, unitId!, shop, isTamedKind(state.data, state.slots[selected!]!.defId)) : ''}`);
   return pick;
 }
 
@@ -238,10 +238,10 @@ export function unitPanelHtml(state: GameState, selected: number | null, opts: {
   const jige = jigeHtml(state, selected!, unitId, opts.jige);
   return `<div class="unit-panel${opts.compact ? ' compact' : ''}">
     <div class="up-name">${unitFaceHtml(state.slots[selected!]!.defId, card.name, card.grade)}<b>${esc(card.name)}</b></div>
-    <div class="up-sub">${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}</div>
+    <div class="up-sub">${card.grade}등급 · ${typeBadgeHtml(state.data, state.slots[selected!]!.defId, true)}${card.item?.evolved ? ' · 진화' : ''}</div>
     <div class="up-stats"><span>공격 ${card.attack}${esc(itemShareText(card, 'attack'))} · ${card.interval}초마다${esc(itemShareText(card, 'speed'))}</span><span title="${ATTACK_RANGE_HINT}">${esc(cardRangeText(state.data, card))}</span></div>
     <p class="up-skill${opts.compact ? ' compact' : ''}" title="${esc(card.skillText)}">${esc(card.skillText)}</p>
-    ${itemLineHtml(card, unitId, opts.shop)}
+    ${itemLineHtml(card, unitId, opts.shop, isTamedKind(state.data, state.slots[selected!]!.defId))}
     ${options}
     ${jige ? `<div class="up-jige">${jige}<small class="jige-note">지게: 같은 등급의 다른 유닛으로 바꿉니다</small></div>` : ''}
     <div class="up-actions">${details}${storeButton(state, selected!, unitId)}${sellButton(unitId, card.sellPrice, opts.sellArmed === true)}</div></div>`;

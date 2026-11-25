@@ -26,7 +26,7 @@ export type MarketTab = 'market' | 'items';
 export function marketModel(econ: EconMine, state: GameState): MarketModel | null {
   const m = econ.market;
   if (!m) return null;
-  const shop = shopModel(econ, state.coins);
+  const shop = shopModel(econ, state.coins, state.buckwheat);
   return {
     ...(m.gamble && { gamble: gambleModel(m.gamble, state.coins, state.buckwheat) }),
     jige: { chance: m.jigeChance, held: econ.jige, maxGrade: state.data.economy?.market?.maxSwapGrade ?? 4 },
@@ -45,15 +45,19 @@ export function itemEffectText(effect: ItemEffect, perGame: number | null): stri
     case 'attack': return `유닛 하나 공격력 +${pct(effect.pct)}${once}`;
     case 'speed': return `유닛 하나 공격 속도 +${pct(effect.pct)}${once}`;
     case 'vuln': return `때린 적이 받는 같은 종류 피해 +${pct(effect.pct)} · ${effect.seconds}초${once}`;
+    case 'evolve': return `길들인 유닛 하나 진화 · 전용 조합 재료${once}`;
   }
 }
 
-/** `coins`: solo the lane's state.coins, online the seat's coins from its MineView. */
-export function shopModel(econ: EconMine, coins: number): ShopRow[] | null {
+/** `coins` / `buckwheat`: solo the lane's state, online the seat's from its MineView. */
+export function shopModel(econ: EconMine, coins: number, buckwheat: number): ShopRow[] | null {
   if (!econ.shop) return null;
   return econ.shop.items.map(i => ({
-    id: i.id, name: i.name, effectText: itemEffectText(i.effect, i.perGame), price: `${i.coins}냥`, held: i.held,
-    blocked: i.why === 'itemLimit' ? null : blockedText(i.why, i.coins, coins), done: i.why === 'itemLimit',
+    id: i.id, name: i.name, effectText: itemEffectText(i.effect, i.perGame), price: `${i.buckwheat ? `묵 ${i.buckwheat} · ` : ''}${i.coins}냥`, held: i.held,
+    blocked: i.why === 'itemLimit' ? null
+      : i.why === 'noBuckwheat' ? blockedText(i.why, i.buckwheat ?? 0, buckwheat)
+      : blockedText(i.why, i.coins, coins, i.fromRound),
+    done: i.why === 'itemLimit',
   }));
 }
 

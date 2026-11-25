@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createGame, loadGameData, type GameData } from '@dorandi/logic';
-import { forceRound, makeData, placeUnitForTest } from '@dorandi/logic/testing';
+import { makeData, placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import { dexHtml } from '../src/ui/dex';
 import { withRo } from '../src/ui/josa';
@@ -263,12 +263,12 @@ describe('dex links in the mounted ui', () => {
 test('an exclusive recipe shows in Q once both materials are on the board, and the dex walks recruit → result → recruit', async () => {
   const { helperModel } = await import('../src/ui/models');
   const s = createGame(d3, 1);
-  placeUnitForTest(s, 'jinegaksi', 0);
+  const recruit = placeUnitForTest(s, 'jinegaksi', 0);
   expect(helperModel(s).some(i => i.recipe === 'baekbalbaneulgaksi')).toBe(false);
   placeUnitForTest(s, 'banjitgori', 1);
   s.buckwheat = 1; s.coins = 60;
-  expect(helperModel(s).find(i => i.recipe === 'baekbalbaneulgaksi')).toMatchObject({ name: '백발바늘각시', short: '20라운드부터' });
-  forceRound(s, 20);
+  expect(helperModel(s).find(i => i.recipe === 'baekbalbaneulgaksi')).toMatchObject({ name: '백발바늘각시', short: '진화부적을 붙여야 합니다' });
+  recruit.item = 'evolveCharm';
   expect(helperModel(s).find(i => i.recipe === 'baekbalbaneulgaksi')?.short).toBeUndefined();
   let nav = dexNavStart();
   nav = dexGo(d3, nav, 'baekbalbaneulgaksi', 'jinegaksi');
