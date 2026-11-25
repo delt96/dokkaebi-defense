@@ -178,7 +178,15 @@ export function recordGamble(history: GambleHistoryEntry[], receipt: GambleHisto
   return [receipt, ...history.slice(0, 4)];
 }
 
-export function gambleHistoryHtml(history: GambleHistoryEntry[], state: GameState): string {
+/** The pillar market's 최근 결과 line: pressed, it opens or folds the list under it. */
+export function gambleHistoryToggleHtml(count: number, open: boolean): string {
+  return `<button type="button" class="gamble-history-toggle" data-action="marketHistory" data-market-focus="history" aria-expanded="${open}">`
+    + `최근 결과 ${open ? '▾' : '▸'} <span>${count}개</span></button>`;
+}
+
+/** Without `folded` the list shows with its plain heading (off the board); with it, under the toggle line. */
+export function gambleHistoryHtml(history: GambleHistoryEntry[], state: GameState, opts?: { folded: boolean }): string {
+  if (opts?.folded) return gambleHistoryToggleHtml(history.length, false);
   const cols = state.data.balance.grid.cols;
   const rows = history.map(({ event, round }) => {
     const time = `<span class="gamble-time">${round}R</span>`;
@@ -195,7 +203,8 @@ export function gambleHistoryHtml(history: GambleHistoryEntry[], state: GameStat
       : `<button type="button" data-action="marketCell" data-arg="${event.unitId}" data-market-focus="cell-${event.unitId}" aria-label="${esc(unit.name)}의 ${place} 보기">칸 보기 · ${place}</button>`;
     return `<li>${time}<span class="gamble-prize">${unitFaceHtml(unit.id, unit.name, unit.grade)}<span>${esc(unit.name)} · ${shop}${token}</span></span>${location}</li>`;
   });
-  return `<div class="gamble-line"><strong>최근 결과</strong></div><ul>${rows.join('') || '<li>이번 경기에서 아직 뽑지 않았어요</li>'}</ul>`;
+  const head = opts ? gambleHistoryToggleHtml(history.length, true) : '<div class="gamble-line"><strong>최근 결과</strong></div>';
+  return `${head}<ul>${rows.join('') || '<li>이번 경기에서 아직 뽑지 않았어요</li>'}</ul>`;
 }
 
 export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null, readOnly = false): string {

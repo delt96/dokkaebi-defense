@@ -420,65 +420,60 @@ body.online #bottom .card .recipe-more { margin: 0; }
   .screen-box .result-row { min-height: 29px; }
 }
 
-/* Stage 3 economy: the B panel over the left column, prompts over the top of the lane, the quest tracker under it. */
-#econ-panel { position: absolute; right: 0; top: 24px; width: 214px; height: 308px; z-index: 1; }
-body.online #econ-panel { height: 292px; }
-#econ-panel:empty, #econ-top:empty, #econ-bottom:empty { display: none; }
-.econ-panel { height: 100%; background: var(--panel); border: 1px solid #82663f; font-size: 9px; line-height: 11px; }
-.econ-head { display: flex; align-items: center; justify-content: space-between; gap: 3px; padding: 1px 4px; }
-.econ-head b { color: var(--accent); font-size: 12px; }
-.gamble-wallet { color: var(--accent); font-size: 9px; white-space: nowrap; }
-.econ-head .econ-close { min-height: 15px; padding: 0 3px; font-size: 9px; }
-.econ-body { padding: 0 4px 2px; display: grid; gap: 1px; }
-.gamble-refill { color: #c9bdd3; font-size: 8px; line-height: 9px; white-space: nowrap; }
-.gamble-products, .gamble-group { display: grid; gap: 1px; }
-.gamble-group { padding: 1px 4px; background: #241b30; border: 1px solid #473653; }
-.gamble-line { display: flex; justify-content: space-between; align-items: baseline; gap: 2px; }
+/* Stage 3 economy: the B window (in #win-right), prompts over the top of the lane, the quest tracker under it. */
+#econ-top:empty, #econ-bottom:empty { display: none; }
+.win.market { border-color: #82663f; }
+.econ-panel .econ-body { gap: 8px; padding: 4px; }
+.gamble-refill { margin: 0; color: #c9bdd3; }
+.gamble-products { display: flex; flex-direction: column; gap: 8px; }
+.gamble-group { display: flex; flex-direction: column; gap: 2px; padding: 2px 3px 3px; background: #241b30; border: 1px solid #473653; }
+.gamble-line { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: 4px; }
 .gamble-line strong, .gamble-inspect { color: var(--accent); }
-.gamble-line span { color: #c9bdd3; font-size: 8px; white-space: nowrap; }
-.gamble-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
-.gamble-option { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; }
-.gamble-bundles .gamble-option { grid-template-columns: max-content minmax(0, 1fr); align-items: center; column-gap: 3px; }
-/* always present, empty when the purchase is open, so a reason never pushes the buttons below */
-.gamble-why { grid-column: 1 / -1; min-height: 9px; color: #ffbaaa; font-size: 8px; line-height: 9px; white-space: nowrap; }
-.gamble-single { grid-template-columns: minmax(0, 1fr) 49px; align-items: start; column-gap: 4px; }
-.gamble-single .gamble-line { min-height: 15px; align-items: center; }
-.gamble-single .gamble-why { width: 95px; justify-self: end; text-align: right; }
-.gamble-inspect { border: 0; background: transparent; padding: 0; min-height: 12px; font-size: 9px; line-height: 11px; text-align: left; white-space: nowrap; }
+.gamble-line span { color: #c9bdd3; }
+.gamble-count { font-size: 12px; white-space: nowrap; }
+/* two purchases of a group share one row; the 엽전 bundle has the row to itself */
+.gamble-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.gamble-option { min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 1px; }
+/* always present, empty when the purchase is open; it sits under the button, so a reason never moves the buttons */
+.gamble-why { min-height: 13px; color: #ffbaaa; word-break: keep-all; }
+.gamble-inspect { align-self: flex-start; border: 0; background: transparent; padding: 0; min-height: 13px; font-size: 10px; line-height: 13px; text-align: left; white-space: nowrap; }
 .gamble-inspect:hover, .gamble-inspect:focus-visible { text-decoration: underline; }
-.gamble-buy { width: 100%; min-height: 15px; padding: 0 2px; color: var(--accent); background: #3b2b23; border-color: #8e6a40; font-size: 9px; font-weight: bold; white-space: nowrap; }
+.gamble-buy { width: 100%; min-height: 24px; padding: 0 2px; color: var(--accent); background: #3b2b23; border-color: #8e6a40; font-size: 12px; font-weight: bold; white-space: nowrap; }
 .gamble-buy:disabled { opacity: 1; color: #ddd0e4; background: #30283b; border-color: #51445c; pointer-events: none; }
-.econ-panel :is(button, .gamble-option):focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
-.gamble-info { min-height: 52px; padding: 1px 4px; border: 1px solid #614c66; background: #201829; }
-.gamble-info p { margin: 1px 0 0; color: #c9bdd3; font-size: 8px; line-height: 9px; }
-.gamble-odds { display: flex; height: 4px; margin: 1px 0; background: var(--bg); }
+.gamble-info { padding: 2px 4px; border: 1px solid #614c66; background: #201829; }
+.gamble-info .gamble-line span { flex-basis: 100%; }
+.gamble-info p { margin: 2px 0 0; color: #c9bdd3; word-break: keep-all; }
+.gamble-odds { display: flex; height: 4px; margin: 2px 0; background: var(--bg); }
 .gamble-odds i { flex: 0 0 var(--share); background: var(--swatch); }
-.gamble-odds-labels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 2px; font-size: 8px; line-height: 9px; }
+.gamble-odds-labels { display: flex; flex-wrap: wrap; gap: 0 8px; }
 .gamble-odds-labels span { white-space: nowrap; }
-.gamble-odds-labels i { display: inline-block; width: 4px; height: 4px; margin-right: 2px; background: var(--swatch); vertical-align: 1px; }
-.gamble-history { padding: 1px 3px; border: 1px solid #82663f; background: #21182c; }
+.gamble-odds-labels i { display: inline-block; width: 6px; height: 6px; margin-right: 2px; background: var(--swatch); vertical-align: 0; }
+.gamble-history { padding: 2px 3px; border: 1px solid #82663f; background: #21182c; }
+.gamble-history-toggle { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 24px; padding: 0 4px;
+  border: 0; background: transparent; color: var(--accent); font-weight: bold; }
+.gamble-history-toggle span { color: #c9bdd3; font-weight: normal; }
 .gamble-history ul { list-style: none; margin: 0; padding: 0; }
-.gamble-history li { display: flex; align-items: center; gap: 3px; height: 11px; border-bottom: 1px solid #34283e; font-size: 8px; white-space: nowrap; }
+.gamble-history li { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; min-height: 16px; padding: 1px 0; border-bottom: 1px solid #34283e; }
 .gamble-history li:last-child { border-bottom: 0; }
 .gamble-history li > :last-child:not(:first-child) { margin-left: auto; }
-.gamble-time { min-width: 15px; color: #c9bdd3; }
+.gamble-time { min-width: 18px; color: #c9bdd3; }
 .gamble-prize { display: flex; align-items: center; min-width: 0; gap: 2px; }
-.gamble-prize > :last-child { overflow: hidden; text-overflow: ellipsis; }
-.gamble-prize .unit-face { width: 11px; height: 11px; flex: 0 0 11px; }
-.gamble-prize .unit-face img { width: 9px; height: 9px; }
-.gamble-history button { min-height: 11px; padding: 0 2px; color: var(--accent); font-size: 8px; line-height: 9px; }
+.gamble-prize > :last-child { overflow-wrap: anywhere; }
+.gamble-prize .unit-face { width: 13px; height: 13px; flex: 0 0 13px; }
+.gamble-prize .unit-face img { width: 11px; height: 11px; }
+.gamble-history li button { min-height: 24px; padding: 0 4px; color: var(--accent); }
 .gamble-cell-mark { position: absolute; z-index: 1; pointer-events: none; border: 2px solid var(--accent); box-shadow: inset 0 0 8px #ffe08a80; }
 @media (prefers-reduced-motion: no-preference) {
   .gamble-cell-mark:not(.still) { animation: gamble-cell-ping .4s ease-out alternate 2; }
 }
 @keyframes gamble-cell-ping { from { opacity: .35; } to { opacity: 1; } }
-.gamble-reveal { position: relative; isolation: isolate; overflow: hidden; min-height: 23px; padding: 1px 3px;
-  border: 1px solid #4b3a56; background: #15101d; display: flex; gap: 3px; align-items: center; }
+.gamble-reveal { position: relative; isolation: isolate; overflow: hidden; min-height: 24px; padding: 2px 4px;
+  border: 1px solid #4b3a56; background: #15101d; display: flex; gap: 4px; align-items: center; }
 .gamble-reveal .unit-face { width: 18px; height: 18px; flex: 0 0 18px; }
 .gamble-reveal .unit-face img { width: 16px; height: 16px; }
 
-.gamble-reveal b { display: block; line-height: 11px; overflow-wrap: anywhere; }
-.gamble-reveal small { display: block; color: #cdb9d4; font-size: 9px; line-height: 10px; }
+.gamble-reveal b { display: block; font-size: 12px; line-height: 15px; overflow-wrap: anywhere; }
+.gamble-reveal small { display: block; color: #cdb9d4; font-size: 10px; line-height: 13px; }
 .gamble-reveal.lose { color: #b5aaba; }
 .gamble-reveal.small { color: #ffdeb1; }
 .gamble-reveal.big { color: #ffdf7f; border-color: #b48942; background: #352239; }
@@ -563,8 +558,6 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 /* the right twin of the storage column: right of the lane path and a boss's bar, between the prompts and the trackers */
 #target-overlay { position: absolute; left: 458px; top: 70px; width: 68px; max-height: 240px; z-index: 1; background: var(--panel); border: 1px solid var(--panel-edge); font-size: 10px; }
 #target-overlay:empty { display: none; }
-/* the B drawer spans 426-640px: the pinned recipe moves just left of it instead of under it */
-#stage.market-open #target-overlay { left: 356px; }
 .target-head { display: flex; align-items: center; gap: 2px; }
 .target-head button { min-height: 16px; padding: 0 3px; }
 .target-head button:first-child { flex: 1; min-width: 0; text-align: left; line-height: 11px; padding: 1px 2px; word-break: keep-all; overflow-wrap: anywhere; }

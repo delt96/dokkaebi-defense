@@ -93,6 +93,22 @@ test('history caps at five settled results and identifies the unit’s current b
   expect(panel(gambleHistoryHtml(history, s)).textContent).toContain('진영에 없음');
 });
 
+test('folded history is one toggle with the count; unfolded it keeps the toggle above the list', () => {
+  const s = createGame(data, 1);
+  const bet: GambleEvent = { type: 'gambleCoins', stake: 10, multiplier: 2, payout: 20 };
+  const history = [bet, bet].reduce<GambleHistoryEntry[]>((h, event) => recordGamble(h, { event, round: 3 }), []);
+  const folded = panel(gambleHistoryHtml(history, s, { folded: true }));
+  expect(folded.textContent!.trim()).toBe('최근 결과 ▸ 2개');
+  expect(folded.querySelectorAll('li')).toHaveLength(0);
+  expect(folded.querySelector('[data-action="marketHistory"]')!.getAttribute('aria-expanded')).toBe('false');
+  const open = panel(gambleHistoryHtml(history, s, { folded: false }));
+  expect(open.querySelector('[data-action="marketHistory"]')!.getAttribute('aria-expanded')).toBe('true');
+  expect(open.querySelectorAll('li')).toHaveLength(2);
+  const plain = panel(gambleHistoryHtml(history, s));
+  expect(plain.querySelector('[data-action="marketHistory"]')).toBeNull();
+  expect(plain.querySelectorAll('li')).toHaveLength(2);
+});
+
 test.each([
   [{ type: 'gambleCoins', stake: 10, multiplier: 0, payout: 0 }, 'lose', 700],
   [{ type: 'gambleCoins', stake: 10, multiplier: 1.5, payout: 15 }, 'small', 850],

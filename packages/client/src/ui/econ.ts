@@ -5,7 +5,7 @@ import { esc } from './dom';
 import { cellText, pinnedTarget, unitSkillText, type TargetNode } from './models';
 import { unitFaceHtml } from './storage';
 import { withJosa } from './josa';
-import { gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
+import { gambleHistoryToggleHtml, gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
 import { winHeadHtml } from './windows';
 import type { WinPlace } from '../layout';
 
@@ -491,15 +491,26 @@ const button = (action: string, arg: string, label: string, disabled = false, cl
   `<button data-action="${action}" data-arg="${esc(arg)}"${cls ? ` class="${cls}"` : ''}${disabled ? ' disabled' : ''}>${esc(label)}</button>`;
 
 /** The B drawer leaves the board and both unit-card positions visible. */
-export function econPanelHtml(market: MarketModel | null, reveal: RevealDisplay | null = null, readOnly = false): string {
-  const head = `<div class="econ-head"><b>장터</b><span class="gamble-wallet"></span>
-    ${market?.gamble ? '<span class="gamble-refill" aria-label="매 라운드 횟수가 다시 차요">라운드마다 충전</span>' : ''}
-    <button type="button" data-action="toggleMarket" data-market-focus="close" class="econ-close" aria-label="장터 닫기 (B)">닫기 B</button></div>`;
-  const body = market?.gamble ? `<div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
+/**
+ * The B window. The wallet (off the board) and the history are left for mount to fill and update in place, so a
+ * redraw of those parts keeps the product buttons and their focus.
+ */
+export function econPanelHtml(
+  market: MarketModel | null, reveal: RevealDisplay | null, readOnly: boolean,
+  opts: { wins: WinPlace; bar: string; historyOpen: boolean; historyCount: number },
+): string {
+  const inside = opts.wins === 'inside';
+  const head = winHeadHtml({
+    side: 'right', titleHtml: '장터 (B)', extraHtml: inside ? '' : '<span class="gamble-wallet win-wallet"></span>', closeLabel: '장터 닫기 (B)',
+  });
+  const folded = inside && !opts.historyOpen;
+  const body = market?.gamble ? `<p class="gamble-refill">라운드마다 충전</p>
+    <div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
     <div class="gamble-info" id="gamble-info" aria-live="polite"></div>
-    <div class="gamble-result"></div><section class="gamble-history" aria-label="최근 장터 결과"></section>`
+    <div class="gamble-result"></div><section class="gamble-history" aria-label="최근 장터 결과">${folded ? gambleHistoryToggleHtml(opts.historyCount, false) : ''}</section>`
     : market ? `<div>보유 지게 ${market.jige.held}개</div>` : '';
-  return `<section class="econ-panel" aria-label="장터">${head}<div class="econ-body">${body}</div></section>`;
+  return `<section class="win market econ-panel" role="dialog" aria-labelledby="win-right-title">${head}${inside ? opts.bar : ''}`
+    + `<div class="win-body econ-body">${body}</div></section>`;
 }
 
 /** The T button under the target's health bar (placed by mount from the scene's bar anchor). */

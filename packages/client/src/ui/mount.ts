@@ -21,7 +21,7 @@ import {
 } from './econ';
 import {
   advanceReveal, gambleHistoryHtml, gambleInfoHtml, gambleRevealHtml, heldCoins, recordGamble,
-  revealDisplay, revealResultAt, startReveal, type GambleHistoryEntry, type Reveal,
+  revealDisplay, revealResultAt, startReveal, type GambleHistoryEntry, type Reveal, type RevealDisplay,
 } from './gamble';
 import { el, focusedIn, onAction, refocusIn, setHtml } from './dom';
 import { helperPopHtml } from './helper';
@@ -64,6 +64,7 @@ const SIDES: readonly Side[] = ['left', 'right'];
 const OPENERS: Partial<Record<SideWin, string>> = {
   upgrades: '#right [data-action="openUpgrades"]',
   quests: '#right .quest-box > [data-action="openQuests"][data-arg=""]',
+  market: '#right [data-action="toggleMarket"]',
 };
 
 /** Online screens also read the server view for the scoreboard and the two-line top bar. */
@@ -141,9 +142,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let jigeList: JigeList | null = null;
   let best: { id: string; grade: number } | null = null;
   let notice: Notice | null = null;
-  // stage 3 economy: the B panel (null = closed)
-  let econTab: 'market' | null = null;
+  // the pillar market folds 최근 결과 to one line; this is whether it was pressed open
+  let historyOpen = false;
   let reveal: Reveal | null = null;
+  let shownReveal: RevealDisplay | null = null;
   let revealEpoch = driver.laneEpoch;
   // S on grade 3+ and T take a second press within 2 seconds
   const confirm = new PressConfirm();
@@ -155,7 +157,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let marketCell: HTMLElement | null = null;
 
   function gamble(cmd: GambleCommand): void {
-    if (!econTab || !econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
+    if (sides.right !== 'market' || !econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
     playGamblePress(cmd.type);
     reveal = startReveal(performance.now());
     driver.queue(cmd);
@@ -183,7 +185,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   const econ = (): EconMine | null => driver.econ?.() ?? null;
   const say = (text: string, ms = NOTICE_MS) => { notice = { text, until: performance.now() + ms }; };
   const refuse = (text: string) => { gameAudio.play('error'); say(text); };
-  for (const id of ['econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
+  for (const id of ['econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
     if (document.getElementById(id)) continue;
     const node = document.createElement('div');
     node.id = id;
@@ -196,25 +198,28 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     node.className = 'win-box';
     el('stage').insertAdjacentElement(side === 'left' ? 'beforebegin' : 'afterend', node);
   }
-  const drawer = el('econ-panel');
+  const rightBox = el('win-right');
+  const marketPanel = () => rightBox.querySelector<HTMLElement>('.econ-panel');
 
   function inspectMarket(event: Event): void {
-    const item = (event.target as Element).closest<HTMLElement>('[data-market-item]')?.dataset.marketItem;
+    const target = event.target as Element;
+    if (!target.closest('.econ-panel')) return;
+    const item = target.closest<HTMLElement>('[data-market-item]')?.dataset.marketItem;
     if (!item || item === marketItem) return;
     marketItem = item;
     renderMarketInfo();
   }
-  drawer.addEventListener('pointerover', event => { if (event.pointerType !== 'touch') inspectMarket(event); });
-  drawer.addEventListener('pointerdown', event => {
+  rightBox.addEventListener('pointerover', event => { if (event.pointerType !== 'touch') inspectMarket(event); });
+  rightBox.addEventListener('pointerdown', event => {
     if (event.pointerType === 'touch' && !(event.target as Element).closest('.gamble-buy')) inspectMarket(event);
   });
-  drawer.addEventListener('focusin', inspectMarket);
-  drawer.addEventListener('click', event => {
+  rightBox.addEventListener('focusin', inspectMarket);
+  rightBox.addEventListener('click', event => {
     if (!(event.target as Element).closest('.gamble-buy')) inspectMarket(event);
   });
 
   function renderMarketInfo(): void {
-    const info = drawer.querySelector<HTMLElement>('#gamble-info');
+    const info = marketPanel()?.querySelector<HTMLElement>('#gamble-info');
     if (info && shownMarket?.gamble) setHtml(info, gambleInfoHtml(shownMarket.gamble, marketItem, shownMarket.jige));
   }
 
@@ -297,13 +302,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       case 'foldTarget': targetFolded = !targetFolded; break;
       case 'clearTarget': targetId = null; writeTarget(opts.targetKey, null); break;
-      case 'toggleMarket':
-        econTab = econTab ? null : 'market';
-        if (econTab) helperOpen = false;
-        else marketCell?.remove();
-        break;
-      case 'econTab': econTab = 'market'; helperOpen = false; break;
-      case 'econClose': econTab = null; break;
+      case 'toggleMarket': sides = toggleSide(sides, 'market'); break;
+      case 'marketHistory': historyOpen = !historyOpen; break;
       case 'marketCell': markMarketCell(Number(arg)); break;
       case 'gambleCoins': gamble({ type: 'gambleCoins', stake: Number(arg) }); break;
       case 'gambleUnit': if (arg === 'small' || arg === 'big' || arg === 'coin') gamble({ type: 'gambleUnit', table: arg }); break;
@@ -432,11 +432,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'home': hooks.onHome?.(); break;
     }
     if (action.startsWith('dex')) dexRemember();
+    // the cell a history row pointed at goes with the market, however it was closed or replaced
+    if (previousSides.right === 'market' && sides.right !== 'market') marketCell?.remove();
     render();
-    if (action === 'toggleMarket' || action === 'econClose') {
-      const selector = '[data-action="toggleMarket"]';
-      (drawer.firstElementChild ? drawer : el('right')).querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
-    }
     if (action === 'dexRole' || action === 'dexMine' || action === 'dexAdv') {
       el('modal').querySelector<HTMLButtonElement>(`[data-action="${action}"]${action === 'dexAdv' ? '' : `[data-arg="${arg}"]`}`)?.focus();
     }
@@ -482,12 +480,10 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       syncSelection(id);
       scope = id === null ? 'all' : 'unit';
     }
-    // the helper and the B panel share the left column
-    if (on) econTab = null;
     if (on && !driver.readOnly) driver.queue({ type: 'helperOpened' });
   }
 
-  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) onAction(el(id), act);
+  for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) onAction(el(id), act);
   // a press that reaches a locked box anyway (inert is not honoured everywhere) still buys nothing
   for (const side of SIDES) onAction(el(`win-${side}`), (a, g) => { if (!locked()) act(a, g); });
   // the storage column belongs to the own living lane; it takes presses while no window is open
@@ -653,9 +649,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     // side-window keys do nothing under a lock (P pause too), so a paused board buys nothing
     const buy = UPGRADE_KEYS[ev.code];
     const quests = ev.code === 'KeyJ' && !!driver.state.data.economy;
-    if (ev.code === 'KeyE' || buy || quests) {
+    const market = ev.code === 'KeyB' && !!driver.state.data.economy?.market;
+    if (ev.code === 'KeyE' || buy || quests || market) {
       if (locked()) return;
       if (ev.code === 'KeyE') { act('openUpgrades', ''); return; }
+      if (market) { act('toggleMarket', ''); return; }
       // J opens the quest list from preparation on and closes it again; the clock never stops for it
       if (quests) { act(sides.right === 'quests' ? 'closeWin' : 'openQuests', sides.right === 'quests' ? 'right' : ''); return; }
       if (sides.right === 'upgrades') { act('upgrade', buy!); return; }
@@ -680,7 +678,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       }
     }
     else if (ev.code === `Key${STORE_ALL_KEY}`) act('storeAll', '');
-    else if (ev.code === 'KeyB' && driver.state.data.economy?.market) act('toggleMarket', '');
     else if (ev.code === 'KeyT' && driver.state.data.economy?.tame) act('tame', '');
     else if (ev.code === 'KeyR' && driver.state.data.economy?.market && card?.unitId != null) act('jigeOpen', `board:${card.unitId}`);
     else if (ev.code === 'KeyP' && !online) { userPaused = !userPaused; render(); }
@@ -784,7 +781,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else {
       renderRight(s, {
         ...(view ? { online: true, notices: [...moved, ...rightNotices(now)] } : {}),
-        ...(s.data.economy?.market ? { market: econTab !== null } : {}),
+        ...(s.data.economy?.market ? { market: sides.right === 'market' } : {}),
         quests: questBox(),
         heldCoins: heldCoins(reveal),
       });
@@ -808,10 +805,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const wins = currentWins();
     renderSides(s, wins);
     const covered = coveredIds(wins, sides);
-    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-panel', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
+    for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
       el(id).inert = lockOpen || covered.includes(id);
     }
-    if (drawer.firstElementChild !== null) el('right').inert = true;
     const sideLock = locked();
     for (const side of SIDES) {
       const box = el(`win-${side}`);
@@ -843,16 +839,41 @@ ${dex.mine.join()}`;
   /** Draws each side window into its box as a non-modal dialog named by its head title. */
   function renderSides(s: GameState, wins: WinPlace): void {
     const e = econ();
-    if (sides.right === 'quests' && !e) sides = closeSide(sides, 'right');
-    const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, heldCoins(reveal)) }
+    shownMarket = sides.right === 'market' && e ? marketModel(e, s) : null;
+    if ((sides.right === 'quests' && !e) || (sides.right === 'market' && !shownMarket)) sides = closeSide(sides, 'right');
+    const held = heldCoins(reveal);
+    const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, held) }
       : sides.right === 'quests' && e ? {
         cls: 'quest-modal',
-        html: questListHtml(questRows(e, s, online), questFocus, huntRows(e, s), { wins, bar: rightBarHtml(s, heldCoins(reveal)) }),
+        html: questListHtml(questRows(e, s, online), questFocus, huntRows(e, s), { wins, bar: rightBarHtml(s, held) }),
       } : null;
     const section = (side: Side, w: { cls: string; html: string } | null) =>
       (w ? `<section class="win ${w.cls}" role="dialog" aria-labelledby="win-${side}-title">${w.html}</section>` : '');
     setHtml(el('win-left'), section('left', null));
-    setHtml(el('win-right'), section('right', right));
+    const active = document.activeElement as HTMLElement | null;
+    const inMarket = !!active && !!marketPanel()?.contains(active);
+    const marketFocus = inMarket ? active!.dataset.marketFocus : undefined;
+    const marketMark = inMarket ? focusedIn(rightBox) : null;
+    const folded = wins === 'inside' && !historyOpen;
+    setHtml(rightBox, shownMarket ? econPanelHtml(shownMarket, shownReveal, driver.readOnly, {
+      wins, bar: rightBarHtml(s, held), historyOpen, historyCount: gambleHistory.length,
+    }) : section('right', right));
+    const panel = marketPanel();
+    if (panel) {
+      // these parts change on their own clock (reveal frames, settled draws), so they redraw in place
+      const wallet = panel.querySelector<HTMLElement>('.gamble-wallet');
+      if (wallet) setHtml(wallet, `엽전 <b>${s.coins - held}</b> · 묵 <b>${s.buckwheat}</b>`);
+      renderMarketInfo();
+      const result = panel.querySelector<HTMLElement>('.gamble-result');
+      const history = panel.querySelector<HTMLElement>('.gamble-history');
+      if (result) setHtml(result, gambleRevealHtml(shownReveal));
+      if (history) setHtml(history, gambleHistoryHtml(gambleHistory, s, wins === 'inside' ? { folded } : undefined));
+      if (inMarket && !panel.contains(active)) {
+        const next = marketFocus ? panel.querySelector<HTMLElement>(`[data-market-focus="${marketFocus}"]:not(:disabled)`) : null;
+        if (next) next.focus({ preventScroll: true });
+        else refocusIn(panel, marketMark, '.win-close');
+      }
+    }
     const row = sides.right === 'quests' ? questFocus : null;
     if (row && row !== shownQuest) el('win-right').querySelector<HTMLElement>(`.quest-row[data-quest="${row}"]`)?.scrollIntoView?.({ block: 'nearest' });
     shownQuest = row;
@@ -892,7 +913,7 @@ ${dex.mine.join()}`;
   }
 
   /**
-   * Stage 3 economy: the B drawer beside the board, prompts over the top of the lane, the tracker under it.
+   * Stage 3 economy: the gamble reveal the B window shows, prompts over the top of the lane, the tracker under it.
    * Returns how many prompt rows sit over the top of the lane.
    */
   function renderEcon(view: ClientView | null, selected: number | null): number {
@@ -924,25 +945,7 @@ ${dex.mine.join()}`;
       const grade = reveal.event.type === 'gambleUnit' && reveal.event.defId ? unitDefFast(s.data, reveal.event.defId).grade : undefined;
       playGambleResult(reveal.tier, grade);
     }
-    shownMarket = e && econTab ? marketModel(e, s) : null;
-    const active = document.activeElement as HTMLElement | null;
-    const focus = active && drawer.contains(active) ? active.dataset.marketFocus : undefined;
-    setHtml(drawer, shownMarket ? econPanelHtml(shownMarket, display, driver.readOnly) : '');
-    // the drawer covers the lane's right edge, where the pinned recipe sits; the class moves it beside the drawer
-    el('stage').classList.toggle('market-open', drawer.firstElementChild !== null);
-    const wallet = drawer.querySelector('.gamble-wallet');
-    const balance = `엽전 ${s.coins - heldCoins(reveal)}냥 · 묵 ${s.buckwheat}개`;
-    if (wallet && wallet.textContent !== balance) wallet.textContent = balance;
-    renderMarketInfo();
-    const result = drawer.querySelector<HTMLElement>('.gamble-result');
-    const history = drawer.querySelector<HTMLElement>('.gamble-history');
-    if (result) setHtml(result, gambleRevealHtml(display));
-    if (history) setHtml(history, gambleHistoryHtml(gambleHistory, s));
-    if (focus && !drawer.contains(active)) {
-      const next = drawer.querySelector<HTMLElement>(`[data-market-focus="${focus}"]:not(:disabled)`)
-        ?? drawer.querySelector<HTMLElement>('[data-market-focus="close"]');
-      next?.focus({ preventScroll: true });
-    }
+    shownReveal = display;
     return 0;
   }
 
@@ -999,8 +1002,9 @@ ${dex.mine.join()}`;
     sides = NO_SIDES;
     best = null;
     notice = null;
-    econTab = null;
+    historyOpen = false;
     reveal = null;
+    shownReveal = null;
     confirm.clear();
     userPaused = false;
     marketItem = null;

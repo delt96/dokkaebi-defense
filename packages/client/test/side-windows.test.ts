@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createGame, loadGameData } from '@dorandi/logic';
-import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
+import { forceRound, placeUnitForTest, withoutMarketLock } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import { NetClient } from '../src/net/NetClient';
 import { NetDriver } from '../src/net/NetDriver';
@@ -14,6 +14,8 @@ class FakeScene {
   private selectCb: ((slot: number | null) => void) | null = null;
   onSelect(cb: (slot: number | null) => void): void { this.selectCb = cb; }
   onEvents(): void {}
+  showGambleResult(): void {}
+  showBirth(): void {}
   select(slot: number | null): void { this.selectCb?.(slot); }
 }
 
@@ -40,8 +42,8 @@ afterEach(() => {
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<T>(sel);
 const upgrades = () => $('#win-right .win.upgrades');
 
-function mountSolo() {
-  const s = createGame(loadGameData('stage3'), 1);
+function mountSolo(data = loadGameData('stage3')) {
+  const s = createGame(data, 1);
   forceRound(s, 3);
   s.coins = 5000;
   const driver = new GameDriver(s);
@@ -252,6 +254,99 @@ describe('solo side windows', () => {
     press(close);
     expect($('#win-right .quest-modal')).toBeNull();
     expect(document.activeElement).toBe($('#right .quest-box .panel-title'));
+  });
+
+  test('the market sits on the right with the bar inside and the wallet outside', () => {
+    const { s, frame } = mountSolo(withoutMarketLock(loadGameData('stage3')));
+    s.buckwheat = 7;
+    const opener = $<HTMLButtonElement>('#right [data-action="toggleMarket"]')!;
+    opener.focus();
+    press(opener);
+    const market = () => $('#win-right .win.market.econ-panel');
+    expect(market()).not.toBeNull();
+    expect(market()!.getAttribute('role')).toBe('dialog');
+    expect(market()!.getAttribute('aria-labelledby')).toBe('win-right-title');
+    expect($('#win-right-title')!.textContent).toBe('장터 (B)');
+    expect(market()!.querySelector('.win-bar [data-action="summon"]')).not.toBeNull();
+    expect(market()!.querySelector('.win-body.econ-body')).not.toBeNull();
+    // opening does not pull the focus into the window, so Space keeps summoning
+    expect($('#win-right')!.contains(document.activeElement)).toBe(false);
+    // a redraw of the window (the token count changed) keeps the focus on the same button
+    $<HTMLButtonElement>('#win-right .win-bar [data-action="summon"]')!.focus();
+    s.tokens += 1;
+    frame();
+    expect(document.activeElement).toBe($('#win-right .win-bar [data-action="summon"]'));
+    document.documentElement.dataset.wins = 'outside';
+    frame();
+    expect(market()!.querySelector('.win-bar')).toBeNull();
+    expect(market()!.querySelector('.win-head')!.textContent).toContain('엽전 5000 · 묵 7');
+    key('KeyB');
+    expect(market()).toBeNull();
+    key('KeyB');
+    expect($('#win-right')!.contains(document.activeElement)).toBe(false);
+  });
+
+  test('inside, 최근 결과 folds to one line and opens on press; outside it stays open', () => {
+    const { s, driver, frame } = mountSolo(withoutMarketLock(loadGameData('stage3')));
+    s.buckwheat = 7;
+    key('KeyB');
+    for (let i = 0; i < 2; i++) {
+      press($('#win-right [data-action="gambleUnit"][data-arg="small"]'));
+      driver.update(50);
+      clock += 1000;
+      frame();
+    }
+    const history = () => $('#win-right .gamble-history')!;
+    expect(history().textContent!.trim()).toBe('최근 결과 ▸ 2개');
+    expect(history().querySelectorAll('li')).toHaveLength(0);
+    const toggle = $<HTMLButtonElement>('#win-right [data-action="marketHistory"]')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.focus();
+    press(toggle);
+    expect(history().querySelectorAll('li')).toHaveLength(2);
+    const open = $<HTMLButtonElement>('#win-right [data-action="marketHistory"]')!;
+    expect(open.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(open);
+    press(open);
+    expect(history().querySelectorAll('li')).toHaveLength(0);
+    document.documentElement.dataset.wins = 'outside';
+    frame();
+    expect(history().querySelectorAll('li')).toHaveLength(2);
+    expect($('#win-right [data-action="marketHistory"]')).toBeNull();
+  });
+
+  test('B replaces another right window', () => {
+    mountSolo(withoutMarketLock(loadGameData('stage3')));
+    key('KeyE');
+    expect(upgrades()).not.toBeNull();
+    key('KeyB');
+    expect($('#win-right .econ-panel')).not.toBeNull();
+    expect(upgrades()).toBeNull();
+    key('KeyE');
+    expect($('#win-right .econ-panel')).toBeNull();
+    expect(upgrades()).not.toBeNull();
+  });
+
+  test('a purchase while the market is open goes through and the board stays live', () => {
+    const { s, queue } = mountSolo(withoutMarketLock(loadGameData('stage3')));
+    s.buckwheat = 7;
+    key('KeyB');
+    expect($('#lane')!.inert).toBe(false);
+    press($('#win-right .gamble-buy[data-arg="small"]'));
+    expect(queue).toHaveBeenCalledWith({ type: 'gambleUnit', table: 'small' });
+    key('Space');
+    expect(queue).toHaveBeenCalledWith({ type: 'summon' });
+  });
+
+  test('closing the market from inside gives the focus to the 장터 (B) button', () => {
+    mountSolo(withoutMarketLock(loadGameData('stage3')));
+    document.documentElement.dataset.wins = 'outside';
+    key('KeyB');
+    const close = $<HTMLButtonElement>('#win-right .win-close')!;
+    close.focus();
+    press(close);
+    expect($('#win-right .econ-panel')).toBeNull();
+    expect(document.activeElement).toBe($('#right [data-action="toggleMarket"]'));
   });
 });
 
