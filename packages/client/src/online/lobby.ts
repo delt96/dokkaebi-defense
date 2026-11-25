@@ -1,28 +1,38 @@
 import { difficultyNote, difficultyPicker } from '../ui/difficulty';
 import type { Difficulty, LobbyMsg, MatchStage } from '@dorandi/logic';
-import { TEXT } from './text';
+import { startFewText, startHintText, TEXT } from './text';
 
-const SEATS = 6;
+export const SEATS = 6;
 
-export interface LobbyRow { seat: number; text: string; host: boolean; ready: boolean; me: boolean; empty: boolean }
-export interface LobbyModel { rows: LobbyRow[]; canStart: boolean; isHost: boolean; myReady: boolean; hint: string | null; difficulty?: Difficulty; stage: MatchStage }
+export interface LobbyRow { seat: number; text: string; host: boolean; ready: boolean; me: boolean; empty: boolean; showState: boolean }
+export interface LobbyModel {
+  rows: LobbyRow[]; canStart: boolean; isHost: boolean; myReady: boolean; hint: string;
+  guests: number; readyGuests: number; difficulty?: Difficulty; stage: MatchStage;
+}
 
 export function lobbyModel(msg: LobbyMsg): LobbyModel {
   const rows: LobbyRow[] = [];
   for (let seat = 1; seat <= SEATS; seat++) {
     const s = msg.seats.find(x => x.seat === seat);
     rows.push(s
-      ? { seat, text: `${seat}번 ${s.name}`, host: msg.hostSeat === seat, ready: s.ready, me: msg.you === seat, empty: false }
-      : { seat, text: TEXT.emptySeat, host: false, ready: false, me: false, empty: true });
+      ? { seat, text: `${seat}번 ${s.name}`, host: msg.hostSeat === seat, ready: s.ready, me: msg.you === seat, empty: false, showState: msg.hostSeat !== seat }
+      : { seat, text: TEXT.emptySeat, host: false, ready: false, me: false, empty: true, showState: false });
   }
   const isHost = msg.hostSeat === msg.you;
-  const canStart = isHost && msg.seats.length > 0 && msg.seats.every(s => s.ready);
+  const guestSeats = msg.seats.filter(s => s.seat !== msg.hostSeat);
+  const guests = guestSeats.length;
+  const readyGuests = guestSeats.filter(s => s.ready).length;
+  const canStart = isHost && readyGuests === guests;
+  const players = msg.seats.length;
+  const hint = !isHost ? '' : !canStart ? startHintText(readyGuests, guests) : players < SEATS ? startFewText(players) : '';
   return {
     rows,
     canStart,
     isHost,
     myReady: msg.seats.find(s => s.seat === msg.you)?.ready ?? false,
-    hint: isHost && !canStart ? TEXT.startHint : null,
+    hint,
+    guests,
+    readyGuests,
     difficulty: msg.stage === 'stage3' ? msg.difficulty ?? 'normal' : undefined,
     stage: msg.stage ?? 'stage2',
   };

@@ -27,7 +27,6 @@ export const TEXT = {
   readyBtn: '준비',
   unreadyBtn: '준비 취소',
   start: '시작',
-  startHint: '모두 준비하면 시작할 수 있습니다',
   notReady: '아직 준비하지 않은 사람이 있습니다',
   badName: '닉네임은 한글·영문·숫자 1~8자입니다',
   dupName: '방에 같은 닉네임이 있습니다',
@@ -43,6 +42,14 @@ export const TEXT = {
 } as const;
 
 export const NO_ROOM_CODE = 522;
+
+export function startHintText(ready: number, guests: number): string {
+  return `모두 준비하면 시작할 수 있습니다 · ${ready}/${guests}명 준비`;
+}
+
+export function startFewText(players: number): string {
+  return `${players === 1 ? '혼자' : `${players}명으로`} 시작합니다 · 시작하면 더 들어올 수 없습니다`;
+}
 
 export function joinErrorText(code: number): string {
   switch (code) {

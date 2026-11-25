@@ -20,6 +20,21 @@ describe('entry and lobby', () => {
     expect(m.rows[2]).toMatchObject({ empty: true, text: '빈 자리' });
     expect(m).toMatchObject({ isHost: false, myReady: false, canStart: false });
   });
+  test('lobby model: the host never readies, the hint counts the guests', () => {
+    const seats = (...r: boolean[]) => r.map((ready, i) => ({ seat: i + 1, name: `p${i + 1}`, ready }));
+    const alone = lobbyModel({ roomId: 'r', you: 1, hostSeat: 1, seats: seats(false) });
+    expect(alone).toMatchObject({ canStart: true, hint: '혼자 시작합니다 · 시작하면 더 들어올 수 없습니다' });
+    expect(alone.rows[0]!.showState).toBe(false);
+    const waiting = lobbyModel({ roomId: 'r', you: 1, hostSeat: 1, seats: seats(false, true, false) });
+    expect(waiting).toMatchObject({ canStart: false, guests: 2, readyGuests: 1, hint: '모두 준비하면 시작할 수 있습니다 · 1/2명 준비' });
+    expect(lobbyModel({ roomId: 'r', you: 1, hostSeat: 1, seats: seats(false, true, true) }))
+      .toMatchObject({ canStart: true, hint: '3명으로 시작합니다 · 시작하면 더 들어올 수 없습니다' });
+    expect(lobbyModel({ roomId: 'r', you: 1, hostSeat: 1, seats: seats(false, true, true, true, true, true) }))
+      .toMatchObject({ canStart: true, hint: '' });
+    const guest = lobbyModel({ roomId: 'r', you: 2, hostSeat: 1, seats: seats(false, false) });
+    expect(guest).toMatchObject({ isHost: false, canStart: false, hint: '' });
+    expect(guest.rows[1]!.showState).toBe(true);
+  });
   test('submitting twice (Enter during IME, double click) sends one join (review focus 5)', async () => {
     const root = document.createElement('div');
     let calls = 0; let release!: () => void;

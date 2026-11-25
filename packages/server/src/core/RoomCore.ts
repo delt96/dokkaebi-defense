@@ -411,7 +411,7 @@ export class RoomCore {
 
   private onStart(link: ClientLink, seat: number): void {
     if (seat !== this.hostSeat) return this.notice(link, { kind: 'roomError', reason: 'notHost' });
-    for (const s of this.seats.values()) if (!s.ready) return this.notice(link, { kind: 'roomError', reason: 'notReady' });
+    for (const s of this.seats.values()) if (s.seat !== this.hostSeat && !s.ready) return this.notice(link, { kind: 'roomError', reason: 'notReady' });
     this.start();
   }
 
