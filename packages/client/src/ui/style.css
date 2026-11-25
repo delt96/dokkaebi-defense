@@ -888,3 +888,19 @@ button[data-action="sell"].armed { color: #ffb396; border-color: var(--danger); 
 }
 @keyframes refusal-in { from { opacity: 0; } }
 @keyframes refusal-shake { 20%, 60% { transform: translateX(-2px); } 40%, 80% { transform: translateX(2px); } }
+/* design ⑫: the end scene over the board (layer 6); a press anywhere on it skips to the result */
+#end-scene { position: absolute; left: 128px; top: 24px; width: 400px; height: 308px; display: flex; align-items: center; justify-content: center; background: #0d0a1480; cursor: pointer; }
+#end-scene[hidden] { display: none; }
+body.online #end-scene { height: 292px; }
+#end-scene .end-box { padding: 8px 18px; background: #1a0f14f2; border: 1px solid #ff836a; color: #ffd0c4; text-align: center; }
+#end-scene .end-box.win { border-color: var(--accent); }
+#end-scene .end-title { display: block; color: #fff; font-size: 13px; font-weight: bold; }
+#end-scene .end-sub { display: block; margin-top: 3px; color: #b8aabb; font-size: 10px; }
+#stage.end-scene #lane { filter: grayscale(1) brightness(.75); }
+@media (prefers-reduced-motion: no-preference) {
+  body:not(.fx-reduced) #lane { transition: filter 300ms cubic-bezier(.2, .8, .2, 1); }
+  body:not(.fx-reduced) #end-scene { animation: slot-fade 300ms cubic-bezier(.2, .8, .2, 1); }
+  body:not(.fx-reduced) #end-scene .end-box { animation: end-box-in 180ms cubic-bezier(.2, .8, .2, 1); }
+  :root[data-end-cover] body:not(.fx-reduced) #screen, :root[data-end-cover] body:not(.fx-reduced) #modal:has(> .modal.result) { animation: slot-fade 240ms cubic-bezier(.2, .8, .2, 1); }
+}
+@keyframes end-box-in { from { opacity: 0; transform: scale(.96); } }

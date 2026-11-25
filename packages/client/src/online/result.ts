@@ -167,11 +167,16 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
 }
 
 
-/** Shows the team result in `root` when it arrives (also when a rejoin snapshot already carries it). */
+/**
+ * Shows the team result in `root` when it arrives (also when a rejoin snapshot already carries it).
+ * `hold` puts off the first showing until it calls back (the end scene); later redraws come at once.
+ */
 export function mountResult(net: NetClient, root: HTMLElement, data: GameData,
   go: (href: string) => void = href => location.assign(href),
-  goRematch?: (roomId: string, hostToken?: string) => void): void {
+  goRematch?: (roomId: string, hostToken?: string) => void,
+  hold?: (show: () => void) => void): void {
   const ui: ResultUi = { opened: null, rematching: false, closed: false };
+  let held: 'no' | 'waiting' | 'done' = hold ? 'no' : 'done';
   let retry: ReturnType<typeof setTimeout> | undefined;
   let destination: Extract<NoticeMsg, { kind: 'rematch' }> | undefined;
   let moving = false;
@@ -187,7 +192,12 @@ export function mountResult(net: NetClient, root: HTMLElement, data: GameData,
   };
   const show = (): void => {
     const result = net.view?.result;
-    if (!result) return;
+    if (!result || held === 'waiting') return;
+    if (held === 'no') {
+      held = 'waiting';
+      hold!(() => { held = 'done'; show(); });
+      return;
+    }
     const names: Record<number, string> = {};
     for (const r of net.view?.rows ?? []) names[r.seat] = r.name;
     renderResult(root, result, names, data, {

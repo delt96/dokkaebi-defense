@@ -44,15 +44,15 @@ export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: 
   if (band) new ResizeObserver(fit).observe(band);
   fit();
 
-  mountUi(driver, scene, {}, {
+  const ui = mountUi(driver, scene, {}, {
     online: true, view: () => net.view, data,
     targetKey: `dorandi.target:${net.roomId}:${net.view?.me.seat}`,
     actions: onlineActions(net),
   });
 
-  // the team result (also carried by a rejoin snapshot) covers the stage
+  // the team result (also carried by a rejoin snapshot) covers the stage, after the end scene when one runs
   const screen = document.getElementById('screen');
-  if (screen) mountResult(net, screen, data, undefined, goRematch);
+  if (screen) mountResult(net, screen, data, undefined, goRematch, show => ui.afterEndScene(show));
 
   if (import.meta.env.DEV) Object.assign(window, { __net: net, __driver: driver, __scene: scene });
 }

@@ -124,3 +124,36 @@ describe('result screen connection (checkpoint 17-19, finding 5)', () => {
     expect(room.sent.filter(s => s.type === 'rematch')).toHaveLength(2);
   });
 });
+
+describe('result screen after the end scene (design ⑫)', () => {
+  function held(hold?: (show: () => void) => void) {
+    const full = fixtureFull();
+    const room = new FakeRoom();
+    const net = new NetClient(room, full.dataVersion);
+    room.emit('full', full);
+    const root = document.createElement('div');
+    mountResult(net, root, data, vi.fn(), vi.fn(), hold);
+    return { room, root };
+  }
+
+  test('with hold the first show waits for its callback; later shows come at once', () => {
+    const waiting: (() => void)[] = [];
+    const hold = vi.fn((show: () => void) => { waiting.push(show); });
+    const { room, root } = held(hold);
+    room.emit('result', { result });
+    room.emit('view', {});
+    expect(root.querySelector('.result-screen')).toBeNull();
+    expect(hold).toHaveBeenCalledOnce();
+    waiting[0]!();
+    expect(root.querySelector('.result-screen')).not.toBeNull();
+    room.emit('notice', { kind: 'rematchReady', seats: [1] });
+    expect(root.querySelector('[role="status"]')?.textContent).toContain('재경기 준비 1/6명');
+    expect(hold).toHaveBeenCalledOnce();
+  });
+
+  test('without hold the result shows at once as before', () => {
+    const { room, root } = held();
+    room.emit('result', { result });
+    expect(root.querySelector('.result-screen')).not.toBeNull();
+  });
+});

@@ -3,7 +3,7 @@ import {
 } from '@dorandi/logic';
 import { SPEEDS, type Driver } from '../driver';
 import { isTypingTarget } from '../online/entry';
-import { arrivalModel, gateCountdown, gateDeadlineRound, rightNotices, type GateCountdown } from '../online/models';
+import { arrivalModel, gateCountdown, gateDeadlineRound, rightNotices, STAGE_NAME, type GateCountdown } from '../online/models';
 import { arrivalHtml, countdownHtml, renderRows, renderTop } from '../online/panels';
 import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
@@ -26,7 +26,9 @@ import {
 import { el, esc, focusedIn, onAction, refocusIn, setHtml } from './dom';
 import { helperPopHtml } from './helper';
 import { edgeLevel, renderAlert, renderHud } from './hud';
-import { loopOwner, OneShots, refusalPos, refusalSpot, TopSlot, type RefusalSpot, type SlotItem, type SlotShown } from './signals';
+import {
+  END_SCENE_SUB, EndScene, endSceneText, loopOwner, OneShots, refusalPos, refusalSpot, TopSlot, type EndKind, type RefusalSpot, type SlotItem, type SlotShown,
+} from './signals';
 import { PressConfirm } from './confirm';
 import {
   boardMarks, hudModel, boardUnits, dexBack, dexFold, dexGo, dexNavStart, dexToggle, roleList, MINE_KEYS, NO_MARKS, moveStep, nextCombines, nextPick, nextUnitId,
@@ -53,6 +55,8 @@ const NEAR_OUT_MS = 110;
 /** The countdown number swells once a second from this many seconds left. */
 const PULSE_FROM = 5;
 const DEADLINE_TAIL = ' · 관문 마감';
+/** Design ⑫: the result screen or window fades in over this long after the end scene (CSS :root[data-end-cover]). */
+const COVER_MS = 240;
 const CONFIRM_SELL_GRADE = 3;
 /** Economy notices stay a little longer than a refusal. */
 const NOTE_MS = 2500;
@@ -90,7 +94,7 @@ const OPENERS: Partial<Record<SideWin, string>> = {
 export interface OnlineActions { support(): void; watch(seat: number): void; forfeit(): void }
 export interface MountOpts { online?: boolean; view?: () => ClientView | null; data?: GameData; actions?: OnlineActions; targetKey?: string }
 
-export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, opts: MountOpts = {}): { resetUi: () => void } {
+export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, opts: MountOpts = {}): { resetUi: () => void; afterEndScene: (cb: () => void) => void } {
   const online = opts.online === true;
   scene.selectedId = null;
   let displayedCard: ReturnType<typeof renderBottom> | null = null;
@@ -145,12 +149,19 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let helpLine = readHelpLine();
   let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | null = null;
   let sides: Sides = NO_SIDES;
+  // design ⑫: the end scene runs once, when this screen sees the game end; a screen mounted on an ended game (a rejoin) skips it
+  const endScene = new EndScene();
+  const endedNow = () => (online ? !!opts.view?.()?.result : driver.state.phase === 'ended');
+  let endSeen = endedNow();
+  let sceneRunning = false;
+  let afterScene: (() => void)[] = [];
+  let coverUntil = 0;
   // online Q: the left window beside the board, or laid over the six rows when the windows sit on the board
   const helperOpen = () => sides.left === 'helper';
   const locked = () => sidesLocked({
     locking: modal !== null || (!online && driver.state.phase === 'ended'),
     paused: !online && userPaused,
-    scene: driver.state.phase === 'ended',
+    scene: driver.state.phase === 'ended' || sceneRunning,
     portrait: false,
     failed: driver.failed,
   });
@@ -237,6 +248,13 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     node.innerHTML = '<b class="pause-title">멈춤</b><button data-action="resume">계속 (P)</button>';
     el('stage').append(node);
   }
+  if (!document.getElementById('end-scene')) {
+    const node = document.createElement('div');
+    node.id = 'end-scene';
+    node.hidden = true;
+    el('stage').append(node);
+  }
+  el('end-scene').addEventListener('click', () => skipScene());
   if (!document.getElementById('slot-say')) {
     const node = document.createElement('div');
     node.id = 'slot-say';
@@ -746,10 +764,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (driver.failed || ev.defaultPrevented || ev.isComposing || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
     const target = ev.target as HTMLElement | null;
     if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
+    if (sceneRunning && (ev.code === 'Enter' || ev.code === 'NumpadEnter')) {
+      ev.preventDefault();
+      skipScene();
+      return;
+    }
     if (ev.code === 'Escape') {
-      // a locking window first, then the last side window opened, then a waiting move, then the selection
-      const step = escStep({ scene: false, locking: modal !== null, sidesLocked: locked(), sides });
-      if (step === 'locking') act('closeModal', '');
+      // the end scene first, then a locking window, then the last side window opened, then a waiting move, then the selection
+      const step = escStep({ scene: sceneRunning, locking: modal !== null, sidesLocked: locked(), sides });
+      if (step === 'scene') skipScene();
+      else if (step === 'locking') act('closeModal', '');
       else if (step === 'left' || step === 'right') act('closeWin', step);
       else {
         if (!isMoving()) inspectedStack = null;
@@ -760,7 +784,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     }
     if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }
     if (online && modal === 'settings' && ev.code === 'KeyQ' && !ev.shiftKey && driver.state.phase !== 'ended') { act('toggleHelper', ''); return; }
-    if (modal || driver.state.phase === 'ended') return;
+    if (modal || sceneRunning || driver.state.phase === 'ended') return;
     // side-window keys do nothing under a lock (P pause too), so a paused board buys nothing
     const buy = UPGRADE_KEYS[ev.code];
     const quests = ev.code === 'KeyJ' && !!driver.state.data.economy;
@@ -840,7 +864,59 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     }
   });
 
+  /**
+   * Starts the end scene the first time the game is seen ended and closes a locking window then; when the scene is
+   * over (its time or a skip) the waiting callbacks run. Returns whether the scene is on.
+   */
+  function watchEnd(now: number): boolean {
+    const ended = endedNow();
+    if (!ended) endSeen = false;
+    else if (!endSeen) {
+      endSeen = true;
+      const v = online ? opts.view?.() ?? null : null;
+      const kind: EndKind = v?.result ? v.result.outcome : driver.state.result?.outcome === 'clear' ? 'soloClear' : 'soloDefeat';
+      endScene.start(kind, endSceneText(kind, kind === 'gate' && v ? STAGE_NAME[v.gate.stage] : undefined), now);
+      sceneRunning = true;
+      if (modal === 'dex') dexRemember();
+      modal = null;
+    }
+    const on = ended && endScene.active(now);
+    if (sceneRunning && !on) {
+      sceneRunning = false;
+      coverUntil = ended && !scene.reduceEffects ? now + COVER_MS : 0;
+      const waiting = afterScene;
+      afterScene = [];
+      for (const cb of waiting) cb();
+    }
+    return on;
+  }
+  function skipScene(): void {
+    if (!sceneRunning) return;
+    endScene.skip();
+    render();
+  }
+  function afterEndScene(cb: () => void): void {
+    if (watchEnd(performance.now())) afterScene.push(cb);
+    else cb();
+  }
+  /** #end-scene over the board while the scene is on; the board stays grey under the result until the next game. */
+  function drawEndScene(on: boolean, ended: boolean): void {
+    const node = el('end-scene');
+    const text = on ? endScene.text : null;
+    if (text && !node.firstChild) {
+      const win = endScene.kind === 'clear' || endScene.kind === 'soloClear';
+      node.innerHTML = `<div class="end-box${win ? ' win' : ''}"><b class="end-title">${esc(text)}</b><span class="end-sub">${esc(END_SCENE_SUB)}</span></div>`;
+      node.hidden = false;
+      el('slot-say').textContent = text;
+    } else if (!text && node.firstChild) {
+      node.replaceChildren();
+      node.hidden = true;
+    }
+    el('stage').classList.toggle('end-scene', ended && endScene.kind !== null);
+  }
+
   function render(): void {
+    const sceneOn = watchEnd(performance.now());
     const s = driver.state;
     // design ⑰: the end of the game closes a locking window, whose choices no longer mean anything; side windows only lock
     if (s.phase === 'ended' && modal) {
@@ -926,6 +1002,13 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const shownSlot = s.phase === 'ended' ? null : topSlot.current(now, countdownShown !== null);
     const moved = renderSlot(shownSlot, prompts, now, countdownShown && { c: countdownShown, pulse, leaving: !cd });
     renderSlotRow(s, view, now);
+    // after the slot: its emptied sentence must not wipe the scene's words from #slot-say
+    drawEndScene(sceneOn, endedNow());
+    const rootData = document.documentElement.dataset;
+    if ((now < coverUntil) !== ('endCover' in rootData)) {
+      if (now < coverUntil) rootData.endCover = '';
+      else delete rootData.endCover;
+    }
     if (view && driver.readOnly) {
       setHtml(el('right'), `<b class="watch-heading">고개 관전</b><p class="watch-hint">왼쪽에서 살아 있는 고개를 고르세요. 아래 카드로 엽전을 보낼 수 있습니다.</p>`);
     } else {
@@ -950,7 +1033,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     ) : '');
     if (sides.left === 'details' && (selected === null || spiritCard)) sides = closeSide(sides, 'left');
     // online the team result screen (Task 19) replaces the 1-player result window
-    const soloResult = !online && s.phase === 'ended';
+    const soloResult = !online && s.phase === 'ended' && !sceneOn;
     const lockOpen = modal !== null || soloResult;
     const wins = currentWins();
     renderSides(s, wins, selected, helperWin);
@@ -1309,9 +1392,11 @@ ${dex.mine.join()}`;
     countdownShown = null;
     countdownGone = 0;
     marketCell?.remove();
+    endScene.skip();
+    afterScene = [];
     render();
   }
-  return { resetUi };
+  return { resetUi, afterEndScene };
 }
 
 export function unitName(driver: Driver, defId: string): string {

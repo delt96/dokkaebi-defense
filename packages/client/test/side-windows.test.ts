@@ -230,6 +230,10 @@ describe('solo side windows', () => {
     s.result = { outcome: 'defeat', reason: 'limit', round: 3 };
     frame();
     expect($('#modal .settings-pop')).toBeNull();
+    // design ⑫: the result window comes after the end scene
+    expect($('#end-scene')!.textContent).toContain('장승이 쓰러졌습니다');
+    expect($('#win-right')!.inert).toBe(true);
+    press($('#end-scene'));
     expect($('#modal .result')).not.toBeNull();
     expect(upgrades()).not.toBeNull();
     expect($('#win-right')!.inert).toBe(true);
