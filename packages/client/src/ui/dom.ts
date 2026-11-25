@@ -47,14 +47,47 @@ export function refocusIn(node: HTMLElement, mark: FocusMark | null, fallback: s
   (same ?? node.querySelector<HTMLElement>(fallback))?.focus({ preventScroll: true });
 }
 
+/** A finger that moves this far (page px) is scrolling, not tapping. */
+const TAP_SLOP_PX = 10;
+
 export function onAction(node: HTMLElement, handler: (action: string, arg: string) => void): void {
-  const activate = (ev: Event) => {
+  const pressed = (ev: Event) => {
     const target = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');
-    if (!target || !node.contains(target) || target.hasAttribute('disabled')) return;
-    handler(target.dataset.action!, target.dataset.arg ?? '');
+    return target && node.contains(target) && !target.hasAttribute('disabled') ? target : null;
   };
-  // Handle the press before a panel redraw can remove the pointer target.
-  node.addEventListener('pointerdown', ev => { if (ev.button === 0) activate(ev); });
+  const activate = (ev: Event) => {
+    const target = pressed(ev);
+    if (target) handler(target.dataset.action!, target.dataset.arg ?? '');
+  };
+  let tap: { id: number; x: number; y: number; action: string; arg: string } | null = null;
+  let watching = false;
+  // The lift can land outside `node` (or on nothing, after a redraw), so the rest of a touch is followed on window.
+  const watchTouch = () => {
+    if (watching) return;
+    watching = true;
+    window.addEventListener('pointermove', ev => {
+      if (tap && ev.pointerId === tap.id && Math.hypot(ev.clientX - tap.x, ev.clientY - tap.y) > TAP_SLOP_PX) tap = null;
+    });
+    window.addEventListener('pointercancel', ev => { if (tap && ev.pointerId === tap.id) tap = null; });
+    window.addEventListener('pointerup', ev => {
+      const t = tap;
+      if (!t || ev.pointerId !== t.id) return;
+      tap = null;
+      if (Math.hypot(ev.clientX - t.x, ev.clientY - t.y) > TAP_SLOP_PX) return;
+      const now = Array.from(node.querySelectorAll<HTMLElement>('[data-action]'))
+        .find(e => e.dataset.action === t.action && (e.dataset.arg ?? '') === t.arg);
+      if (now && !now.hasAttribute('disabled')) handler(t.action, t.arg);
+    });
+  };
+  // Handle a mouse press before a panel redraw can remove the pointer target.
+  // A touch would fire the button a scroll starts on, so it waits for the lift and remembers the button by its data.
+  node.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0) return;
+    if (ev.pointerType !== 'touch' && ev.pointerType !== 'pen') return activate(ev);
+    watchTouch();
+    const target = pressed(ev);
+    tap = target && { id: ev.pointerId, x: ev.clientX, y: ev.clientY, action: target.dataset.action!, arg: target.dataset.arg ?? '' };
+  });
   // Keyboard and assistive technology produce clicks without a pointer press.
   node.addEventListener('click', ev => { if (ev.detail === 0) activate(ev); });
 }

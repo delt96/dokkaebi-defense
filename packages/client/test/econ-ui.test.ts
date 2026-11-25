@@ -203,9 +203,10 @@ describe('market hotkey', () => {
     const scene = new FakeScene();
     mountUi(driver, scene as never);
     keydown(window, { code: 'KeyB' });
-    const tap = (selector: string) => document.querySelector(selector)!.dispatchEvent(new PointerEvent('pointerdown', {
-      bubbles: true, pointerType: 'touch', button: 0,
-    }));
+    const tap = (selector: string) => {
+      const target = document.querySelector(selector)!;
+      for (const type of ['pointerdown', 'pointerup']) target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'touch', button: 0 }));
+    };
     tap('[data-market-focus="info-coin"]');
     expect(document.getElementById('gamble-info')!.textContent).toContain('1등급 75%');
     driver.update(50);
