@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import type { GameData } from '@dorandi/logic';
 import { bindBattleAudio } from '../audio/battle';
 import { LaneScene } from '../LaneScene';
-import { LANE_CANVAS_ONLINE, STAGE_H, STAGE_W, stagePlacement } from '../layout';
+import { applyLayout } from '../fit';
+import { LANE_CANVAS_ONLINE, screenLayout } from '../layout';
 import type { NetClient } from '../net/NetClient';
 import { NetDriver } from '../net/NetDriver';
 import { mountUi } from '../ui/mount';
@@ -34,13 +35,9 @@ export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: 
   const stage = document.getElementById('stage')!;
   const band = document.getElementById('conn-band');
   function fit(): void {
-    const { innerWidth: width, innerHeight: height } = window;
-    const available = height - (band?.offsetHeight ?? 0);
-    const p = stagePlacement(width, height);
-    const zoom = band?.offsetHeight ? Math.min(p.zoom, available / STAGE_H) : p.zoom;
-    stage.style.transform = `scale(${zoom})`;
-    stage.style.left = `${Math.max(0, Math.floor((width - STAGE_W * zoom) / 2))}px`;
-    stage.style.top = `${Math.floor(Math.max(0, available - STAGE_H * zoom) / 2)}px`;
+    // the band is scaled by CSS zoom, so read its drawn height rather than offsetHeight
+    const bandH = band?.getBoundingClientRect().height ?? 0;
+    applyLayout(screenLayout(window.innerWidth, window.innerHeight, { band: bandH, online: true }), stage);
     game.scale.refresh();
   }
   window.addEventListener('resize', fit);
