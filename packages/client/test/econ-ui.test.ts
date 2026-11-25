@@ -298,4 +298,30 @@ describe('T under the health bar', () => {
     scene.onFrame!();
     expect(box.innerHTML).toBe('');
   });
+
+  test('while a pillar window is open the button stays between the pillars', () => {
+    const s = lane(10, 30);
+    const driver = new GameDriver(s);
+    const at = { x: 210, y: 120 };
+    const scene = {
+      selectedId: null as number | null, onFrame: undefined as (() => void) | undefined,
+      onSelect() {}, onEvents() {}, enemyBarAnchor: () => ({ ...at }),
+    };
+    spawnEnemyForTest(s, 'jinegaksi', 3, 5000);
+    mountUi(driver, scene as never);
+    const box = document.getElementById('tame-anchor')!;
+    Object.defineProperty(box, 'offsetWidth', { value: 120 });
+    scene.onFrame!();
+    expect(box.style.left).toBe('210px');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true, cancelable: true }));
+    expect(document.getElementById('stage')!.classList.contains('pillar-open')).toBe(true);
+    scene.onFrame!();
+    expect(box.style.left).toBe('260px');
+    at.x = 440;
+    scene.onFrame!();
+    expect(box.style.left).toBe('394px');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true, cancelable: true }));
+    scene.onFrame!();
+    expect(box.style.left).toBe('440px');
+  });
 });

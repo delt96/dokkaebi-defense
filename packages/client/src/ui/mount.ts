@@ -7,7 +7,7 @@ import { rightNotices } from '../online/models';
 import { renderRows, renderTop } from '../online/panels';
 import { menuHtml, spiritCardHtml, spiritModel } from '../online/spirit';
 import type { LaneScene } from '../LaneScene';
-import { cellCorner, cellPx, CENTER_X, CENTER_Y, type WinPlace } from '../layout';
+import { cellCorner, cellPx, CENTER_X, CENTER_Y, NOTICE_SPAN, type WinPlace } from '../layout';
 import { currentWins } from '../fit';
 import { gameAudio } from '../audio/engine';
 import { wireAudioSettings } from '../audio/settings-ui';
@@ -1011,7 +1011,14 @@ ${dex.mine.join()}`;
     if (!box.style) return;
     const at = shownTame ? scene.enemyBarAnchor?.(shownTame.enemyId) ?? null : null;
     box.classList.toggle('floating', at !== null);
-    box.style.left = at ? `${Math.round(at.x)}px` : '';
+    let x = at?.x ?? 0;
+    // a pillar window sits over the board, so a box following an enemy on a side path would slide under it
+    if (at && el('stage').classList.contains('pillar-open')) {
+      const half = box.offsetWidth / 2;
+      const lo = NOTICE_SPAN.x + half, hi = NOTICE_SPAN.x + NOTICE_SPAN.w - half;
+      x = lo > hi ? NOTICE_SPAN.x + NOTICE_SPAN.w / 2 : Math.min(Math.max(x, lo), hi);
+    }
+    box.style.left = at ? `${Math.round(x)}px` : '';
     box.style.top = at ? `${Math.round(at.y)}px` : '';
   }
 
