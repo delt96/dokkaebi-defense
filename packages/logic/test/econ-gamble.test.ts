@@ -41,7 +41,7 @@ test.each([
 
 test.each([
   ['small', 0, .4, 0], ['small', .4, .85, 3], ['small', .85, .98, 4], ['small', .98, 1, 5],
-  ['big', 0, .35, 0], ['big', .35, .81, 4], ['big', .81, .98, 5], ['big', .98, .995, 6], ['big', .995, 1, 'hidden'],
+  ['big', 0, .25, 0], ['big', .25, .5, 4], ['big', .5, .98, 5], ['big', .98, .995, 6], ['big', .995, 1, 'hidden'],
 ] as const)('%s table outcome in [%s, %s) is %s', (table, lo, hi, result) => {
   const s = lane();
   s.econ!.rng.gambleUnit = fixedRoll(lo, hi);
