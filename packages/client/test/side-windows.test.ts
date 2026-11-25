@@ -1,4 +1,7 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createGame, loadGameData } from '@dorandi/logic';
 import { forceRound, placeUnitForTest, withoutMarketLock } from '@dorandi/logic/testing';
@@ -17,6 +20,7 @@ class FakeScene {
   onEvents(): void {}
   showGambleResult(): void {}
   showBirth(): void {}
+  setNoticeSpan = vi.fn();
   select(slot: number | null): void { this.selectCb?.(slot); }
 }
 
@@ -114,6 +118,38 @@ describe('solo side windows', () => {
     document.documentElement.dataset.wins = 'inside';
     frame();
     expect($('#right')!.inert).toBe(true);
+  });
+
+  test('a pillar window narrows the notice zone; outside windows do not', () => {
+    const { scene } = mountSolo();
+    const stage = $('#stage')!;
+    expect(stage.classList.contains('pillar-open')).toBe(false);
+    expect(scene.setNoticeSpan).not.toHaveBeenCalled();
+    key('KeyE');
+    expect(stage.classList.contains('pillar-open')).toBe(true);
+    expect(scene.setNoticeSpan.mock.calls).toEqual([[true]]);
+    key('KeyE');
+    expect(stage.classList.contains('pillar-open')).toBe(false);
+    expect(scene.setNoticeSpan.mock.calls).toEqual([[true], [false]]);
+    document.documentElement.dataset.wins = 'outside';
+    key('KeyE');
+    expect(upgrades()).not.toBeNull();
+    expect(stage.classList.contains('pillar-open')).toBe(false);
+    expect(scene.setNoticeSpan.mock.calls).toEqual([[true], [false]]);
+  });
+
+  test('style.css narrows the zone under .pillar-open and keeps the chip row narrow in the pillar layout', () => {
+    const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/ui/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = (sel: string) => css.split('}').find(r => r.split('{')[0]!.split(',').map(x => x.trim()).includes(sel))?.split('{')[1] ?? '';
+    for (const sel of ['#stage.pillar-open #round-banner', '#stage.pillar-open #econ-top']) {
+      expect(rule(sel)).toContain('left: 200px');
+      expect(rule(sel)).toMatch(/(^|[^-])width: 254px/);
+    }
+    expect(rule('#stage.pillar-open #tame-anchor:not(.floating)')).toContain('left: 200px');
+    expect(rule('#stage.pillar-open #tame-anchor:not(.floating)')).toContain('max-width: 254px');
+    expect(rule('#stage.pillar-open .countdown')).toContain('left: 327px');
+    expect(rule('#stage.pillar-open .countdown')).toContain('max-width: 254px');
+    expect(rule(':root[data-wins="inside"] #econ-bottom')).toMatch(/left: 200px;.*(^|[^-])width: 254px/s);
   });
 
   test('the dex, the settings, P and the end of the game lock the side windows without closing them', () => {
@@ -423,5 +459,23 @@ describe('online side windows', () => {
     expect($('#modal .modal')).toBeNull();
     press($('#top [data-action="openMenu"]'));
     expect($('#modal .modal')).not.toBeNull();
+  });
+
+  test('the helper on the board (helper-pop) does not narrow the notice zone', () => {
+    const room = new FakeRoom();
+    const full = fixtureFull();
+    const net = new NetClient(room, full.dataVersion);
+    room.emit('full', full);
+    const driver = new NetDriver(net, netData, () => clock);
+    driver.update(16);
+    const scene = new FakeScene();
+    mountUi(driver, scene as never, {}, { online: true, view: () => net.view, data: netData, actions: { support: vi.fn(), watch: vi.fn(), forfeit: vi.fn() } });
+    key('KeyQ');
+    expect($('#left .helper-pop')).not.toBeNull();
+    expect($('#stage')!.classList.contains('pillar-open')).toBe(false);
+    expect(scene.setNoticeSpan).not.toHaveBeenCalled();
+    key('KeyE');
+    expect($('#stage')!.classList.contains('pillar-open')).toBe(true);
+    expect(scene.setNoticeSpan.mock.calls).toEqual([[true]]);
   });
 });

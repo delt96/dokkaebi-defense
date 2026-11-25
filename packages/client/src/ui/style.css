@@ -512,6 +512,12 @@ body.online #econ-bottom { top: 272px; height: 42px; }
 .q button { min-height: 16px; padding: 0 4px; }
 /* one prompt row over the lane: the banner takes the second row, on one line */
 #round-banner.low { top: 47px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* design ⑯: an open pillar window (x <= 196, x >= 458) leaves the notices the board between them, x 200 to 454 */
+#stage.pillar-open #round-banner { left: 200px; width: 254px; }
+#stage.pillar-open #econ-top { left: 200px; width: 254px; }
+#stage.pillar-open .countdown { left: 327px; max-width: 254px; }
+/* design ⑧: in the pillar layout the chip row stays narrow with the windows closed too, so opening one does not rewrap it */
+:root[data-wins="inside"] #econ-bottom { left: 200px; width: 254px; }
 .market-btn .badge { margin-left: 4px; padding: 0 3px; border-radius: 2px; background: #ff9a6a; color: #1d1626; font-weight: bold; }
 .market-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 
@@ -742,6 +748,8 @@ body.online #modal .dex-browser .modal-head { position: static; padding: 0; }
 /* T 길들이기: under the target's health bar (mount moves it every frame); over the lane's top without a bar */
 #tame-anchor { position: absolute; left: 132px; top: 26px; z-index: 2; display: flex; gap: 3px; align-items: center; font-size: 9px; white-space: nowrap; }
 #tame-anchor:empty { display: none; }
+/* max-width, not width: the anchor takes presses, so a full-width box would swallow taps on the lane under it */
+#stage.pillar-open #tame-anchor:not(.floating) { left: 200px; max-width: 254px; overflow: hidden; }
 #tame-anchor.floating { transform: translate(-50%, 2px); padding: 1px 2px; background: #10101acc; border-radius: 2px; }
 #tame-anchor button { min-height: 14px; padding: 0 3px; font-size: 9px; line-height: 12px; }
 #tame-anchor .tame-hp { color: var(--ink-dim); text-shadow: 0 0 2px #000; }

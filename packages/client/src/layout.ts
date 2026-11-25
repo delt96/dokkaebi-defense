@@ -25,6 +25,9 @@ export const LANE_CANVAS_ONLINE = { width: CENTER_W, height: ONLINE_CENTER_H };
  */
 export const STORAGE_BOX = { x: 130, y: 70, w: 66, h: 200 } as const;
 
+/** The notice zone (stage px) between the two board pillars while a pillar window is open. */
+export const NOTICE_SPAN = { x: 200, w: 254 } as const;
+
 /** Whether a point in lane-canvas pixels lies over the storage column. */
 export function canvasInStorage(x: number, y: number): boolean {
   const sx = x + CENTER_X;

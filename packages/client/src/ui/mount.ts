@@ -81,6 +81,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let targetId = readTarget(opts.targetKey);
   let targetFolded = false;
   let banner: Notice | null = null;
+  let noticeNarrow = false;
   // the dex keeps its filters, search and recent searches across openings (and, in localStorage, across visits)
   let dex: DexNav = { ...dexNavStart(), ...loadView() };
   let dexRecent = loadRecent();
@@ -833,6 +834,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (active && (el('left').contains(active) || el('storage').contains(active))) active.blur();
     }
     scene.storageCovered = covered.includes('storage');
+    const narrow = covered.length > 0;
+    el('stage').classList.toggle('pillar-open', narrow);
+    if (narrow !== noticeNarrow) {
+      noticeNarrow = narrow;
+      scene.setNoticeSpan?.(narrow);
+    }
     for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
       el(id).inert = lockOpen || covered.includes(id);
     }

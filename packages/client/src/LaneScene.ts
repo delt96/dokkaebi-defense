@@ -5,7 +5,7 @@ import {
 import { NO_MARKS, selectedSlot, type BoardMarks } from './ui/models';
 import type { Driver } from './driver';
 import type { BirthBanner } from './ui/birth';
-import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, canvasInStorage, gradeShape, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
+import { CELL, CENTER_H, CENTER_W, CENTER_X, CENTER_Y, GRADE_COLOR, NOTICE_SPAN, canvasInStorage, gradeShape, canvasToCell, cellCorner, cellPx, laneToCanvas } from './layout';
 import { FX_DEPTH, FxLayer, type AuraView, type StatusView } from './fx/FxLayer';
 import { FX_FILES, SMALL_IDS, SPRITE_IDS, loadArt, smallFile, smallKey, spriteFile } from './art';
 import { spriteKey, tameArt } from './sprites';
@@ -143,6 +143,13 @@ export class LaneScene extends Phaser.Scene {
     this.fx?.setReduced(on);
   }
 
+  private noticeNarrow = false;
+  /** Design ⑯: while a pillar window is open, toasts and birth bands keep to the board between the pillars. */
+  setNoticeSpan(narrow: boolean): void {
+    this.noticeNarrow = narrow;
+    this.fx?.setNoticeSpan(narrow ? { x: NOTICE_SPAN.x - CENTER_X, w: NOTICE_SPAN.w } : null);
+  }
+
   /** Running transient effects (for the headless performance check). */
   get fxCount(): number { return this.fx?.activeCount ?? 0; }
   get lane(): Lane { return laneOf(this.state); }
@@ -190,6 +197,7 @@ export class LaneScene extends Phaser.Scene {
       height: this.canvasHeight,
     });
     this.fx.setReduced(this.reduceFx);
+    this.setNoticeSpan(this.noticeNarrow);
     this.driver.onEvents(events => this.handleEvents(events));
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', (p: Phaser.Input.Pointer, hit: Phaser.GameObjects.GameObject[]) => {

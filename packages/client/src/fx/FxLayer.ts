@@ -35,6 +35,12 @@ export interface FxHost {
 }
 
 /** An enemy's status as drawn: `feet` is the bottom of its sprite, `scale` the sprite's scale. */
+/** Where toasts and birth bands centre (cx) and how far a band reaches either side (half), in canvas px. */
+export function noticeBand(hostWidth: number, span: { x: number; w: number } | null): { cx: number; half: number } {
+  if (!span) return { cx: hostWidth / 2, half: hostWidth / 2 };
+  return { cx: span.x + span.w / 2, half: span.w / 2 };
+}
+
 export interface StatusView { id: number; defId: string; x: number; y: number; feet: number; scale: number; r: number; status: EnemyStatus }
 /** A unit standing in an ally aura (feet = bottom of its sprite). */
 export interface AuraView { id: number; x: number; feet: number }
@@ -59,6 +65,7 @@ export class FxLayer {
   private readonly toastText: Phaser.GameObjects.Text;
   private readonly bannerText: Phaser.GameObjects.Text;
   private toastUntil = 0;
+  private noticeSpan: { x: number; w: number } | null = null;
   private toastStart = 0;
   private bannerUntil = 0;
   private bannerStart = 0;
@@ -94,7 +101,7 @@ export class FxLayer {
     this.air = scene.add.graphics().setDepth(FX_DEPTH.air);
     this.top = scene.add.graphics().setDepth(FX_DEPTH.top);
     const label = { fontFamily: 'sans-serif', fontStyle: 'bold', stroke: '#140c18', strokeThickness: 3, padding: { top: 2 } };
-    this.toastText = scene.add.text(host.width / 2, 30, '', { ...label, fontSize: '13px', color: '#ffd28a' }).setOrigin(0.5).setDepth(FX_DEPTH.text).setVisible(false);
+    this.toastText = scene.add.text(host.width / 2, 30, '', { ...label, fontSize: '13px', color: '#ffd28a', align: 'center' }).setOrigin(0.5).setDepth(FX_DEPTH.text).setVisible(false);
     this.bannerText = scene.add.text(host.width / 2, Math.round(host.height * 0.5), '', { ...label, fontSize: '13px', color: '#ffe0d6' }).setOrigin(0.5).setDepth(FX_DEPTH.text).setVisible(false);
     this.birthWho = scene.add.text(0, 0, '', { ...label, fontSize: '11px', color: '#f3e6c8' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
     this.birthTitle = scene.add.text(0, 0, '', { ...label, fontSize: '20px', color: '#ffe35a' }).setOrigin(0, 0.5).setDepth(FX_DEPTH.text).setVisible(false);
@@ -124,6 +131,11 @@ export class FxLayer {
       }
       this.ready.add(key);
     }
+  }
+
+  setNoticeSpan(span: { x: number; w: number } | null): void {
+    this.noticeSpan = span;
+    this.toastText.setX(noticeBand(this.host.width, span).cx).setWordWrapWidth(span ? span.w : null);
   }
 
   setReduced(on: boolean): void {
@@ -315,7 +327,7 @@ export class FxLayer {
       return;
     }
     const b = cur.banner;
-    const w = this.host.width;
+    const { cx, half: reach } = noticeBand(this.host.width, this.noticeSpan);
     const { y, half } = birthBand(this.host.height);
     if (this.shownBirth !== b) {
       if (this.shownBirth) this.birthKeys.delete(this.shownBirth);
@@ -324,24 +336,27 @@ export class FxLayer {
       this.birthWho.setText(b.who);
       this.birthTitle.setText(b.title).setColor(`#${b.color.toString(16).padStart(6, '0')}`);
       this.birthSub.setText(b.sub);
-      const textW = Math.max(this.birthWho.width, this.birthTitle.width, this.birthSub.width);
-      const imgW = key ? 64 + 10 : 0;
-      const left = Math.round((w - imgW - textW) / 2);
-      if (key) this.birthImage.setTexture(key).setPosition(left + 32, y);
+      if (key) this.birthImage.setTexture(key);
       this.birthImage.setVisible(!!key);
-      const tx = left + imgW;
-      this.birthWho.setPosition(tx, y - 19).setVisible(true);
-      this.birthTitle.setPosition(tx, y).setVisible(true);
-      this.birthSub.setPosition(tx, y + 19).setVisible(true);
+      for (const o of [this.birthWho, this.birthTitle, this.birthSub]) o.setVisible(true);
       if (this.flags.shake) this.scene.cameras.main.shake(140, 0.003);
     }
+    // laid out every frame: a pillar window opening mid-banner moves the centre
+    const textW = Math.max(this.birthWho.width, this.birthTitle.width, this.birthSub.width);
+    const imgW = this.birthImage.visible ? 64 + 10 : 0;
+    const left = Math.round(cx - (imgW + textW) / 2);
+    this.birthImage.setPosition(left + 32, y);
+    const tx = left + imgW;
+    this.birthWho.setPosition(tx, y - 19);
+    this.birthTitle.setPosition(tx, y);
+    this.birthSub.setPosition(tx, y + 19);
     const p = (now - cur.start) / BIRTH_MS;
     const alpha = p > 0.8 ? (1 - p) / 0.2 : 1;
     const open = ease(Math.min(1, p * 6));
-    const span = (w / 2) * open;
-    this.top.fillStyle(0x1c120a, 0.88 * alpha).fillRect(w / 2 - span, y - half, span * 2, half * 2);
-    this.top.fillStyle(b.color, 0.18 * alpha).fillRect(w / 2 - span, y - half, span * 2, half * 2);
-    this.top.lineStyle(1, b.color, 0.9 * alpha).lineBetween(w / 2 - span, y - half, w / 2 + span, y - half).lineBetween(w / 2 - span, y + half, w / 2 + span, y + half);
+    const span = reach * open;
+    this.top.fillStyle(0x1c120a, 0.88 * alpha).fillRect(cx - span, y - half, span * 2, half * 2);
+    this.top.fillStyle(b.color, 0.18 * alpha).fillRect(cx - span, y - half, span * 2, half * 2);
+    this.top.lineStyle(1, b.color, 0.9 * alpha).lineBetween(cx - span, y - half, cx + span, y - half).lineBetween(cx - span, y + half, cx + span, y + half);
     for (const o of [this.birthWho, this.birthTitle, this.birthSub, this.birthImage]) o.setAlpha(alpha * open);
   }
 
