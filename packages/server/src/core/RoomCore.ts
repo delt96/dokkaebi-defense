@@ -455,7 +455,7 @@ export class RoomCore {
     playLogLines(randomUUID(), summary, this.recording()).then(lines => { for (const line of lines) log(line); }, () => {});
   }
 
-  /** "4명 · 70라운드 보통" for the log lines. */
+  /** "4명 · 60라운드 보통" for the log lines. */
   private playLabel(): string {
     const mode = this.stage === 'stage3' ? `${this.match!.data.balance.rounds}라운드 ${DIFFICULTY_TEXT[this.difficulty ?? 'normal']}` : '20라운드';
     return `${this.match!.ring.length}명 · ${mode}`;

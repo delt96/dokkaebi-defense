@@ -57,8 +57,9 @@ const BOSS_ROUNDS = [10, 20, 30, 40, 50, 60, 70] as const;
 // grade 6 and coin counts are taken at the start of round 60, the old last round, so results stay comparable
 // with the measurements made before the game grew to 70 rounds
 const COMPARE_ROUND = 60;
-type BossCol = `boss${(typeof BOSS_ROUNDS)[number]}`;
-type MukCol = `muk${(typeof BOSS_ROUNDS)[number]}`;
+type BossRound = (typeof BOSS_ROUNDS)[number];
+type BossCol = `boss${BossRound}`;
+type MukCol = `muk${BossRound}`;
 
 export type RunBot = Bot & { currentTarget?(): string | null };
 
@@ -159,7 +160,8 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
   const rewardSeats = new Set(SEATS);
   const yeoksinSeconds: (number | null)[] = (d.coop?.yeoksin ?? []).map(() => null);
 
-  const checkpoints = new Map(BOSS_ROUNDS.slice(0, -1).map(r => [roundStartTick(d, r + 1), r]));
+  const lastRound = match.data.balance.rounds;
+  const checkpoints = new Map(BOSS_ROUNDS.filter(r => r < lastRound).map(r => [roundStartTick(d, r + 1), r]));
   const finals = d.recipes.filter(x => unitDefFast(d, x.result).grade === 6);
   const recipeMuk = new Map(d.recipes.map(x => [x.result, x.cost?.buckwheat ?? 0]));
   const tameResults = new Set(d.recipes.filter(x => x.kind === 'tame').map(x => x.result));
@@ -278,7 +280,7 @@ export function econMatchRun(data: GameData, seed: number, c: EconConfig): { row
     row.endMuk = lane.buckwheat;
     row.earnedMuk = row.huntMuk + row.bossMuk! + row.yeoksinMuk! + row.questMuk!;
     row.lostMuk = row.startMuk! + row.earnedMuk - row.unitMuk! - row.grade5Muk! - row.finalMuk! - row.tameMuk! - row.itemMuk! - row.endMuk;
-    if (st.alive) row[`muk${BOSS_ROUNDS[BOSS_ROUNDS.length - 1]}` as MukCol] = lane.buckwheat;
+    if (st.alive && BOSS_ROUNDS.includes(lastRound as BossRound)) row[`muk${lastRound}` as MukCol] = lane.buckwheat;
     row.hidden = countHidden(lane);
     row.hidden6 = lane.slots.filter(u => u && unitDefFast(d, u.defId).hidden && unitDefFast(d, u.defId).grade === 6).length;
     row.questWins = [...wins.get(s)!].sort().join('+');

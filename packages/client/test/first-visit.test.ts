@@ -6,7 +6,7 @@ import { firstBossRound, firstVisitRules, playMinutes, SUMMON_TOKENS } from '../
 
 test('the difficulty note gives the game length in five-minute steps', () => {
   expect(difficultyRuleText('easy')).toBe('60라운드 · 약 40분 · 적 체력 80%');
-  expect(difficultyRuleText('normal')).toBe('70라운드 · 약 45분 · 적 체력 90%');
+  expect(difficultyRuleText('normal')).toBe('60라운드 · 약 40분 · 적 체력 90%');
   expect(difficultyRuleText('hard')).toBe('70라운드 · 약 45분 · 적 체력 100%');
   const data = loadGameData('stage3');
   expect(playMinutes(data, 60)).toBe(40);   // 15 + 6×75 + 54×34 = 2301 s

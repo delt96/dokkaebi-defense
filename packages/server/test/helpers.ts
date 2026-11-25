@@ -53,7 +53,7 @@ export function started(names: string[], depsOver: Partial<RoomDeps> = {}, optio
   const core = new RoomCore('room-1', deps, options);
   const links = names.map((_, i) => new FakeLink(String.fromCharCode(97 + i)));
   links.forEach((l, i) => core.join(l, { name: names[i] }));
-  for (const l of links) core.message(l.id, 'ready', { ready: true, stage: core.stage });
+  for (const l of links) core.message(l.id, 'ready', { ready: true, stage: core.stage, ...(core.difficulty && { difficulty: core.difficulty }) });
   core.message(links[0]!.id, 'start', {});
   return { core, deps, links };
 }

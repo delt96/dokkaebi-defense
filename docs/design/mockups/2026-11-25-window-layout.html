@@ -480,7 +480,7 @@ const HELP_OLD = 'Z/X/C 조합 · S 판매 · R 지게 · Tab 상세 · W 다음
 const HELP_B1 = 'Z/X/C 조합(판에 짝 표시) · S 판매 · A 보관 · R 지게 · Tab 상세 · M 옮기기 · W 다음 조합 · Esc 해제';
 function soloStage({ x = 0, y = 0, inner = '', targetLeft = 458, targetCls = '', quest = 'old', econBottom = '', b1 = false, extra = '' }) {
   return `<div class="stage" style="left:${x}px;top:${y}px">
-    <div class="p top"><span class="r">32 / 70 라운드 · 보통<small>저항 물리 13~63% · 마법 13~63%</small></span><span>남은 33초</span><span style="margin-left:auto">우리 고개 잡귀 12 / 60</span><span class="gauge"><i></i></span><span style="color:#bfbbca">장승 멀쩡함</span><span class="dim">⚙</span></div>
+    <div class="p top"><span class="r">32 / 60 라운드 · 보통<small>저항 물리 13~63% · 마법 13~63%</small></span><span>남은 33초</span><span style="margin-left:auto">우리 고개 잡귀 12 / 60</span><span class="gauge"><i></i></span><span style="color:#bfbbca">장승 멀쩡함</span><span class="dim">⚙</span></div>
     ${b1 ? soloLeftB1() : soloLeftOld()}<div class="p lanebox"></div>${board(b1)}${storage()}${target(targetLeft, targetCls)}
     ${soloRight(quest)}
     <div class="p bottom">${b1 ? HELP_B1 : HELP_OLD}</div>

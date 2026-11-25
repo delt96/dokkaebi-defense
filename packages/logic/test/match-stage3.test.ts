@@ -23,7 +23,7 @@ describe('stage 3 match schedule', () => {
   });
 
   test('stage 3 matches have seven boss clocks, five yeoksin slots and a match econ seeded from the match seed', () => {
-    const m = createMatch(d3, 3, [1, 2]);
+    const m = createMatch(d3, 3, [1, 2], { difficulty: 'hard' });
     expect(Object.keys(m.seats[1]!.bosses)).toEqual(['10', '20', '30', '40', '50', '60', '70']);
     expect(m.seats[1]!.yeoksinDamage).toEqual([0, 0, 0, 0, 0]);
     expect(m.econ!.rng.s).toBe(createRng(deriveSeed(3, 'econ')).s);
@@ -35,7 +35,7 @@ describe('stage 3 match schedule', () => {
   });
 
   test('a round-30 boss alive at time-out eliminates the seat; finished needs all seven bosses', () => {
-    const m = createMatch(d3, 1, [1, 2]);
+    const m = createMatch(d3, 1, [1, 2], { difficulty: 'hard' });
     jumpToTick(m, rst(30));
     const r = stepMatch(m, []);
     expect(r.events.filter(e => e.type === 'bossSpawn').map(e => (e as { round: number }).round)).toEqual([30, 30]);

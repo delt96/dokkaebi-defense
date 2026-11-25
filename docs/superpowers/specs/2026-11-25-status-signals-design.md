@@ -91,7 +91,7 @@ progress: 0%
 | 위험 | 57~60 | `ceil(60 × 0.95)` = 57. 60마리까지는 지지 않는다: `trackLimit`(`logic/src/flow.ts`)은 `n > limit`일 때만 센다. 60은 '한계' |
 | 초과 | 61 이상 | `overLimitTicks`가 틱마다 1씩 오르고 `limitSeconds` 5초(100틱) 동안 이어지면 패배. 60 이하로 내려가면 0으로 돌아간다(초가 처음부터) |
 
-- 65라운드부터는 다르다. 3단계 데이터 `limitInstantFromRound: 65`라서 61마리가 되는 틱에 바로 진다(`trackLimit`이 `overLimitTicks > 0`이면 패배). 보통·어려움(70라운드)에만 해당하고, 쉬움(60라운드)과 20라운드 판(`logic/data/balance.json`, 값 없음)에는 없다. 이 구간에서는 초과 카운트다운이 나올 틈이 없으니 위험 단계에 "61마리면 바로 패배"를 적는다.
+- 65라운드부터는 다르다. 3단계 데이터 `limitInstantFromRound: 65`라서 61마리가 되는 틱에 바로 진다(`trackLimit`이 `overLimitTicks > 0`이면 패배). 어려움·지옥(70라운드)에만 해당하고, 쉬움·보통(60라운드)과 20라운드 판(`logic/data/balance.json`, 값 없음)에는 없다. 이 구간에서는 초과 카운트다운이 나올 틈이 없으니 위험 단계에 "61마리면 바로 패배"를 적는다.
 - 지금 `renderAlert`(`ui/hud.ts`)와 온라인 `statusOf`(`online/models.ts`)는 이 즉시 패배 규칙을 모른다. 판이 같은 틱에 끝나 화면에는 드러나지 않지만, 단계 계산 함수는 이 규칙을 알게 만든다.
 - 단계 계산은 함수 하나로 모은다: `limitLevel(data, count, round) → 'ok' | 'warn' | 'danger' | 'over'`와 `instant: boolean`. 주의 기준은 `coop.danger`가 있으면 그 값, 없으면 `ceil(limit × 0.8)`. 솔로 HUD, 온라인 상단, 왼쪽 줄, 장승, 가장자리가 모두 이것만 읽는다.
 

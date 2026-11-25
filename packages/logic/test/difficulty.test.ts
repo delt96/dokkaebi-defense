@@ -45,14 +45,16 @@ test.each([undefined, 0, -1, 2.5])('invalid difficulty income %s', value => {
   expect(validateData(d).errors.join(' ')).toContain('difficulties.hard');
 });
 
-test('easy ends at round 60 with 80% hp, normal keeps 70 rounds with 90% hp, hard is the shared data', () => {
+test('easy ends at round 60 with 80% hp, normal ends at round 60 with 90% hp, hard is the shared data', () => {
   const base = loadGameData('stage3');
   const lane = (d: 'easy' | 'normal' | 'hard') => createGame(base, 1, d).data;
   expect(lane('hard')).toBe(base);
   const easy = lane('easy'), normal = lane('normal');
-  expect([easy.balance.rounds, normal.balance.rounds]).toEqual([60, 70]);
+  expect([easy.balance.rounds, normal.balance.rounds]).toEqual([60, 60]);
+  expect(normal.waves.at(-1)!.round).toBe(easy.waves.at(-1)!.round);
+  expect(normal.coop!.yeoksin.map(y => y.stage)).toEqual([1, 2, 3, 4]);
   const japgwi = enemyDef(base, 'japgwi');
-  for (const r of [10, 41, 66]) {
+  for (const r of [10, 41, 60]) {
     expect(Math.abs(enemyHp(japgwi, r, normal.balance) - enemyHp(japgwi, r, base.balance) * 0.9)).toBeLessThanOrEqual(1);
   }
   const boss = (d: typeof base) => enemyDef(d, 'gangcheori6').hp!;

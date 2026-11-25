@@ -7,7 +7,7 @@
   "defaultDifficulty": "normal",
   "difficulties": {
     "easy": { "tokensPerRound": 3, "rounds": 60, "hpScale": 0.8 },
-    "normal": { "tokensPerRound": 3, "hpScale": 0.9 },
+    "normal": { "tokensPerRound": 3, "rounds": 60, "hpScale": 0.9 },
     "hard": { "tokensPerRound": 3 },
     "hell": { "tokensPerRound": 2 }
   },

@@ -1689,7 +1689,7 @@ npm run sim -- --stage 3 --check grade6 --matrix on --bot <switch|synergy|target
 
 ## 26. 난이도 개편 측정 (2026-11-25)
 
-설계: `docs/superpowers/specs/2026-11-25-difficulty-design.md`. 쉬움 60R·체력 80%, 보통 70R·90%, 어려움 70R·100%이고 토큰은 모두 3개다. 어려움은 개편 전 보통과 같은 판이다.
+설계: `docs/superpowers/specs/2026-11-25-difficulty-design.md`. 쉬움 60R·체력 80%, 보통 70R·90%, 어려움 70R·100%이고 토큰은 모두 3개다. 어려움은 개편 전 보통과 같은 판이다. 2026-11-26부터 보통도 60R(체력 90%)에서 끝난다. 아래 보통 수치는 보통이 70R이던 때 잰 값이다.
 
 ```
 npm run sim -- --stage 3 --check grade6 --matrix on --bot <bot> --config <bot>-full-q2 --defeat on --seeds 20 --difficulty easy|normal|hard

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { createGame, loadGameData, type GameState } from '@dorandi/logic';
+import { createGame, loadGameData, type Difficulty, type GameState } from '@dorandi/logic';
 import { forceRound, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import { gameAudio } from '../src/audio/engine';
@@ -19,8 +19,8 @@ function withEnemies(n: number, s: GameState = createGame(d3, 1)): GameState {
 
 const $ = (sel: string) => document.querySelector<HTMLElement>(sel);
 
-function withBoss(round: number, n: number): GameState {
-  const s = createGame(d3, 1);
+function withBoss(round: number, n: number, difficulty?: Difficulty): GameState {
+  const s = createGame(d3, 1, difficulty);
   forceRound(s, round);
   s.enemies = [];
   const boss = spawnEnemyForTest(s, 'jinegaksi', 0, 24000);
@@ -37,7 +37,7 @@ describe('the boss label in the top bar', () => {
     expect(pick(withBoss(10, 48))).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
     expect(pick(withBoss(10, 58))).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
     expect(pick(withBoss(10, 63))).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
-    const late = withBoss(61, 10);
+    const late = withBoss(61, 10, 'hard');
     expect(hudModel(late).resistText).not.toBeNull();
     expect(pick(late)).toEqual({ bossText: '보스 18400', bossTitle: '보스 체력 18400 / 24000' });
   });

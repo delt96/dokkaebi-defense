@@ -137,7 +137,7 @@ describe('upgrades', () => {
   });
 
   test('the window shows this round\'s resistance and my physical/magical unit counts', () => {
-    const s = createGame(d3, 1);
+    const s = createGame(d3, 1, 'hard');
     forceRound(s, 65);
     ['bitjaru', 'jipsin', 'horong'].forEach((id, i) => placeUnitForTest(s, id, i));
     const info = upgradeInfoText(s);

@@ -419,7 +419,7 @@ function row(o) {
 const G = (t, letter) => `<span class="gone">${t}${letter ? `<i class="ann gn" style="right:-6px;top:-7px">${letter}</i>` : ''}</span>`;
 
 /* ---------- panels ---------- */
-const topBar = (online = false) => `<div class="pn top"><span class="round">${online ? '15 / 70 라운드' : '15 / 70 라운드 · 보통'}</span><span>18초</span><span style="color:var(--ink-dim)">저항 물리 12% · 마법 8%</span><span class="enemies">${online ? '내 잡귀 23 / 60' : '우리 고개 잡귀 23 / 60 <span class="gauge"><i></i></span>'}</span></div>`;
+const topBar = (online = false) => `<div class="pn top"><span class="round">${online ? '15 / 70 라운드' : '15 / 60 라운드 · 보통'}</span><span>18초</span><span style="color:var(--ink-dim)">저항 물리 12% · 마법 8%</span><span class="enemies">${online ? '내 잡귀 23 / 60' : '우리 고개 잡귀 23 / 60 <span class="gauge"><i></i></span>'}</span></div>`;
 const right = (online = false) => `<div class="pn right"><div class="res"><b>도깨비불 (뽑기)</b><span>3</span></div><div class="res"><b>엽전</b><span>142</span></div><div class="res"><b>메밀묵</b><span>1</span></div>
   <span class="btn big">뚝딱! (3번)</span><span class="btn">불 1개 → 25냥</span><span class="btn">강화 (E)</span><span class="btn">장터 (B)</span>
   <div class="foot">${online ? '' : '<div class="qbox">퀘스트 (J) · 진행 1개</div>'}<span class="btn">도감 (D)</span></div></div>`;

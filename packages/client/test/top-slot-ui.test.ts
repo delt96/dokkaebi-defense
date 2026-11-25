@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { createGame, loadGameData, type GameEvent, type GameState, type StepResult } from '@dorandi/logic';
+import { createGame, loadGameData, type Difficulty, type GameEvent, type GameState, type StepResult } from '@dorandi/logic';
 import { forceRound, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import { NetClient } from '../src/net/NetClient';
@@ -57,8 +57,8 @@ const slotText = () => $('#round-banner')!.textContent ?? '';
 
 type Listener = (events: GameEvent[], rejected: StepResult['rejected']) => void;
 
-function mountSolo(round = 3) {
-  const s = createGame(d3, 1);
+function mountSolo(round = 3, difficulty?: Difficulty) {
+  const s = createGame(d3, 1, difficulty);
   forceRound(s, round);
   const driver = new GameDriver(s);
   const scene = new FakeScene();
@@ -213,7 +213,7 @@ describe('births', () => {
 
 describe('the fixed row under the slot', () => {
   test('61마리면 바로 패배 from round 65 in danger, on the right of the fixed row', () => {
-    const late = mountSolo(65);
+    const late = mountSolo(65, 'hard');
     withEnemies(late.s, 58);
     late.frame();
     const row = $('#slot-row')!;
@@ -225,12 +225,12 @@ describe('the fixed row under the slot', () => {
   });
 
   test('no 61 line before round 65 or below danger', () => {
-    const early = mountSolo(64);
+    const early = mountSolo(64, 'hard');
     withEnemies(early.s, 58);
     early.frame();
     expect($('#limit-instant')!.textContent).toBe('');
     document.body.innerHTML = STAGE_HTML;
-    const calm = mountSolo(65);
+    const calm = mountSolo(65, 'hard');
     withEnemies(calm.s, 50);
     calm.frame();
     expect($('#limit-instant')!.textContent).toBe('');

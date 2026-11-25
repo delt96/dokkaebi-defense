@@ -16,7 +16,7 @@ describe('70-round online screens', () => {
   });
 
   test('top bar names the fifth gate', () => {
-    const m = createMatch(d3, 1, [1, 2]); jumpToTick(m, roundStartTick(d3, 65)); stepMatch(m, []);
+    const m = createMatch(d3, 1, [1, 2], { difficulty: 'hard' }); jumpToTick(m, roundStartTick(d3, 65)); stepMatch(m, []);
     const view = applyFull(buildFull(m, 1, { watching: 1, names: { 1: '가', 2: '나' }, key: 'k', n: 1 }));
     expect(topModel(view, d3).line2).toMatch(/^관문 5\/5 · 마감까지 4라운드 · 역신\(다섯째\) 체력 /);
   });

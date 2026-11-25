@@ -44,7 +44,7 @@ describe('flow', () => {
     const d3 = loadGameData('stage3');
     expect(d3.balance.limitInstantFromRound).toBe(65);
     for (const [round, endsAtOnce] of [[64, false], [65, true]] as const) {
-      const s = createGame(d3, 1); forceRound(s, round);
+      const s = createGame(d3, 1, 'hard'); forceRound(s, round);
       s.enemies = [];
       for (let i = 0; i < d3.balance.limit + 1; i++) spawnEnemyForTest(s, 'japgwi', 0, 10 ** 9);
       s.roundEndTick = 10 ** 9; s.spawned = d3.balance.spawnCount;

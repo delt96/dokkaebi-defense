@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
   boardDps, createGame, createMatch, loadGameData, roundStartTick, step, stepMatch, type Command, type GameState,
 } from '@dorandi/logic';
-import { forceRound, jumpToTick, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
+import { forceRound, jumpToTick, makeData, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import {
   BOT_HUNT_SHARE, buckwheatNeed, huntCommands, questCommands, reserveCoins, surplusGamble, switchBot, tameCommands, type EconPolicy,
 } from '../src/stage3/econBot';
@@ -184,10 +184,11 @@ describe('six-seat grade 6 measurement', () => {
 
   test('econMatchRun is deterministic and counts only normal grade 6', async () => {
     const c = { ...STANDARD_CONFIGS.find(x => x.name === 'target-full')!, noDefeat: true };
-    const a = econMatchRun(d3, 1, c);
+    const hard = makeData(d => { d.balance.defaultDifficulty = 'hard'; }, 'stage3');
+    const a = econMatchRun(hard, 1, c);
     // vitest's worker RPC times out after a fixed 60 s; both runs in one synchronous block can pass that under load
     await new Promise(resolve => setTimeout(resolve, 0));
-    const b = econMatchRun(d3, 1, c);
+    const b = econMatchRun(hard, 1, c);
     expect(a).toEqual(b);
     expect(a.rows.length).toBe(6);
     for (const r of a.rows) {

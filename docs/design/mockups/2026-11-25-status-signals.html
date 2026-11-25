@@ -268,7 +268,7 @@
   <tr><td>주의</td><td>48~56</td><td>온라인 <code>coop.danger</code> 48(지금 왼쪽 줄 '위험' 기준) = 솔로 <code>ceil(60×0.8)</code></td></tr>
   <tr><td>위험</td><td>57~60</td><td><code>ceil(60×0.95)</code>. 60까지는 지지 않는다(<code>trackLimit</code>은 <code>n &gt; limit</code>일 때만 셈)</td></tr>
   <tr><td>초과</td><td>61+</td><td>5초(100틱) 이어지면 패배, 60 이하로 내려가면 다시 처음부터</td></tr>
-  <tr><td>65라운드부터</td><td>61 = 즉시 패배</td><td>3단계 <code>limitInstantFromRound: 65</code> (보통·어려움 70라운드만. 쉬움 60라운드·20라운드 판은 해당 없음)</td></tr>
+  <tr><td>65라운드부터</td><td>61 = 즉시 패배</td><td>3단계 <code>limitInstantFromRound: 65</code> (어려움·지옥 70라운드만. 쉬움·보통 60라운드·20라운드 판은 해당 없음)</td></tr>
 </table>
 
 <!-- ===================================================== 2 -->
@@ -512,7 +512,7 @@ for (const [k, en, g, gc, gt, gb, ol] of strip) {
 }
 sh += `<div class="k">가장 긴 상태<br><small style="color:#8a8090">B3 + 메뉴를 그냥 더함</small></div><div class="stage"><div class="p top" style="height:24px">${soloHud({ round: '70 / 70 라운드 · 어려움', resist: '저항 물리 20~70% · 마법 20~70%', time: '남은 75초<span class="pill">멈춤</span>', boss: '보스 체력 184200 / 240000', enemies: EN.danger(58), gauge: 97, gcls: 'red', gtext: '장승 금 감' })}</div></div>`;
 sh += `<div class="k">같은 상태<br><small style="color:#8a8090">B4 5-1 줄이기</small></div><div class="stage"><div class="p top" style="height:24px">${soloHud({ round: '70 / 70 라운드 · 어려움', resist: '저항 물리 20~70% · 마법 20~70%', time: '남은 75초<span class="pill">멈춤</span>', boss: '보스 184200', enemies: EN.danger(58), gauge: 97, gcls: 'red', gtext: null })}</div></div>`;
-sh += `<div class="k">65라운드부터<br>위험 (58)<br><small style="color:#8a8090">솔로, 판 위 일부</small></div><div class="stage tall"><div class="p top" style="height:24px">${soloHud({ round: '66 / 70 라운드 · 보통', enemies: EN.danger(58), gauge: 97, gcls: 'red', gtext: null })}</div>
+sh += `<div class="k">65라운드부터<br>위험 (58)<br><small style="color:#8a8090">솔로, 판 위 일부</small></div><div class="stage tall"><div class="p top" style="height:24px">${soloHud({ round: '66 / 70 라운드 · 어려움', enemies: EN.danger(58), gauge: 97, gcls: 'red', gtext: null })}</div>
   <div class="lane" style="top:24px;height:58px"><div class="path" style="top:58px"></div><span style="position:absolute;right:8px;top:46px;font-size:10px;color:#ff9482">61마리면 바로 패배</span></div>
   ${M('new', 428, 69, 94, 14)}${N('new', 410, 67, 5)}</div>`;
 put('strip', sh);
@@ -598,7 +598,7 @@ put('s5b', stage({ mode: 'online', top: ONTOP('10 / 70 라운드 · 남은 70초
   left: BAND_ROWS(true), right: onlineRight(), bottom: CARD,
   lane: board({ n: 9, entrance: true, seed: 2, jangLabel: true }) + '<div class="banner" style="top:5px">9라운드 종료 · +10냥\n10라운드 · 고개 보스: 그슨대</div>',
   over: Z(128, 26, 400, 42, '윗칸') + Z(128, 68, 400, 14, '아래 고정 줄') + M('chg', 1, 97, 125, 42) + N('chg', 108, 100, 19) + M('chg', 129, 27, 398, 40) + N('chg', 132, 28, 17) }));
-put('s5c', stage({ mode: 'solo', top: soloHud({ round: '41 / 70 라운드 · 보통', enemies: EN.ok(18), gauge: 30, gtext: '장승 멀쩡함', gbad: false }),
+put('s5c', stage({ mode: 'solo', top: soloHud({ round: '41 / 60 라운드 · 보통', enemies: EN.ok(18), gauge: 30, gtext: '장승 멀쩡함', gbad: false }),
   left: SOLO_LEFT_B1, right: soloRight({ coins: 340 }), bottom: SOLO_BOTTOM_B1,
   lane: board({ n: 18, seed: 4, jangLabel: true }) + '<div class="band" style="top:2px;height:42px"><i class="face"></i><div><div class="who">조합 · 6등급 · 마딜 · 이번 판 첫 6등급</div><div class="what">귀교 목수</div></div></div>',
   over: Z(128, 26, 400, 42, '윗칸') + M('chg', 129, 27, 398, 40) + N('chg', 132, 28, 18) }));
@@ -635,10 +635,10 @@ const pillarMarket = ({ fire = '6', coins = '3000', coinsHtml = null, refuse = '
   <div class="ln" style="margin-top:4px">큰 보따리 · 6등급 1.5%</div>
   <div class="ln" style="height:24px;line-height:24px;background:#ffe35a55;color:#ffe35a;padding:0 4px">6등급 귀교 목수!</div>
   <div class="ln" style="color:var(--dim)">최근 결과 ▸ 5개</div></div>`;
-put('s7a', stage({ mode: 'solo', top: soloHud({ round: '44 / 70 라운드 · 보통', enemies: EN.ok(21), gauge: 35, gtext: '장승 흔들림', gbad: false, menu: false }),
+put('s7a', stage({ mode: 'solo', top: soloHud({ round: '44 / 60 라운드 · 보통', enemies: EN.ok(21), gauge: 35, gtext: '장승 흔들림', gbad: false, menu: false }),
   left: SOLO_LEFT, right: soloRight({ coins: 120 }), bottom: SOLO_BOTTOM,
   lane: board({ n: 21, seed: 6 }) + '<div class="toast" style="top:30px;color:#ffd28a;width:298px">6등급 귀교 목수!</div>', over: oldDrawer }));
-put('s7b', stage({ mode: 'solo', top: soloHud({ round: '44 / 70 라운드 · 보통', enemies: EN.ok(21), gauge: 35, gtext: '장승 흔들림', gbad: false }),
+put('s7b', stage({ mode: 'solo', top: soloHud({ round: '44 / 60 라운드 · 보통', enemies: EN.ok(21), gauge: 35, gtext: '장승 흔들림', gbad: false }),
   left: SOLO_LEFT_B1, right: soloRight({ coins: 120 }), bottom: SOLO_BOTTOM_B1,
   lane: board({ n: 21, seed: 6, jangLabel: true })
     + '<div class="ring" style="left:132px;top:118px"></div><span class="lbl" style="left:134px;top:104px;color:#ffe35a;font-weight:bold">6등급!</span>'
