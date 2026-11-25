@@ -1,4 +1,5 @@
 import { difficultyNote, difficultyPicker } from '../ui/difficulty';
+import { firstVisitRules } from '../ui/first-visit';
 import { gameAudio } from '../audio/engine';
 import { musicCreditsHtml } from '../audio/settings-ui';
 import { NICKNAME_MAX, normalizeNickname, type Difficulty } from '@dorandi/logic';
@@ -40,7 +41,13 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   root.replaceChildren();
   const box = el('div', 'screen-box');
-  box.append(el('h1', 'screen-title', TEXT.title));
+  const first = el('details', 'entry-first');
+  // decided before the box is attached, so a first visit never flashes folded
+  first.open = !opts.name;
+  const rules = el('ul', 'entry-rules');
+  rules.append(...firstVisitRules().map(rule => el('li', undefined, rule)));
+  first.append(el('summary', undefined, TEXT.firstTime), rules);
+  box.append(el('h1', 'screen-title', TEXT.title), el('p', 'entry-tagline', TEXT.tagline), first);
 
   const form = el('form', 'entry-form');
   const label = el('label', 'entry-label', TEXT.nameLabel);
@@ -53,10 +60,11 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
   label.append(input);
   const button = el('button', 'big', opts.roomId ? TEXT.join : TEXT.create);
   button.type = 'submit';
+  const actions = el('div', 'screen-actions entry-actions');
+  actions.append(button);
   const message = el('div', 'entry-error');
   message.setAttribute('role', 'alert');
   message.textContent = opts.error ?? '';
-  form.append(label, button, message);
 
   let difficulty: Difficulty = 'normal';
   let busy = false;
@@ -92,26 +100,35 @@ export function renderEntry(root: HTMLElement, opts: EntryOptions): void {
       .finally(() => { if (button.isConnected) setBusy(false); });
   });
 
-  box.append(form);
-  // solo is the 70-round game; the 20-round data stays reachable only through an old /solo link
-  const solo = el('div', 'entry-solo');
-  const link = el('a', 'entry-link', TEXT.solo);
-  link.addEventListener('click', ev => {
-    if (!opts.onSolo || ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
-    ev.preventDefault();
-    opts.onSolo(link.href);
-  });
-  function drawSolo(): void {
-    const row = el('div', 'entry-difficulty');
-    row.append(el('span', 'entry-difficulty-label', TEXT.modeLabel), difficultyPicker(difficulty, d => { difficulty = d; drawSolo(); }));
-    solo.replaceChildren(row, difficultyNote(difficulty));
-    link.href = `/solo?${SOLO_LONG_QUERY}&difficulty=${difficulty}`;
-    solo.append(link);
+  if (opts.roomId) {
+    form.append(label, el('p', 'entry-invite', TEXT.inviteNote), actions, message);
+    const home = el('a', 'entry-home', TEXT.home);
+    home.href = '/';
+    box.append(form, home);
+  } else {
+    // solo is the 70-round game; the 20-round data stays reachable only through an old /solo link
+    const solo = el('a', 'big secondary entry-solo', TEXT.solo);
+    solo.addEventListener('click', ev => {
+      if (!opts.onSolo || ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+      ev.preventDefault();
+      opts.onSolo(solo.href);
+    });
+    actions.append(solo);
+    const block = el('div', 'entry-difficulty-block');
+    const drawDifficulty = (): void => {
+      const row = el('div', 'entry-difficulty');
+      row.append(el('span', 'entry-difficulty-label', TEXT.modeLabel), difficultyPicker(difficulty, d => { difficulty = d; drawDifficulty(); }));
+      block.replaceChildren(row, difficultyNote(difficulty));
+      solo.href = `/solo?${SOLO_LONG_QUERY}&difficulty=${difficulty}`;
+    };
+    drawDifficulty();
+    form.append(label, block, actions, message);
+    box.append(form);
   }
-  drawSolo();
   const footer = el('footer', 'entry-credits');
   footer.innerHTML = musicCreditsHtml();
-  box.append(solo, footer);
+  box.append(footer);
   root.append(box);
-  if (!opts.name) input.focus();
+  // a remembered name goes straight to the submit button: one Enter makes the room
+  (opts.name ? button : input).focus();
 }

@@ -2,6 +2,10 @@ import { JOIN_ERROR_CODES } from '@dorandi/logic';
 
 export const TEXT = {
   title: '도깨비 랜덤 디펜스',
+  tagline: '최대 6명이 함께 잡귀를 막는 협동 랜덤 디펜스',
+  firstTime: '처음이라면',
+  inviteNote: '초대받은 방에 들어갑니다 · 난이도는 방장이 정합니다',
+  home: '처음 화면으로',
   nameLabel: '닉네임',
   namePlaceholder: '한글·영문·숫자 1~8자',
   create: '방 만들기',
