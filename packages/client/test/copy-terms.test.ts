@@ -69,15 +69,15 @@ describe('the 장승 gauge follows the real loss rule', () => {
 describe('online top bar', () => {
   test('역신(첫째) 체력 instead of 첫째 탈', () => {
     const v = viewWith({ me: 1, rows: [row({ seat: 1, count: 12 })] });
-    expect(topModel(v, d2).line2).toBe('관문 1/2 · 9라운드 끝까지 · 역신(첫째) 체력 6,632 / 7,480');
+    expect(topModel(v, d2).line2).toBe('관문 1/2 · 마감까지 3라운드 · 역신(첫째) 체력 6,632 / 7,480');
   });
 
   test('my count turns red at the same 위험 line as my left row', () => {
     const danger = d2.coop!.danger;
     const calm = viewWith({ me: 1, rows: [row({ seat: 1, count: danger - 1 })] });
-    expect(topModel(calm, d2).mineDanger).toBe(false);
+    expect(topModel(calm, d2).mineLevel).toBe('ok');
     const hot = viewWith({ me: 1, rows: [row({ seat: 1, count: danger })] });
-    expect(topModel(hot, d2).mineDanger).toBe(true);
+    expect(topModel(hot, d2).mineLevel).toBe('warn');
     document.body.innerHTML = '<div id="top"></div>';
     renderTop(hot, d2);
     expect(document.querySelector('#top .mine-danger')!.textContent).toBe(`내 잡귀 ${danger} / 60`);
