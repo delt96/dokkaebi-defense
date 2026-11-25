@@ -73,9 +73,12 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
     const notes = combineNoteLines(state.data, option.result, true);
     return `<div class="recipe"><div class="recipe-head">${recipeRowHtml(state, option, { unitId: unit.id, fullBadge: true })}${pinButton(option.result, target)}</div>${resultSpecHtml(state, unit.defId, option.result)}${notesHtml(notes)}</div>`;
   });
-  const head = `<div class="modal-head ud-head">${unitFaceHtml(unit.defId, card.name, card.grade)}<b class="ud-name">${esc(card.name)}</b>
-    <span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}
-    <button class="ud-close" data-action="closeModal">Tab·Esc 닫기</button></div>`;
+  const head = winHeadHtml({
+    side: 'left',
+    titleHtml: `${unitFaceHtml(unit.defId, card.name, card.grade)}<b class="ud-name">${esc(card.name)}</b>`
+      + `<span class="ud-grade">${card.grade}등급${card.hidden ? ' · 숨은 유닛' : ''}</span>${typeBadgeHtml(state.data, unit.defId)}`,
+    closeLabel: '상세 닫기 (Tab)',
+  });
   const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', attackRangeText(state.data, card.range), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>`;
   const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
   const lines = card.skillText ? card.skillText.split(' / ') : [];
@@ -86,7 +89,7 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
     card.notes.length ? sectionHtml('메모', notesHtml(card.notes)) : '',
     sectionHtml('조합', `<div class="recipe-list">${options.join('') || '최종 조합입니다.'}</div>`),
   ].join('');
-  return `<div class="modal unit-details" role="dialog" aria-label="${esc(card.name)} 상세">${head}<div class="ud-body">${body}</div></div>`;
+  return `<section class="win unit-details" role="dialog" aria-labelledby="win-left-title">${head}<div class="win-body ud-body">${body}</div></section>`;
 }
 
 /**

@@ -65,6 +65,8 @@ const OPENERS: Partial<Record<SideWin, string>> = {
   upgrades: '#right [data-action="openUpgrades"]',
   quests: '#right .quest-box > [data-action="openQuests"][data-arg=""]',
   market: '#right [data-action="toggleMarket"]',
+  details: '#left [data-action="unitDetails"]',
+  jige: '#left [data-action="jigeOpen"]',
 };
 
 /** Online screens also read the server view for the scoreboard and the two-line top bar. */
@@ -124,8 +126,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let userPaused = false;
   // the hotkey line under the board (단축키 안내 줄 in the settings window)
   let helpLine = readHelpLine();
-  // TODO: drop 'unitDetails' and 'jige' once they move to the side windows (B2 Task 7); until then they lock the board
-  let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | 'unitDetails' | 'jige' | null = null;
+  let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | null = null;
   let sides: Sides = NO_SIDES;
   const locked = () => sidesLocked({
     locking: modal !== null || (!online && driver.state.phase === 'ended'),
@@ -138,7 +139,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let questFocus: QuestId | 'hunts' | null = null;
   let shownQuest: QuestId | 'hunts' | null = null;
   let shownModal: string | null = null;
-  // the open R list (modal 'jige'); see jigeStale for when a pick is dropped
+  // the open R list (sides.left 'jige'); see jigeStale for when a pick is dropped
   let jigeList: JigeList | null = null;
   let best: { id: string; grade: number } | null = null;
   let notice: Notice | null = null;
@@ -257,7 +258,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       case 'convert': driver.queue({ type: 'convertToken' }); break;
       case 'combine': {
-        if (modal === 'unitDetails') modal = null;
         const [result = '', target] = arg.split('@');
         if (target === undefined) driver.queue({ type: 'combine', result });
         else {
@@ -340,7 +340,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'openMenu': modal = 'menu'; break;
       case 'askForfeit': modal = 'forfeit'; break;
       case 'forfeit': opts.actions?.forfeit(); modal = null; break;
-      case 'unitDetails': modal = 'unitDetails'; break;
+      case 'unitDetails': sides = openSide(sides, 'details'); break;
       case 'openDex': dex = { ...dex, back: [], focus: null, open: [], unfold: [] }; modal = 'dex'; break;
       case 'dexOpen':
         dex = { ...dexGo(driver.state.data, { ...dex, back: [], focus: null, open: [], unfold: [] }, arg, arg, driver.state), back: [] };
@@ -398,7 +398,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
           seat: driver.laneSeat, epoch: driver.laneEpoch, name: '', type: null,
           reasons: jigeReasons(s, source, targetId),
         };
-        modal = 'jige';
+        sides = openSide(sides, 'jige');
         break;
       }
       case 'jigeType':
@@ -406,7 +406,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       case 'jigeSwap': {
         const list = jigeList;
-        modal = null;
+        if (sides.left === 'jige') sides = closeSide(sides, 'left');
         jigeList = null;
         if (!list) break;
         // the list belongs to one unit on one lane snapshot: anything else changed and the pick is not sent
@@ -424,7 +424,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         if (modal === 'dex' && el('modal').querySelector('.dex-search')) dex = { ...dex, ...typedNow() };
         dexRemember();
         modal = null;
-        jigeList = null;
         break;
       case 'setHelp': helpLine = arg === 'on'; writeHelpLine(helpLine); break;
       case 'setFx': if ((arg === 'on') !== !!scene.reduceEffects) scene.setReduceEffects(arg === 'on'); break;
@@ -486,9 +485,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) onAction(el(id), act);
   // a press that reaches a locked box anyway (inert is not honoured everywhere) still buys nothing
   for (const side of SIDES) onAction(el(`win-${side}`), (a, g) => { if (!locked()) act(a, g); });
-  // the storage column belongs to the own living lane; it takes presses while no window is open
+  // the storage column belongs to the own living lane; it takes presses while no locking window is open and no pillar covers it
   const storageVisible = () => !driver.readOnly && driver.state.phase !== 'ended';
-  const storageLive = () => storageVisible() && !driver.failed && modal === null;
+  const storageLive = () => storageVisible() && !driver.failed && modal === null && !coveredIds(currentWins(), sides).includes('storage');
   wireStorage(el('storage'), el('stage'), () => laneOf(driver.state), (defId, slot) => act('retrieve', `${defId}@${slot}`), defId => {
     inspectedStack = defId;
     scene.selectedId = null;
@@ -608,11 +607,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       || !unit || unit.id !== list.source.unitId || unit.defId !== list.defId;
   }
   // the R list filters as one types; only the rows are redrawn so the box keeps its text, caret and IME state
-  el('modal').addEventListener('input', ev => {
+  el('win-left').addEventListener('input', ev => {
     const input = (ev.target as HTMLElement).closest<HTMLInputElement>('.jige-search input');
     if (!input || !jigeList) return;
     jigeList = { ...jigeList, name: input.value };
-    setHtml(el('modal').querySelector<HTMLElement>('.jige-rows')!, jigeRowsHtml(driver.state.data, jigeList));
+    setHtml(el('win-left').querySelector<HTMLElement>('.jige-rows')!, jigeRowsHtml(driver.state.data, jigeList));
   });
   window.addEventListener('keydown', ev => {
     if (modal === 'settings' && ev.code === 'Escape' && !ev.isComposing) {
@@ -643,23 +642,36 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     }
     if (modal === 'dex' && ev.code === 'KeyD') { act('closeModal', ''); return; }
     if (online && modal === 'settings' && ev.code === 'KeyQ' && !ev.shiftKey && driver.state.phase !== 'ended') { act('toggleHelper', ''); return; }
-    // Tab opens the selected unit's 상세 and closes it again
-    if (ev.code === 'Tab' && modal === 'unitDetails') { ev.preventDefault(); act('closeModal', ''); return; }
     if (modal || driver.state.phase === 'ended') return;
     // side-window keys do nothing under a lock (P pause too), so a paused board buys nothing
     const buy = UPGRADE_KEYS[ev.code];
     const quests = ev.code === 'KeyJ' && !!driver.state.data.economy;
     const market = ev.code === 'KeyB' && !!driver.state.data.economy?.market;
-    if (ev.code === 'KeyE' || buy || quests || market) {
+    const jige = ev.code === 'KeyR' && !!driver.state.data.economy?.market;
+    const card = displayedCard;
+    if (ev.code === 'Tab') {
+      // on a window or panel button Tab moves the focus as usual; elsewhere it opens and closes the selected unit's 상세
+      if (target?.closest?.('button, .gamble-option[tabindex]')) return;
+      ev.preventDefault();
       if (locked()) return;
+      if (sides.left === 'details') act('closeWin', 'left');
+      else if (card?.unitId != null) act('unitDetails', '');
+      return;
+    }
+    if (ev.code === 'KeyE' || buy || quests || market || jige) {
+      if (locked()) return;
+      if (jige) {
+        if (sides.left === 'jige') act('closeWin', 'left');
+        else if (card?.unitId != null) act('jigeOpen', `board:${card.unitId}`);
+        return;
+      }
       if (ev.code === 'KeyE') { act('openUpgrades', ''); return; }
       if (market) { act('toggleMarket', ''); return; }
       // J opens the quest list from preparation on and closes it again; the clock never stops for it
       if (quests) { act(sides.right === 'quests' ? 'closeWin' : 'openQuests', sides.right === 'quests' ? 'right' : ''); return; }
       if (sides.right === 'upgrades') { act('upgrade', buy!); return; }
     }
-    if ((ev.code === 'Space' || ev.code === 'Tab') && target?.closest?.('button, .gamble-option[tabindex]')) return;
-    const card = displayedCard;
+    if (ev.code === 'Space' && target?.closest?.('button, .gamble-option[tabindex]')) return;
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (ev.code === 'KeyD') act('openDex', '');
     else if (ev.code === 'KeyQ') {
@@ -679,16 +691,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     }
     else if (ev.code === `Key${STORE_ALL_KEY}`) act('storeAll', '');
     else if (ev.code === 'KeyT' && driver.state.data.economy?.tame) act('tame', '');
-    else if (ev.code === 'KeyR' && driver.state.data.economy?.market && card?.unitId != null) act('jigeOpen', `board:${card.unitId}`);
     else if (ev.code === 'KeyP' && !online) { userPaused = !userPaused; render(); }
     else if (ev.code === 'KeyM') {
       if (selectedSlot(driver.state, scene.selectedId) === null) return;
       stepMove({ kind: 'toggle' });
       render();
-    }
-    else if (ev.code === 'Tab') {
-      ev.preventDefault();
-      if (card?.unitId != null) act('unitDetails', '');
     }
     else if (ev.code === 'KeyW') {
       ev.preventDefault();
@@ -718,7 +725,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (s.phase === 'ended' && modal) {
       if (modal === 'dex') dexRemember();
       modal = null;
-      jigeList = null;
     }
     // commands wait for ticks, so only the dex (which sends none) stops the clock
     if (!online) driver.paused = userPaused || (modal === 'dex' && s.phase !== 'ended');
@@ -730,7 +736,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     syncSelection(scene.selectedId);
     const held = s.data.economy?.market ? econ()?.jige : undefined;
     // the unit an open R list was opened on moved, sold or the lane changed: the list goes, nothing is sent
-    if (modal === 'jige' && (!jigeList || jigeStale(jigeList))) { modal = null; jigeList = null; }
+    if (sides.left === 'jige' && (!jigeList || jigeStale(jigeList))) {
+      if (jigeList) say('유닛이 바뀌어 지게 목록을 닫았습니다', NOTE_MS);
+      sides = closeSide(sides, 'left');
+    }
+    if (sides.left !== 'jige') jigeList = null;
     const now = performance.now();
     const view = online && opts.data ? opts.view?.() ?? null : null;
     const info = selected === null && storageVisible() ? storageInfoModel(s, inspectedStack) : null;
@@ -798,13 +808,20 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     setHtml(el('storage'), storageVisible() ? storageHtml(
       s, held, defId => confirm.armed(`sellStored:${defId}`, now), info ? info.defId : null, new Map(marks.stored.map(p => [p.defId, p.key])),
     ) : '');
-    if (modal === 'unitDetails' && (selected === null || spiritCard)) modal = null;
+    if (sides.left === 'details' && (selected === null || spiritCard)) sides = closeSide(sides, 'left');
     // online the team result screen (Task 19) replaces the 1-player result window
     const soloResult = !online && s.phase === 'ended';
     const lockOpen = modal !== null || soloResult;
     const wins = currentWins();
-    renderSides(s, wins);
+    renderSides(s, wins, selected);
     const covered = coveredIds(wins, sides);
+    const leftCovered = covered.includes('left');
+    // design ⑤: a pillar over the left panel leaves no focus behind it, or Space would press the hidden button
+    if (leftCovered) {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (el('left').contains(active) || el('storage').contains(active))) active.blur();
+    }
+    scene.storageCovered = covered.includes('storage');
     for (const id of ['top', 'left', 'right', 'bottom', 'lane', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay']) {
       el(id).inert = lockOpen || covered.includes(id);
     }
@@ -814,7 +831,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       box.inert = sideLock;
       box.classList.toggle('locked', sideLock);
     }
-    if (!lockOpen) refocusIn(el('left'), leftFocus, '.nc-list');
+    if (!lockOpen && !leftCovered) refocusIn(el('left'), leftFocus, '.nc-list');
     // a redraw of the dex (a board change moves the tree marks) keeps its scroll position
     const dexShown = !soloResult && modal === 'dex';
     const listKey = `${dex.filter}
@@ -824,7 +841,7 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : modal === 'unitDetails' && selected !== null ? unitDetailsHtml(s, selected, targetId) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : modal === 'jige' && jigeList ? jigeListHtml(s.data, jigeList, econ()?.jige ?? 0) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
@@ -837,7 +854,7 @@ ${dex.mine.join()}`;
   }
 
   /** Draws each side window into its box as a non-modal dialog named by its head title. */
-  function renderSides(s: GameState, wins: WinPlace): void {
+  function renderSides(s: GameState, wins: WinPlace, selected: number | null): void {
     const e = econ();
     shownMarket = sides.right === 'market' && e ? marketModel(e, s) : null;
     if ((sides.right === 'quests' && !e) || (sides.right === 'market' && !shownMarket)) sides = closeSide(sides, 'right');
@@ -849,7 +866,11 @@ ${dex.mine.join()}`;
       } : null;
     const section = (side: Side, w: { cls: string; html: string } | null) =>
       (w ? `<section class="win ${w.cls}" role="dialog" aria-labelledby="win-${side}-title">${w.html}</section>` : '');
-    setHtml(el('win-left'), section('left', null));
+    const leftBox = el('win-left');
+    const leftMark = focusedIn(leftBox);
+    setHtml(leftBox, sides.left === 'details' && selected !== null ? unitDetailsHtml(s, selected, targetId)
+      : section('left', sides.left === 'jige' && jigeList ? { cls: 'jige-modal', html: jigeListHtml(s.data, jigeList, e?.jige ?? 0) } : null));
+    refocusIn(leftBox, leftMark, '.win-close');
     const active = document.activeElement as HTMLElement | null;
     const inMarket = !!active && !!marketPanel()?.contains(active);
     const marketFocus = inMarket ? active!.dataset.marketFocus : undefined;

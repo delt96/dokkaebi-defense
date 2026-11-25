@@ -111,6 +111,8 @@ export class LaneScene extends Phaser.Scene {
   onStorageHover?: (hover: 'ok' | 'no' | null) => void;
   /** Told when a board unit drag starts and ends (the page lets the pointer through its storage column meanwhile). */
   onBoardDrag?: (on: boolean) => void;
+  /** Set by the page while a left pillar window covers the storage column: board units cannot be dropped into it. */
+  storageCovered = false;
   private storageHover: 'ok' | 'no' | null = null;
   private reduceFx = readReduceFx();
   private wasRound = false;
@@ -248,9 +250,9 @@ export class LaneScene extends Phaser.Scene {
     if (dropped) this.emitSelect(null);
   }
 
-  /** The storage column is drawn (by the page) for the own living lane only. */
+  /** The storage column is drawn (by the page) for the own living lane only, and takes drops while no window covers it. */
   private storageOpen(): boolean {
-    return !this.driver.readOnly && this.state.phase !== 'ended';
+    return !this.storageCovered && !this.driver.readOnly && this.state.phase !== 'ended';
   }
 
   /** A dragged unit's view went away (sold, combined, another lane): the drag ends without a drop. */

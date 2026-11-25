@@ -114,18 +114,18 @@ export function jigeRowsHtml(data: GameData, list: JigeList): string {
   }).join('');
 }
 
-/** The R window: what is given, the 지게 held, the filters and every same-grade normal unit. */
+/** The R window's inside (the left window wraps it): what is given, the 지게 held, the filters and every same-grade normal unit. */
 export function jigeListHtml(data: GameData, list: JigeList, held: number): string {
   const def = data.units.find(u => u.id === list.defId);
   const where = list.source.zone === 'board' ? `진영 ${cellText(data.balance.grid.cols, list.source.index)}` : '보관함';
-  const cost = list.cost === null ? '' : ` · 원가 1등급 ${list.cost}기 값`;
+  const cost = list.cost === null ? '' : ` title="원가 1등급 ${list.cost}기 값"`;
   const chip = (arg: string, label: string, on: boolean) =>
     `<button data-action="jigeType" data-arg="${arg}" aria-pressed="${on}"${on ? ' class="on"' : ''}>${label}</button>`;
-  return `<div class="modal jige-modal"><div class="modal-head">지게 바꾸기 · 보유 지게 ${held}개 <button data-action="closeModal">Esc 닫기</button></div>
-    <div class="jige-from">${esc(def?.name ?? '')} (${def?.grade ?? 0}등급) · ${where}${cost} → 같은 등급 일반 유닛</div>
+  return `${winHeadHtml({ side: 'left', titleHtml: `지게 (R) · 보유 ${esc(held)}`, closeLabel: '지게 닫기 (R)' })}
+    <div class="jige-from"${cost}>${esc(def?.name ?? '')} (${def?.grade ?? 0}등급) · ${where} → 같은 등급</div>
     <div class="jige-filters"><label class="jige-search"><input type="search" placeholder="이름" value="${esc(list.name)}" aria-label="이름으로 찾기"></label>
       ${chip('all', '전체', list.type === null)}${chip('physical', '물딜', list.type === 'physical')}${chip('magical', '마딜', list.type === 'magical')}</div>
-    <div class="jige-rows">${jigeRowsHtml(data, list)}</div></div>`;
+    <div class="jige-rows">${jigeRowsHtml(data, list)}</div>`;
 }
 
 // ---------- taming ----------

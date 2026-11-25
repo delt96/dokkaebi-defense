@@ -101,7 +101,7 @@ test('pinning from details replaces the dex target, follows inventory, and survi
   key('Escape');
   expect(overlay.textContent).toContain('가마솥');
   key('Tab');
-  press(document.querySelector('#modal .pin-btn[data-arg="jangdok"]'));
+  press(document.querySelector('#win-left .pin-btn[data-arg="jangdok"]'));
   key('Escape');
   key('Escape');
   expect(overlay.querySelector('.target-head')!.textContent).toContain('장독');

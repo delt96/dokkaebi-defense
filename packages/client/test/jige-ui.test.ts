@@ -21,8 +21,8 @@ class FakeScene {
 
 const keydown = (target: EventTarget, init: KeyboardEventInit) =>
   target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
-const modal = () => document.getElementById('modal')!;
-const rows = () => Array.from(modal().querySelectorAll<HTMLButtonElement>('[data-action="jigeSwap"]'));
+const win = () => document.getElementById('win-left')!;
+const rows = () => Array.from(win().querySelectorAll<HTMLButtonElement>('[data-action="jigeSwap"]'));
 
 describe('swapRows', () => {
   test('lists every other same-grade normal and filters by name and damage type', () => {
@@ -109,7 +109,17 @@ describe('R jige swap in solo', () => {
   let scene: FakeScene;
   let driver: GameDriver;
   let queued: Command[];
+  let clock = 1000;
+  // each test mounts again; the keydown listeners of earlier mounts would still answer and redraw the shared page
+  const listeners: [string, EventListenerOrEventListenerObject][] = [];
   beforeEach(() => {
+    const add = window.addEventListener.bind(window);
+    vi.spyOn(window, 'addEventListener').mockImplementation((type: string, fn: EventListenerOrEventListenerObject, o?: boolean | AddEventListenerOptions) => {
+      listeners.push([type, fn]);
+      add(type, fn, o);
+    });
+    clock = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
     document.body.innerHTML = STAGE_HTML;
     const s: GameState = createGame(d3, 1);
     forceRound(s, 3);
@@ -120,9 +130,63 @@ describe('R jige swap in solo', () => {
     const queue = driver.queue.bind(driver);
     vi.spyOn(driver, 'queue').mockImplementation(cmd => { queued.push(cmd); queue(cmd); });
   });
-  afterEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => {
+    for (const [type, fn] of listeners.splice(0)) window.removeEventListener(type, fn);
+    vi.restoreAllMocks();
+  });
 
   const board = (defId: string, slot: number) => placeUnitForTest(driver.state, defId, slot);
+  const frame = (): void => { clock += 150; scene.onFrame?.(); };
+  const hud = () => document.getElementById('top')!.textContent!;
+  const CLOSED = '유닛이 바뀌어 지게 목록을 닫았습니다';
+
+  test('when the unit changes the list closes with a notice; a pick that swaps it does not say so', () => {
+    const s = driver.state;
+    s.econ!.jige = 2;
+    const g2 = normalsOf(2)[0]!;
+    board(g2, 2);
+    scene.select!(2);
+    keydown(window, { code: 'KeyR' });
+    expect(rows().length).toBeGreaterThan(0);
+    // the list is in the left window, so the board still takes the sell key
+    keydown(window, { code: 'KeyS' });
+    expect(queued).toEqual([{ type: 'sell', slot: 2 }]);
+    driver.update(50);
+    frame();
+    expect(s.slots[2]).toBeNull();
+    expect(win().innerHTML).toBe('');
+    expect(hud()).toContain(CLOSED);
+
+    clock += 5000;
+    board(g2, 3);
+    scene.select!(3);
+    keydown(window, { code: 'KeyR' });
+    press(rows()[0]!);
+    expect(queued.filter(c => c.type === 'jigeSwap')).toHaveLength(1);
+    driver.update(50);
+    frame();
+    expect(s.slots[3]!.defId).not.toBe(g2);
+    expect(win().innerHTML).toBe('');
+    expect(hud()).not.toContain(CLOSED);
+  });
+
+  test('typing in the name box is not a hotkey', () => {
+    const s = driver.state;
+    s.econ!.jige = 1;
+    board(normalsOf(3)[0]!, 0);
+    scene.select!(0);
+    keydown(window, { code: 'KeyR' });
+    const input = win().querySelector<HTMLInputElement>('.jige-search input')!;
+    input.focus();
+    for (const code of ['KeyE', 'KeyB', 'Space', 'KeyJ', 'Tab']) keydown(input, { code, key: code === 'Space' ? ' ' : code.slice(3).toLowerCase() });
+    expect(document.getElementById('win-right')!.innerHTML).toBe('');
+    expect(queued.filter(c => c.type === 'summon')).toEqual([]);
+    expect(win().querySelector('.jige-search')).not.toBeNull();
+    input.value = '없는이름';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(rows()).toHaveLength(0);
+    expect(document.activeElement).toBe(input);
+  });
 
   test('R lists every other normal peer and filters without spending; two picks spend two jige', () => {
     const s = driver.state;
@@ -135,6 +199,13 @@ describe('R jige swap in solo', () => {
     expect(bottom).toContain('보유 지게 2개');
     expect(bottom).toContain('R 지게 바꾸기');
     keydown(window, { code: 'KeyR' });
+    expect(win().querySelector('.win.jige-modal')).not.toBeNull();
+    expect(document.getElementById('modal')!.innerHTML).toBe('');
+    expect(win().querySelector('#win-left-title')!.textContent).toBe('지게 (R) · 보유 2');
+    expect(win().querySelector('.win-close')!.getAttribute('aria-label')).toBe('지게 닫기 (R)');
+    const from = win().querySelector<HTMLElement>('.jige-from')!;
+    expect(from.textContent).toBe(`${d3.units.find(u => u.id === g4)!.name} (4등급) · 진영 1행 4열 → 같은 등급`);
+    expect(from.title).toBe('원가 1등급 8기 값');
     expect(rows().map(b => b.dataset.arg).sort()).toEqual(normalsOf(4).filter(x => x !== g4));
     for (const row of rows()) {
       const def = d3.units.find(u => u.id === row.dataset.arg)!;
@@ -142,25 +213,31 @@ describe('R jige swap in solo', () => {
       expect(row.textContent).toMatch(/물딜|마딜/);
     }
     // filters: a name part and a damage type
-    const input = modal().querySelector<HTMLInputElement>('.jige-search input')!;
+    const input = win().querySelector<HTMLInputElement>('.jige-search input')!;
     const part = d3.units.find(u => u.id === g4)!.name.slice(0, 1);
     input.value = part;
     input.dispatchEvent(new Event('input', { bubbles: true }));
     expect(rows().every(b => b.textContent!.includes(part))).toBe(true);
     // typing R in the box neither closes nor reopens anything
     keydown(input, { code: 'KeyR', key: 'r' });
-    expect(modal().querySelector('.jige-search')).not.toBeNull();
-    press(modal().querySelector('[data-action="jigeType"][data-arg="magical"]'));
+    expect(win().querySelector('.jige-search')).not.toBeNull();
+    press(win().querySelector('[data-action="jigeType"][data-arg="magical"]'));
     expect(rows().every(b => b.textContent!.includes('마딜'))).toBe(true);
-    press(modal().querySelector('[data-action="closeModal"]'));
+    press(win().querySelector('.win-close'));
+    expect(win().innerHTML).toBe('');
     expect(queued).toEqual([]);
+    // R closes it again
+    keydown(window, { code: 'KeyR' });
+    expect(rows().length).toBeGreaterThan(0);
+    keydown(window, { code: 'KeyR' });
+    expect(win().innerHTML).toBe('');
     expect(s.econ!.jige).toBe(2);
 
     keydown(window, { code: 'KeyR' });
     const target = rows().find(b => b.dataset.arg !== g4)!.dataset.arg!;
     press(rows().find(b => b.dataset.arg === target)!);
     expect(queued).toEqual([{ type: 'jigeSwap', source: { zone: 'board', index: 3, unitId: unit.id }, result: target }]);
-    expect(modal().textContent).toBe('');
+    expect(win().innerHTML).toBe('');
     driver.update(50);
     expect(s.slots[3]).toMatchObject({ defId: target, cost: 8 });
     expect(s.econ!.jige).toBe(1);
@@ -194,11 +271,11 @@ describe('R jige swap in solo', () => {
     scene.select!(0);
     keydown(window, { code: 'KeyR' });
     expect(rows().map(b => b.dataset.arg)).toEqual(['bitjaru', 'jipsin', 'dadeumi', 'bujigaengi', 'sotlid', 'horong', 'ki']);
-    const tagOf = (id: string) => modal().querySelector(`.jige-row[data-arg="${id}"] .jige-tag`)?.textContent;
+    const tagOf = (id: string) => win().querySelector(`.jige-row[data-arg="${id}"] .jige-tag`)?.textContent;
     expect(tagOf('bitjaru')).toBe('조합 → 멍석 외 1');
     // a board change after opening is not counted again (counting it would drop 쓰레받기)
     s.slots[2] = null;
-    const input = modal().querySelector<HTMLInputElement>('.jige-search input')!;
+    const input = win().querySelector<HTMLInputElement>('.jige-search input')!;
     input.value = '빗';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     expect(rows().map(b => b.dataset.arg)).toEqual(['bitjaru']);
@@ -273,7 +350,7 @@ describe('R jige swap online', () => {
     clock += 150; driver.update(16);
     press(old);
     expect(room.cmds('jigeSwap')).toHaveLength(0);
-    expect(modal().querySelector('.jige-modal')).toBeNull();
+    expect(win().querySelector('.jige-modal')).toBeNull();
     // the authoritative cost and 지게 are still there; a new pick goes once
     expect(driver.state.slots[2]).toMatchObject({ id: unit.id, cost: 4 });
     scene.select!(2);

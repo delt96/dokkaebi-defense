@@ -140,7 +140,7 @@ describe('W, Shift+W and Z/X/C off the next list', () => {
     mount(MOCK_TARGET);
     scene.select(0);
     key('Tab');
-    const heads = Array.from(document.querySelectorAll('#modal .recipe-head .recipe-row'), r => r.textContent!.trim());
+    const heads = Array.from(document.querySelectorAll('#win-left .recipe-head .recipe-row'), r => r.textContent!.trim());
     expect(heads[0]!.startsWith('[Z]')).toBe(true);
     expect(heads[0]).toContain('디딜방아');
     expect(heads[1]!.startsWith('[X]')).toBe(true);

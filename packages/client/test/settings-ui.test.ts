@@ -150,7 +150,7 @@ describe('solo help line and unit card', () => {
     expect(bottom().querySelector('[data-action="sell"], .unit-info')).toBeNull();
     expect(bottom().textContent).toContain('Z/X/C 조합(판에 짝 표시)');
     press(card.querySelector('[data-action="unitDetails"]'));
-    expect(modal().querySelector('.unit-details')).not.toBeNull();
+    expect(document.querySelector('#win-left .unit-details')).not.toBeNull();
   });
 
   test('one panel: head, scope buttons, the list, the 지게 row, then the actions; Q keeps that order', () => {

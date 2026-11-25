@@ -180,11 +180,13 @@ describe('online mountUi', () => {
     expect(document.querySelector('#bottom')!.textContent).not.toContain('부족');
     expect(document.querySelector('#left .unit-panel')).toBeNull();
     press(document.querySelector('#bottom .recipe-more'));
-    const options = document.querySelectorAll('#modal [data-action="combine"]');
+    const options = document.querySelectorAll('#win-left .unit-details [data-action="combine"]');
     expect(options.length).toBeGreaterThan(3);
+    expect(document.querySelector('#modal .modal')).toBeNull();
     press(options[3]!);
     expect(room.cmds('combine')[0]?.args).toMatchObject({ slot: 0, unitId: 30 });
-    expect(document.querySelector('#modal .modal')).toBeNull();
+    // the window does not lock the board, so a combine leaves it open on the selection
+    expect(document.querySelector('#win-left .unit-details')).not.toBeNull();
   });
 
   test('inspecting a stored stack shows its info and sends nothing to the room', () => {

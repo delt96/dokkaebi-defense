@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { cellCorner, cellPx, laneToCanvas } from '../src/layout';
+import { cellCorner, cellPx, laneToCanvas, STORAGE_BOX } from '../src/layout';
 import { createGame, loadGameData, type GameData } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { expect, test, vi } from 'vitest';
@@ -199,6 +199,25 @@ test('drop moves the dragged unit after a pending swap', () => {
   driver.update(50);
   expect(state.slots[2]?.id).toBe(b.id);
   expect(state.slots[1]?.id).toBe(a.id);
+});
+
+test('a board unit dropped on the storage column is stored, unless a pillar window covers the column', () => {
+  const { scene, driver, state, container } = setupScene();
+  placeUnitForTest(state, 'sotlid', 0);
+  scene['placeUnits']();
+  const view = container.mock.results[0]!.value!;
+  const queue = vi.spyOn(driver, 'queue');
+  const drop = () => {
+    view.emit('dragstart', { rightButtonDown: () => false });
+    view.setPosition(STORAGE_BOX.x - 128 + 5, STORAGE_BOX.y - 24 + 5);
+    view.emit('dragend');
+  };
+  scene.storageCovered = true;
+  drop();
+  expect(queue.mock.calls.filter(c => c[0].type === 'store')).toHaveLength(0);
+  scene.storageCovered = false;
+  drop();
+  expect(queue).toHaveBeenCalledWith({ type: 'store', slot: 0 });
 });
 
 const DANGER = 0xff3b2f;

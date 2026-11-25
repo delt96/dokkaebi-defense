@@ -10,6 +10,7 @@ import { FakeRoom, STAGE_HTML, data as netData, fixtureFull, key, press } from '
 
 class FakeScene {
   selectedId: number | null = null;
+  storageCovered = false;
   onFrame?: () => void;
   private selectCb: ((slot: number | null) => void) | null = null;
   onSelect(cb: (slot: number | null) => void): void { this.selectCb = cb; }
@@ -336,6 +337,64 @@ describe('solo side windows', () => {
     expect(queue).toHaveBeenCalledWith({ type: 'gambleUnit', table: 'small' });
     key('Space');
     expect(queue).toHaveBeenCalledWith({ type: 'summon' });
+  });
+
+  test('a left pillar covers the left panel and storage, frees the focus there and refuses storage drops', () => {
+    const { s, scene, frame } = mountSolo();
+    placeUnitForTest(s, s.data.units.find(u => u.grade === 1)!.id, 0);
+    scene.select(0);
+    const scopeBtn = $<HTMLButtonElement>('#left .scope-btn')!;
+    scopeBtn.focus();
+    expect(document.activeElement).toBe(scopeBtn);
+    press($('#left [data-action="unitDetails"]'));
+    expect($('#win-left .unit-details')).not.toBeNull();
+    expect($('#left')!.inert).toBe(true);
+    expect($('#storage')!.inert).toBe(true);
+    expect($('#left')!.contains(document.activeElement)).toBe(false);
+    expect(scene.storageCovered).toBe(true);
+    // a redraw does not hand the focus back into the covered panel
+    frame();
+    expect($('#left')!.contains(document.activeElement)).toBe(false);
+    key('Tab');
+    expect($('#win-left .unit-details')).toBeNull();
+    expect($('#left')!.inert).toBe(false);
+    expect($('#storage')!.inert).toBe(false);
+    expect(scene.storageCovered).toBe(false);
+    document.documentElement.dataset.wins = 'outside';
+    frame();
+    key('Tab');
+    expect($('#win-left .unit-details')).not.toBeNull();
+    expect($('#left')!.inert).toBe(false);
+    expect($('#storage')!.inert).toBe(false);
+    expect(scene.storageCovered).toBe(false);
+  });
+
+  test('상세 and the market together; Esc closes the one opened last first', () => {
+    const { s, scene } = mountSolo(withoutMarketLock(loadGameData('stage3')));
+    const unit = placeUnitForTest(s, s.data.units.find(u => u.grade === 1)!.id, 0);
+    scene.select(0);
+    key('Tab');
+    key('KeyB');
+    expect($('#win-left .unit-details')).not.toBeNull();
+    expect($('#win-right .econ-panel')).not.toBeNull();
+    key('Escape');
+    expect($('#win-right .econ-panel')).toBeNull();
+    expect($('#win-left .unit-details')).not.toBeNull();
+    key('Escape');
+    expect($('#win-left .unit-details')).toBeNull();
+    expect(scene.selectedId).toBe(unit.id);
+  });
+
+  test('closing 상세 with its close button gives the focus to the 상세 button', () => {
+    const { s, scene } = mountSolo();
+    placeUnitForTest(s, s.data.units.find(u => u.grade === 1)!.id, 0);
+    scene.select(0);
+    key('Tab');
+    const close = $<HTMLButtonElement>('#win-left .win-close')!;
+    close.focus();
+    press(close);
+    expect($('#win-left .unit-details')).toBeNull();
+    expect(document.activeElement).toBe($('#left [data-action="unitDetails"]'));
   });
 
   test('closing the market from inside gives the focus to the 장터 (B) button', () => {

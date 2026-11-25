@@ -108,11 +108,11 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 .unit-face { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 1px solid var(--g); border-radius: 3px; background: rgba(0, 0, 0, .25); }
 .unit-face img { width: 18px; height: 18px; image-rendering: pixelated; }
 .unit-face .stack-disc { width: 14px; height: 14px; font-size: 8px; }
-.ud-head .unit-face { width: 24px; height: 24px; }
+.unit-details .win-title .unit-face { width: 24px; height: 24px; }
 .gshape { position: absolute; left: -2px; top: -2px; width: 5px; height: 5px; border: 1px solid #000; }
 .gshape.c { border-radius: 50%; }
 .gshape.d { transform: rotate(45deg) scale(.9); }
-.ud-head .unit-face img { width: 22px; height: 22px; }
+.unit-details .win-title .unit-face img { width: 22px; height: 22px; }
 .up-sub { color: #bfbbca; }
 .up-skill { margin: 0; color: var(--ink-dim); line-height: 1.4; word-break: keep-all; }
 .card-recipes { min-width: 0; }
@@ -686,22 +686,18 @@ body.online #modal .dex-browser .modal-head { position: static; padding: 0; }
 .type-badge { display: inline-block; padding: 0 2px; border-radius: 2px; border: 1px solid; font-size: 8px; font-weight: normal; line-height: 9px; vertical-align: 1px; }
 .type-badge.physical { color: #ffab5e; background: #3d2412; border-color: #b8651f; }
 .type-badge.magical { color: #a9b8ff; background: #1f2347; border-color: #5a6ad6; }
-/* unit 상세: the head stays put and only the body scrolls, solo and online alike */
-#modal .unit-details, body.online #modal .unit-details { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
-#modal .unit-details .ud-head, body.online #modal .unit-details .ud-head { position: static; flex: none; justify-content: flex-start; gap: 5px; margin: 0; padding: 6px 6px 5px; border-bottom: 1px solid var(--panel-edge); background: var(--panel); color: var(--ink); white-space: nowrap; }
-body.online #modal .unit-details .ud-head { padding: 8px 10px 6px; }
-.ud-head .dot { flex: none; margin-right: 0; }
-.ud-head .ud-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--accent); }
-.ud-head .ud-grade { color: var(--ink-dim); font-weight: normal; }
-.ud-head .ud-close { margin-left: auto; flex: none; }
-.unit-details .ud-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 5px 6px 6px; }
-body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
-.ud-stats { display: grid; grid-template-columns: repeat(4, auto); gap: 3px; margin: 0; }
+/* 156 and 196 wide: a long name pushes the grade and the type badge to a second head line instead of cutting the name */
+.unit-details .win-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0 5px; min-width: 0; }
+.unit-details .win-title > * { flex: none; }
+.unit-details .ud-name { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.unit-details .ud-grade { color: var(--ink-dim); font-weight: normal; font-size: 10px; }
+.unit-details .ud-body { gap: 6px; }
+.ud-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin: 0; }
 .ud-stat { min-width: 0; padding: 2px 4px; border: 1px solid var(--panel-edge); border-radius: 3px; background: #0d0a1466; }
 .ud-stat dt { color: var(--ink-dim); white-space: nowrap; }
-.ud-stat dd { margin: 0; font-weight: bold; white-space: nowrap; }
-.ud-stat .ud-bonus { color: #9fd39a; font-weight: normal; }
-.ud-sec { margin-top: 6px; }
+.ud-stat dd { margin: 0; font-weight: bold; }
+.ud-stat .ud-bonus { color: #9fd39a; font-weight: normal; white-space: nowrap; }
+.ud-sec { margin: 0; }
 .ud-sec h3 { margin: 0 0 3px; padding-bottom: 1px; border-bottom: 1px solid var(--panel-edge); color: var(--accent); font-size: inherit; }
 .ud-sec .dex-roles { margin: 0 0 3px; }
 .ud-lines { margin: 0; padding-left: 12px; line-height: 1.45; word-break: keep-all; }
@@ -714,14 +710,17 @@ body.online #modal .unit-details .ud-body { padding: 6px 10px 10px; }
 #storage .stack-swap { position: absolute; top: 0; right: 0; width: 11px; height: 11px; min-height: 0; padding: 0; border-radius: 50%; font-size: 6px; line-height: 9px; text-align: center; color: #10233a; background: #7fb2e5; border: 1px solid #2a5a8a; opacity: 0.85; }
 #storage .stack-swap:hover:not([disabled]) { opacity: 1; border-color: #e0f0ff; }
 #storage .stack-swap[disabled] { opacity: 0.35; }
-.jige-modal { display: flex; flex-direction: column; max-height: 100%; }
-.jige-from { padding: 2px 4px; color: var(--ink-dim); }
-.jige-filters { display: flex; gap: 2px; padding: 2px 4px; align-items: center; }
+.jige-from { flex: none; padding: 4px 6px 0; color: var(--ink-dim); word-break: keep-all; }
+/* 196 (pillar): name box and the three buttons on one line; 156 (outside): the name box gets a line of its own */
+.jige-filters { flex: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 6px; align-items: center; }
+.jige-filters button { flex: none; min-height: 24px; }
 .jige-filters button.on { border-color: var(--accent); color: var(--accent); }
-.jige-search input { width: 90px; }
+.jige-search { flex: 1 1 0; min-width: 0; display: flex; }
+.jige-search input { width: 100%; min-width: 0; height: 24px; box-sizing: border-box; font: inherit; }
+:root[data-wins="outside"] .jige-search { flex-basis: 100%; }
 /* max-content rows: with auto rows an overflowing list squeezes every row to its 28px min-height (the
    overflow:hidden buttons have no content minimum), cutting off the second line */
-.jige-rows { flex: 1; overflow-y: auto; overflow-x: hidden; display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-rows: max-content; gap: 4px; padding: 2px 4px; }
+.jige-rows { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-rows: max-content; gap: 4px; padding: 0 6px 4px; }
 .jige-row { display: flex; flex-direction: column; justify-content: center; text-align: left; min-height: 28px; padding: 0 5px; min-width: 0; overflow: hidden; font-size: 10px; line-height: 12px; }
 .jige-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
 .jige-l1 { display: flex; align-items: center; gap: 3px; height: 14px; white-space: nowrap; }
