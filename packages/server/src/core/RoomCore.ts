@@ -26,7 +26,7 @@ export interface RoomDeps {
   log?(line: string): void;
 }
 
-const DIFFICULTY_TEXT: Record<Difficulty, string> = { easy: '쉬움', normal: '보통', hard: '어려움' };
+const DIFFICULTY_TEXT: Record<Difficulty, string> = { easy: '쉬움', normal: '보통', hard: '어려움', hell: '지옥' };
 const OUTCOME_TEXT: Record<MatchResult['outcome'], string> = { clear: '클리어', wipe: '전멸', gate: '관문 실패' };
 /** keepOpenMs: a rematch lobby stays open while empty for this long (the rest of the old room's result hold, capped at the full hold). */
 /** stage: the rule data the room starts with (the host can change it in the lobby); a rematch room gets the old room's. */

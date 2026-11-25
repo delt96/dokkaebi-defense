@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { createGame, createMatch, enemyDef, enemyHp, loadGameData, matchHash, replayMatch, startRound, validateData } from '../src/index';
 
-test.each([['easy', 3], ['normal', 3], ['hard', 3]] as const)('%s grants only the chosen round income', (difficulty, grant) => {
+test.each([['easy', 3], ['normal', 3], ['hard', 3], ['hell', 2]] as const)('%s grants only the chosen round income', (difficulty, grant) => {
   const state = createGame(loadGameData('stage3'), 42, difficulty);
   expect([state.tokens, state.difficulty]).toEqual([4, difficulty]);
   for (const r of [1, 2, 3]) {
@@ -61,6 +61,16 @@ test('easy ends at round 60 with 80% hp, normal keeps 70 rounds with 90% hp, har
   expect(easy.coop!.yeoksin[3]!.baseHp).toBe(Math.round(base.coop!.yeoksin[3]!.baseHp * 0.8));
   // event and hunt enemies keep their hp
   expect(enemyDef(easy, 'ev_ssireum').hp).toBe(enemyDef(base, 'ev_ssireum').hp);
+});
+
+test('hell plays the hard game on the shared data with two tokens a round', () => {
+  const base = loadGameData('stage3');
+  const hell = createGame(base, 1, 'hell');
+  expect(hell.data).toBe(base);
+  expect(hell.data.balance.rounds).toBe(70);
+  const match = createMatch(base, 1, [1, 2], { difficulty: 'hell' });
+  expect(match.data).toBe(base);
+  expect(match.lanes[1]!.difficulty).toBe('hell');
 });
 
 test('a match derives its difficulty once, keeps the shared data version and ends easy at round 60', () => {

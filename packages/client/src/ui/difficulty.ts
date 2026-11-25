@@ -1,16 +1,17 @@
 import { DIFFICULTIES, loadGameData, type Difficulty, type GameData } from '@dorandi/logic';
 
-const labels: Record<Difficulty, string> = { easy: '쉬움', normal: '보통', hard: '어려움' };
+const labels: Record<Difficulty, string> = { easy: '쉬움', normal: '보통', hard: '어려움', hell: '지옥' };
 
 export function difficultySuffix(data: GameData, difficulty?: Difficulty): string {
   return data.balance.difficulties ? ` · ${labels[difficulty ?? 'normal']}` : '';
 }
 
-/** What a difficulty changes, read from the 70-round rules: "60라운드 · 적 체력 80%". */
+/** What a difficulty changes, read from the 70-round rules: "60라운드 · 적 체력 80%", plus the round tokens when they differ from the usual grant. */
 export function difficultyRuleText(difficulty: Difficulty, data: GameData = loadGameData('stage3')): string {
   const rule = data.balance.difficulties?.[difficulty];
   const rounds = rule?.rounds ?? data.balance.rounds;
-  return `${rounds}라운드 · 적 체력 ${Math.round((rule?.hpScale ?? 1) * 100)}%`;
+  const tokens = rule && rule.tokensPerRound !== data.balance.tokens.perRound ? ` · 도깨비불 ${rule.tokensPerRound}개` : '';
+  return `${rounds}라운드 · 적 체력 ${Math.round((rule?.hpScale ?? 1) * 100)}%${tokens}`;
 }
 
 export function difficultyNote(difficulty: Difficulty): HTMLElement {

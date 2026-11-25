@@ -39,7 +39,7 @@ export function stage3Cli(arg: Arg): void {
   const check = arg('check', 'all');
   const seeds = Number(arg('seeds', '3'));
   const difficulty = arg('difficulty', 'normal');
-  if (!isDifficulty(difficulty)) throw new Error('--difficulty easy|normal|hard');
+  if (!isDifficulty(difficulty)) throw new Error('--difficulty easy|normal|hard|hell');
   const out = arg('out', difficulty === 'normal' ? 'sim-out/stage3' : `sim-out/stage3-${difficulty}`);
   const data = withSets(loadGameData('stage3'), arg('set', ''));
   // Each probe creates its own lanes from this private data copy.

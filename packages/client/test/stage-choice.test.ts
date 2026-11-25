@@ -6,6 +6,7 @@ import type { RoomLike } from '../src/net/room';
 import { renderEntry, soloStage } from '../src/online/entry';
 import { lobbyModel, renderLobby } from '../src/online/lobby';
 import { hudModel } from '../src/ui/models';
+import { difficultyRuleText } from '../src/ui/difficulty';
 import { fixtureFull } from './fixtures/net';
 
 const msg = (over: Partial<LobbyMsg> = {}): LobbyMsg => ({
@@ -39,7 +40,7 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     const guest = document.createElement('div');
     renderLobby(guest, msg({ you: 2, stage: 'stage3' }), { ready: () => {}, start: () => {}, copy: () => {} });
     const gb = Array.from(guest.querySelectorAll<HTMLButtonElement>('[data-difficulty]'));
-    expect(gb).toHaveLength(3);
+    expect(gb).toHaveLength(4);
     expect(gb.every(b => b.disabled)).toBe(true);
     expect(guest.textContent).toContain('난이도는 방장이 정합니다');
   });
@@ -95,12 +96,22 @@ describe('60 rounds only on screen; 20-round rooms still load', () => {
     renderEntry(root, { onSubmit: async (name, difficulty) => { picks.push([name, difficulty]); } });
     const row = root.querySelector('.entry-difficulty')!;
     expect(row.firstElementChild!.textContent).toBe('난이도');
-    expect(row.querySelectorAll('[data-difficulty]')).toHaveLength(3);
+    expect(row.querySelectorAll('[data-difficulty]')).toHaveLength(4);
     root.querySelector<HTMLButtonElement>('[data-difficulty="easy"]')!.click();
     root.querySelector<HTMLInputElement>('.entry-input')!.value = '하나';
     root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
     await Promise.resolve();
     expect(picks).toEqual([['하나', 'easy']]);
+  });
+
+  test('hell is the last button and names its two tokens', () => {
+    const root = document.createElement('div');
+    renderEntry(root, { onSubmit: async () => {} });
+    const labels = Array.from(root.querySelectorAll<HTMLButtonElement>('.entry-difficulty [data-difficulty]')).map(b => b.textContent);
+    expect(labels).toEqual(['쉬움', '보통', '어려움', '지옥']);
+    expect(difficultyRuleText('hell')).toBe('70라운드 · 적 체력 100% · 도깨비불 2개');
+    expect(difficultyRuleText('hard')).toBe('70라운드 · 적 체력 100%');
+    expect(hudModel(createGame(loadGameData('stage3'), 1, 'hell')).roundText).toContain('지옥');
   });
 
   test('stage three shows the room choice to guests and on the HUD', () => {

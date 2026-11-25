@@ -50,7 +50,7 @@ export interface GridDef {
   cols: number; rows: number; initialOpenRows: number;
   frame?: { cols: number; rows: number };
 }
-export const DIFFICULTIES = ['easy', 'normal', 'hard'] as const;
+export const DIFFICULTIES = ['easy', 'normal', 'hard', 'hell'] as const;
 export type Difficulty = typeof DIFFICULTIES[number];
 export function isDifficulty(value: unknown): value is Difficulty {
   return DIFFICULTIES.some(d => d === value);

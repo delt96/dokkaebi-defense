@@ -127,7 +127,7 @@ describe('stage 3 balance stands on its own', () => {
       hp: { base: 63.75, coef: 13.6, exp: 1.5, late: { fromRound: 65, perRound: 0.4 } },
       gradeDps: { base: 10, mult: 2.6 },
       defaultDifficulty: 'normal',
-      difficulties: { easy: { tokensPerRound: 3, rounds: 60, hpScale: 0.8 }, normal: { tokensPerRound: 3, hpScale: 0.9 }, hard: { tokensPerRound: 3 } },
+      difficulties: { easy: { tokensPerRound: 3, rounds: 60, hpScale: 0.8 }, normal: { tokensPerRound: 3, hpScale: 0.9 }, hard: { tokensPerRound: 3 }, hell: { tokensPerRound: 2 } },
       tokens: { start: 4, perRound: 3, toCoins: 25 },
       coins: { perKill: 1, roundEnd: 10, boss: 60 },
       bossBuckwheat: 2,
