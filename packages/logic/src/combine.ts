@@ -39,22 +39,111 @@ function costShortfall(state: GameState, recipe: RecipeDef): 'noBuckwheat' | 'no
   return null;
 }
 
+interface MaterialPick {
+  used: Set<number>;
+  stored: Set<number>;
+  /** null: no slot for the result (the combine is refused with noSlot). */
+  resultSlot: number | null;
+  /** The board unit the result replaces, -1 when it lands on an empty slot. */
+  replacedSlot: number;
+  eatsItem: boolean;
+}
+
+/**
+ * Which board slots and storage indexes a combine uses, without changing the state.
+ * Units with an item are used only after every bare copy; with no item among the
+ * candidates this is the pre-item algorithm, which the golden test and hashes pin.
+ */
+function pickMaterials(state: GameState, recipe: RecipeDef, slot?: number): MaterialPick {
+  const storage = state.storage ?? [];
+  const bare = (u: { item?: string } | null | undefined) => !!u && !u.item;
+  const clicked = slot === undefined ? undefined : state.slots[slot];
+
+  let resultSlot: number | undefined = clicked && bare(clicked) ? slot : undefined;
+  if (resultSlot === undefined) {
+    const materialSlots = state.slots
+      .map((u, i) => (bare(u) && recipe.materials.includes(u!.defId) ? i : -1))
+      .filter(i => i >= 0);
+    if (materialSlots.length) resultSlot = pickResultSlot(state, materialSlots);
+  }
+
+  const used = new Set<number>();
+  const stored = new Set<number>();
+  const unfilled: string[] = [];
+  for (const m of recipe.materials) {
+    if (resultSlot !== undefined && !used.has(resultSlot) && state.slots[resultSlot]!.defId === m) { used.add(resultSlot); continue; }
+    let found = false;
+    for (let i = state.slots.length - 1; i >= 0 && !found; i--) {
+      if (i === resultSlot || used.has(i)) continue;
+      const u = state.slots[i];
+      if (bare(u) && u!.defId === m) { used.add(i); found = true; }
+    }
+    for (let j = storage.length - 1; j >= 0 && !found; j--) {
+      if (!stored.has(j) && bare(storage[j]) && storage[j]!.defId === m) { stored.add(j); found = true; }
+    }
+    if (!found) unfilled.push(m);
+  }
+
+  const equippedUsed: number[] = [];
+  for (const m of unfilled) {
+    let found = false;
+    if (slot !== undefined && clicked?.item && !used.has(slot) && clicked.defId === m) { used.add(slot); equippedUsed.push(slot); found = true; }
+    for (let i = state.slots.length - 1; i >= 0 && !found; i--) {
+      const u = state.slots[i];
+      if (!used.has(i) && u?.item && u.defId === m) { used.add(i); equippedUsed.push(i); found = true; }
+    }
+    for (let j = storage.length - 1; j >= 0 && !found; j--) {
+      if (!stored.has(j) && storage[j]!.item && storage[j]!.defId === m) { stored.add(j); found = true; }
+    }
+  }
+
+  let replacedSlot = resultSlot ?? -1;
+  if (resultSlot === undefined && equippedUsed.length) {
+    resultSlot = pickResultSlot(state, equippedUsed.sort((a, b) => a - b));
+    replacedSlot = resultSlot;
+  }
+  let finalSlot: number | null = resultSlot ?? chooseSlot(state, unitDefFast(state.data, recipe.result));
+
+  if (finalSlot === null) {
+    // full board: trade a used stored copy for an equipped board copy of the same kind so the result has a slot
+    const storedKinds = new Set([...stored].map(j => storage[j]!.defId));
+    const swaps = state.slots
+      .map((u, i) => (u?.item && !used.has(i) && storedKinds.has(u.defId) ? i : -1))
+      .filter(i => i >= 0);
+    if (swaps.length) {
+      const at = slot !== undefined && swaps.includes(slot) ? slot : pickResultSlot(state, swaps);
+      const kind = state.slots[at]!.defId;
+      const oldest = Math.min(...[...stored].filter(j => storage[j]!.defId === kind));
+      stored.delete(oldest);
+      used.add(at);
+      finalSlot = at;
+      replacedSlot = at;
+    }
+  }
+
+  let eatsItem = false;
+  for (const i of used) if (state.slots[i]!.item) eatsItem = true;
+  for (const j of stored) if (storage[j]!.item) eatsItem = true;
+  return { used, stored, resultSlot: finalSlot, replacedSlot, eatsItem };
+}
+
 /** How many of a recipe's materials would come out of storage (board units are used first). */
-export function storedMaterials(state: GameState, result: string): number {
+export function storedMaterials(state: GameState, result: string, slot?: number): number {
   const recipe = state.data.recipes.find(r => r.result === result);
   if (!recipe || !state.storage?.length) return 0;
-  const board = new Map<string, number>();
-  for (const u of state.slots) if (u) board.set(u.defId, (board.get(u.defId) ?? 0) + 1);
-  const stored = new Map<string, number>();
-  for (const u of state.storage) stored.set(u.defId, (stored.get(u.defId) ?? 0) + 1);
-  let n = 0;
-  for (const m of recipe.materials) {
-    const c = board.get(m) ?? 0;
-    const k = stored.get(m) ?? 0;
-    if (c > 0) board.set(m, c - 1);
-    else if (k > 0) { stored.set(m, k - 1); n++; }
+  return pickMaterials(state, recipe, slot).stored.size;
+}
+
+/** Whether this combine (with the same arguments the combine command gets) would use a unit that has an item. */
+export function combineEatsItem(state: GameState, result: string, slot?: number): boolean {
+  const recipe = state.data.recipes.find(r => r.result === result);
+  if (!recipe || missingFrom(state, recipe.materials).length) return false;
+  if (slot !== undefined) {
+    const chosen = state.slots[slot];
+    if (!chosen || !recipe.materials.includes(chosen.defId)) return false;
   }
-  return n;
+  const pick = pickMaterials(state, recipe, slot);
+  return pick.resultSlot !== null && pick.eatsItem;
 }
 
 export function availableRecipes(state: GameState): string[] {
@@ -92,34 +181,10 @@ registerCommand('combine', (state, cmd, events) => {
   const short = costShortfall(state, recipe);
   if (short) return short;
 
-  // the result takes a board material's place; with no board material it needs a free slot
-  let resultSlot: number | null | undefined = cmd.slot;
-  if (resultSlot === undefined) {
-    const materialSlots = state.slots
-      .map((u, i) => (u && recipe.materials.includes(u.defId) ? i : -1))
-      .filter(i => i >= 0);
-    if (materialSlots.length) resultSlot = pickResultSlot(state, materialSlots);
-  }
-
-  // board units first, so a board that holds everything combines exactly as before storage existed
-  const used = new Set<number>();
-  const stored = new Set<number>();
-  const storage = state.storage ?? [];
-  for (const m of recipe.materials) {
-    if (resultSlot !== undefined && !used.has(resultSlot) && state.slots[resultSlot]!.defId === m) { used.add(resultSlot); continue; }
-    let found = false;
-    for (let i = state.slots.length - 1; i >= 0; i--) {
-      if (i === resultSlot || used.has(i)) continue;
-      if (state.slots[i]?.defId === m) { used.add(i); found = true; break; }
-    }
-    if (found) continue;
-    for (let j = storage.length - 1; j >= 0; j--) {
-      if (!stored.has(j) && storage[j]!.defId === m) { stored.add(j); break; }
-    }
-  }
-  const replacedUnitId = resultSlot === undefined ? -1 : state.slots[resultSlot]!.id;
-  if (resultSlot === undefined) resultSlot = chooseSlot(state, unitDefFast(state.data, recipe.result));
+  const { used, stored, resultSlot, replacedSlot } = pickMaterials(state, recipe, cmd.slot);
   if (resultSlot === null) return 'noSlot';
+  const storage = state.storage ?? [];
+  const replacedUnitId = replacedSlot < 0 ? -1 : state.slots[replacedSlot]!.id;
   if (recipe.cost?.buckwheat) state.buckwheat -= recipe.cost.buckwheat;
   if (recipe.cost?.coins) state.coins -= recipe.cost.coins;
   let cost = 0;

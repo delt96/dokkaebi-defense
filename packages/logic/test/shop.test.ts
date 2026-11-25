@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
-  applyCommand, buyBlock, createGame, itemOf, jigeCandidates, loadGameData, shopItem, validateData,
-  type GameData, type GameEvent, type GameState, type RejectReason,
+  applyCommand, buyBlock, combineEatsItem, createGame, itemOf, jigeCandidates, loadGameData, pickStored, shopItem,
+  storedMaterials, validateData, type GameData, type GameEvent, type GameState, type RejectReason, type Unit,
 } from '../src';
 import { makeData, placeUnitForTest, withoutMarketLock } from '../src/testing';
 
@@ -197,12 +197,13 @@ test('the item follows a move and goes with combine, sell and jige', () => {
 
   placeUnitForTest(s, 'jipsin', 6);
   expect(applyCommand(s, { type: 'combine', result: 'dunggumi', slot: 5 }, [])).toBeNull();
-  expect(s.slots[5]!.defId).toBe('dunggumi');
-  expect(s.slots[5]).not.toHaveProperty('item');
-
-  attach(5);
-  expect(applyCommand(s, { type: 'sell', slot: 5 }, [])).toBeNull();
   expect(s.slots[5]).toBeNull();
+  expect(s.slots[6]!.defId).toBe('dunggumi');
+  expect(s.slots[6]).not.toHaveProperty('item');
+
+  attach(6);
+  expect(applyCommand(s, { type: 'sell', slot: 6 }, [])).toBeNull();
+  expect(s.slots[6]).toBeNull();
   expect(s.slots.some(u => u?.item)).toBe(false);
 
   const b = placeUnitForTest(s, 'meok', 2);
@@ -220,4 +221,181 @@ test('no shop state until first use', () => {
   expect(s.econ).not.toHaveProperty('itemsBought');
   const u = placeUnitForTest(s, 'jipsin', 0);
   expect(u).not.toHaveProperty('item');
+});
+
+describe('combine and storage use the copy without an item first', () => {
+  const ok = (s: GameState, cmd: Parameters<typeof applyCommand>[1]) => expect(applyCommand(s, cmd, [])).toBeNull();
+  const ids = (s: GameState) => s.slots.map((u, i) => u && [i, u.id, u.defId, u.item ?? null]).filter(Boolean);
+  const storedIdsOf = (s: GameState) => (s.storage ?? []).map(u => u.id);
+  function equip(u: Unit, item = 'powerCharm'): Unit {
+    u.item = item;
+    return u;
+  }
+  function stash(s: GameState, defId: string, slot: number): Unit {
+    const u = placeUnitForTest(s, defId, slot);
+    ok(s, { type: 'store', slot });
+    return u;
+  }
+  function fillBoard(s: GameState, defId = 'sut') {
+    s.slots.forEach((u, i) => { if (!u && s.open[i]) placeUnitForTest(s, defId, i); });
+  }
+
+  test('combine takes the copy without an item first', () => {
+    const s = game();
+    placeUnitForTest(s, 'dunggumi', 0);
+    const a = placeUnitForTest(s, 'jipsin', 1);
+    const b = placeUnitForTest(s, 'jipsin', 2);
+    const c = equip(placeUnitForTest(s, 'jipsin', 3));
+    expect(combineEatsItem(s, 'jipsingol')).toBe(false);
+    ok(s, { type: 'combine', result: 'jipsingol' });
+    expect(s.slots[0]!.defId).toBe('jipsingol');
+    expect(s.slots[3]).toBe(c);
+    expect(s.slots[3]!.id).toBe(c.id);
+    expect(s.slots[3]!.item).toBe('powerCharm');
+    expect(s.slots.includes(a) || s.slots.includes(b)).toBe(false);
+  });
+
+  test('a recipe opened on an equipped copy uses the bare one', () => {
+    const s = game();
+    const e = equip(placeUnitForTest(s, 'jipsin', 0));
+    placeUnitForTest(s, 'jipsin', 3);
+    placeUnitForTest(s, 'jipsin', 4);
+    expect(combineEatsItem(s, 'dunggumi', 0)).toBe(false);
+    ok(s, { type: 'combine', result: 'dunggumi', slot: 0 });
+    expect(s.slots[0]).toBe(e);
+    expect(s.slots[0]!.item).toBe('powerCharm');
+    expect(s.slots[3]!.defId).toBe('dunggumi');
+    expect(s.slots[4]).toBeNull();
+
+    const t = game();
+    stash(t, 'jipsin', 1);
+    stash(t, 'jipsin', 2);
+    const f = equip(placeUnitForTest(t, 'jipsin', 0));
+    expect(storedMaterials(t, 'dunggumi')).toBe(2);
+    expect(combineEatsItem(t, 'dunggumi', 0)).toBe(false);
+    ok(t, { type: 'combine', result: 'dunggumi', slot: 0 });
+    expect(t.slots[0]).toBe(f);
+    expect(t.slots.filter(u => u?.defId === 'dunggumi')).toHaveLength(1);
+    expect(t.storage).toEqual([]);
+
+    const full = game();
+    const old = stash(full, 'jipsin', 1);
+    stash(full, 'jipsin', 2);
+    const g = equip(placeUnitForTest(full, 'jipsin', 0));
+    fillBoard(full);
+    expect(combineEatsItem(full, 'dunggumi', 0)).toBe(true);
+    ok(full, { type: 'combine', result: 'dunggumi', slot: 0 });
+    expect(full.slots[0]!.defId).toBe('dunggumi');
+    expect(full.slots.includes(g)).toBe(false);
+    expect(full.storage).toEqual([old]);
+  });
+
+  test('a bare clicked unit is still used first', () => {
+    const s = game();
+    const e = equip(placeUnitForTest(s, 'dunggumi', 0));
+    const clicked = placeUnitForTest(s, 'jipsin', 1);
+    const keep = placeUnitForTest(s, 'jipsin', 4);
+    placeUnitForTest(s, 'jipsin', 6);
+    placeUnitForTest(s, 'dunggumi', 7);
+    expect(combineEatsItem(s, 'jipsingol', 1)).toBe(false);
+    ok(s, { type: 'combine', result: 'jipsingol', slot: 1 });
+    expect(s.slots[1]!.defId).toBe('jipsingol');
+    expect(s.slots.includes(clicked)).toBe(false);
+    expect(s.slots[0]).toBe(e);
+    expect(s.slots[4]).toBe(keep);
+    expect(s.slots[6]).toBeNull();
+    expect(s.slots[7]).toBeNull();
+  });
+
+  test('a full board without a slot eats the board copy instead of refusing', () => {
+    const s = game();
+    const old = stash(s, 'jipsin', 1);
+    stash(s, 'jipsin', 2);
+    const e = equip(placeUnitForTest(s, 'jipsin', 5));
+    fillBoard(s);
+    expect(combineEatsItem(s, 'dunggumi')).toBe(true);
+    ok(s, { type: 'combine', result: 'dunggumi' });
+    expect(s.slots[5]!.defId).toBe('dunggumi');
+    expect(s.slots.includes(e)).toBe(false);
+    expect(s.storage).toEqual([old]);
+  });
+
+  test('an equipped board copy waits for a bare stored copy', () => {
+    const s = game();
+    stash(s, 'jipsin', 1);
+    const e = equip(placeUnitForTest(s, 'jipsin', 0));
+    placeUnitForTest(s, 'jipsin', 3);
+    expect(storedMaterials(s, 'dunggumi')).toBe(1);
+    expect(combineEatsItem(s, 'dunggumi')).toBe(false);
+    ok(s, { type: 'combine', result: 'dunggumi' });
+    expect(s.slots[0]).toBe(e);
+    expect(s.slots[3]!.defId).toBe('dunggumi');
+    expect(s.storage).toEqual([]);
+  });
+
+  test('the only copy with an item is still used, and combineEatsItem says so', () => {
+    const s = game();
+    const e = equip(placeUnitForTest(s, 'dunggumi', 0));
+    placeUnitForTest(s, 'jipsin', 3);
+    placeUnitForTest(s, 'bitjaru', 4);
+    expect(combineEatsItem(s, 'saekkijul')).toBe(true);
+    expect(combineEatsItem(s, 'saekkijul', 0)).toBe(true);
+    expect(combineEatsItem(s, 'saekkijul', 3)).toBe(true);
+    ok(s, { type: 'combine', result: 'saekkijul', slot: 0 });
+    expect(s.slots.includes(e)).toBe(false);
+    expect(s.slots.filter(u => u?.defId === 'saekkijul')).toHaveLength(1);
+    expect(s.slots.some(u => u?.item)).toBe(false);
+  });
+
+  test('storage keeps the item and retrieves or sells the copy without one first', () => {
+    const s = game();
+    const one = equip(placeUnitForTest(s, 'jipsin', 0));
+    const two = equip(placeUnitForTest(s, 'dunggumi', 1), 'swiftCharm');
+    ok(s, { type: 'storeAll' });
+    ok(s, { type: 'retrieve', defId: 'jipsin' });
+    ok(s, { type: 'retrieve', defId: 'dunggumi' });
+    expect(s.slots.find(u => u?.id === one.id)!.item).toBe('powerCharm');
+    expect(s.slots.find(u => u?.id === two.id)!.item).toBe('swiftCharm');
+
+    const t = game();
+    const bare = stash(t, 'jipsin', 0);
+    const worn = equip(stash(t, 'jipsin', 1));
+    ok(t, { type: 'retrieve', defId: 'jipsin' });
+    expect(t.slots.some(u => u?.id === bare.id)).toBe(true);
+    expect(t.storage!.map(u => u.id)).toEqual([worn.id]);
+
+    const u = game();
+    stash(u, 'jipsin', 0);
+    const worn2 = equip(stash(u, 'jipsin', 1));
+    ok(u, { type: 'sellStored', defId: 'jipsin' });
+    expect(u.storage!.map(x => x.id)).toEqual([worn2.id]);
+  });
+
+  test('pickStored takes a bare copy first, newest within each', () => {
+    const list = [{ defId: 'a' }, { defId: 'a', item: 'x' }, { defId: 'a' }, { defId: 'a', item: 'x' }, { defId: 'b', item: 'x' }];
+    expect(pickStored(list, 'a')).toBe(2);
+    expect(pickStored(list, 'b')).toBe(4);
+    expect(pickStored(list, 'c')).toBe(-1);
+    expect(pickStored([{ defId: 'a', item: 'x' }, { defId: 'a', item: 'y' }], 'a')).toBe(1);
+  });
+
+  test('item-free combines are unchanged', () => {
+    const s = game();
+    for (const i of [1, 2, 5, 7]) stash(s, 'jipsin', i);
+    placeUnitForTest(s, 'jipsin', 4);
+    placeUnitForTest(s, 'dunggumi', 6);
+    placeUnitForTest(s, 'bitjaru', 3);
+    expect(storedIdsOf(s)).toEqual([1, 2, 3, 4]);
+    expect(storedMaterials(s, 'jipsingol')).toBe(1);
+    ok(s, { type: 'combine', result: 'jipsingol' });
+    expect(ids(s)).toEqual([[3, 7, 'bitjaru', null], [6, 8, 'jipsingol', null]]);
+    expect(storedIdsOf(s)).toEqual([1, 2, 3]);
+    ok(s, { type: 'combine', result: 'dunggumi' });
+    expect(ids(s)).toEqual([[0, 9, 'dunggumi', null], [3, 7, 'bitjaru', null], [6, 8, 'jipsingol', null]]);
+    expect(storedIdsOf(s)).toEqual([1]);
+    placeUnitForTest(s, 'jipsin', 8);
+    ok(s, { type: 'combine', result: 'dunggumi', slot: 8 });
+    expect(ids(s)).toEqual([[0, 9, 'dunggumi', null], [3, 7, 'bitjaru', null], [6, 8, 'jipsingol', null], [8, 11, 'dunggumi', null]]);
+    expect(storedIdsOf(s)).toEqual([]);
+  });
 });
