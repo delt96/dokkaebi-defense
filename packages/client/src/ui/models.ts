@@ -382,12 +382,43 @@ export function crackText(n: number, limit: number): string {
 /** A board cell as the market and the 지게 window name it: "2행 3열". */
 export const cellText = (cols: number, index: number): string => `${Math.floor(index / cols) + 1}행 ${index % cols + 1}열`;
 
-export function hudModel(state: GameState): { roundText: string; secondsLeft: number; enemyText: string; danger: number; crack: string; resistText: string | null } {
+export type LimitLevel = 'ok' | 'warn' | 'danger' | 'over';
+
+/**
+ * The one grading of an enemy count the HUD, the online rows, the 장승 and the board edge read. A lane loses only above
+ * the limit, so the limit itself is still danger. `instant`: from `limitInstantFromRound` on, the first enemy over loses.
+ */
+export function limitLevel(data: GameData, count: number, round: number): { level: LimitLevel; instant: boolean } {
+  const { limit, limitInstantFromRound } = data.balance;
+  const warn = data.coop?.danger ?? Math.ceil(limit * 0.8);
+  const danger = Math.ceil(limit * 0.95);
+  const level: LimitLevel = count > limit ? 'over' : count >= danger ? 'danger' : count >= warn ? 'warn' : 'ok';
+  return { level, instant: limitInstantFromRound !== undefined && round >= limitInstantFromRound };
+}
+
+export function limitTail(level: LimitLevel, count: number, limit: number): string | null {
+  switch (level) {
+    case 'ok': return null;
+    case 'warn': return '주의';
+    case 'danger': return count >= limit ? '한계' : `${limit - count}마리 남음`;
+    case 'over': return '초과';
+  }
+}
+
+export interface HudModel {
+  roundText: string; secondsLeft: number; enemyText: string; danger: number; crack: string; resistText: string | null;
+  count: number; limit: number; level: LimitLevel; instant: boolean; tail: string | null;
+  /** the '장승 …' word hides in danger, where the tail already says it */
+  crackShown: boolean; overBy: number;
+}
+
+export function hudModel(state: GameState): HudModel {
   const b = state.data.balance;
   const n = countNormalEnemies(state);
   const ticksPerSecond = 1000 / b.tickMs;
   const prepTicks = b.prepSeconds * ticksPerSecond;
   const left = state.phase === 'prep' ? prepTicks - state.tick : state.roundEndTick - state.tick;
+  const { level, instant } = limitLevel(state.data, n, state.round);
   return {
     roundText: (state.phase === 'prep' ? '준비' : `${state.round} / ${b.rounds} 라운드`) + difficultySuffix(state.data, state.difficulty),
     secondsLeft: Math.max(0, Math.ceil(left / ticksPerSecond)),
@@ -395,6 +426,8 @@ export function hudModel(state: GameState): { roundText: string; secondsLeft: nu
     danger: Math.min(1, n / b.limit),
     crack: crackText(n, b.limit),
     resistText: resistText(state.data, state.round),
+    count: n, limit: b.limit, level, instant, tail: limitTail(level, n, b.limit),
+    crackShown: level !== 'danger', overBy: level === 'over' ? n - b.limit : 0,
   };
 }
 
