@@ -1,6 +1,6 @@
 # 3스테이지 아이템 장터 설계 (2026-11-25)
 
-목업: `docs/design/mockups/2026-11-25-item-shop.html` (확인용 페이지: https://claude.ai/artifact/89dt5fQoPLJvgt623zqrSM)
+목업: `docs/design/mockups/2026-11-25-item-shop.html`
 측정 근거: `docs/balance/stage3-economy-pass.md` 23~24절
 
 ## 왜
