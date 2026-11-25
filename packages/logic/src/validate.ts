@@ -14,6 +14,24 @@ const validOdds = (rows: unknown): rows is { result: unknown; chance: number }[]
   && new Set(rows.map(r => r.result)).size === rows.length
   && Math.abs(rows.reduce((sum, r) => sum + r.chance, 0) - 1) < 1e-9;
 
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const positive = (n: unknown): boolean => typeof n === 'number' && Number.isFinite(n) && n > 0;
+const EFFECT_KEYS: Record<string, string[]> = { range: ['amount'], attack: ['pct'], speed: ['pct'], vuln: ['pct', 'seconds'] };
+
+function validShop(shop: unknown): boolean {
+  if (!isObject(shop) || !Array.isArray(shop.items)) return false;
+  const ids = new Set<string>();
+  for (const item of shop.items as unknown[]) {
+    if (!isObject(item) || !isObject(item.effect)) return false;
+    if (typeof item.id !== 'string' || !item.id || ids.has(item.id)) return false;
+    ids.add(item.id);
+    if (!positiveInt(item.coins) || (item.perGame !== undefined && !positiveInt(item.perGame))) return false;
+    const keys = typeof item.effect.kind === 'string' && Object.hasOwn(EFFECT_KEYS, item.effect.kind) ? EFFECT_KEYS[item.effect.kind]! : null;
+    if (!keys || !keys.every(k => positive((item.effect as Record<string, unknown>)[k]))) return false;
+  }
+  return true;
+}
+
 export function validateData(data: GameData): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   if (data.economy !== undefined || data.balance.difficulties !== undefined) {
@@ -108,6 +126,9 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
       if (!data.units.some(u => u.id === t.unit)) errors.push(`unknown tame unit: ${t.unit}`);
     }
   }
+
+  const shop = eco?.shop;
+  if (shop !== undefined && !validShop(shop)) errors.push('invalid shop');
 
   const warnings: string[] = [];
   const bands = data.balance.summonOddsByRound;

@@ -155,6 +155,11 @@ export interface GambleDef {
     tables: Record<'small' | 'big', GambleTableDef> & { coin?: GambleTableDef };
   };
 }
+export type ItemEffect =
+  | { kind: 'range'; amount: number } | { kind: 'attack'; pct: number } | { kind: 'speed'; pct: number }
+  | { kind: 'vuln'; pct: number; seconds: number };
+/** `perGame`: how many one game may buy, held and attached together; missing means no limit. */
+export interface ShopItemDef { id: string; name: string; coins: number; perGame?: number; effect: ItemEffect }
 export interface EconomyDef {
   startingBuckwheat: number;
   ledger: { tokenValue: number; totalCap: number; ratio: number };
@@ -173,6 +178,7 @@ export interface EconomyDef {
   /** hpBands: ascending inclusive upper bounds of remaining HP / max HP, the last one 1. */
   /** `combineFromRound`: exclusive (tame) recipes are refused before this round. */
   tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[]; combineFromRound?: number };
+  shop?: { items: ShopItemDef[] };
 }
 export interface EconState {
   rng: { jige: RngState; drop: RngState; tame: RngState; gambleCoins?: RngState; gambleUnit?: RngState };
@@ -192,6 +198,9 @@ export interface EconState {
   tameReady: { enemyId: number; tick: number }[];
   /** One record per quest this seat met, kept after the round moves on. */
   questResults: Partial<Record<QuestId, QuestRecord>>;
+  /** Shop items held but not attached, and bought this game, by item id; absent until the first purchase. */
+  items?: Record<string, number>;
+  itemsBought?: Record<string, number>;
 }
 
 export interface RngState { s: number }
@@ -200,6 +209,7 @@ export interface Unit {
   chargeTicks?: number; charged?: boolean; streak?: { enemyId: number; count: number };
   neighborHits?: number; neighborLockUntil?: number; explodeReadyTick?: number;
   cost?: number;
+  item?: string;
 }
 export interface Vuln { pct: number; damageType: DamageType | 'all'; ticks: number; stacks: number }
 export interface Dot { remaining: number; pulsesLeft: number; nextPulse: number }
@@ -240,7 +250,8 @@ export type Command =
   | GambleCommand
   | { type: 'hunt'; enemy: string } | { type: 'tame'; enemyId: number }
   | { type: 'store'; slot: number; unitId?: number } | { type: 'storeAll' }
-  | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string };
+  | { type: 'retrieve'; defId: string; slot?: number } | { type: 'sellStored'; defId: string }
+  | { type: 'buyItem'; item: string } | { type: 'attachItem'; item: string; slot: number; unitId?: number };
 export type GambleCommand = { type: 'gambleCoins'; stake: number } | { type: 'gambleUnit'; table: GambleTable };
 export type GambleEvent =
   | { type: 'gambleCoins'; stake: number; multiplier: number; payout: number }
@@ -252,7 +263,8 @@ export type RejectReason = 'ended' | 'noToken' | 'noSlot' | 'noUnit' | 'closedSl
   | 'notAlive' | 'notSpirit' | 'noSupportToken' | 'targetNotAlive' | 'targetAlreadyReceived' | 'staleUnit' | 'badArgs'
   | 'marketClosed' | 'marketLocked' | 'gambleRound' | 'gambleLimit' | 'huntClosed' | 'huntOut' | 'noTarget' | 'tameCondition'
   | 'cooldown' | 'noJige' | 'tameLocked'
-  | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken';
+  | 'notStorable' | 'nothingToStore' | 'notStored' | 'slotTaken'
+  | 'itemLimit' | 'noItem';
 export type HitEffect = 'crit' | 'execute' | 'explosion';
 
 export type GameEvent =
@@ -273,5 +285,7 @@ export type GameEvent =
   | { type: 'tameTry'; enemyId: number; defId: string; chance: number; success: boolean; buckwheat: number; coins: number; tokens: number }
   | { type: 'grow'; enemyId: number; hp: number } | { type: 'flee'; enemyId: number }
   /** A 격파 target of `level` died in time (paid) or ran out of time (nothing). */
-  | { type: 'hunt'; enemy: string; level: number; outcome: 'won' | 'fled'; coins: number; buckwheat: number };
+  | { type: 'hunt'; enemy: string; level: number; outcome: 'won' | 'fled'; coins: number; buckwheat: number }
+  | { type: 'itemBought'; item: string }
+  | { type: 'itemAttached'; item: string; unitId: number; defId: string; replaced: string | null };
 export interface StepResult { events: GameEvent[]; rejected: { command: Command; reason: RejectReason }[] }

@@ -56,5 +56,13 @@
       { "enemy": "ev_ssireum", "unit": "ssireumdokkaebi", "cost": { "buckwheat": 2, "coins": 90 } },
       { "enemy": "ev_shadow", "unit": "eoduksini", "cost": { "buckwheat": 2, "coins": 105 } }
     ]
+  },
+  "shop": {
+    "items": [
+      { "id": "rangeCharm", "name": "사거리 부적", "coins": 300, "perGame": 1, "effect": { "kind": "range", "amount": 0.5 } },
+      { "id": "powerCharm", "name": "힘 부적", "coins": 150, "effect": { "kind": "attack", "pct": 0.2 } },
+      { "id": "swiftCharm", "name": "날쌘 부적", "coins": 150, "effect": { "kind": "speed", "pct": 0.15 } },
+      { "id": "weakCharm", "name": "약화 부적", "coins": 150, "effect": { "kind": "vuln", "pct": 0.1, "seconds": 3 } }
+    ]
   }
 }
