@@ -8,7 +8,7 @@ const b = d3.balance;
 const readDocs = (...files: string[]) =>
   files.map(f => [f, readFileSync(new URL(`../../../docs/${f}`, import.meta.url), 'utf8')] as const);
 const draft = 'design/stage3-economy-draft.md';
-const docs = readDocs(draft, 'superpowers/specs/2026-11-21-stage3-economy-simplify-design.md');
+const docs = readDocs(draft);
 
 // the spec's budget path: normal, six seats all alive, 29 kills a normal round, every boss and 역신 down, no taming,
 // five 불 changed and four grade-1 units sold every ten rounds, the collection/team won, ssireum at 1/6.

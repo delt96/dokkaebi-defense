@@ -17,7 +17,6 @@
 - 솔로 판은 브라우저에서만 돌아 셀 수 없다.
 - Render 무료 서버가 잠들어 있으면 이 주소를 여는 순간 깨어난다. 그때는 방 0개로 나온다.
 - 코드: `packages/server/src/live.ts`. 방은 `MatchRoom` 생성 때 `liveRooms`에 넣고 `onDispose`에서 뺀다. 시험은 `packages/server/test/live.test.ts`, `server.test.ts`.
-- 설계: `docs/superpowers/specs/2026-11-24-live-status-design.md`
 
 ## 실서버 로그 (Render API)
 - 키는 메인 체크아웃 루트의 `.env`(git이 무시함)에 있다: `RENDER_API_KEY`, `RENDER_SERVICE_ID`(`srv-…`), `RENDER_OWNER_ID`(`tea-…`). worktree에는 없으니 메인 체크아웃의 파일을 읽는다. 키 값은 출력하지 않는다.
