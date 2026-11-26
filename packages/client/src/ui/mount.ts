@@ -996,7 +996,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (quests) { act(sides.right === 'quests' ? 'closeWin' : 'openQuests', sides.right === 'quests' ? 'right' : ''); return; }
       if (sides.right === 'upgrades') { act('upgrade', buy!); return; }
     }
-    if (ev.code === 'Space' && target?.closest?.('button, .gamble-option[tabindex]')) return;
+    // one Space rule while nothing locks the board: summon even on a focused button (cancelling keydown keeps the
+    // button from being pressed); buttons take Enter
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (ev.code === 'KeyD') act('openDex', '');
     else if (ev.code === 'KeyQ') {

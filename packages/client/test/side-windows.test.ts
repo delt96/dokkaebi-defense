@@ -439,6 +439,25 @@ describe('solo side windows', () => {
     expect(queue).toHaveBeenCalledWith({ type: 'summon' });
   });
 
+  test('Space on a clicked window or panel button summons and does not press it', () => {
+    const { s, queue, sent } = mountSolo(withoutMarketLock(loadGameData('stage3')));
+    s.buckwheat = 7;
+    key('KeyB');
+    const spaceOn = (node: HTMLElement | null) => {
+      node!.focus();
+      const ev = new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true });
+      node!.dispatchEvent(ev);
+      return ev;
+    };
+    expect(spaceOn($('#win-right .gamble-buy[data-arg="small"]')).defaultPrevented).toBe(true);
+    expect(sent('summon')).toHaveLength(1);
+    expect(sent('gambleUnit')).toHaveLength(0);
+    expect(spaceOn($('#right [data-action="toggleMarket"]')).defaultPrevented).toBe(true);
+    expect(sent('summon')).toHaveLength(2);
+    expect($('#win-right .econ-panel')).not.toBeNull();
+    queue.mockClear();
+  });
+
   test('a left pillar covers the left panel and storage, frees the focus there and refuses storage drops', () => {
     const { s, scene, frame } = mountSolo();
     placeUnitForTest(s, s.data.units.find(u => u.grade === 1)!.id, 0);
