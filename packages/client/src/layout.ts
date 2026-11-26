@@ -20,19 +20,21 @@ export const ONLINE_CENTER_H = STAGE_H - TOP_H - ONLINE_BOTTOM_H;
 export const LANE_CANVAS_ONLINE = { width: CENTER_W, height: ONLINE_CENTER_H };
 
 /**
- * The storage column (stage px): left of the board, clear of the lane path and a boss's bar on it (x >= 196),
- * the economy prompts above (y < 68) and the trackers under the lane (y >= 272).
+ * The storage column (stage px): left of the board, clear of the lane path and a boss's bar on it (x >= 196) and of the
+ * round banner above (y < 68). It runs down to 2px over the bottom panel (online: over the 44px card), beside the quest
+ * chip row, which starts at x 200 for that (style.css #econ-bottom). The heights are repeated in style.css #storage.
  */
-export const STORAGE_BOX = { x: 130, y: 70, w: 66, h: 200 } as const;
+export const STORAGE_BOX = { x: 130, y: 70, w: 66, h: 260, onlineH: 244 } as const;
 
 /** The notice zone (stage px) between the two board pillars while a pillar window is open. */
 export const NOTICE_SPAN = { x: 200, w: 254 } as const;
 
 /** Whether a point in lane-canvas pixels lies over the storage column. */
-export function canvasInStorage(x: number, y: number): boolean {
+export function canvasInStorage(x: number, y: number, online = false): boolean {
   const sx = x + CENTER_X;
   const sy = y + CENTER_Y;
-  return sx >= STORAGE_BOX.x && sx < STORAGE_BOX.x + STORAGE_BOX.w && sy >= STORAGE_BOX.y && sy < STORAGE_BOX.y + STORAGE_BOX.h;
+  const h = online ? STORAGE_BOX.onlineH : STORAGE_BOX.h;
+  return sx >= STORAGE_BOX.x && sx < STORAGE_BOX.x + STORAGE_BOX.w && sy >= STORAGE_BOX.y && sy < STORAGE_BOX.y + h;
 }
 
 export const GRADE_COLOR: Record<number, string> = {

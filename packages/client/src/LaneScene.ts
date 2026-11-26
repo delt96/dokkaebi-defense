@@ -606,7 +606,7 @@ export class LaneScene extends Phaser.Scene {
       if (this.dragging !== view) return;
       view.setPosition(x, y);
       this.dropCell = canvasToCell(this.lane, x, y);
-      const over = this.storageOpen() && canvasInStorage(x, y);
+      const over = this.storageOpen() && canvasInStorage(x, y, this.driver.online);
       this.setStorageHover(over ? (unitDefFast(this.state.data, defId).grade <= STORAGE_MAX_GRADE ? 'ok' : 'no') : null);
     });
     view.on('dragend', () => {
@@ -617,7 +617,7 @@ export class LaneScene extends Phaser.Scene {
       const cell = canvasToCell(this.lane, view.x, view.y);
       const from = selectedSlot(this.state, unitId);
       const live = !this.driver.paused && !this.driver.readOnly;
-      if (from !== null && live && this.storageOpen() && canvasInStorage(view.x, view.y)) {
+      if (from !== null && live && this.storageOpen() && canvasInStorage(view.x, view.y, this.driver.online)) {
         // a refused store (grade 3 and up) comes back as a notice and the unit slides home
         this.driver.queue({ type: 'store', slot: from });
         view.targetSlot = undefined;

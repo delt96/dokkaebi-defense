@@ -125,8 +125,10 @@ export function helpLineHtml(hotkeys?: string, ctx: HelpContext = {}): string {
 
 function helpHtml(keys: string[], tip?: string): string {
   const line = keys.map(esc).join(' · ');
-  // one inline run: as separate items of the flex .card, the tip and the keys would lose the space around the first ' · '
-  return tip ? `<div class="card hint"><span><b class="tip">${esc(tip)}</b> · ${line}</span></div>` : `<div class="card hint">${line}</div>`;
+  // the hidden ' · ' keeps the text one sentence for screen readers and copy while the tip and the keys sit on two lines
+  return tip
+    ? `<div class="card hint tipped"><b class="tip">${esc(tip)}</b><span class="hint-sep"> · </span><span class="hint-keys">${line}</span></div>`
+    : `<div class="card hint">${line}</div>`;
 }
 
 /** The selected unit and the recipes its card offers (Z/X/C press them), in the next-list order for `target`. */

@@ -117,7 +117,10 @@ describe('the help line with the tip', () => {
 
   test('the tip is a bold gold lead, not a live region', () => {
     const html = helpLineHtml(undefined, { tip: combine });
-    expect(html).toContain('<b class="tip">W로 재료 유닛을 고르고 Z로 조합합니다 · 왼쪽 목록 맨 위부터</b> · Space 소환');
+    expect(html).toContain('<b class="tip">W로 재료 유닛을 고르고 Z로 조합합니다 · 왼쪽 목록 맨 위부터</b>');
+    // two lines: the tip over the keys, so the stage 3 line no longer runs past the 640px panel
+    expect(html).toContain('class="card hint tipped"');
+    expect(html).toContain('<span class="hint-keys">Space 소환');
     expect(html).not.toContain('aria-live');
     expect(helpLineHtml(undefined, { tip: null })).toBe(helpLineHtml(undefined, {}));
   });

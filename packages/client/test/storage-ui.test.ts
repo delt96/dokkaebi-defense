@@ -1,5 +1,8 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildFull, createGame, createMatch, loadGameData, step, type GameState } from '@dorandi/logic';
 import { placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
@@ -80,11 +83,28 @@ describe('storage view models', () => {
     expect(rejectText('slotTaken')).toBe('그 칸에는 이미 유닛이 있습니다');
   });
 
-  test('the column sits left of the lane path and inside the lane canvas', () => {
+  test('the column sits left of the lane path and the chip row and runs down to the bottom panel', () => {
     expect(STORAGE_BOX.x + STORAGE_BOX.w).toBeLessThanOrEqual(196);
-    expect(STORAGE_BOX.y + STORAGE_BOX.h).toBeLessThanOrEqual(272);
+    expect(STORAGE_BOX.y + STORAGE_BOX.h).toBe(330);
+    expect(STORAGE_BOX.y + STORAGE_BOX.onlineH).toBe(314);
     expect(canvasInStorage(STORAGE_BOX.x - 128 + 5, STORAGE_BOX.y - 24 + 5)).toBe(true);
     expect(canvasInStorage(100, 5)).toBe(false);
+  });
+
+  test('a drop low in the column counts solo but not online, where the bottom card starts higher', () => {
+    const lowY = STORAGE_BOX.y + STORAGE_BOX.h - 24 - 5;
+    const x = STORAGE_BOX.x - 128 + 5;
+    expect(canvasInStorage(x, lowY)).toBe(true);
+    expect(canvasInStorage(x, lowY, true)).toBe(false);
+    expect(canvasInStorage(x, STORAGE_BOX.y + STORAGE_BOX.onlineH - 24 - 5, true)).toBe(true);
+  });
+
+  test('style.css gives the column the STORAGE_BOX heights', () => {
+    const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/ui/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = (sel: string) => css.split('}').find(r => r.split('{')[0]!.split(',').map(x => x.trim()).includes(sel))?.split('{')[1] ?? '';
+    expect(rule('#storage')).toContain(`top: ${STORAGE_BOX.y}px`);
+    expect(rule('#storage')).toContain(`height: ${STORAGE_BOX.h}px`);
+    expect(rule('body.online #storage')).toContain(`height: ${STORAGE_BOX.onlineH}px`);
   });
 });
 

@@ -89,7 +89,8 @@ button.big { width: 100%; min-height: 34px; font-size: 13px; font-weight: bold; 
 /* solo left panel: head, scope row, the list taking the rest, then 지게 and the actions at the bottom */
 .solo-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
 .solo-panel > * { flex: none; }
-.solo-panel > .nc-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+/* no scrollbar-width: it would swap the 3px bar for Chromium's 10px one, which covers the end of the legend */
+.solo-panel > .nc-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* the same 54px with or without a unit, so W moving the selection never shifts the list; the 1px under the skill line
    keeps it 5px from the scope buttons */
 .nc-head { height: 54px; padding-bottom: 1px; display: flex; flex-direction: column; gap: 1px; font-size: 10px; line-height: 12px; overflow: hidden; }
@@ -159,7 +160,7 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .next-list > *, .next-one > * { flex: none; }
 .next-one { display: contents; }
 .next-list .combine-missing { color: var(--ink-dim); }
-.next-group { display: flex; align-items: center; gap: 4px; font-size: 10px; line-height: 12px; color: var(--ink-dim); white-space: nowrap; }
+.next-group { display: flex; align-items: center; gap: 4px; padding-right: 2px; font-size: 10px; line-height: 12px; color: var(--ink-dim); white-space: nowrap; }
 .next-group.target { color: var(--accent); }
 .next-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; color: var(--ink-dim); }
 .next-legend i { display: inline-flex; font-style: normal; }
@@ -222,6 +223,10 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 #bottom [data-action="sell"] { margin-left: auto; }
 #bottom .hint { color: var(--ink-dim); }
 #bottom .hint .tip { color: var(--accent); font-size: 11px; font-weight: bold; }
+/* the tip over the keys: on one line the longest tips push the last keys past the 640px panel */
+#bottom .card.hint.tipped { flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; line-height: 12px; }
+#bottom .hint.tipped .hint-sep { display: none; }
+#bottom .hint .tip, #bottom .hint-keys { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
 #modal .result { left: 160px; top: 30px; width: 320px; }
 #modal:has(> .modal.result) { background: #08061099; }
@@ -618,7 +623,7 @@ button.sv-send:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .prompt .ok { color: #9fe0a8; }
 .prompt .no { color: #ff9482; font-weight: bold; }
 .prompt.tame button { margin-left: auto; color: var(--accent); border-color: var(--accent); }
-#econ-bottom { position: absolute; left: 132px; top: 274px; width: 392px; height: 56px; z-index: 1; display: flex; flex-wrap: wrap; align-content: flex-end; gap: 2px; pointer-events: none; overflow: hidden; }
+#econ-bottom { position: absolute; left: 200px; top: 274px; width: 254px; height: 56px; z-index: 1; display: flex; flex-wrap: wrap; align-content: flex-end; gap: 2px; pointer-events: none; overflow: hidden; }
 body.online #econ-bottom { top: 272px; height: 42px; }
 .q { pointer-events: auto; display: flex; align-items: center; gap: 4px; height: 19px; max-width: 100%; padding: 0 4px; background: #1d1626dd; border: 1px solid var(--panel-edge); font-size: 10px; white-space: nowrap; }
 .q b { color: var(--accent); }
@@ -652,10 +657,8 @@ body.online #econ-bottom { top: 272px; height: 42px; }
 @keyframes cd-pulse { 0% { transform: scale(1); } 59% { transform: scale(1.15); } 100% { transform: scale(1); } }
 #stage.pillar-open #econ-top { left: 200px; width: 254px; }
 #stage.pillar-open .countdown { left: 327px; max-width: 254px; }
-/* design ⑧: in the pillar layout the chip row stays narrow with the windows closed too, so opening one does not rewrap it */
-:root[data-wins="inside"] #econ-bottom { left: 200px; width: 254px; }
 /* one chip fills a 254px line, so three would need 61px of the 56; two to a line keeps four chips in two lines */
-:root[data-wins="inside"] #econ-bottom:has(> .q:nth-child(3)) > .q { max-width: calc(50% - 1px); }
+#econ-bottom:has(> .q:nth-child(3)) > .q { max-width: calc(50% - 1px); }
 .market-btn .badge { margin-left: 4px; padding: 0 3px; border-radius: 2px; background: #ff9a6a; color: #1d1626; font-weight: bold; }
 .market-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 
@@ -697,8 +700,9 @@ button.dex-link:hover, button.dex-link:focus-visible { color: var(--accent); tex
 #modal .dex-modal:not(.dex-browser) .modal-head { position: sticky; top: -6px; z-index: 1; background: var(--panel); padding: 3px 0; }
 
 /* Storage column left of the board (layout STORAGE_BOX). */
-#storage { position: absolute; left: 130px; top: 70px; width: 66px; height: 200px; z-index: 1; display: flex; flex-direction: column; gap: 2px; padding: 2px; background: #15101ecc; border: 1px dashed #3e3350; font-size: 9px; }
+#storage { position: absolute; left: 130px; top: 70px; width: 66px; height: 260px; z-index: 1; display: flex; flex-direction: column; gap: 2px; padding: 2px; background: #15101ecc; border: 1px dashed #3e3350; font-size: 9px; }
 #storage:empty { display: none; }
+body.online #storage { height: 244px; }
 .storage-hint { color: var(--ink-dim); font-size: 9px; line-height: 11px; text-align: center; }
 .storage-info { display: grid; justify-items: start; gap: 4px; padding: 4px; border: 1px solid var(--panel-edge); position: relative; min-width: 0; }
 .storage-info .up-skill { margin: 0; }
@@ -895,7 +899,7 @@ body.online #modal .dex-browser .modal-head { position: static; padding: 0; }
 /* J 퀘스트: the box between Q and D (head, one 격파, +N more) and the list window on the right */
 .quest-box { display: flex; flex-direction: column; gap: 1px; border: 1px solid var(--panel-edge); padding: 1px 2px; }
 .quest-box .panel-title { min-height: 20px; text-align: left; }
-.quest-next { color: var(--ink-dim); line-height: 12px; padding: 0 2px; }
+.quest-next { color: var(--ink-dim); line-height: 12px; padding: 0 2px; word-break: keep-all; }
 .quest-more { min-height: 16px; padding: 0 2px; border: 0; background: none; color: var(--ink-dim); text-align: right; }
 .quest-more:hover:not([disabled]) { color: var(--accent); }
 /* the online panel is 292px high: the notices give way rather than push the box and D out of the panel */
