@@ -18,3 +18,9 @@
 - Render 무료 서버가 잠들어 있으면 이 주소를 여는 순간 깨어난다. 그때는 방 0개로 나온다.
 - 코드: `packages/server/src/live.ts`. 방은 `MatchRoom` 생성 때 `liveRooms`에 넣고 `onDispose`에서 뺀다. 시험은 `packages/server/test/live.test.ts`, `server.test.ts`.
 - 설계: `docs/superpowers/specs/2026-11-24-live-status-design.md`
+
+## 실서버 로그 (Render API)
+- 키는 메인 체크아웃 루트의 `.env`(git이 무시함)에 있다: `RENDER_API_KEY`, `RENDER_SERVICE_ID`(`srv-…`), `RENDER_OWNER_ID`(`tea-…`). worktree에는 없으니 메인 체크아웃의 파일을 읽는다. 키 값은 출력하지 않는다.
+- `GET https://api.render.com/v1/logs?ownerId=…&resource=<서비스 id>&startTime=…&endTime=…&direction=backward&limit=100`, 헤더 `Authorization: Bearer <키>`. 응답 `hasMore`가 참이면 `nextEndTime`을 다음 `endTime`으로 넣어 이어 받는다.
+- 글자 검색(`text=`)은 시간 범위를 함께 줘야 한다. 범위 없이 한글로 찾으면 응답이 오지 않았다.
+- 끝난 판은 `[판 기록] <id> {요약}` 한 줄과 `[판 기록 데이터 i/n] <id> <조각>` 줄로 남는다. `readPlayLog`(`packages/server/src/playLog.ts`)로 되살리고, 솔로 판은 그 판의 `rulesRevision` 커밋에서 `replayGame(data, seed, difficulty, log)`로 다시 돌린다(데이터 버전이 맞아야 같은 판이 나온다).

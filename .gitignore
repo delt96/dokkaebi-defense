@@ -4,3 +4,4 @@ sim-out/
 *.w3x
 .superpowers/
 *.log
+.env
