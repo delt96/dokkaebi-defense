@@ -389,15 +389,15 @@ describe('solo side windows', () => {
   });
 
   test('a redraw of the market keeps the body scrolled down to 최근 결과', () => {
-    // a browser stops scrollTop at the content's end; the odds and the result are filled after the redraw,
-    // so a scroll put back before them would stop short. This stand-in stops it while the odds are still empty.
+    // a browser stops scrollTop at the content's end; the result is filled after the redraw,
+    // so a scroll put back before it would stop short. This stand-in stops it while the result is still empty.
     const tops = new WeakMap<Element, number>();
     Object.defineProperty(HTMLElement.prototype, 'scrollTop', {
       configurable: true,
       get(this: HTMLElement) { return tops.get(this) ?? 0; },
       set(this: HTMLElement, v: number) {
-        const info = this.querySelector?.('.gamble-info');
-        tops.set(this, info && !info.innerHTML ? Math.min(v, 10) : v);
+        const result = this.querySelector?.('.gamble-result');
+        tops.set(this, result && !result.innerHTML ? Math.min(v, 10) : v);
       },
     });
     try {

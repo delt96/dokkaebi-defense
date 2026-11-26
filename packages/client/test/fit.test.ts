@@ -82,5 +82,5 @@ test('style.css keeps window text at 10px and window buttons at 24px for the sha
   const bare = readFileSync(resolve(here, '../src/ui/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
   const rules = (sel: string) => bare.split('}').filter(r => r.split('{')[0]!.split(',').map(x => x.trim()).includes(sel)).map(r => r.split('{')[1]).join(';');
   for (const sel of ['.win .type-badge', '.win .role-tag', '.win .mat-chip small']) expect(rules(sel)).toContain('font-size: 10px');
-  for (const sel of ['.win .pin-btn', '.win .gamble-inspect']) expect(rules(sel)).toContain('min-height: 24px');
+  for (const sel of ['.win .pin-btn']) expect(rules(sel)).toContain('min-height: 24px');
 });

@@ -2,7 +2,7 @@
 import { expect, test } from 'vitest';
 import { createGame, econView, loadGameData, type GambleEvent } from '@dorandi/logic';
 import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
-import { gambleHtml, gambleModel, gambleInfoHtml, gambleHistoryHtml, recordGamble, type GambleHistoryEntry, advanceReveal, gambleRevealHtml, heldCoins, revealDisplay, startReveal } from '../src/ui/gamble';
+import { gambleHtml, gambleModel, gambleHistoryHtml, recordGamble, type GambleHistoryEntry, advanceReveal, gambleRevealHtml, heldCoins, revealDisplay, startReveal } from '../src/ui/gamble';
 
 const data = loadGameData('stage3');
 
@@ -55,19 +55,12 @@ test('a reason appearing or going away keeps every buy button where it was', () 
   expect(open.every(row => row.includes('gamble-why'))).toBe(true);
 });
 
-test.each([
-  ['small', ['3등급 45%', '꽝 위로금 15냥', '지게는 따로 3%', '보유 2개']],
-  ['big', ['숨은 유닛 0.5%', '꽝 위로금 40냥', '지게는 따로 3%']],
-  ['coin', ['1등급 75%', '2등급 25%']],
-  ['10', ['×10 0.5%', '판돈 × 배수', '20냥']],
-  ['100', ['×10 0.5%', '판돈 × 배수', '200냥']],
-] as const)('the shared information shows the odds and payout for %s', (id, lines) => {
+test('the market draws no odds box and no name buttons', () => {
   const s = createGame(data, 1);
-  const model = gambleModel(econView(s)!.market!.gamble!, s.coins, s.buckwheat);
-  const html = panel(gambleInfoHtml(model, id, { chance: 0.03, held: 2, maxGrade: 4 }));
-  for (const line of lines) expect(html.textContent).toContain(line);
-  expect(html.querySelector('.gamble-odds')?.children.length).toBeGreaterThan(0);
-  if (id !== 'small' && id !== 'big') expect(html.textContent).not.toContain('지게');
+  const html = panel(gambleHtml(gambleModel(econView(s)!.market!.gamble!, s.coins, s.buckwheat), null));
+  expect(html.querySelector('.gamble-inspect, .gamble-odds, .gamble-info, [data-market-item]')).toBeNull();
+  expect(Array.from(html.querySelectorAll('.gamble-name'), e => e.textContent)).toEqual(['보따리', '큰 보따리']);
+  expect(html.textContent).not.toContain('%');
 });
 
 test('history caps at five settled results and identifies the unit’s current board cell', () => {

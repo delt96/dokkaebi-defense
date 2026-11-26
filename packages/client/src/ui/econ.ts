@@ -32,7 +32,7 @@ export function marketModel(econ: EconMine, state: GameState): MarketModel | nul
   const shop = shopModel(econ, state.coins, state.buckwheat);
   return {
     ...(m.gamble && { gamble: gambleModel(m.gamble, state.coins, state.buckwheat) }),
-    jige: { chance: m.jigeChance, held: econ.jige, maxGrade: state.data.economy?.market?.maxSwapGrade ?? 4 },
+    jige: { held: econ.jige },
     ...(shop && { shop }),
   };
 }
@@ -562,7 +562,6 @@ export function econPanelHtml(
   const folded = inside && !opts.historyOpen;
   const body = items ? shopHtml(market!.shop!, readOnly) : market?.gamble ? `<p class="gamble-refill">라운드마다 충전</p>
     <div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
-    <div class="gamble-info" id="gamble-info" aria-live="polite"></div>
     <div class="gamble-result"></div><section class="gamble-history" aria-label="최근 장터 결과">${folded ? gambleHistoryToggleHtml(opts.historyCount, false) : ''}</section>`
     : market ? `<div>보유 지게 ${market.jige.held}개</div>` : '';
   return `<section class="win market econ-panel" role="dialog" aria-labelledby="win-right-title">${head}${inside ? opts.bar : ''}${tabs}`

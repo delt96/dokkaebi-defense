@@ -22,7 +22,7 @@ import {
   tameRejectText, type TameModel, jigeListHtml, questBoxHtml, questBoxModel, questListHtml, questRows, huntRows, jigeRowsHtml, jigeReasons, type JigeList, type MarketModel, type MarketTab,
 } from './econ';
 import {
-  advanceReveal, gambleHistoryHtml, gambleInfoHtml, gambleRevealHtml, heldCoins, recordGamble,
+  advanceReveal, gambleHistoryHtml, gambleRevealHtml, heldCoins, recordGamble,
   revealDisplay, revealResultAt, startReveal, type GambleHistoryEntry, type Reveal, type RevealDisplay,
 } from './gamble';
 import { el, esc, focusedIn, onAction, refocusIn, setHtml } from './dom';
@@ -226,7 +226,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // S on grade 3+ and T take a second press within 2 seconds
   const confirm = new PressConfirm();
   const sellArmed = (s: GameState, slot: number | null) => slot !== null && !!s.slots[slot] && confirm.armed(`sell:${s.slots[slot]!.id}`, performance.now());
-  let marketItem: string | null = null;
   let shownMarket: MarketModel | null = null;
   let gambleHistory: GambleHistoryEntry[] = [];
   let pendingGambles: { receipt: GambleHistoryEntry; visibleAt: number }[] = [];
@@ -460,28 +459,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     node.style.left = `${Math.round((at.left - box.left) / scale) - 2}px`;
     node.style.top = `${Math.round((at.top - box.top) / scale) - 4}px`;
     f.node = node;
-  }
-
-  function inspectMarket(event: Event): void {
-    const target = event.target as Element;
-    if (!target.closest('.econ-panel')) return;
-    const item = target.closest<HTMLElement>('[data-market-item]')?.dataset.marketItem;
-    if (!item || item === marketItem) return;
-    marketItem = item;
-    renderMarketInfo();
-  }
-  rightBox.addEventListener('pointerover', event => { if (event.pointerType !== 'touch') inspectMarket(event); });
-  rightBox.addEventListener('pointerdown', event => {
-    if (event.pointerType === 'touch' && !(event.target as Element).closest('.gamble-buy')) inspectMarket(event);
-  });
-  rightBox.addEventListener('focusin', inspectMarket);
-  rightBox.addEventListener('click', event => {
-    if (!(event.target as Element).closest('.gamble-buy')) inspectMarket(event);
-  });
-
-  function renderMarketInfo(): void {
-    const info = marketPanel()?.querySelector<HTMLElement>('#gamble-info');
-    if (info && shownMarket?.gamble) setHtml(info, gambleInfoHtml(shownMarket.gamble, marketItem, shownMarket.jige));
   }
 
   function markMarketCell(id: number): void {
@@ -1445,12 +1422,11 @@ ${dex.mine.join()}`;
       // these parts change on their own clock (reveal frames, settled draws), so they redraw in place
       const wallet = panel.querySelector<HTMLElement>('.gamble-wallet');
       if (wallet) setHtml(wallet, `<span class="nw">엽전 <b>${s.coins - held}</b> ·</span> <span class="nw">묵 <b>${s.buckwheat}</b></span>`);
-      renderMarketInfo();
       const result = panel.querySelector<HTMLElement>('.gamble-result');
       const history = panel.querySelector<HTMLElement>('.gamble-history');
       if (result) setHtml(result, gambleRevealHtml(shownReveal));
       if (history) setHtml(history, gambleHistoryHtml(gambleHistory, s, wins === 'inside' ? { folded } : undefined));
-      // setHtml put the scroll back while the odds and result were still empty, so the browser stopped it short
+      // setHtml put the scroll back while the result was still empty, so the browser stopped it short
       const body = panel.querySelector<HTMLElement>('.econ-body');
       if (body && oldBody && body !== oldBody && body.scrollTop !== bodyTop) body.scrollTop = bodyTop;
       if (inMarket && !panel.contains(active)) {
@@ -1603,7 +1579,6 @@ ${dex.mine.join()}`;
     shownReveal = null;
     confirm.clear();
     userPaused = false;
-    marketItem = null;
     gambleHistory = [];
     pendingGambles = [];
     births.clear();

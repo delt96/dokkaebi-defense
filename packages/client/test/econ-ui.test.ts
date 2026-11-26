@@ -194,7 +194,7 @@ describe('market hotkey', () => {
     expect(panel()).toContain('메밀묵 1개 부족');
   });
 
-  test('touch opens details on the card, then the first touch on the price draws and records its result', () => {
+  test('the first touch on the price draws and records its result', () => {
     let now = performance.now();
     vi.spyOn(performance, 'now').mockImplementation(() => now);
     // off the board the recent results stay unfolded
@@ -207,8 +207,7 @@ describe('market hotkey', () => {
       const target = document.querySelector(selector)!;
       for (const type of ['pointerdown', 'pointerup']) target.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'touch', button: 0 }));
     };
-    tap('[data-market-focus="info-coin"]');
-    expect(document.getElementById('gamble-info')!.textContent).toContain('1등급 75%');
+    expect(document.getElementById('gamble-info')).toBeNull();
     driver.update(50);
     expect(driver.state.coins).toBe(46);
     tap('[data-market-focus="buy-coin"]');
@@ -226,12 +225,11 @@ describe('market hotkey', () => {
     expect(document.querySelector('.gamble-history .unit-face')).not.toBeNull();
   });
 
-  test('keyboard focus on a blocked stake shows details and leaves Tab free to move', () => {
+  test('keyboard focus on a blocked stake leaves Tab free to move', () => {
     mountUi(new GameDriver(lane(30, 31)), new FakeScene() as never);
     keydown(window, { code: 'KeyB' });
-    const stake = document.querySelector<HTMLElement>('[data-market-item="100"][tabindex]')!;
+    const stake = document.querySelector('[data-arg="100"]')!.closest<HTMLElement>('.gamble-option[tabindex]')!;
     stake.focus();
-    expect(document.getElementById('gamble-info')!.textContent).toContain('200냥');
     expect(keydown(stake, { code: 'Tab' })).toBe(true);
     expect(keydown(stake, { code: 'Tab', shiftKey: true })).toBe(true);
   });

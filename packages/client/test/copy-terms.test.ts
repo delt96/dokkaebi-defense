@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, test } from 'vitest';
-import { createGame, econView, loadGameData, type ClientView, type MatchResult, type RowView } from '@dorandi/logic';
+import { createGame, loadGameData, type ClientView, type MatchResult, type RowView } from '@dorandi/logic';
 import { forceRound, placeUnitForTest, spawnEnemyForTest } from '@dorandi/logic/testing';
 import { cellText, crackText, hudModel, tameSourceText, upgradeInfoText, upgradeRows } from '../src/ui/models';
 import { renderHud } from '../src/ui/hud';
@@ -8,7 +8,6 @@ import { helpLineHtml, renderBottom, upgradesHtml } from '../src/ui/panels';
 import { settingsHtml } from '../src/ui/settings';
 import { firstTip } from '../src/ui/first-visit';
 import { jigeListHtml } from '../src/ui/econ';
-import { gambleInfoHtml, gambleModel } from '../src/ui/gamble';
 import { dexHtml } from '../src/ui/dex';
 import { topModel } from '../src/online/models';
 import { renderTop } from '../src/online/panels';
@@ -146,28 +145,6 @@ describe('upgrades', () => {
     expect(upgradesHtml(s, 'inside', 0)).toContain('내 물딜 2기 · 마딜 1기');
     const early = createGame(d1, 1);
     expect(upgradeInfoText(early)).toBe('내 물딜 0기 · 마딜 0기');
-  });
-});
-
-describe('market guide', () => {
-  test('one guide line, and the first bundle\'s odds before anything is picked', () => {
-    const s = createGame(d3, 1);
-    const model = gambleModel(econView(s)!.market!.gamble!, s.coins, s.buckwheat);
-    const html = gambleInfoHtml(model, null, { chance: 0.03, held: 0, maxGrade: 4 });
-    expect(html).not.toContain('마우스를 올려');
-    expect(html).toContain('<strong>보따리</strong>');
-    expect(html).toContain('3등급 45%');
-    expect(html.match(/이름을 눌러/g)).toHaveLength(1);
-  });
-
-  test('the coin gamble says its average payback from the data', () => {
-    const s = createGame(d3, 1);
-    const model = gambleModel(econView(s)!.market!.gamble!, s.coins, s.buckwheat);
-    const outcomes = d3.economy!.market!.gamble!.coins.outcomes;
-    const avg = Math.round(outcomes.reduce((n, o) => n + o.result * o.chance, 0) * 100);
-    expect(avg).toBe(101);
-    expect(gambleInfoHtml(model, '10', { chance: 0.03, held: 0, maxGrade: 4 })).toContain(`평균 회수 ${avg}%`);
-    expect(gambleInfoHtml(model, 'small', { chance: 0.03, held: 0, maxGrade: 4 })).not.toContain('평균 회수');
   });
 });
 
