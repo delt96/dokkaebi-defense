@@ -37,7 +37,8 @@ import {
   pinnedTarget, rejectText, rowCells, selectedSlot, type DexNav, type MoveInput, type NextScope,
 } from './models';
 import { renderBottom, renderRight, soloPanelHtml, unitDetailsHtml, upgradesHtml } from './panels';
-import { resultHtml } from './result';
+import { resultHtml, soloCaption } from './result';
+import { captureDate, captureLane } from './capture';
 import { readHelpLine, settingsHtml, writeHelpLine } from './settings';
 import { STORE_ALL_KEY, STORE_KEY, storageHtml, storageInfoHtml, storageInfoModel, wireStorage } from './storage';
 import { readTarget, targetHtml, writeTarget } from './target';
@@ -690,6 +691,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'resume': userPaused = false; break;
       case 'portraitDismiss': guideDismissed = true; break;
       case 'restart': hooks.onRestart?.(); break;
+      case 'capture': {
+        const date = captureDate();
+        const button = el('modal').querySelector<HTMLButtonElement>('[data-action="capture"]');
+        void captureLane(() => scene.capture(), soloCaption(driver.state, date), `dokkaebi-${date}.png`, button);
+        break;
+      }
       case 'home': hooks.onHome?.(); break;
     }
     if (action.startsWith('dex')) dexRemember();

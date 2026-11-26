@@ -7,9 +7,15 @@
       "coins": {
         "stakes": [10, 100], "openStakes": [10], "perRound": 5, "bigMultiplier": 5,
         "outcomes": [
-          { "result": 0, "chance": 0.355 }, { "result": 0.5, "chance": 0.20 }, { "result": 1.5, "chance": 0.305 },
-          { "result": 2, "chance": 0.09 }, { "result": 5, "chance": 0.045 }, { "result": 10, "chance": 0.005 }
-        ]
+          { "result": 0, "chance": 0.30 }, { "result": 0.5, "chance": 0.20 }, { "result": 1.5, "chance": 0.35 },
+          { "result": 2, "chance": 0.11 }, { "result": 5, "chance": 0.035 }, { "result": 10, "chance": 0.005 }
+        ],
+        "stakeOutcomes": {
+          "10": [
+            { "result": 0, "chance": 0.28 }, { "result": 0.5, "chance": 0.18 }, { "result": 1.5, "chance": 0.37 },
+            { "result": 2, "chance": 0.11 }, { "result": 5, "chance": 0.055 }, { "result": 10, "chance": 0.005 }
+          ]
+        }
       },
       "units": {
         "perRound": 2, "bigGrade": 5,

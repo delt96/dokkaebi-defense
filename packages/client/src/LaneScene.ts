@@ -158,6 +158,9 @@ export class LaneScene extends Phaser.Scene {
   private yeoksinIn = false;
   private yeoksinKilled = false;
   private desaturated = false;
+  /** While a capture is taken the lane stays in colour, and going grey again afterwards does not flash. */
+  private capturing = false;
+  private quietGrey = false;
   private desatFx: Phaser.FX.ColorMatrix | null = null;
   private desatOverlay: Phaser.GameObjects.Rectangle | null = null;
 
@@ -1022,6 +1025,33 @@ export class LaneScene extends Phaser.Scene {
     this.tweens.add({ targets: from, angle: { from: -12, to: 12 }, duration: 70, yoyo: true, onComplete: () => from.setAngle(0) });
   }
 
+  /**
+   * A copy of the lane as it is drawn now: units, enemies and the board, in full colour even when the
+   * lane went grey (it greys again on the next frame, without the flash). Null when the renderer gives nothing.
+   */
+  capture(): Promise<HTMLCanvasElement | null> {
+    const grey = this.desaturated;
+    this.capturing = true;
+    this.setDesaturated(false);
+    return new Promise(resolve => {
+      this.game.renderer.snapshot(image => {
+        this.capturing = false;
+        this.quietGrey = grey;
+        if (!(image instanceof HTMLImageElement)) { resolve(null); return; }
+        const done = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { resolve(null); return; }
+          ctx.drawImage(image, 0, 0);
+          resolve(canvas);
+        };
+        if (image.complete) done(); else image.onload = done;
+      });
+    });
+  }
+
   /** My lane fell (online: its seat is a spirit; 1 player: defeat): the lane goes grey. */
   private setDesaturated(on: boolean): void {
     if (on === this.desaturated) return;
@@ -1035,7 +1065,8 @@ export class LaneScene extends Phaser.Scene {
       } else {
         this.desatOverlay = this.add.rectangle(0, 0, CENTER_W, this.canvasHeight, 0x30303a, 0.55).setOrigin(0).setDepth(FX_DEPTH.top - 0.1);
       }
-      if (!this.reduceFx) cam.flash(220, 40, 20, 24);
+      if (!this.reduceFx && !this.quietGrey) cam.flash(220, 40, 20, 24);
+      this.quietGrey = false;
     } else {
       if (this.desatFx) cam.postFX?.clear();
       this.desatFx = null;
@@ -1075,7 +1106,7 @@ export class LaneScene extends Phaser.Scene {
       const round = this.state.phase === 'round';
       if (this.wasRound && this.state.phase === 'prep') this.fx.roundClear(this.time.now);
       this.wasRound = round;
-      this.setDesaturated(this.driver.laneEliminated?.() ?? this.state.result?.outcome === 'defeat');
+      if (!this.capturing) this.setDesaturated(this.driver.laneEliminated?.() ?? this.state.result?.outcome === 'defeat');
     }
     const { level } = limitLevel(this.state.data, countNormalEnemies(this.state), this.state.round);
     const look = jangseungLook(level, this.time.now, this.shakeJangseung && !this.reduceFx);

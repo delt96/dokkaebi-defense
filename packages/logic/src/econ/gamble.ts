@@ -1,4 +1,4 @@
-import { gamblePool } from '../data';
+import { coinOutcomes, gamblePool } from '../data';
 import { registerCommand } from '../registry';
 import { createRng, deriveSeed, nextFloat, nextInt } from '../rng';
 import type { GambleCommand, GambleDef, GambleEvent, GambleOdds, GambleTable, GambleTableDef, GameData, GameState, RejectReason } from '../types';
@@ -65,7 +65,7 @@ registerCommand('gambleCoins', (state, cmd, events) => {
   if (why) return why;
   const count = state.econ!.gamble = attempts(state);
   count.coins++;
-  const multiplier = draw(config(state)!.coins.outcomes, nextFloat(gambleRng(state, cmd.type)));
+  const multiplier = draw(coinOutcomes(config(state)!, cmd.stake), nextFloat(gambleRng(state, cmd.type)));
   const payout = Math.floor(cmd.stake * multiplier);
   state.coins += payout - cmd.stake;
   events.push({ type: cmd.type, stake: cmd.stake, multiplier, payout });

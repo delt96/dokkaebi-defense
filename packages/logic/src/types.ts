@@ -150,6 +150,8 @@ export interface GambleTableDef {
 export interface GambleDef {
   coins: {
     stakes: number[]; perRound: number; bigMultiplier: number; outcomes: GambleOdds<number>[];
+    /** A stake's own odds, keyed by the stake; a stake not listed uses `outcomes`. */
+    stakeOutcomes?: Record<string, GambleOdds<number>[]>;
     /** Stakes that can be bet before market.openAfterBossRound's boss opens the market. */
     openStakes?: number[];
   };

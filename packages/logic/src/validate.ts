@@ -1,5 +1,5 @@
 import { DIFFICULTIES, type GameData } from './types';
-import { gamblePool, gradeValue, recipeDemand, recipeValue } from './data';
+import { coinOutcomes, gamblePool, gradeValue, recipeDemand, recipeValue } from './data';
 
 const SHAPES: Record<number, number[][]> = { 2: [[1, 1]], 3: [[1, 1, 2]], 4: [[2, 2, 3]], 5: [[4, 4]], 6: [[3, 5, 5], [4, 5, 5]] };
 const COSTS: Record<number, { buckwheat?: number; coins?: number }> = { 5: { buckwheat: 1 }, 6: { buckwheat: 1, coins: 60 } };
@@ -81,8 +81,12 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
       || new Set(coins.stakes).size !== coins.stakes.length || !positiveInt(coins.perRound)
       || !positiveInt(coins.bigMultiplier) || !validOdds(coins.outcomes)
       || (coins.openStakes !== undefined && (!Array.isArray(coins.openStakes) || !coins.openStakes.every(s => coins.stakes.includes(s))))
-      || !coins.outcomes.every(o => Number.isFinite(o.result) && o.result >= 0
-        && coins.stakes.every(s => Number.isSafeInteger(Math.floor(s * o.result))))) errors.push('invalid coin gamble');
+      || (coins.stakeOutcomes !== undefined && (typeof coins.stakeOutcomes !== 'object' || coins.stakeOutcomes === null
+        || !Object.keys(coins.stakeOutcomes).every(k => coins.stakes.some(s => String(s) === k))))
+      || !coins.stakes.every(s => {
+        const odds = coinOutcomes(gamble!, s);
+        return validOdds(odds) && odds.every(o => Number.isFinite(o.result) && o.result >= 0 && Number.isSafeInteger(Math.floor(s * o.result)));
+      })) errors.push('invalid coin gamble');
     if (!units || !positiveInt(units.perRound) || !positiveInt(units.bigGrade)) errors.push('invalid unit gamble');
     for (const id of ['small', 'big', 'coin'] as const) {
       const table = units?.tables?.[id];

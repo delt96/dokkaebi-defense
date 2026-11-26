@@ -1,5 +1,5 @@
 import {
-  gamblePool, gambleTier, type GameState, type GambleEvent, type GambleTable, type GambleView, type GameData, type RejectReason, type UnitDef,
+  coinOutcomes, gamblePool, gambleTier, type GameState, type GambleEvent, type GambleTable, type GambleView, type GameData, type RejectReason, type UnitDef,
 } from '@dorandi/logic';
 import { esc } from './dom';
 import { unitFaceHtml } from './storage';
@@ -114,7 +114,8 @@ export function revealDisplay(reveal: Reveal | null, now: number, data: GameData
     const frame = Math.floor((now - reveal.at) / 85);
     if (reduced) return { phase, label: pending, announcement: '' };
     if (event.type === 'gambleCoins') {
-      const value = g.coins.outcomes[frame % g.coins.outcomes.length]!.result;
+      const odds = coinOutcomes(g, event.stake);
+      const value = odds[frame % odds.length]!.result;
       return { phase, label: `×${value}`, coin: true, announcement: '' };
     }
     const outcomes = g.units.tables[event.table]!.outcomes;

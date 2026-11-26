@@ -4,6 +4,7 @@ import type { NetClient } from '../net/NetClient';
 import { esc } from '../ui/dom';
 import { TEXT } from './text';
 import { graph, graphScale } from '../ui/result';
+import { captureDate, captureLane } from '../ui/capture';
 
 export interface TeamRow {
   seat: number; name: string; status: string; last: number; max: number; best: string; damage: number;
@@ -75,7 +76,7 @@ export function teamResultModel(result: MatchResult, names: Record<number, strin
   };
 }
 
-export interface ResultActions { rematch(): void; leave(): void; enterRematch?(): void }
+export interface ResultActions { rematch(): void; leave(): void; enterRematch?(): void; capture?(button: HTMLButtonElement): void }
 /** `closed`: the server closed the room (result hold over), so rematch can no longer be sent. */
 export interface ResultUi { opened: number | null; rematching: boolean; closed?: boolean; readySeats?: number[] }
 
@@ -136,6 +137,14 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
   leave.addEventListener('click', () => actions.leave());
   const controls = div('screen-actions');
   controls.append(again, leave);
+  if (actions.capture) {
+    const shot = document.createElement('button');
+    shot.type = 'button';
+    shot.className = 'big secondary';
+    shot.textContent = '판 사진 저장';
+    shot.addEventListener('click', () => actions.capture!(shot));
+    controls.prepend(shot);
+  }
   if (actions.enterRematch && !ui.closed) {
     const enter = document.createElement('button');
     enter.type = 'button';
@@ -174,7 +183,8 @@ export function renderResult(root: HTMLElement, result: MatchResult, names: Reco
 export function mountResult(net: NetClient, root: HTMLElement, data: GameData,
   go: (href: string) => void = href => location.assign(href),
   goRematch?: (roomId: string, hostToken?: string) => void,
-  hold?: (show: () => void) => void): void {
+  hold?: (show: () => void) => void,
+  capture?: () => Promise<HTMLCanvasElement | null>): void {
   const ui: ResultUi = { opened: null, rematching: false, closed: false };
   let held: 'no' | 'waiting' | 'done' = hold ? 'no' : 'done';
   let retry: ReturnType<typeof setTimeout> | undefined;
@@ -207,6 +217,13 @@ export function mountResult(net: NetClient, root: HTMLElement, data: GameData,
         retry = setTimeout(() => { ui.rematching = false; show(); }, REMATCH_RETRY_MS);
       },
       ...(destination ? { enterRematch: enter } : {}),
+      ...(capture ? {
+        capture: (button: HTMLButtonElement) => {
+          const date = captureDate();
+          const caption = [TITLE[result.outcome] + difficultySuffix(data, result.difficulty), `도달 ${result.round}라운드`, date].join(' · ');
+          void captureLane(capture, caption, `dokkaebi-${date}.png`, button);
+        },
+      } : {}),
       leave: () => { void net.leave().catch(() => undefined).finally(() => go('/')); },
     }, ui);
   };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { applyCommand, canonicalJson, createGame, createMatch, loadGameData, marketView, replayMatch, roundStartTick, step, stepMatch, validateData, type Command, type GameEvent } from '../src';
+import { applyCommand, canonicalJson, coinOutcomes, createGame, createMatch, loadGameData, marketView, replayMatch, roundStartTick, step, stepMatch, validateData, type Command, type GameEvent } from '../src';
 import { unitValue } from '../src/econ/ledger';
 import { forceRound, placeUnitForTest, withoutMarketLock } from '../src/testing';
 import { nextFloat } from '../src/rng';
@@ -23,20 +23,31 @@ function fixedRoll(lo: number, hi: number) {
   }
 }
 
-test('coin gamble pays back 101.25% of the stake on average', () => {
-  const outcomes = data.economy!.market!.gamble!.coins.outcomes;
-  expect(outcomes.reduce((ev, o) => ev + o.result * o.chance, 0)).toBeCloseTo(1.0125, 9);
+test.each([[10, 1.19], [100, 1.07]])('a %s-coin bet pays back ×%s of the stake on average', (stake, ev) => {
+  const outcomes = coinOutcomes(data.economy!.market!.gamble!, stake);
+  expect(outcomes.reduce((sum, o) => sum + o.result * o.chance, 0)).toBeCloseTo(ev, 9);
 });
 
 test.each([
-  [0, .355, 0], [.355, .555, .5], [.555, .86, 1.5], [.86, .95, 2], [.95, .995, 5], [.995, 1, 10],
-])('coin outcome in [%s, %s) pays ×%s', (lo, hi, multiplier) => {
+  [10, 0, .28, 0], [10, .28, .46, .5], [10, .46, .83, 1.5], [10, .83, .94, 2], [10, .94, .995, 5], [10, .995, 1, 10],
+  [100, 0, .3, 0], [100, .3, .5, .5], [100, .5, .85, 1.5], [100, .85, .96, 2], [100, .96, .995, 5], [100, .995, 1, 10],
+])('a %s-coin roll in [%s, %s) pays ×%s', (stake, lo, hi, multiplier) => {
   const s = lane();
   s.econ!.rng.gambleCoins = fixedRoll(lo, hi);
   const events: GameEvent[] = [];
-  expect(applyCommand(s, bet, events)).toBeNull();
-  expect(events).toContainEqual({ type: 'gambleCoins', stake: 10, multiplier, payout: 10 * multiplier });
-  expect(s.coins).toBe(1990 + 10 * multiplier);
+  expect(applyCommand(s, { type: 'gambleCoins', stake }, events)).toBeNull();
+  expect(events).toContainEqual({ type: 'gambleCoins', stake, multiplier, payout: stake * multiplier });
+  expect(s.coins).toBe(2000 - stake + stake * multiplier);
+});
+
+test('stake odds must name a stake that exists and add up to 1', () => {
+  const g = () => structuredClone(data);
+  const unknown = g();
+  unknown.economy!.market!.gamble!.coins.stakeOutcomes = { 50: data.economy!.market!.gamble!.coins.outcomes };
+  expect(validateData(unknown).errors).toContain('invalid coin gamble');
+  const short = g();
+  short.economy!.market!.gamble!.coins.stakeOutcomes!['10']![0]!.chance = .1;
+  expect(validateData(short).errors).toContain('invalid coin gamble');
 });
 
 test.each([
@@ -173,7 +184,7 @@ test('coin payout rounds down for odd stakes', () => {
   const s = createGame(d, 51);
   forceRound(s, 30);
   s.econ!.marketOpen = true;
-  s.econ!.rng.gambleCoins = fixedRoll(.38, .58);
+  s.econ!.rng.gambleCoins = fixedRoll(.3, .5);
   s.coins = 100;
   const events: GameEvent[] = [];
   expect(applyCommand(s, { ...bet, stake: 11 }, events)).toBeNull();

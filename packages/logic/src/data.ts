@@ -1,4 +1,4 @@
-import type { BalanceDef, CoopDef, EconomyDef, EnemyDef, GameData, RecipeDef, UnitDef } from './types';
+import type { BalanceDef, CoopDef, EconomyDef, EnemyDef, GambleDef, GambleOdds, GameData, RecipeDef, UnitDef } from './types';
 import units from '../data/units.json';
 import recipes from '../data/recipes.json';
 import enemies from '../data/enemies.json';
@@ -115,6 +115,12 @@ export function enemyHp(def: EnemyDef, round: number, b: BalanceDef): number {
   if ((def.boss || def.event) && def.hp !== undefined) return def.hp;
   const late = b.hp.late && round >= b.hp.late.fromRound ? 1 + b.hp.late.perRound * (round - b.hp.late.fromRound + 1) : 1;
   return Math.round((b.hp.base + b.hp.coef * round ** b.hp.exp) * def.hpMult * late);
+}
+
+/** The odds a coin bet of `stake` rolls on. */
+export function coinOutcomes(g: GambleDef, stake: number): GambleOdds<number>[] {
+  const own = g.coins.stakeOutcomes;
+  return own && Object.hasOwn(own, String(stake)) ? own[String(stake)]! : g.coins.outcomes;
 }
 
 /** The hidden table includes recipe units and excludes direct tame recruits. */

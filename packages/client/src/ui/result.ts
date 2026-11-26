@@ -52,6 +52,12 @@ export function resultHtml(state: GameState, bestUnitId: string | null): string 
     ${plot ? plot + graphScale(m.series.length) : ''}
     <p>마지막 ${m.lastEnemies}마리 · 가장 많았을 때 ${m.maxEnemies}마리</p>
     <p>최고 유닛: ${best} · ${esc(m.helperText)}</p>
-    <div class="screen-actions"><button class="big" data-action="restart">다시 하기</button><button class="big secondary" data-action="home">처음 화면으로</button></div>
+    <div class="screen-actions"><button class="big secondary" data-action="capture">판 사진 저장</button><button class="big" data-action="restart">다시 하기</button><button class="big secondary" data-action="home">처음 화면으로</button></div>
   </div>`;
+}
+
+/** The line under a saved solo lane picture: result, difficulty, last round and the day. */
+export function soloCaption(state: GameState, date: string): string {
+  const m = resultModel(state, null);
+  return [m.title, difficultyLabel(state.data, state.difficulty), `${m.roundReached}라운드`, date].filter(Boolean).join(' · ');
 }

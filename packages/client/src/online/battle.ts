@@ -52,7 +52,7 @@ export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: 
 
   // the team result (also carried by a rejoin snapshot) covers the stage, after the end scene when one runs
   const screen = document.getElementById('screen');
-  if (screen) mountResult(net, screen, data, undefined, goRematch, show => ui.afterEndScene(show));
+  if (screen) mountResult(net, screen, data, undefined, goRematch, show => ui.afterEndScene(show), () => scene.capture());
 
   if (import.meta.env.DEV) Object.assign(window, { __net: net, __driver: driver, __scene: scene });
 }
