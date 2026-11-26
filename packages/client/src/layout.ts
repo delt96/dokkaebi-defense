@@ -94,11 +94,11 @@ export function screenLayout(w: number, h: number, opts: { band?: number; online
   const winZoom = candidates.find((z) => left / z >= WIN_MIN + WIN_GAP);
   if (winZoom !== undefined) {
     const winW = Math.min(WIN_MAX, left / winZoom - WIN_GAP);
-    const winH = ((STAGE_H - TOP_H) * zoom) / winZoom;
+    const winH = (STAGE_H * zoom) / winZoom;
     return {
       zoom, left, top, wins: 'outside', winZoom, outerZoom: outer,
-      winLeft: { x: left - (winW + WIN_GAP) * winZoom, y, w: winW, h: winH },
-      winRight: { x: left + STAGE_W * zoom + WIN_GAP * winZoom, y, w: winW, h: winH },
+      winLeft: { x: left - (winW + WIN_GAP) * winZoom, y: top, w: winW, h: winH },
+      winRight: { x: left + STAGE_W * zoom + WIN_GAP * winZoom, y: top, w: winW, h: winH },
     };
   }
   const pillarH = opts.online ? ONLINE_PILLAR_H : PILLAR_H;

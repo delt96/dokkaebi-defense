@@ -17,10 +17,10 @@ test.each([
   expect([l.zoom, l.wins, l.winZoom, l.winLeft.w]).toEqual([zoom, wins, winZoom, width]);
 });
 
-test('outside boxes sit 4 window px off the board, from under the HUD to the board bottom', () => {
+test('outside boxes sit 4 window px off the board, from the board top to the board bottom', () => {
   expect(screenLayout(1920, 953)).toMatchObject({ left: 320, top: 116,
-    winLeft: { x: 0, y: 164, w: 156, h: 336 }, winRight: { x: 1608, y: 164, w: 156, h: 336 } });
-  expect(screenLayout(2560, 1305).winLeft).toEqual({ x: 0, y: 184, w: 156, h: 504 });
+    winLeft: { x: 0, y: 116, w: 156, h: 360 }, winRight: { x: 1608, y: 116, w: 156, h: 360 } });
+  expect(screenLayout(2560, 1305).winLeft).toEqual({ x: 0, y: 112, w: 156, h: 540 });
   expect(screenLayout(3440, 1305)).toMatchObject({ winLeft: { x: 160, w: 196 }, winRight: { x: 2692, w: 196 } });
 });
 

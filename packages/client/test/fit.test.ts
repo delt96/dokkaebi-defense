@@ -35,7 +35,7 @@ test('applyLayout places the board and both boxes and marks the place', () => {
   applyLayout(screenLayout(1920, 953), el('stage'));
   expect([el('stage').style.transform, el('stage').style.left, el('stage').style.top]).toEqual(['scale(2)', '320px', '116px']);
   const left = el('win-left').style;
-  expect([left.left, left.top, left.width, left.height, left.transform]).toEqual(['0px', '164px', '156px', '336px', 'scale(2)']);
+  expect([left.left, left.top, left.width, left.height, left.transform]).toEqual(['0px', '116px', '156px', '360px', 'scale(2)']);
   expect(el('win-right').style.left).toBe('1608px');
   expect(document.documentElement.dataset.wins).toBe('outside');
   expect(currentWins()).toBe('outside');
