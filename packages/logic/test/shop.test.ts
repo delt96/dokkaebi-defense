@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
-  applyCommand, buyBlock, combineEatsItem, createGame, econView, itemOf, jigeCandidates, loadGameData, pickStored, shopItem,
+  applyCommand, buyBlock, combineEatsItem, combineEatenItems, createGame, econView, itemOf, jigeCandidates, loadGameData, pickStored, shopItem,
   storedMaterials, validateData, type GameData, type GameEvent, type GameState, type RejectReason, type Unit,
 } from '../src';
 import { makeData, placeUnitForTest, withoutMarketLock } from '../src/testing';
@@ -344,6 +344,8 @@ describe('combine and storage use the copy without an item first', () => {
     expect(combineEatsItem(s, 'saekkijul')).toBe(true);
     expect(combineEatsItem(s, 'saekkijul', 0)).toBe(true);
     expect(combineEatsItem(s, 'saekkijul', 3)).toBe(true);
+    expect(combineEatenItems(s, 'saekkijul', 3)).toEqual([e.item]);
+    expect(combineEatenItems(s, 'jipsingol')).toEqual([]);
     ok(s, { type: 'combine', result: 'saekkijul', slot: 0 });
     expect(s.slots.includes(e)).toBe(false);
     expect(s.slots.filter(u => u?.defId === 'saekkijul')).toHaveLength(1);

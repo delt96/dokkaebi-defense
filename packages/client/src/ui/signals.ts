@@ -76,11 +76,11 @@ function refusalButtons(command: { type: string; arg?: string }): { button?: str
       return { button: row('#stage'), win: { side: 'left', selector: row('#win-left') } };
     }
     case 'buyItem': return command.arg === undefined ? {} : { win: { side: 'right', selector: `#win-right [data-action="buyItem"][data-arg="${command.arg}"]` } };
-    // the online list closes on the press, so its refusal lands on the 아이템 ▾ button that opened it
+    // the list closes on the press, so the refusal lands on the button that opened it (solo 붙이기 ▾, online 아이템 ▾)
     case 'attachItem': {
       if (command.arg === undefined) return {};
       const unitId = command.arg.split('@')[1] ?? '';
-      return { button: `#left [data-action="attachItem"][data-arg="${command.arg}"], #bottom [data-action="itemMenu"][data-arg="${unitId}"]` };
+      return { button: `#left [data-action="itemMenu"][data-arg="${unitId}"], #bottom [data-action="itemMenu"][data-arg="${unitId}"]` };
     }
     default: return {};
   }

@@ -16,8 +16,8 @@ const NEEDS = '진화부적을 붙여야 합니다';
 const NEEDS_SHORT = '진화 필요';
 
 /** The solo left panel with `slot` selected, or the whole next list (the old helper) with nothing selected. */
-const panel = (s: GameState, slot: number | null, shop = econView(s)?.shop ?? null) => soloPanelHtml(s, {
-  selected: slot, list: nextCombines(s, slot === null ? {} : { slot }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false, shop,
+const panel = (s: GameState, slot: number | null, shop = econView(s)?.shop ?? null, itemOpen = false) => soloPanelHtml(s, {
+  selected: slot, list: nextCombines(s, slot === null ? {} : { slot }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false, shop, itemOpen,
 });
 const WIN = { wins: 'outside', bar: '', historyOpen: false, historyCount: 0 } as const;
 
@@ -72,7 +72,7 @@ describe('붙이기 for the evolve charm', () => {
     const other = placeUnitForTest(s, PAIR.materials[1]!, 1);
     const args = (slot: number) => {
       const box = document.createElement('div');
-      box.innerHTML = panel(s, slot);
+      box.innerHTML = panel(s, slot, undefined, true);
       return Array.from(box.querySelectorAll<HTMLElement>('[data-action="attachItem"]')).map(b => b.dataset.arg);
     };
     expect(args(0)).toEqual([`powerCharm@${tamed.id}`, `${CHARM}@${tamed.id}`]);

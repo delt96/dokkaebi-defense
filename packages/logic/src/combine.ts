@@ -61,7 +61,8 @@ interface MaterialPick {
   resultSlot: number | null;
   /** The board unit the result replaces, -1 when it lands on an empty slot. */
   replacedSlot: number;
-  eatsItem: boolean;
+  /** Item ids lost by surprise (not the evolve charm an exclusive recipe spends), in slot then storage order. */
+  eaten: string[];
 }
 
 /**
@@ -140,10 +141,10 @@ function pickMaterials(state: GameState, recipe: RecipeDef, slot?: number): Mate
 
   // the evolve charm an exclusive recipe requires is spent on purpose, not lost by surprise
   const surprise = (u: Unit) => !!u.item && !needsEvolved(state, recipe, u.defId);
-  let eatsItem = false;
-  for (const i of used) if (surprise(state.slots[i]!)) eatsItem = true;
-  for (const j of stored) if (surprise(storage[j]!)) eatsItem = true;
-  return { used, stored, resultSlot: finalSlot, replacedSlot, eatsItem };
+  const eaten: string[] = [];
+  for (const i of used) if (surprise(state.slots[i]!)) eaten.push(state.slots[i]!.item!);
+  for (const j of stored) if (surprise(storage[j]!)) eaten.push(storage[j]!.item!);
+  return { used, stored, resultSlot: finalSlot, replacedSlot, eaten };
 }
 
 /** How many of a recipe's materials would come out of storage (bare copies first; within each, board before storage). */
@@ -153,16 +154,21 @@ export function storedMaterials(state: GameState, result: string, slot?: number)
   return pickMaterials(state, recipe, slot).stored.size;
 }
 
-/** Whether this combine (with the same arguments the combine command gets) would use a unit that has an item. */
-export function combineEatsItem(state: GameState, result: string, slot?: number): boolean {
+/** The items this combine (with the same arguments the combine command gets) would use up with their units. */
+export function combineEatenItems(state: GameState, result: string, slot?: number): string[] {
   const recipe = state.data.recipes.find(r => r.result === result);
-  if (!recipe || missingFrom(state, recipe.materials).length || needsEvolve(state, recipe)) return false;
+  if (!recipe || missingFrom(state, recipe.materials).length || needsEvolve(state, recipe)) return [];
   if (slot !== undefined) {
     const chosen = state.slots[slot];
-    if (!chosen || !recipe.materials.includes(chosen.defId)) return false;
+    if (!chosen || !recipe.materials.includes(chosen.defId)) return [];
   }
   const pick = pickMaterials(state, recipe, slot);
-  return pick.resultSlot !== null && pick.eatsItem;
+  return pick.resultSlot === null ? [] : pick.eaten;
+}
+
+/** Whether this combine (with the same arguments the combine command gets) would use a unit that has an item. */
+export function combineEatsItem(state: GameState, result: string, slot?: number): boolean {
+  return combineEatenItems(state, result, slot).length > 0;
 }
 
 export function availableRecipes(state: GameState): string[] {

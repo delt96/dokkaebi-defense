@@ -1005,11 +1005,17 @@ body.online #end-scene { height: 292px; }
 .unit-item .ui-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .unit-item button { flex: none; height: 24px; min-height: 24px; padding: 0 3px; }
 .unit-item .item-hint { flex: none; font-size: 10px; }
-.item-warn, .item-hint { color: var(--ink-dim); font-size: 10px; line-height: 1.2; }
+.item-warn, .item-hint { color: var(--ink-dim); font-size: 10px; line-height: 1.2; word-break: keep-all; }
 .item-tag { display: inline-block; min-width: 11px; padding: 0 1px; border-radius: 6px; background: #7fd6a8; color: #0d0a14; font-size: 10px; line-height: 12px; text-align: center; font-weight: bold; }
-.combine-eats { color: #ffcf8a; }
-.storage-combine .combine-eats { display: block; font-size: 8px; }
+.combine-eats { color: #ffcf8a; font-weight: bold; white-space: nowrap; flex: none; }
+/* the '−힘' tag must stay readable, so on its rows the name gives way (ellipsis) instead */
+.recipe-top:has(.combine-eats) b { flex-shrink: 1; min-width: 0; }
 .ud-item { margin: 2px 0 0; color: #bfbbca; }
 #bottom .item-menu { flex-shrink: 0; }
-#bottom .item-pop { position: absolute; right: 120px; bottom: calc(100% + 2px); width: 170px; z-index: 3; display: grid; gap: 3px; padding: 5px; background: #201829; border: 1px solid var(--accent); font-size: 10px; }
-#bottom .item-pop button { min-height: 24px; }
+.item-pop { position: absolute; bottom: calc(100% + 2px); width: 170px; z-index: 3; display: grid; gap: 3px; padding: 5px; background: #201829; border: 1px solid var(--accent); font-size: 10px; }
+.item-pop button { min-height: 24px; }
+#bottom .item-pop { right: 120px; }
+/* opens up from the solo item line over the list and the storage strip; the line itself never grows (B1) */
+#left .item-pop { left: 0; }
+.unit-item-box { flex: none; position: relative; }
+.unit-item .item-none { color: var(--ink-dim); }

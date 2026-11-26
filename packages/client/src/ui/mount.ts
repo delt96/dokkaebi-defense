@@ -721,8 +721,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     render();
     if (action === 'itemMenu' || action === 'attachItem') {
       const unitId = action === 'itemMenu' ? arg : arg.split('@')[1];
-      const menuButton = el('bottom').querySelector<HTMLElement>(`[data-action="itemMenu"][data-arg="${unitId}"]`);
-      const first = itemMenuId !== null ? el('bottom').querySelector<HTMLElement>('.item-pop [data-action="attachItem"]') : null;
+      const box = el(online ? 'bottom' : 'left');
+      const menuButton = box.querySelector<HTMLElement>(`[data-action="itemMenu"][data-arg="${unitId}"]`);
+      const first = itemMenuId !== null ? box.querySelector<HTMLElement>('.item-pop [data-action="attachItem"]') : null;
       (first ?? menuButton)?.focus({ preventScroll: true });
     }
     if (action === 'dexRole' || action === 'dexMine' || action === 'dexAdv') {
@@ -942,6 +943,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (ev.code === 'Escape') {
       // the end scene first, then a locking window, then the last side window opened, then a waiting move, then the selection
       const step = escStep({ scene: sceneRunning, locking: modal !== null, sidesLocked: locked(), sides });
+      // the item list is the newest thing open over the board, so it goes before any side window
+      if (itemMenuId !== null && step !== 'scene' && step !== 'locking') { act('itemMenu', String(itemMenuId)); return; }
       if (step === 'scene') skipScene();
       else if (step === 'locking') act(modal === 'restartAsk' || modal === 'homeAsk' ? 'menuBack' : 'closeModal', '');
       else if (step === 'left' || step === 'right') act('closeWin', step);
@@ -1171,6 +1174,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       renderHud(s, pause.pill, alertOpts);
       setHtml(el('left'), s.phase === 'ended' ? '' : infoHtml || soloPanelHtml(s, {
         selected, list, idleList, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected), shop,
+        itemOpen: itemMenuId !== null,
       }));
     }
     // before the slot is drawn, so a support it has to tell shows on this frame

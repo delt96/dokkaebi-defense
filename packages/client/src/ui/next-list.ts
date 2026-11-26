@@ -3,7 +3,7 @@ import { esc } from './dom';
 import { typeBadgeHtml } from './badge';
 import { unitFaceHtml } from './storage';
 import { MAKE_SVG, SHARE_SVG, materialChipsHtml } from './chips';
-import { EATS_ITEM_TEXT, type CombineOption, type NextList, type NextRow } from './models';
+import { eatsTagHtml, type CombineOption, type NextList, type NextRow } from './models';
 
 /**
  * `unitId`: the selected unit the combine uses (`result@id`), null for a row it is not in. `chips` draws the material
@@ -17,7 +17,7 @@ export function recipeRowHtml(state: GameState, option: CombineOption, opts: Row
   const badge = typeBadgeHtml(state.data, option.result, !opts.fullBadge);
   const face = unitFaceHtml(option.result, option.name, option.grade, true);
   const key = option.key ? `[${option.key}] ` : '';
-  const eats = option.eatsItem ? ` · <span class="combine-eats">${EATS_ITEM_TEXT}</span>` : '';
+  const eats = option.eaten?.length ? ` · ${eatsTagHtml(option.eaten)}` : '';
   const head = (extra: string) => `<span class="recipe-top">${key}${face}<b>${esc(option.name)}</b> ${badge}${extra}${eats}</span>`;
   const nameOf = (id: string) => unitDefFast(state.data, id).name;
   const mats = chips ? materialChipsHtml(option.materials, option.cost, nameOf) : '';

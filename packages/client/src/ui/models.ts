@@ -1,6 +1,6 @@
 import { difficultySuffix } from './difficulty';
 import {
-  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineEatsItem, combinePlan, countNormalEnemies, evolveMult, itemOf, needsEvolve, missingMaterials,
+  attackIntervalTicks, damageBonus, laneOf, speedBonus, unitAttack, combineEatenItems, combinePlan, shopItem, countNormalEnemies, evolveMult, itemOf, needsEvolve, missingMaterials,
   storedMaterials, availableRecipes, unitDefFast, upgradeCost, unitRange, summonOddsForRound, roundResistRange,
   type DamageType, type Effect, type GameData, type GameState, type RecipeDef, type SkillDef, type StatusArea, type Trigger, type UnitDef, type UpgradeId,
 } from '@dorandi/logic';
@@ -41,8 +41,14 @@ export interface SkillCtx {
  */
 export const attackRangeText = (data: GameData, range: number): string =>
   `${Math.round((range / laneOf({ data }).pitch) * 10) / 10}칸`;
-/** Under a combine that uses up a unit's item (combineEatsItem with the same arguments the button sends). */
+/** A combine that uses up a unit's item (combineEatenItems with the same arguments the button sends). */
 export const EATS_ITEM_TEXT = '아이템이 사라집니다';
+
+/** The rows are too narrow for EATS_ITEM_TEXT: a '−힘' tag of the lost items' first letters, their names in title and label. */
+export function eatsTagHtml(names: readonly string[]): string {
+  const label = `조합하면 사라지는 아이템: ${names.join(', ')}`.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+  return `<span class="combine-eats" role="img" title="${label}" aria-label="${label}">−${names.map(n => n.slice(0, 1)).join('').replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`)}</span>`;
+}
 /** Under the attach buttons of a unit that already has an item: the old one is lost, never returned. */
 export const REPLACE_ITEM_TEXT = '붙이면 지금 아이템은 사라집니다';
 export const ATTACK_RANGE_HINT = '칸 가운데에서 적까지 잰 직선거리입니다. 유닛을 고르면 닿는 길이 노랗게 보입니다.';
@@ -456,7 +462,7 @@ export function hudModel(state: GameState, pill = false): HudModel {
  * `cost` is set on recipes with a cost (stage 3 grades 5 and 6), `short` when every material is there but the cost is not,
  * `stored` when some materials would come out of storage (how many).
  */
-export interface HelperItem { recipe: string; name: string; grade: number; materials: Material[]; cost?: string; short?: string; stored?: number; eatsItem?: true }
+export interface HelperItem { recipe: string; name: string; grade: number; materials: Material[]; cost?: string; short?: string; stored?: number; eatsItem?: true; eaten?: string[] }
 
 /**
  * A recipe material as the chips draw it; `have` is false for the copies the board and storage cannot cover.
@@ -482,7 +488,13 @@ export function materialsOf(state: GameState, result: string, missingIds: readon
 const COMBINE_KEYS: readonly ComboKey[] = ['Z', 'X', 'C'];
 
 /** `short` describes any currency shortfall. */
-export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string; eatsItem?: true }
+export interface CombineOption { result: string; name: string; grade: number; missing: string[]; materials: Material[]; key: 'Z' | 'X' | 'C' | null; cost?: string; short?: string; eatsItem?: true; eaten?: string[] }
+
+/** The item names a combine would lose with its units, as `eatsItem` + `eaten`; nothing when none. */
+function eatenField(state: GameState, result: string, slot?: number): { eatsItem?: true; eaten?: string[] } {
+  const ids = combineEatenItems(state, result, slot);
+  return ids.length ? { eatsItem: true, eaten: ids.map(id => shopItem(state.data, id)?.name ?? id) } : {};
+}
 
 /** `slot`: the cell the option's button sends (none for storage and the rows without the selected unit), as combineEatsItem takes it. */
 function optionFor(state: GameState, result: string, missing: readonly string[], slot?: number): CombineOption {
@@ -497,7 +509,7 @@ function optionFor(state: GameState, result: string, missing: readonly string[],
     key: null,
     ...(cost ? { cost } : {}),
     ...(short ? { short } : {}),
-    ...(combineEatsItem(state, result, slot) && { eatsItem: true as const }),
+    ...eatenField(state, result, slot),
   };
 }
 
@@ -697,7 +709,7 @@ export function helperModel(state: GameState, target?: string | null): HelperIte
     return {
       recipe: row.result, name: row.name, grade: row.grade, materials: row.materials,
       ...(row.cost ? { cost: row.cost } : {}), ...(row.short ? { short: row.short } : {}), ...(stored ? { stored } : {}),
-      ...(row.eatsItem && { eatsItem: true as const }),
+      ...(row.eatsItem && { eatsItem: true as const, eaten: row.eaten ?? [] }),
     };
   });
 }

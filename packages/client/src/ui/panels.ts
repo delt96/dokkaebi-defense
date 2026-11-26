@@ -167,35 +167,38 @@ function jigeHtml(state: GameState, selected: number, unitId: number | null, jig
     ? `<span class="jige-held" title="지게는 장터 묵 보따리에서 3% 확률로 함께 나옵니다">보유 지게 ${jige}개</span><button data-action="jigeOpen" data-arg="board:${unitId}"${explain ? ' title="지게: 같은 등급의 다른 유닛으로 바꿉니다"' : ''}${jige < 1 ? ' disabled' : ''}>R 지게 바꾸기</button>` : '';
 }
 
-/** One 붙이기 button per held kind; the unit id rides along so a moved board never gets the item on another unit. */
-/** `menu`: the online list, full names and the empty kinds too; else the solo line's short buttons, `warn` in their titles. */
-function attachButtons(shop: ShopView, unitId: number, menu: boolean, tamed: boolean, warn = ''): string {
-  return shop.items.filter(i => (menu || i.held > 0) && (tamed || i.effect.kind !== 'evolve')).map(i => {
-    const arg = `data-action="attachItem" data-arg="${esc(i.id)}@${unitId}"`;
-    if (i.held <= 0) return `<button disabled>${esc(i.name)} (0개)</button>`;
-    if (menu) return `<button ${arg}>${esc(i.name)} (${i.held}개) 붙이기</button>`;
-    const label = `${i.name} 붙이기 (${i.held}개)${warn ? ` · ${warn}` : ''}`;
-    return `<button ${arg} title="${esc(label)}" aria-label="${esc(label)}">${esc(i.name.slice(0, 1))} ${i.held}</button>`;
-  }).join('');
+/** One 붙이기 button per kind, the empty ones disabled; the unit id rides along so a moved board never gets the item on another unit. */
+function attachButtons(shop: ShopView, unitId: number, tamed: boolean): string {
+  return shop.items.filter(i => tamed || i.effect.kind !== 'evolve').map(i => i.held <= 0
+    ? `<button disabled>${esc(i.name)} (0개)</button>`
+    : `<button data-action="attachItem" data-arg="${esc(i.id)}@${unitId}">${esc(i.name)} (${i.held}개) 붙이기</button>`).join('');
 }
 
 /** Something is held, or the market is open to buy (every item is marketLocked until then). */
 const shopLive = (shop: ShopView) => shop.items.some(i => i.held > 0 || i.why !== 'marketLocked');
 
-/** Solo: one 24px line over the action row, so the head and the list never move (B1); the shares are in the 상세 window. */
-function itemLineHtml(card: UnitCard, unitId: number | null, shop: ShopView | null | undefined, tamed: boolean): string {
+/**
+ * Solo: one 24px line over the action row, so the head and the list never move (B1); the shares are in the 상세 window.
+ * Five held kinds do not fit 118px as buttons, so the line names the attached item and one 붙이기 ▾ opens the list above it.
+ */
+function itemLineHtml(card: UnitCard, unitId: number | null, shop: ShopView | null | undefined, tamed: boolean, open: boolean): string {
   if (!shop || unitId === null || (!card.item && !shopLive(shop))) return '';
+  const held = shop.items.filter(i => i.held > 0 && (tamed || i.effect.kind !== 'evolve')).reduce((n, i) => n + i.held, 0);
   const warn = card.item ? REPLACE_ITEM_TEXT : '';
-  const buttons = attachButtons(shop, unitId, false, tamed, warn);
-  const name = card.item ? card.item.name : '없음';
-  const title = buttons ? [name, warn].filter(Boolean).join(' · ') : `${name} · 장터(B) 아이템 탭에서 삽니다`;
-  const hint = buttons ? '' : '<span class="item-hint">장터(B)</span>';
-  return `<div class="unit-item" title="${esc(title)}"><span class="ui-name"><b>아이템</b> ${esc(name)}</span>${buttons}${hint}</div>`;
+  const name = card.item
+    ? `<span class="item-tag" aria-hidden="true">${esc(card.item.name.slice(0, 1))}</span> ${esc(card.item.name)}`
+    : '<span class="item-none">아이템 없음</span>';
+  const menuTitle = ['아이템 붙이기', warn].filter(Boolean).join(' · ');
+  const menu = held
+    ? `<button data-action="itemMenu" data-arg="${unitId}" aria-expanded="${open}" aria-haspopup="true" class="item-menu" title="${esc(menuTitle)}">붙이기 ▾ ${held}</button>`
+    : '<span class="item-hint" title="장터(B) 아이템 탭에서 삽니다">장터(B)</span>';
+  const pop = held && open ? itemPopHtml(card, unitId, shop, tamed) : '';
+  return `<div class="unit-item-box"><div class="unit-item"><span class="ui-name">${name}</span>${menu}</div>${pop}</div>`;
 }
 
 function itemPopHtml(card: UnitCard, unitId: number, shop: ShopView, tamed: boolean): string {
   const none = !shop.items.some(i => i.held > 0) ? '<small class="item-hint">장터(B) 아이템 탭에서 삽니다</small>' : '';
-  return `<div class="item-pop" role="group" aria-label="아이템 붙이기"><b>아이템 붙이기</b>${attachButtons(shop, unitId, true, tamed)}${none}
+  return `<div class="item-pop" role="group" aria-label="아이템 붙이기"><b>아이템 붙이기</b>${attachButtons(shop, unitId, tamed)}${none}
     ${card.item ? `<small class="item-warn">${esc(card.item.name)} · ${REPLACE_ITEM_TEXT}</small>` : ''}</div>`;
 }
 
@@ -248,6 +251,8 @@ export interface SoloPanelOpts {
   selected: number | null; list: NextList; idleList: boolean;
   wPick: string | null; hover: string | null; showAllOne: boolean; skillOpen: boolean;
   jige?: number; sellArmed?: boolean; shop?: ShopView | null;
+  /** The 붙이기 ▾ list is open over the item line. */
+  itemOpen?: boolean;
 }
 
 function soloHeadHtml(state: GameState, slot: number, card: UnitCard, skillOpen: boolean): string {
@@ -293,7 +298,7 @@ export function soloPanelHtml(state: GameState, opts: SoloPanelOpts): string {
   if (!card || slot === null || unitId === null) return `<div class="solo-panel">${head}${scopeHtml(opts.list, false)}${list}</div>`;
   // design ⑦: the row only while a 지게 is held, so the list keeps its three rows at scale 1; R still answers with none
   const jige = (opts.jige ?? 0) >= 1 ? jigeHtml(state, slot, unitId, opts.jige, true) : '';
-  const item = itemLineHtml(card, unitId, opts.shop, isTamedKind(state.data, state.slots[slot]!.defId));
+  const item = itemLineHtml(card, unitId, opts.shop, isTamedKind(state.data, state.slots[slot]!.defId), opts.itemOpen === true);
   return `<div class="solo-panel">${head}${scopeHtml(opts.list, true)}${list}`
     + `${jige ? `<div class="up-jige">${jige}</div>` : ''}${item}${soloActionsHtml(state, slot, unitId, card.sellPrice, opts.sellArmed === true)}</div>`;
 }

@@ -27,7 +27,7 @@ export {
 } from './flow';
 export { rollSummon, chooseSlot, pityPick, unitDefFast } from './units';
 export {
-  availableRecipes, combineEatsItem, combinePlan, missingMaterials, needsEvolve, recipesUsing, storedMaterials, type CombinePlan,
+  availableRecipes, combineEatenItems, combineEatsItem, combinePlan, missingMaterials, needsEvolve, recipesUsing, storedMaterials, type CombinePlan,
 } from './combine';
 export { STORAGE_MAX_GRADE, canStore, pickStored, storedUnits } from './storage';
 export {

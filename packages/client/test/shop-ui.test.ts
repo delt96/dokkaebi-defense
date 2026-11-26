@@ -18,11 +18,19 @@ import { press, STAGE_HTML } from './fixtures/net';
 const d3 = loadGameData('stage3');
 const price = (id: string) => shopItem(d3, id)!.coins;
 const EATS = '아이템이 사라집니다';
+/** The short orange tag a combine row carries instead of EATS, with the item names in its title and label. */
+function eatsTag(row: Element, letters: string, name: string): void {
+  const tag = row.querySelector<HTMLElement>('.combine-eats')!;
+  expect(tag.textContent).toBe(`−${letters}`);
+  expect(tag.title).toBe(`조합하면 사라지는 아이템: ${name}`);
+  expect(tag.getAttribute('aria-label')).toBe(tag.title);
+  expect(row.textContent).not.toContain(EATS);
+}
 const REPLACE = '붙이면 지금 아이템은 사라집니다';
 
 /** The solo left panel with `slot` selected, or the whole next list (the old helper) with nothing selected. */
-const panel = (s: GameState, slot: number | null, shop = econView(s)?.shop ?? null) => soloPanelHtml(s, {
-  selected: slot, list: nextCombines(s, slot === null ? {} : { slot }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false, shop,
+const panel = (s: GameState, slot: number | null, shop = econView(s)?.shop ?? null, itemOpen = false) => soloPanelHtml(s, {
+  selected: slot, list: nextCombines(s, slot === null ? {} : { slot }), idleList: true, wPick: null, hover: null, showAllOne: false, skillOpen: false, shop, itemOpen,
 });
 const WIN = { wins: 'outside', bar: '', historyOpen: false, historyCount: 0 } as const;
 
@@ -187,7 +195,7 @@ describe('the unit card shows the item and its share', () => {
 });
 
 describe('the item line warns before a replace', () => {
-  test('a unit with an item gets the warning and one button per held kind', () => {
+  test('the line names the attached item and holds one 붙이기 ▾ button; the open list has a button per held kind and the warning in words', () => {
     const s = openGame();
     s.econ!.items = { powerCharm: 1, swiftCharm: 2, weakCharm: 0 };
     const unit = placeUnitForTest(s, d3.units.find(u => !u.hidden && u.grade === 2)!.id, 0);
@@ -195,16 +203,24 @@ describe('the item line warns before a replace', () => {
     const box = document.createElement('div');
     box.innerHTML = panel(s, 0);
     const line = box.querySelector<HTMLElement>('.unit-item')!;
-    expect(line.title).toContain(REPLACE);
+    expect(line.querySelector('.item-tag')!.textContent).toBe('사');
     expect(line.textContent).toContain('사거리 부적');
-    const buttons = Array.from(line.querySelectorAll<HTMLElement>('[data-action="attachItem"]'));
+    const menu = line.querySelector<HTMLElement>(`[data-action="itemMenu"][data-arg="${unit.id}"]`)!;
+    expect(menu.textContent).toBe('붙이기 ▾ 3');
+    expect(menu.getAttribute('aria-expanded')).toBe('false');
+    expect(menu.title).toContain(REPLACE);
+    expect(box.querySelector('[data-action="attachItem"]')).toBeNull();
+    expect(line.parentElement!.nextElementSibling!.classList.contains('up-actions')).toBe(true);
+    box.innerHTML = panel(s, 0, undefined, true);
+    expect(box.querySelector('[data-action="itemMenu"]')!.getAttribute('aria-expanded')).toBe('true');
+    const pop = box.querySelector<HTMLElement>('.item-pop')!;
+    const buttons = Array.from(pop.querySelectorAll<HTMLElement>('[data-action="attachItem"]'));
     expect(buttons.map(b => b.dataset.arg)).toEqual([`powerCharm@${unit.id}`, `swiftCharm@${unit.id}`]);
-    expect(buttons.every(b => b.title.includes(REPLACE))).toBe(true);
-    expect(line.nextElementSibling!.classList.contains('up-actions')).toBe(true);
+    expect(pop.textContent).toContain(`사거리 부적 · ${REPLACE}`);
     delete unit.item;
     box.innerHTML = panel(s, 0);
     expect(box.innerHTML).not.toContain(REPLACE);
-    expect(box.querySelectorAll('[data-action="attachItem"]')).toHaveLength(2);
+    expect(box.querySelector('.unit-item')!.textContent).toContain('아이템 없음');
   });
   test('pressing 붙이기 in solo sends attachItem for that cell', () => {
     document.body.innerHTML = STAGE_HTML;
@@ -217,9 +233,27 @@ describe('the item line warns before a replace', () => {
     const queued: Command[] = [];
     vi.spyOn(driver, 'queue').mockImplementation(cmd => { queued.push(cmd); });
     scene.select!(4);
+    press(document.querySelector(`#left [data-action="itemMenu"][data-arg="${unit.id}"]`));
+    expect(document.activeElement).toBe(document.querySelector(`#left .item-pop [data-arg="powerCharm@${unit.id}"]`));
     press(document.querySelector(`#left [data-action="attachItem"][data-arg="powerCharm@${unit.id}"]`));
     expect(queued).toEqual([{ type: 'attachItem', item: 'powerCharm', slot: 4, unitId: unit.id }]);
+    expect(document.querySelector('#left .item-pop')).toBeNull();
     vi.restoreAllMocks();
+  });
+  test('Esc closes the solo item list before it lets go of the unit', () => {
+    document.body.innerHTML = STAGE_HTML;
+    const s = openGame();
+    s.econ!.items = { powerCharm: 1 };
+    const unit = placeUnitForTest(s, d3.units.find(u => !u.hidden && u.grade === 2)!.id, 4);
+    const scene = new FakeScene();
+    mountUi(new GameDriver(s), scene as never);
+    scene.select!(4);
+    press(document.querySelector(`#left [data-action="itemMenu"][data-arg="${unit.id}"]`));
+    expect(document.querySelector('#left .item-pop')).not.toBeNull();
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape' }));
+    expect(document.querySelector('#left .item-pop')).toBeNull();
+    expect(document.activeElement).toBe(document.querySelector(`#left [data-action="itemMenu"][data-arg="${unit.id}"]`));
+    expect(scene.selectedId).toBe(unit.id);
   });
   test('a swap queued in the same tick leaves the charm held and says the board changed', () => {
     document.body.innerHTML = STAGE_HTML;
@@ -234,6 +268,7 @@ describe('the item line warns before a replace', () => {
     const scene = new FakeScene();
     mountUi(driver, scene as never);
     scene.select!(4);
+    press(document.querySelector(`#left [data-action="itemMenu"][data-arg="${first.id}"]`));
     const button = document.querySelector(`#left [data-action="attachItem"][data-arg="rangeCharm@${first.id}"]`);
     driver.queue({ type: 'move', from: 4, to: 5 });
     press(button);
@@ -413,10 +448,10 @@ describe('a combine that eats an item says so', () => {
     const box = document.createElement('div');
     box.innerHTML = panel(s, 0);
     const row = box.querySelector<HTMLElement>(`[data-action="combine"][data-arg="${recipe.result}@${s.slots[0]!.id}"]`)!;
-    expect(row.textContent).toContain(EATS);
+    eatsTag(row, '힘', '힘 부적');
     box.innerHTML = panel(s, null);
     const li = box.querySelector<HTMLElement>(`[data-action="combine"][data-arg="${recipe.result}"]`)!;
-    expect(li.textContent).toContain(EATS);
+    eatsTag(li, '힘', '힘 부적');
   });
   test('a bare copy on the board takes the warning away from the helper', () => {
     document.body.innerHTML = STAGE_HTML;
@@ -426,7 +461,7 @@ describe('a combine that eats an item says so', () => {
     const box = document.createElement('div');
     box.innerHTML = panel(s, null);
     const li = box.querySelector<HTMLElement>(`[data-action="combine"][data-arg="${recipe.result}"]`)!;
-    expect(li.textContent).not.toContain(EATS);
+    expect(li.querySelector('.combine-eats')).toBeNull();
   });
 });
 
@@ -444,7 +479,7 @@ describe('storage paths prefer the bare copy', () => {
     const box = document.createElement('div');
     box.innerHTML = html;
     const btn = box.querySelector<HTMLElement>(`.storage-combine[data-arg="${recipe.result}"]`)!;
-    expect(btn.textContent).toContain(EATS);
+    eatsTag(btn, '날', '날쌘 부적');
   });
   test('R on a storage stack opens on the copy pickStored names', () => {
     document.body.innerHTML = STAGE_HTML;
@@ -480,10 +515,10 @@ describe('an item refusal sits over the pressed button', () => {
     expect(refusalSpot({ type: 'buyItem', arg: 'powerCharm' }, vis)).toMatchObject({ at: 'win', side: 'right' });
     expect(refusalSpot({ type: 'buyItem', arg: 'swiftCharm' }, vis)).toEqual({ at: 'slot' });
   });
-  test('attachItem over the solo 붙이기 button, online over the 아이템 ▾ button the list closed back to', () => {
+  test('attachItem over the 붙이기 ▾ (solo) or 아이템 ▾ (online) button the list closed back to', () => {
     document.body.innerHTML = STAGE_HTML;
-    document.getElementById('left')!.innerHTML = '<button data-action="attachItem" data-arg="powerCharm@7"></button>';
-    expect(spotNode({ type: 'attachItem', arg: 'powerCharm@7' })).toBe(document.querySelector('#left [data-action="attachItem"]'));
+    document.getElementById('left')!.innerHTML = '<button data-action="itemMenu" data-arg="7"></button>';
+    expect(spotNode({ type: 'attachItem', arg: 'powerCharm@7' })).toBe(document.querySelector('#left [data-action="itemMenu"]'));
     document.getElementById('left')!.innerHTML = '';
     document.getElementById('bottom')!.innerHTML = '<button data-action="itemMenu" data-arg="7"></button>';
     expect(spotNode({ type: 'attachItem', arg: 'powerCharm@7' })).toBe(document.querySelector('#bottom [data-action="itemMenu"]'));
