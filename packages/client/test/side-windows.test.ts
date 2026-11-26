@@ -458,6 +458,23 @@ describe('solo side windows', () => {
     queue.mockClear();
   });
 
+  test('a held Space on a clicked button summons once and its repeats and release do not press it', () => {
+    const { s, sent } = mountSolo(withoutMarketLock(loadGameData('stage3')));
+    s.buckwheat = 7;
+    key('KeyB');
+    const buy = $<HTMLButtonElement>('#win-right .gamble-buy[data-arg="small"]')!;
+    buy.focus();
+    const send = (type: 'keydown' | 'keyup', repeat = false) => {
+      const ev = new KeyboardEvent(type, { code: 'Space', key: ' ', repeat, bubbles: true, cancelable: true });
+      buy.dispatchEvent(ev);
+      return ev.defaultPrevented;
+    };
+    expect(send('keydown')).toBe(true);
+    expect([send('keydown', true), send('keydown', true), send('keyup')]).toEqual([true, true, true]);
+    expect(sent('summon')).toHaveLength(1);
+    expect(sent('gambleUnit')).toHaveLength(0);
+  });
+
   test('a left pillar covers the left panel and storage, frees the focus there and refuses storage drops', () => {
     const { s, scene, frame } = mountSolo();
     placeUnitForTest(s, s.data.units.find(u => u.grade === 1)!.id, 0);

@@ -895,6 +895,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     jigeList = { ...jigeList, name: input.value };
     setHtml(el('win-left').querySelector<HTMLElement>('.jige-rows')!, jigeRowsHtml(driver.state.data, jigeList));
   });
+  /** Space is the summon key here (nothing locks the board and no text box has it), whatever button has the focus. */
+  const spaceSummons = (ev: KeyboardEvent): boolean => {
+    const target = ev.target as HTMLElement | null;
+    return ev.code === 'Space' && !guideOn && !isTypingTarget(ev) && !ev.isComposing && !driver.failed
+      && !target?.isContentEditable && !target?.closest?.('input, textarea, select')
+      && !modal && !sceneRunning && driver.state.phase !== 'ended';
+  };
+  // a focused button is pressed on Space keyup after any keydown, auto-repeats included, so those are cancelled too
+  window.addEventListener('keyup', ev => { if (spaceSummons(ev)) ev.preventDefault(); });
   window.addEventListener('keydown', ev => {
     // the focused 이대로 보기 still takes its own Enter and Space
     if (guideOn) return;
@@ -909,6 +918,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       return;
     }
     if (isTypingTarget(ev)) return;
+    if (ev.repeat && spaceSummons(ev)) { ev.preventDefault(); return; }
     if (driver.failed || ev.defaultPrevented || ev.isComposing || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
     const target = ev.target as HTMLElement | null;
     if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
@@ -973,8 +983,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (quests) { act(sides.right === 'quests' ? 'closeWin' : 'openQuests', sides.right === 'quests' ? 'right' : ''); return; }
       if (sides.right === 'upgrades') { act('upgrade', buy!); return; }
     }
-    // one Space rule while nothing locks the board: summon even on a focused button (cancelling keydown keeps the
-    // button from being pressed); buttons take Enter
+    // one Space rule while nothing locks the board: summon even on a focused button; buttons take Enter
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
     else if (ev.code === 'KeyD') act('openDex', '');
     else if (ev.code === 'KeyQ') {
@@ -1220,7 +1229,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (cover.hidden === coverOn) cover.hidden = !coverOn;
     const covered = coveredNow(wins);
     const leftCovered = covered.includes('left');
-    // design ⑤: a pillar over the left panel leaves no focus behind it, or Space would press the hidden button
+    // design ⑤: a pillar over the left panel leaves no focus behind it, or Enter would press the hidden button
     if (leftCovered) {
       const active = document.activeElement as HTMLElement | null;
       if (active && (el('left').contains(active) || el('storage').contains(active))) active.blur();
@@ -1426,7 +1435,7 @@ ${dex.mine.join()}`;
       const history = panel.querySelector<HTMLElement>('.gamble-history');
       if (result) setHtml(result, gambleRevealHtml(shownReveal));
       if (history) setHtml(history, gambleHistoryHtml(gambleHistory, s, wins === 'inside' ? { folded } : undefined));
-      // setHtml put the scroll back while the result was still empty, so the browser stopped it short
+      // setHtml put the scroll back while the result and history were still empty, so the browser stopped it short
       const body = panel.querySelector<HTMLElement>('.econ-body');
       if (body && oldBody && body !== oldBody && body.scrollTop !== bodyTop) body.scrollTop = bodyTop;
       if (inMarket && !panel.contains(active)) {

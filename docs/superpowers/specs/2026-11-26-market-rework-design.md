@@ -1,6 +1,6 @@
 ---
 title: 판 바깥 창 높이, 장터 확률 안내 빼기, Space 통일
-status: in-progress
+status: completed
 startDate: 2026-11-26
 ---
 
@@ -48,3 +48,8 @@ Space 통일 방법으로 둘을 봤다.
 
 - 확률 안내가 사라진 뒤 `.gamble-option`의 `tabindex`·`role="group"`이 아직 쓸모 있는지(이름 버튼을 위한 초점 자리였는지)를 보고 쓸모없으면 함께 걷는다.
 - 설계 `2026-11-25-window-layout-design.md` 79줄의 높이 문장을 이 문서에 맞게 고친다.
+
+## 결과 (2026-11-26)
+
+- 세 항목 구현. 리뷰에서 Space를 누르고 있으면 자동 반복 keydown과 keyup으로 초점 버튼이 다시 눌리는 문제가 나와, 같은 조건에서 반복 keydown과 keyup의 기본 동작도 막았다(`mount.ts` `spaceSummons`).
+- 확인하지 못한 것: Firefox·Safari에서 Space 막기, 실제 키를 누르고 있는 동작(시험은 happy-dom 이벤트로만), 온라인 판, 휴대폰.
