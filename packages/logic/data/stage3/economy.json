@@ -47,7 +47,7 @@
   "collection": { "fromRound": 21, "toRound": 29, "items": ["gamasot", "meongseok", "hwaro"], "coins": 20 },
   "team": { "fromRound": 21, "toRound": 29, "perSurvivor": 8, "nights": 3, "tokens": 1 },
   "ssireum": { "round": 32, "enemy": "ev_ssireum", "seconds": 20, "buckwheat": 1 },
-  "shadow": { "round": 43, "enemy": "ev_shadow", "growSeconds": 10, "grownHp": 16000, "coins": 5, "grownCoins": 10 },
+  "shadow": { "round": 43, "enemy": "ev_shadow", "growSeconds": 13, "grownHp": 40000, "coins": 5, "grownCoins": 10, "hold": { "pct": 0.15, "seconds": 3 } },
   "tame": {
     "hpBands": [
       { "upTo": 0.15, "chance": 0.7 }, { "upTo": 0.3, "chance": 0.5 }, { "upTo": 0.5, "chance": 0.35 },

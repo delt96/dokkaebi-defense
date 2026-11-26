@@ -103,6 +103,9 @@ export function validateData(data: GameData): { errors: string[]; warnings: stri
     }
   }
 
+  const hold = eco?.shadow?.hold;
+  if (hold !== undefined && !(hold.pct > 0 && hold.pct < 1 && hold.seconds > 0)) errors.push('invalid shadow hold');
+
   const hunts = eco?.hunts;
   if (hunts) {
     if (!(hunts.seconds > 0) || !positiveInt(hunts.cooldownSeconds) || !(Number.isFinite(hunts.hpGrowth) && hunts.hpGrowth >= 1))

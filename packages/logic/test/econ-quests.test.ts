@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import {
-  countNormalEnemies, createGame, loadGameData, spawnEventEnemy, step, type GameEvent, type GameState,
+  countNormalEnemies, createGame, loadGameData, spawnEventEnemy, step, tameChance, type GameEvent, type GameState,
 } from '../src/index';
 import { forceRound, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
+import { dealDamage } from '../src/combat';
 
 const d3 = loadGameData('stage3');
 
@@ -83,10 +84,10 @@ describe('collection challenge', () => {
 });
 
 describe('shadow and ssireum', () => {
-  test('shadow: 4000 hp at round 43, grows to 16000/16000 after 10 s, pays 5 small or 10 grown, flees at round end', () => {
+  test('shadow: 12000 hp at round 43, grows to 40000/40000 after 13 s, pays 5 small or 10 grown, flees at round end', () => {
     const small = lane(43);
     const sh = small.enemies.find(e => e.defId === 'ev_shadow')!;
-    expect([sh.hp, sh.maxHp]).toEqual([4000, 4000]);
+    expect([sh.hp, sh.maxHp]).toEqual([12000, 12000]);
     expect(countNormalEnemies(small)).toBe(0);
     sh.hp = 0;
     const c0 = small.coins;
@@ -95,12 +96,12 @@ describe('shadow and ssireum', () => {
 
     const big = lane(43);
     const g = big.enemies.find(e => e.defId === 'ev_shadow')!;
-    big.tick = big.econ!.events[0]!.spawnTick + 199;
+    big.tick = big.econ!.events[0]!.spawnTick + 259;
     step(big, []);
-    expect(g.maxHp).toBe(4000);
+    expect(g.maxHp).toBe(12000);
     const ev = step(big, []).events;
-    expect([g.hp, g.maxHp]).toEqual([16000, 16000]);
-    expect(ev).toContainEqual({ type: 'grow', enemyId: g.id, hp: 16000 });
+    expect([g.hp, g.maxHp]).toEqual([40000, 40000]);
+    expect(ev).toContainEqual({ type: 'grow', enemyId: g.id, hp: 40000 });
     g.hp = 0;
     const c1 = big.coins;
     step(big, []);
@@ -110,6 +111,47 @@ describe('shadow and ssireum', () => {
     const id = gone.enemies.find(e => e.defId === 'ev_shadow')!.id;
     expect(toLastTick(gone)).toContainEqual({ type: 'flee', enemyId: id });
     expect(gone.enemies.some(e => e.defId === 'ev_shadow')).toBe(false);
+  });
+
+  test('shadow hold: the hit that would pass 15% stops there, nothing goes lower for 3 s, then it can die', () => {
+    const s = lane(43);
+    const sh = s.enemies.find(e => e.defId === 'ev_shadow')!;
+    const rec = s.econ!.events.find(r => r.id === sh.id)!;
+    const events: GameEvent[] = [];
+    dealDamage(s, sh, 5000, 'test', events);
+    expect(sh.hp).toBe(7000);
+    expect(rec.holdUntil).toBeUndefined();
+    dealDamage(s, sh, 6500, 'test', events);
+    expect(sh.hp).toBe(1800);
+    expect(rec.holdUntil).toBe(s.tick + 60);
+    expect(events.at(-1)).toMatchObject({ type: 'damage', amount: 5200 });
+    const before = events.length;
+    dealDamage(s, sh, 9999, 'test', events);
+    expect(sh.hp).toBe(1800);
+    expect(events).toHaveLength(before);
+    s.tick = rec.holdUntil! - 1;
+    dealDamage(s, sh, 9999, 'test', events);
+    expect(sh.hp).toBe(1800);
+    s.tick = rec.holdUntil!;
+    dealDamage(s, sh, 9999, 'test', events);
+    expect(sh.hp).toBeLessThanOrEqual(0);
+  });
+
+  test('shadow hold: a tame try during the hold gets the 70% band; growing arms the hold again', () => {
+    const s = lane(43, 1000);
+    s.buckwheat = 10;
+    const sh = s.enemies.find(e => e.defId === 'ev_shadow')!;
+    const rec = s.econ!.events.find(r => r.id === sh.id)!;
+    dealDamage(s, sh, 99999, 'test', []);
+    expect(sh.hp).toBe(1800);
+    expect(tameChance(d3, sh.hp, sh.maxHp)).toBe(0.7);
+    s.tick = rec.spawnTick + 259;
+    step(s, []);
+    step(s, []);
+    expect([sh.hp, sh.maxHp]).toEqual([40000, 40000]);
+    expect(rec.holdUntil).toBeUndefined();
+    dealDamage(s, sh, 99999, 'test', []);
+    expect(sh.hp).toBe(6000);
   });
 
   test('ssireum enemy: 12000 hp, flees after 20 s with no reward, a kill pays 1 buckwheat', () => {

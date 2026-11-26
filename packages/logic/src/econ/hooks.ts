@@ -1,7 +1,7 @@
 import type { Enemy, GameEvent, GameState } from '../types';
 import { isEvent } from '../stats';
 import { bossDrop, openMarketAfterBoss } from './market';
-import { eventKill, eventsRoundEnd, eventsRoundStart } from './events';
+import { eventDamage, eventKill, eventsRoundEnd, eventsRoundStart } from './events';
 import { collectionRoundEnd } from './quests';
 
 /** Lane economy hooks. Callers invoke them only when `state.econ` exists. */
@@ -15,6 +15,11 @@ export function econRoundStart(state: GameState, events: GameEvent[]): void {
 export function econRoundEnd(state: GameState, events: GameEvent[]): void {
   collectionRoundEnd(state);
   eventsRoundEnd(state, events);
+}
+
+/** The part of `amount` a hit on an event enemy really takes off (a shadow's hold). */
+export function econEventDamage(state: GameState, enemy: Enemy, amount: number): number {
+  return isEvent(state.data, enemy) ? eventDamage(state, enemy, amount) : amount;
 }
 
 /** Settles a dead event enemy; returns true when `enemy` is an event enemy (no normal kill reward). */

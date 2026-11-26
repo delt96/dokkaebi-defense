@@ -40,6 +40,24 @@ function flee(state: GameState, enemyId: number, events: GameEvent[]): void {
   }
 }
 
+/**
+ * The damage a hit on an event enemy really does: a shadow with a hold stops at its floor the first time
+ * a hit would take it below, and no hit takes it below the floor until the hold runs out.
+ */
+export function eventDamage(state: GameState, enemy: Enemy, amount: number): number {
+  const hold = state.data.economy?.shadow?.hold;
+  if (!hold) return amount;
+  const rec = state.econ!.events.find(r => r.id === enemy.id);
+  if (rec?.kind !== 'shadow') return amount;
+  const floor = Math.ceil(enemy.maxHp * hold.pct);
+  if (rec.holdUntil === undefined) {
+    if (enemy.hp - amount >= floor || enemy.hp <= floor) return amount;
+    rec.holdUntil = state.tick + toTicks(hold.seconds);
+  }
+  if (state.tick >= rec.holdUntil) return amount;
+  return Math.max(0, Math.min(amount, enemy.hp - floor));
+}
+
 /** Ssireum time-out, shadow growth and 격파 time-outs; drops records whose enemy is gone. */
 export function eventsTick(state: GameState, events: GameEvent[]): void {
   huntsTick(state, events);
@@ -58,6 +76,7 @@ export function eventsTick(state: GameState, events: GameEvent[]): void {
     }
     if (rec.kind === 'shadow' && eco.shadow && !rec.grown && state.tick >= rec.spawnTick + toTicks(eco.shadow.growSeconds)) {
       rec.grown = true;
+      delete rec.holdUntil;
       enemy.hp = enemy.maxHp = eco.shadow.grownHp;
       events.push({ type: 'grow', enemyId: enemy.id, hp: enemy.hp });
     }

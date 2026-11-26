@@ -232,6 +232,11 @@ export type QuestGroup = '진행 중' | '곧 열림' | '끝남';
 export interface QuestRow { id: QuestId; group: QuestGroup; title: string; when: string; progress: string; short: string; outcome: string; reward: string }
 
 const QUEST_ORDER: QuestId[] = ['collection', 'team', 'ssireum', 'shadow'];
+/** Whole seconds left of a shadow's hold, or null when it is not holding. */
+function holdLeft(data: GameData, rec: { holdUntil?: number }, tick: number): number | null {
+  return rec.holdUntil !== undefined && tick < rec.holdUntil ? secondsOf(data, rec.holdUntil - tick) : null;
+}
+
 const QUEST_TITLE: Record<QuestId, string> = { collection: '살림 한 벌', team: '서낭당 정성', ssireum: '도깨비 씨름', shadow: '그늘손 (돌발)' };
 const QUEST_SHORT: Record<QuestId, string> = { collection: '살림', team: '서낭당', ssireum: '씨름', shadow: '그늘손' };
 const COOP_ONLY: ReadonlySet<QuestId> = new Set(['team', 'ssireum']);
@@ -333,6 +338,8 @@ function liveProgress(id: QuestId, econ: EconMine, state: GameState): { text: st
     case 'shadow': {
       const rec = econ.events.find(r => r.kind === 'shadow');
       if (!rec) return { text: '', short: '' };
+      const hold = holdLeft(data, rec, state.tick);
+      if (hold !== null) return { text: `버티는 중 ${hold}초 · 지금 길들이기`, short: `버팀 ${hold}초` };
       const left = secondsOf(data, rec.spawnTick + toTicks(e.shadow!.growSeconds) - state.tick);
       return rec.grown ? { text: '커졌음 · 라운드 끝에 도주', short: '커짐' } : { text: `${left}초 뒤 커짐`, short: `${left}초` };
     }
@@ -499,7 +506,10 @@ export function questChips(econ: EconMine, state: GameState, view: ClientView | 
       const left = rec.spawnTick + toTicks(eco.ssireum.seconds) - state.tick;
       out.push({ title: '도깨비 씨름', quest: 'ssireum', text: `샅바가 풀리기까지 ${secondsOf(data, left)}초${hpText(rec.id)}`, tone: 'hot' });
     } else if (rec.kind === 'shadow' && eco.shadow) {
-      const text = rec.grown
+      const hold = holdLeft(data, rec, state.tick);
+      const text = hold !== null
+        ? `버티는 중 ${hold}초 · 지금 길들이기${hpText(rec.id)}`
+        : rec.grown
         ? `커졌음 · 라운드 끝에 도주${hpText(rec.id)}`
         : `${secondsOf(data, rec.spawnTick + toTicks(eco.shadow.growSeconds) - state.tick)}초 뒤 커짐${hpText(rec.id)}`;
       out.push({ title: '그늘손', quest: 'shadow', text, tone: 'hot' });

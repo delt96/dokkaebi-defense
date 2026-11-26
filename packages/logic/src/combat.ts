@@ -6,7 +6,7 @@ import { laneOf } from './lane';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
 import { currentStats, isEvent, isShared, statsForRound } from './stats';
 import { roundStartTick } from './match/schedule';
-import { econBossKill, econEventKill } from './econ/hooks';
+import { econBossKill, econEventDamage, econEventKill } from './econ/hooks';
 import { unitDefFast } from './units';
 import { auraAttackPower, performAttack, runPeriodics, speedBonus, vulnKillExplosions, vulnOf } from './effects';
 import { runIncome } from './income';
@@ -106,6 +106,10 @@ export function pickTarget(state: GameState, slot: number): Enemy | null {
 
 export function dealDamage(state: GameState, enemy: Enemy, amount: number, source: string, events: GameEvent[], effect?: HitEffect): void {
   if (enemy.hp <= 0) return;
+  if (state.econ) {
+    amount = econEventDamage(state, enemy, amount);
+    if (amount <= 0) return;
+  }
   const actual = Math.min(amount, enemy.hp);
   enemy.hp -= amount;
   events.push({ type: 'damage', enemyId: enemy.id, amount, source, ...(effect && { effect }) });

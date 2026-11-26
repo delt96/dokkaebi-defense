@@ -77,6 +77,10 @@ describe('quest tracker text', () => {
     expect(questChips(econOf(s), s, null)).toContainEqual({ title: '그늘손', quest: 'shadow', text: `${sh.growSeconds - 4}초 뒤 커짐 · 체력 25%`, tone: 'hot' });
     s.econ!.events[0]!.grown = true;
     expect(questChips(econOf(s), s, null)[0]!.text).toBe('커졌음 · 라운드 끝에 도주 · 체력 25%');
+    s.econ!.events[0]!.holdUntil = s.tick + 41;
+    expect(questChips(econOf(s), s, null)[0]!.text).toBe('버티는 중 3초 · 지금 길들이기 · 체력 25%');
+    s.econ!.events[0]!.holdUntil = s.tick;
+    expect(questChips(econOf(s), s, null)[0]!.text).toBe('커졌음 · 라운드 끝에 도주 · 체력 25%');
     const ss = eco.ssireum!;
     const r = lane(ss.round);
     r.enemies = []; r.econ!.events = [];

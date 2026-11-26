@@ -11,5 +11,5 @@
   {"id": "ev_oenun", "name": "외눈박이", "boss": false, "event": true, "hpMult": 1, "hp": 6000, "speed": 1.0, "resist": {"physical": 0, "magical": 0}},
   {"id": "ev_yagwang", "name": "야광귀", "boss": false, "event": true, "hpMult": 1, "hp": 15000, "speed": 1.0, "resist": {"physical": 0, "magical": 0}},
   {"id": "ev_ssireum", "name": "씨름 도깨비", "boss": false, "event": true, "hpMult": 1, "hp": 12000, "speed": 0.9, "resist": {"physical": 0, "magical": 0}},
-  {"id": "ev_shadow", "name": "그늘손", "boss": false, "event": true, "hpMult": 1, "hp": 4000, "speed": 1.6, "resist": {"physical": 0, "magical": 0}}
+  {"id": "ev_shadow", "name": "그늘손", "boss": false, "event": true, "hpMult": 1, "hp": 12000, "speed": 1.6, "resist": {"physical": 0, "magical": 0}}
 ]

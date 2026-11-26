@@ -178,7 +178,11 @@ export interface EconomyDef {
   collection?: { fromRound: number; toRound: number; items: string[]; coins: number };
   team?: { fromRound: number; toRound: number; perSurvivor: number; nights: number; tokens: number };
   ssireum?: { round: number; enemy: string; seconds: number; buckwheat: number };
-  shadow?: { round: number; enemy: string; growSeconds: number; grownHp: number; coins: number; grownCoins: number };
+  shadow?: {
+    round: number; enemy: string; growSeconds: number; grownHp: number; coins: number; grownCoins: number;
+    /** The first hit that would take it below `pct` of its max hp stops there, and it stays at or above that for `seconds` (again after it grows). */
+    hold?: { pct: number; seconds: number };
+  };
   hunts?: HuntsDef;
   /** hpBands: ascending inclusive upper bounds of remaining HP / max HP, the last one 1. */
   tame?: { hpBands: { upTo: number; chance: number }[]; failureHealPct: number; cooldownSeconds: number; targets: TameTargetDef[] };
@@ -194,7 +198,8 @@ export interface EconState {
   marketOpen?: boolean;
   jige: number;
   collection: { done: string[]; paid: boolean };
-  events: { id: number; kind: 'ssireum' | 'shadow'; spawnTick: number; grown: boolean }[];
+  /** `holdUntil`: the tick a shadow's hold ends, once a hit started it (see EconomyDef shadow.hold). */
+  events: { id: number; kind: 'ssireum' | 'shadow'; spawnTick: number; grown: boolean; holdUntil?: number }[];
   /** 격파 targets by enemy id; missing (older snapshots) or a missing entry means never summoned (level 1, ready). */
   hunts?: Record<string, HuntSeat>;
   tamed: string[];
