@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>숫자키 배정 목업</title>
+<style>
+  :root { --panel:#17121f; --edge:#2a2236; --ink:#e8e0d0; --dim:#9a90a8; --accent:#ffe08a; --new:#e8a33d; --chg:#6fb7e0; --del:#e0607a; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:24px 28px 80px; background:#140f17; color:#e8dfe9; font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  p.sub { margin:2px 0 10px; color:#b8aabb; font-size:14px; line-height:1.55; max-width:1100px; }
+  .legend { display:flex; gap:18px; margin:10px 0 18px; font-size:14px; align-items:center; }
+  .legend i { display:inline-block; width:34px; height:16px; vertical-align:middle; margin-right:6px; }
+  .legend .l-new { outline:2px dashed var(--new); } .legend .l-chg { outline:2px dashed var(--chg); }
+  .row { display:flex; flex-wrap:wrap; gap:48px; align-items:flex-start; }
+  .col { display:flex; flex-direction:column; gap:8px; }
+  .col h2 { font-size:16px; margin:0; }
+  .cap { font-size:13px; color:#a898ad; max-width:360px; line-height:1.5; }
+  .n { position:absolute; z-index:9; width:20px; height:20px; border-radius:50%; font:700 12px/20px sans-serif; text-align:center; color:#140f17; box-shadow:0 0 0 2px #140f17; transform:scale(.5); transform-origin:center; }
+  .n.new { background:var(--new); } .n.chg { background:var(--chg); }
+  .mk { position:relative; } .mk.new { outline:1px dashed var(--new); outline-offset:1px; } .mk.chg { outline:1px dashed var(--chg); outline-offset:1px; }
+  ol.notes { font-size:14px; line-height:1.7; color:#d8cbd9; max-width:960px; padding-left:22px; margin-top:28px; }
+  ol.notes b { color:#ffd58a; }
+
+  .zoom { position:relative; }
+  .win { transform:scale(2); transform-origin:top left; position:absolute; left:0; top:0; background:var(--panel); border:1px solid var(--accent); font-size:11px; line-height:14px; color:var(--ink); }
+  .btn { border:1px solid #4a3e5a; background:#2a2236; padding:1px 5px; border-radius:2px; font-size:10px; color:var(--ink); white-space:nowrap; }
+  .btn.on { border-color:var(--accent); color:var(--accent); }
+
+  /* settings pop: 168px wide */
+  .set { width:168px; padding:6px 8px; }
+  .set .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .srow { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:3px 0; border-top:1px solid var(--edge); }
+  .srow .ch { display:flex; gap:2px; }
+  .keys { border-top:1px solid var(--edge); padding:3px 0; display:flex; flex-direction:column; gap:2px; }
+  .krow { display:flex; align-items:center; gap:4px; }
+  .krow b { width:9px; color:var(--accent); font-size:10px; }
+  .sel { flex:1; border:1px solid #4a3e5a; background:#0d0a14; border-radius:2px; padding:0 3px; font-size:10px; line-height:14px; display:flex; justify-content:space-between; }
+  .sel.empty { color:var(--dim); }
+  .kfoot { display:flex; justify-content:flex-end; margin-top:2px; }
+  .dimrows { color:var(--dim); font-size:10px; padding:3px 0; border-top:1px solid var(--edge); }
+
+  /* market window body, 156px */
+  .mkt { width:156px; padding:5px 6px; display:flex; flex-direction:column; gap:6px; font-size:10px; line-height:13px; }
+  .gl { display:flex; gap:4px; align-items:baseline; } .gl strong { color:var(--accent); } .gl span { color:var(--dim); } .gl .cnt { margin-left:auto; color:var(--ink); }
+  .opts { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .opt { display:flex; flex-direction:column; gap:1px; }
+  .buy { position:relative; border:1px solid #4a3e5a; background:#2a2236; border-radius:2px; padding:2px 4px; text-align:center; }
+  .buy.off { color:var(--dim); border-style:dashed; }
+  .kb { position:absolute; right:-1px; top:-1px; font-size:8px; line-height:9px; padding:0 2px; background:#0d0a14; border:1px solid var(--accent); color:var(--accent); border-radius:0 2px 0 2px; }
+  .why { font-size:9px; color:var(--dim); }
+
+  /* upgrades window body */
+  .up { width:156px; padding:5px 6px; display:flex; flex-direction:column; gap:5px; font-size:10px; line-height:13px; }
+  .ui { border:1px solid var(--edge); border-radius:2px; padding:3px 4px; display:flex; flex-direction:column; gap:2px; }
+  .ukey { display:inline-block; min-width:10px; text-align:center; border:1px solid var(--accent); color:var(--accent); border-radius:2px; font-size:9px; line-height:10px; padding:0 2px; }
+  .ukey.none { border-color:transparent; }
+
+  /* Ctrl+click key question */
+  .ask { position:absolute; left:4px; right:4px; top:118px; z-index:5; background:#0d0a14; border:1px solid var(--accent); border-radius:2px; padding:4px 5px; display:flex; flex-direction:column; gap:3px; font-size:10px; line-height:13px; box-shadow:0 2px 6px #000a; }
+  .ask .q b { color:var(--accent); }
+  .ask .nums { display:grid; grid-template-columns:repeat(9, 1fr); gap:2px; }
+  .ask .nums span { border:1px solid #4a3e5a; background:#2a2236; border-radius:2px; text-align:center; font-size:10px; line-height:13px; }
+  .ask .nums span.cur { border-color:var(--accent); color:var(--accent); }
+  .ask .nums span.taken { color:var(--dim); }
+  .ask .foot { display:flex; justify-content:space-between; align-items:center; color:var(--dim); font-size:9px; }
+  .buy.press { border-color:var(--accent); }
+
+  /* help line */
+  .help { font-size:12px; color:#cfc6da; background:var(--panel); border:1px solid var(--edge); padding:6px 10px; border-radius:3px; max-width:900px; }
+  .help .mk { padding:0 2px; }
+</style></head>
+<body>
+<h1>숫자키 배정</h1>
+<p class="sub">숫자키 1~9에 강화와 장터 상품을 하나씩 걸어 두고, 어느 창이 열려 있든 같은 키는 같은 구매를 한다. 처음 배정은 정해 두고, 바꾸고 싶으면 설정 창에서 바꾼다. 창은 실제 크기의 2배로 그렸고, 숫자는 자리만 잡은 값이다.</p>
+<div class="legend"><span><i class="l-chg"></i>바뀜</span><span><i class="l-new"></i>새로 생김</span></div>
+
+<div class="row">
+  <div class="col">
+    <h2>설정 창 (숫자키 펼침)</h2>
+    <div class="zoom" style="width:336px;height:780px"><div class="win set">
+      <div class="head"><span>설정</span><span class="btn">닫기</span></div>
+      <div class="srow"><span>고르지 않았을 때 전체 목록</span><span class="ch"><span class="btn on">켬</span><span class="btn">끔</span></span></div>
+      <div class="srow"><span>배속</span><span class="ch"><span class="btn on">1×</span><span class="btn">2×</span></span></div>
+      <div class="srow"><span>화면 효과</span><span class="ch"><span class="btn on">보통</span><span class="btn">줄임</span></span></div>
+      <div class="srow"><span>단축키 안내 줄</span><span class="ch"><span class="btn on">켬</span><span class="btn">끔</span></span></div>
+      <div class="srow mk new"><span class="n new" style="left:-14px;top:-4px">1</span><span>숫자키</span><span class="btn on">접기 ▴</span></div>
+      <div class="keys mk new"><span class="n new" style="left:-14px;top:30px">2</span>
+        <div class="krow"><b>1</b><span class="sel">물딜 강화<span>▾</span></span></div>
+        <div class="krow"><b>2</b><span class="sel">마딜 강화<span>▾</span></span></div>
+        <div class="krow"><b>3</b><span class="sel">등급 손질<span>▾</span></span></div>
+        <div class="krow"><b>4</b><span class="sel">돈 도박 10냥<span>▾</span></span></div>
+        <div class="krow"><b>5</b><span class="sel">돈 도박 100냥<span>▾</span></span></div>
+        <div class="krow"><b>6</b><span class="sel">보따리<span>▾</span></span></div>
+        <div class="krow"><b>7</b><span class="sel">큰 보따리<span>▾</span></span></div>
+        <div class="krow"><b>8</b><span class="sel">엽전 보따리<span>▾</span></span></div>
+        <div class="krow"><b>9</b><span class="sel empty">비움<span>▾</span></span></div>
+        <div class="kfoot mk new"><span class="n new" style="left:-14px;top:-4px">3</span><span class="btn">처음대로</span></div>
+      </div>
+      <div class="dimrows">효과음 크기 · 배경음 크기 · 소리 끄기 · 음악 … (그대로)</div>
+    </div></div>
+    <p class="cap">접혀 있을 때는 ①의 '숫자키 [펼치기 ▾]' 한 줄만 보인다.</p>
+  </div>
+
+  <div class="col">
+    <h2>장터 창 · 뽑기 탭</h2>
+    <div class="zoom" style="width:312px;height:420px"><div class="win mkt">
+      <div class="gl"><strong>묵 보따리</strong><span>유닛 또는 위로금</span><span class="cnt">2/2</span></div>
+      <div class="opts">
+        <div class="opt"><span>보따리</span><span class="buy mk new">묵 1개<span class="kb">6</span><span class="n new" style="right:-12px;top:-12px">4</span></span></div>
+        <div class="opt"><span>큰 보따리</span><span class="buy off">묵 3개<span class="kb">7</span></span><span class="why">30라운드부터</span></div>
+      </div>
+      <div class="gl"><strong>엽전 보따리</strong><span>유닛 한 기</span><span class="cnt">3/3</span></div>
+      <div class="opts"><div class="opt"><span class="buy">45냥<span class="kb">8</span></span></div></div>
+      <div class="gl"><strong>돈 도박</strong><span>판돈 × 나온 배수</span><span class="cnt">5/5</span></div>
+      <div class="opts">
+        <div class="opt"><span class="buy">10냥 걸기<span class="kb">4</span></span></div>
+        <div class="opt"><span class="buy off">100냥 걸기<span class="kb">5</span></span><span class="why">10라운드 보스 뒤</span></div>
+      </div>
+    </div></div>
+    <p class="cap">버튼 오른쪽 위에 배정된 숫자키를 작게 붙인다. 배정이 없는 상품에는 붙이지 않는다.</p>
+  </div>
+
+  <div class="col">
+    <h2>장터 창 · '10냥 걸기'를 Ctrl+클릭</h2>
+    <div class="zoom" style="width:312px;height:420px"><div class="win mkt">
+      <div class="gl"><strong>묵 보따리</strong><span>유닛 또는 위로금</span><span class="cnt">2/2</span></div>
+      <div class="opts">
+        <div class="opt"><span>보따리</span><span class="buy">묵 1개<span class="kb">6</span></span></div>
+        <div class="opt"><span>큰 보따리</span><span class="buy off">묵 3개<span class="kb">7</span></span><span class="why">30라운드부터</span></div>
+      </div>
+      <div class="gl"><strong>엽전 보따리</strong><span>유닛 한 기</span><span class="cnt">3/3</span></div>
+      <div class="opts"><div class="opt"><span class="buy">45냥<span class="kb">8</span></span></div></div>
+      <div class="ask mk new"><span class="n new" style="left:-12px;top:-12px">7</span>
+        <div class="q"><b>돈 도박 10냥</b>을 몇 번 키에 걸까요?</div>
+        <div class="nums"><span>1</span><span>2</span><span>3</span><span class="cur">4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></div>
+        <div class="foot"><span>숫자키나 칸 누르기 · Esc 취소</span><span class="btn">키 빼기</span></div>
+      </div>
+      <div class="gl" style="margin-top:44px"><strong>돈 도박</strong><span>판돈 × 나온 배수</span><span class="cnt">5/5</span></div>
+      <div class="opts">
+        <div class="opt"><span class="buy press">10냥 걸기<span class="kb">4</span></span></div>
+        <div class="opt"><span class="buy off">100냥 걸기<span class="kb">5</span></span><span class="why">10라운드 보스 뒤</span></div>
+      </div>
+    </div></div>
+    <p class="cap">Ctrl+클릭한 버튼 바로 위에 물음 상자가 뜬다. 지금 걸린 키(4)가 밝게 보인다. 고르면 상자가 닫히고 버튼의 키 표시가 바뀐다. 사지는 않는다.</p>
+  </div>
+
+  <div class="col">
+    <h2>강화 창</h2>
+    <div class="zoom" style="width:312px;height:420px"><div class="win up">
+      <div class="ui mk chg"><span class="n chg" style="left:-12px;top:-10px">5</span><div><span class="ukey">1</span> 물딜 강화 <b>3 / 10</b></div><div style="color:var(--dim)">물리 공격 +6%</div><span class="btn" style="align-self:flex-end">40냥</span></div>
+      <div class="ui"><div><span class="ukey">2</span> 마딜 강화 <b>1 / 10</b></div><div style="color:var(--dim)">마법 공격 +6%</div><span class="btn" style="align-self:flex-end">25냥</span></div>
+      <div class="ui"><div><span class="ukey none"></span> 등급 손질 <b>0 / 5</b></div><div style="color:var(--dim)">재련 확률 +2%</div><span class="btn" style="align-self:flex-end">30냥</span></div>
+    </div></div>
+    <p class="cap">예시는 3번을 다른 상품으로 바꾼 경우다. 배정이 없는 강화에는 키 표시가 빠진다.</p>
+  </div>
+</div>
+
+<h2 style="font-size:16px;margin:28px 0 8px">하단 단축키 안내 줄 (유닛을 고르지 않았을 때)</h2>
+<div class="help">W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · <span class="mk new" style="position:relative">1~9 바로 사기<span class="n new" style="left:-14px;top:-14px;transform:none">6</span></span> · J 퀘스트 · P 멈춤</div>
+
+<ol class="notes">
+  <li><b>숫자키 줄</b>: 설정 창 '단축키 안내 줄' 아래에 생긴다. 처음에는 접혀 있고, 펼치기를 누르면 1~9 배정이 나온다. 9칸을 늘 펼쳐 두면 좁은 화면(높이 650)에서 설정 창이 넘친다.</li>
+  <li><b>키마다 고르는 칸</b>: 비움 · 물딜 강화 · 마딜 강화 · 등급 손질 · 돈 도박 10냥 · 돈 도박 100냥 · 보따리 · 큰 보따리 · 엽전 보따리 중 하나. 같은 상품을 다른 키에 고르면, 원래 그 상품이 있던 키는 비움이 된다(한 상품에 키 하나). 바꾼 배정은 이 브라우저에 저장된다.</li>
+  <li><b>처음대로</b>: 처음 배정(1~3 강화, 4 도박 10냥, 5 도박 100냥, 6 보따리, 7 큰 보따리, 8 엽전 보따리, 9 비움)으로 되돌린다.</li>
+  <li><b>장터 버튼의 키 표시</b>: 배정된 숫자키를 버튼 모서리에 작게 붙인다. 표시만 하고 눌러서 바꾸지는 않는다.</li>
+  <li><b>강화 창의 키 표시</b>: 지금은 1·2·3이 고정으로 적혀 있다. 이제 실제 배정을 따라간다.</li>
+  <li><b>안내 줄</b>: '1~9 바로 사기'를 넣는다. 장터가 없는 1·2단계에서도 강화가 걸려 있으니 늘 보인다.</li>
+  <li><b>Ctrl+클릭으로 키 걸기</b>: 장터 상품 버튼이나 강화 버튼을 Ctrl+클릭(맥은 ⌘+클릭)하면 물음 상자가 뜬다. 숫자키를 누르거나 칸을 누르면 그 키에 걸리고, 그 키에 있던 상품은 빠진다. '키 빼기'는 이 상품의 키를 비운다. 아직 잠겨서 못 사는 상품(100냥 걸기 등)도 걸 수 있다. 상자가 떠 있는 동안 숫자키는 사지 않고 답으로만 쓰인다. 바꾼 결과는 설정 창 배정과 같은 곳에 저장된다. 버튼에 마우스를 올리면 'Ctrl+클릭: 숫자키 걸기' 안내가 뜬다.</li>
+</ol>
+</body></html>
