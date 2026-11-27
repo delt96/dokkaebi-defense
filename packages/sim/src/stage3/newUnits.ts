@@ -2,8 +2,12 @@ import { dataSources, type DamageType, type GameData, type RecipeDef, type UnitD
 import { grade1Balance, leftoverShare, targetMisses, topGrade1 } from './spread';
 import type { SummonReport } from './summonSim';
 
+/** Stats and skills an overlay unit leaves out are taken from its grade and type peers (median stats, no skills). */
+export type NewUnitDef = { id: string; name: string; grade: 5 | 6; damageType: DamageType }
+  & Partial<Pick<UnitDef, 'range' | 'interval' | 'factor' | 'skills' | 'onBasicHit'>>;
+
 export interface NewUnitOverlay {
-  units: { id: string; name: string; grade: 5 | 6; damageType: DamageType }[];
+  units: NewUnitDef[];
   recipes: RecipeDef[];
 }
 
@@ -24,12 +28,16 @@ export function withNewUnits(data: GameData, overlay: NewUnitOverlay): GameData 
   for (const n of overlay.units) {
     if (data.units.some(u => u.id === n.id)) continue;
     const peers = data.units.filter(u => !u.hidden && u.grade === n.grade && u.damageType === n.damageType);
-    if (!peers.length) throw new Error(`no grade ${n.grade} ${n.damageType} unit to take stats from`);
+    const peerMedian = (key: 'range' | 'interval' | 'factor') => {
+      if (!peers.length) throw new Error(`no grade ${n.grade} ${n.damageType} unit to take ${key} from`);
+      return median(peers.map(u => u[key]));
+    };
     const unit: UnitDef = {
       id: n.id, name: n.name, grade: n.grade, damageType: n.damageType,
-      range: median(peers.map(u => u.range)), interval: median(peers.map(u => u.interval)), factor: median(peers.map(u => u.factor)),
-      skills: [],
+      range: n.range ?? peerMedian('range'), interval: n.interval ?? peerMedian('interval'), factor: n.factor ?? peerMedian('factor'),
+      skills: structuredClone(n.skills ?? []),
     };
+    if (n.onBasicHit) unit.onBasicHit = { ...n.onBasicHit };
     x.units.push(unit);
   }
   const has = new Set(x.recipes.filter(r => r.kind !== 'tame').map(r => r.result));

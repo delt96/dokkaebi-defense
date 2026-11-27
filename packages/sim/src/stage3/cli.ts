@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { r10Markdown, r10PairRun, r10Summary, type R10Pair } from './r10probe';
 import { join } from 'node:path';
-import { isDifficulty, loadGameData, stripEconomy, type GameData } from '@dorandi/logic';
+import { buildGameData, dataSources, isDifficulty, loadGameData, stripEconomy, type GameData } from '@dorandi/logic';
 import { normalBot } from '../bots';
 import { combineGainAll, parseCombinePlacement, parseUpgradeLevels } from './combineGain';
 import { controlAll } from './control';
@@ -9,6 +9,7 @@ import { bossCsvRows, firepowerCsvRows, firepowerMarkdown, firepowerRun, type Bo
 import { grade6Markdown, grade6Run, type Grade6Row } from './grade6';
 import { combineGainMarkdown, controlMarkdown, toCsvRows } from './report';
 import { targetBot } from './targetBot';
+import { assertKnownUnits, withNewUnits, type NewUnitOverlay } from './newUnits';
 import { unitPowerMarkdown, unitPowerRows } from './unitPower';
 import {
   ECON_BOTS, econMarkdown, econMatchRun, parseEconCsv, parseYeoksinCsv, STANDARD_CONFIGS,
@@ -36,13 +37,35 @@ export function withSets(data: GameData, sets: string): GameData {
   return d;
 }
 
+/**
+ * Stage 3 data with `--recipes <file>` in place of the stage 3 recipes file, then `--set`, then the `--new-units`
+ * overlay. The overlay goes last so `--set` paths index the units as the data files list them.
+ */
+export function stage3Data(arg: Arg): { data: GameData; newIds: string[] } {
+  const recipes = arg('recipes', '');
+  let data: GameData;
+  if (recipes) {
+    const src = dataSources();
+    src.stage3.recipes = JSON.parse(readFileSync(recipes, 'utf8'));
+    data = buildGameData('stage3', src);
+  } else {
+    data = loadGameData('stage3');
+  }
+  data = withSets(data, arg('set', ''));
+  const overlayFile = arg('new-units', '');
+  const overlay: NewUnitOverlay = overlayFile ? JSON.parse(readFileSync(overlayFile, 'utf8')) : { units: [], recipes: [] };
+  if (overlayFile) data = withNewUnits(data, overlay);
+  assertKnownUnits(data);
+  return { data, newIds: overlay.units.map(u => u.id) };
+}
+
 export function stage3Cli(arg: Arg): void {
   const check = arg('check', 'all');
   const seeds = Number(arg('seeds', '3'));
   const difficulty = arg('difficulty', 'normal');
   if (!isDifficulty(difficulty)) throw new Error('--difficulty easy|normal|hard|hell');
   const out = arg('out', difficulty === 'normal' ? 'sim-out/stage3' : `sim-out/stage3-${difficulty}`);
-  const data = withSets(loadGameData('stage3'), arg('set', ''));
+  const { data, newIds } = stage3Data(arg);
   // Each probe creates its own lanes from this private data copy.
   data.balance.defaultDifficulty = difficulty;
   if (arg('set', '').split(',').some(item => item.startsWith('balance.tokens.perRound='))) {
@@ -55,7 +78,8 @@ export function stage3Cli(arg: Arg): void {
   if (check === 'combine' || check === 'all') {
     const placement = parseCombinePlacement(arg('combine-place', 'fit'));
     const upgrades = parseUpgradeLevels(arg('upgrades', '0/0'));
-    const rows = combineGainAll(data, { seeds, placement, upgrades });
+    const results = arg('results', '').split(',').filter(Boolean);
+    const rows = combineGainAll(data, { seeds, placement, upgrades, results: results.length ? results : undefined });
     const skew = upgrades.physical || upgrades.magical ? `-u${upgrades.physical}-${upgrades.magical}` : '';
     const file = join(out, `${placement === 'fit' ? 'combine' : `combine-${placement}`}${skew}.csv`);
     writeFileSync(file, toCsvRows(rows));
@@ -109,7 +133,7 @@ export function stage3Cli(arg: Arg): void {
     console.log(firepowerMarkdown(rows, data, bosses) + '\n');
   }
   if (check === 'unitpower') {
-    const rows = unitPowerRows(data);
+    const rows = unitPowerRows(data, newIds);
     writeFileSync(join(out, 'unitpower.csv'), toCsvRows(rows));
     console.log(`## one unit alone, 30 s against the round's normal enemies (${elapsed()}, ${join(out, 'unitpower.csv')})\n`);
     console.log(unitPowerMarkdown(rows) + '\n');

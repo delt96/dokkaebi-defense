@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import { loadGameData } from '@dorandi/logic';
-import { unitPower, unitPowerRows } from '../src/stage3/unitPower';
+import { withNewUnits } from '../src/stage3/newUnits';
+import { quantile } from '../src/stage3/report';
+import { unitPower, unitPowerRows, UNIT_POWER_ROUNDS } from '../src/stage3/unitPower';
 
 const d3 = loadGameData('stage3');
 
@@ -25,3 +27,21 @@ test('tamed units, evolved units and the exclusive results sit on their targets 
     expect([k, Math.abs(mean - rs[0]!.target!) <= 0.065], `${k} ${mean.toFixed(3)}`).toEqual([k, true]);
   }
 }, 60_000);
+
+test('new normal units are compared with the median of their grade, the new units left out of it', () => {
+  const x = withNewUnits(d3, {
+    units: [{ id: 'v7g5p', name: '임시5물', grade: 5, damageType: 'physical' }, { id: 'v7g6p', name: '임시6물', grade: 6, damageType: 'physical' }],
+    recipes: [{ result: 'v7g5p', materials: ['dwiju', 'sokuri'] }, { result: 'v7g6p', materials: ['v7g5p', 'tteoksiru', 'chaeban'] }],
+  });
+  const rows = unitPowerRows(x, ['v7g5p', 'v7g6p']);
+  const fives = d3.units.filter(u => u.grade === 5 && !u.hidden).map(u => u.id);
+  const m21 = quantile(fives.map(id => unitPower(d3, id, 21)), 0.5)!;
+  const g5 = rows.filter(r => r.unit === 'v7g5p');
+  expect(g5.map(r => r.round)).toEqual([...UNIT_POWER_ROUNDS.early]);
+  expect(g5[0]).toMatchObject({ group: 'new', name: '임시5물', target: 1 });
+  expect(g5[0]!.ratio!).toBeCloseTo(unitPower(x, 'v7g5p', 21) / m21, 6);
+  expect(rows.filter(r => r.unit === 'v7g6p').map(r => r.round)).toEqual([...UNIT_POWER_ROUNDS.late]);
+  expect(rows.filter(r => r.round === 21 && r.group === 'normal5').map(r => r.dps)).toEqual([m21]);
+  expect(rows.filter(r => r.group !== 'new' && r.ratio !== null)).toEqual(unitPowerRows(d3).filter(r => r.ratio !== null));
+  expect(() => unitPowerRows(x, ['dwiju'])).toThrow(/grade 5 or 6/);
+}, 120_000);

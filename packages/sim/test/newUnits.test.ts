@@ -1,4 +1,8 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
+import { stage3Data } from '../src/stage3/cli';
 import { buildGameData, dataSources, loadGameData, unitDef, validateData } from '@dorandi/logic';
 import {
   assertKnownUnits, goal6, grade5Candidates, grade6Candidates, recipesFile, v7Goals, withNewUnits, type NewUnitOverlay,
@@ -18,6 +22,20 @@ test('withNewUnits adds the units with median stats and no skills', () => {
   expect(unitDef(x, 'v7g5p')).toMatchObject({ grade: 5, damageType: 'physical', skills: [] });
   expect(validateData(x).errors).toEqual([]);
   expect(withNewUnits(d, { units: [], recipes: [] })).toEqual(d);
+});
+test('an overlay unit that carries its own stats, skills and onBasicHit keeps them', () => {
+  const skills = [{ trigger: { kind: 'nth' as const, n: 4 }, effects: [{ kind: 'crit' as const, mult: 2.3 }] }];
+  const own: NewUnitOverlay = {
+    ...six,
+    units: [{ ...six.units[0]!, range: 1.5, interval: 1.2, factor: 1.08, skills, onBasicHit: { targetPct: 0, splashPct: 0.1 } }, six.units[1]!],
+  };
+  const x = withNewUnits(d, own);
+  expect(unitDef(x, 'v7g5p')).toMatchObject({ range: 1.5, interval: 1.2, factor: 1.08, skills, onBasicHit: { targetPct: 0, splashPct: 0.1 } });
+  expect(unitDef(x, 'v7g6p').skills).toEqual([]);
+  expect(unitDef(x, 'v7g6p').onBasicHit).toBeUndefined();
+  expect(validateData(x).errors).toEqual([]);
+  skills[0]!.effects[0]!.mult = 9;
+  expect(unitDef(x, 'v7g5p').skills[0]!.effects[0]).toEqual({ kind: 'crit', mult: 2.3 });
 });
 test('goals count the overlay grade 6 units', () => {
   const g = v7Goals(withNewUnits(d, six), ['v7g5p', 'v7g6p']);
@@ -45,6 +63,21 @@ test('a written recipes file plus the overlay rebuilds the searched data', () =>
   expect(rebuilt.recipes.filter(r => r.result === 'v7g5p')).toHaveLength(1);
   expect(rebuilt.recipes.find(r => r.result === 'v7g6p')!.materials).toContain('tteongme');
   expect(rebuilt.recipes.find(r => r.result === 'samtaegi')!.materials).toContain('buchae');
+});
+
+test('the stage 3 command line reads --recipes and --new-units and refuses recipes without their units', () => {
+  const searched = applySwaps(withNewUnits(d, six), [{ result: 'samtaegi', from: 'ki', to: 'buchae' }]);
+  const dir = mkdtempSync(join(tmpdir(), 'newunits-'));
+  const recipes = join(dir, 'recipes.json');
+  const overlay = join(dir, 'overlay.json');
+  writeFileSync(recipes, JSON.stringify(recipesFile(searched, six)));
+  writeFileSync(overlay, JSON.stringify(six));
+  const argOf = (args: Record<string, string>) => (name: string, fallback: string) => args[name] ?? fallback;
+  const cli = stage3Data(argOf({ recipes, 'new-units': overlay }));
+  expect(cli.data).toEqual(searched);
+  expect(cli.newIds).toEqual(['v7g5p', 'v7g6p']);
+  expect(() => stage3Data(argOf({ recipes }))).toThrow(/--new-units/);
+  expect(stage3Data(argOf({})).data).toEqual(d);
 });
 
 test('goal6 passes only below 40% on top with five picks over 5%', () => {

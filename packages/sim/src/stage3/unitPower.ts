@@ -35,10 +35,18 @@ export interface UnitPowerRow { round: number; group: string; unit: string; name
 
 const median = (xs: number[]) => quantile(xs, 0.5) ?? NaN;
 
-/** Normal grade medians and every tamed recruit (bare, evolved) and exclusive result against its target. */
-export function unitPowerRows(data: GameData): UnitPowerRow[] {
+/**
+ * Normal grade medians and every tamed recruit (bare, evolved) and exclusive result against its target. `fresh` are
+ * new normal grade 5 or 6 units: they are left out of the medians and each is compared with its grade's median, at
+ * the rounds that grade is compared (grade 5 early with the evolved recruits, grade 6 late with the results).
+ */
+export function unitPowerRows(data: GameData, fresh: string[] = []): UnitPowerRow[] {
+  for (const id of fresh) {
+    const u = unitDefFast(data, id);
+    if (u.hidden || (u.grade !== 5 && u.grade !== 6)) throw new Error(`${id} must be a normal grade 5 or 6 unit`);
+  }
   const rows: UnitPowerRow[] = [];
-  const normal = (g: number) => data.units.filter(u => u.grade === g && !u.hidden).map(u => u.id);
+  const normal = (g: number) => data.units.filter(u => u.grade === g && !u.hidden && !fresh.includes(u.id)).map(u => u.id);
   const tamed = data.economy?.tame?.targets.map(t => t.unit) ?? [];
   const results = data.recipes.filter(r => r.kind === 'tame').map(r => r.result);
   const name = (id: string) => unitDefFast(data, id).name;
@@ -47,6 +55,12 @@ export function unitPowerRows(data: GameData): UnitPowerRow[] {
     const m = median(normal(g).map(id => unitPower(data, id, round)));
     rows.push({ round, group: `normal${g}`, unit: `median of ${normal(g).length}`, name: `일반 ${g}등급 중앙값`, dps: m, ratio: null, target: null });
     return m;
+  };
+  const freshRows = (round: number, g: number, m: number) => {
+    for (const id of fresh.filter(id => unitDefFast(data, id).grade === g)) {
+      const v = unitPower(data, id, round);
+      rows.push({ round, group: 'new', unit: id, name: name(id), dps: v, ratio: v / m, target: 1 });
+    }
   };
   for (const round of UNIT_POWER_ROUNDS.early) {
     const g4 = groupMedian(round, 4);
@@ -59,6 +73,7 @@ export function unitPowerRows(data: GameData): UnitPowerRow[] {
         rows.push({ round, group: 'evolved', unit: id, name: name(id), dps: ev, ratio: ev / g5, target: UNIT_POWER_TARGETS.evolved });
       }
     }
+    freshRows(round, 5, g5);
   }
   for (const round of UNIT_POWER_ROUNDS.late) {
     const g6 = groupMedian(round, 6);
@@ -66,11 +81,14 @@ export function unitPowerRows(data: GameData): UnitPowerRow[] {
       const v = unitPower(data, id, round);
       rows.push({ round, group: 'result', unit: id, name: name(id), dps: v, ratio: v / g6, target: UNIT_POWER_TARGETS.result });
     }
+    freshRows(round, 6, g6);
   }
   return rows;
 }
 
-const GROUP_TEXT: Record<string, string> = { bare: '길들인 직후 / 일반 4등급', evolved: '진화 / 일반 5등급', result: '전용 조합 결과 / 일반 6등급' };
+const GROUP_TEXT: Record<string, string> = {
+  bare: '길들인 직후 / 일반 4등급', evolved: '진화 / 일반 5등급', result: '전용 조합 결과 / 일반 6등급', new: '새 유닛 / 같은 등급 일반',
+};
 
 export function unitPowerMarkdown(rows: UnitPowerRow[]): string {
   const out = ['| 라운드 | 구분 | 유닛 | 초당 피해 | 비율 (목표) |', '| ---: | --- | --- | ---: | ---: |'];
