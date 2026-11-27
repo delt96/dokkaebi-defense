@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { buildGameData, dataSources, loadGameData, recipeValue, unitDef } from '@dorandi/logic';
 import {
-  applySwaps, changedRecipes, editableRecipes, leafCounts, lockedMaterials, searchSpread, spreadDemand, spreadLowerBound, swapProblems, targetMisses,
+  applySwaps, changedRecipes, editableRecipes, grade1Balance, grade1Totals, leafCounts, leftoverShare, lockedMaterials, searchSpread, spreadDemand, spreadLowerBound, swapProblems, targetMisses, topGrade1,
   type Swap,
 } from '../src/stage3/spread';
 import v5Recipes from './recipes-stage3-v5.json';
@@ -133,4 +133,26 @@ test('searchSpread with an allow list only makes listed swaps', () => {
   for (const s of swaps) expect((allow as Record<string, Record<string, string[]>>)[s.result]?.[s.from]).toContain(s.to);
   expect(swaps.some(s => s.result === 'jejuyeonggam')).toBe(false);
   expect(swapProblems(d3, editable, swaps)).toEqual([]);
+});
+
+describe('grade 1 totals', () => {
+  const d = loadGameData('stage3');
+  test('grade1Totals matches the spec table', () => {
+    expect(Object.fromEntries(grade1Totals(d))).toEqual({
+      bujigaengi: 189, dadeumi: 183, horong: 181, jipsin: 180, buchae: 118, sotlid: 111, ki: 93, bitjaru: 85 });
+  });
+  test('grade1Balance is 1.33 / 0.60 today', () => {
+    const b = grade1Balance(d);
+    expect(b.mean).toBeCloseTo(142.5, 5);
+    expect(b.maxRatio).toBeCloseTo(189 / 142.5, 5);
+    expect(b.minRatio).toBeCloseTo(85 / 142.5, 5);
+  });
+  test('topGrade1 of the fast and slow grade 6', () => {
+    expect(topGrade1(d, 'bangmangidokkaebi')).toEqual({ id: 'jipsin', n: 6 });
+    expect(topGrade1(d, 'cheonnyeonjing')).toEqual({ id: 'bujigaengi', n: 14 });
+    expect(d.units.filter(u => u.grade === 6 && !u.hidden && topGrade1(d, u.id).n > 10).length).toBe(13);
+  });
+  test('leftoverShare of samtaegi is 1', () => {
+    expect(leftoverShare(d, 'samtaegi')).toBe(1);
+  });
 });

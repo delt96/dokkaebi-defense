@@ -124,6 +124,47 @@ export function leafCounts(data: GameData, unitId: string): Map<string, number> 
   return out;
 }
 
+export const LEFTOVER_GRADE1 = ['bitjaru', 'ki', 'sotlid', 'buchae'] as const;
+
+const grade1Units = (data: GameData) => data.units.filter(u => u.grade === 1);
+
+export function grade1Totals(data: GameData): Map<string, number> {
+  const totals = new Map(grade1Units(data).map(u => [u.id, 0]));
+  for (const u of data.units) {
+    if (u.grade !== 6 || u.hidden) continue;
+    for (const [id, n] of leafCounts(data, u.id)) if (totals.has(id)) totals.set(id, totals.get(id)! + n);
+  }
+  return totals;
+}
+
+export function grade1Balance(data: GameData): { mean: number; maxRatio: number; minRatio: number } {
+  const values = [...grade1Totals(data).values()];
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  return { mean, maxRatio: Math.max(...values) / mean, minRatio: Math.min(...values) / mean };
+}
+
+export function topGrade1(data: GameData, unitId: string): { id: string; n: number } {
+  const leaves = leafCounts(data, unitId);
+  let best = { id: '', n: 0 };
+  for (const u of grade1Units(data)) {
+    const n = leaves.get(u.id) ?? 0;
+    if (n > best.n) best = { id: u.id, n };
+  }
+  return best;
+}
+
+export function leftoverShare(data: GameData, unitId: string): number {
+  const leaves = leafCounts(data, unitId);
+  let total = 0;
+  let leftover = 0;
+  for (const u of grade1Units(data)) {
+    const n = leaves.get(u.id) ?? 0;
+    total += n;
+    if ((LEFTOVER_GRADE1 as readonly string[]).includes(u.id)) leftover += n;
+  }
+  return total === 0 ? 0 : leftover / total;
+}
+
 export interface SpreadSearchOptions {
   seed: number; iterations?: number;
   ban?: { result: string; material: string }[];
