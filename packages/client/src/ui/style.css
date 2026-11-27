@@ -496,8 +496,11 @@ body.online #modal .modal { top: 50%; transform: translateY(-50%); width: 350px;
 body.online #modal .modal-head { position: sticky; top: -10px; z-index: 1; background: var(--panel); padding: 5px 0; color: var(--accent); }
 body.online #modal .modal-actions button { min-height: 28px; flex: auto; }
 body.online #right .notices { border-left: 2px solid var(--accent); padding: 4px; background: #322a23; font-size: 11px; word-break: keep-all; }
-.recipe-list { display: grid; gap: 4px; }
-.recipe-list .recipe { display: grid; gap: 2px; justify-items: start; }
+/* minmax(0, 1fr), not the auto track: an auto track widens to the nowrap recipe line, and the window cuts its right side off */
+.recipe-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.recipe-list .recipe { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; justify-items: start; }
+.recipe-list .recipe-head { max-width: 100%; }
+.recipe-list .recipe-top { flex-wrap: wrap; white-space: normal; }
 .card-notes { margin: 2px 0 0; padding-left: 12px; color: var(--ink-dim); line-height: 1.45; word-break: keep-all; }
 .card-notes li { margin: 0; }
 .combine-cost { color: #c9b98a; }
