@@ -1,14 +1,14 @@
 import { STORAGE_MAX_GRADE, isTamedKind, jigeCandidates, unitDefFast, type GameState, type ShopView } from '@dorandi/logic';
 import { GRADE_COLOR, type WinPlace } from '../layout';
 import {
-  ATTACK_RANGE_HINT, REPLACE_ITEM_TEXT, attackRangeText, baseSpec, cardRangeText, combineNoteLines, combineOptions, itemShareText, nextCombines, rightModel,
+  ATTACK_RANGE_HINT, REPLACE_ITEM_TEXT, attackRangeText, auraCapText, baseSpec, cardRangeText, combineNoteLines, combineOptions, itemShareText, nextCombines, rightModel,
   summonOddsText, unitCard, upgradeInfoText, upgradeRows, type CombineOption, type NextList, type UnitCard,
 } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
 import { nextListHtml, recipeRowHtml } from './next-list';
-import { roleText } from './dex-roles';
+import { roleText, type RoleTag } from './dex-roles';
 import { pinButton } from './target';
 import { rightBarHtml, winHeadHtml } from './windows';
 import { firstTip, type FirstTip, type TipKey } from './first-visit';
@@ -87,13 +87,14 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
   });
   const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', cardRangeText(state.data, card).replace('사거리 ', ''), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>
     ${card.item ? `<p class="ud-item">아이템 ${esc(card.item.name)}${itemShare(card, 'attack') || itemShare(card, 'speed')}</p>` : ''}`;
-  const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
+  const cap = auraCapText(state.data, unitDefFast(state.data, unit.defId));
+  const tagTitle = (t: RoleTag) => (t.role === 'aura' && cap ? ` title="${esc(cap)}"` : '');
+  const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}"${tagTitle(t)}>${roleText(t)}</span>`).join('')}</div>` : '';
   const lines = card.skillText ? card.skillText.split(' / ') : [];
   const skill = lines.length ? `<ul class="ud-lines">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="ud-empty">특수 능력 없음</p>';
   const body = [
     stats,
     sectionHtml('능력', roles + skill),
-    card.notes.length ? sectionHtml('메모', notesHtml(card.notes)) : '',
     sectionHtml('조합', `<div class="recipe-list">${options.join('') || '최종 조합입니다.'}</div>`),
   ].join('');
   return `<section class="win unit-details" role="dialog" aria-labelledby="win-left-title">${head}<div class="win-body ud-body">${body}</div></section>`;
