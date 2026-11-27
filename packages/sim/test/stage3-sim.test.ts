@@ -3,7 +3,7 @@ import { createGame, loadGameData, unitDefFast } from '@dorandi/logic';
 import { makeData, placeUnitForTest } from '@dorandi/logic/testing';
 import { grade6Run, grade6Summary } from '../src/stage3/grade6';
 import { expandTree, targetBot } from '../src/stage3/targetBot';
-import { combineGainCase, parseCombinePlacement, parseUpgradeLevels, prepareRound } from '../src/stage3/combineGain';
+import { combineGainAll, combineGainCase, parseCombinePlacement, parseUpgradeLevels, prepareRound } from '../src/stage3/combineGain';
 import { laneOf } from '@dorandi/logic';
 import { controlTrial } from '../src/stage3/control';
 
@@ -63,6 +63,12 @@ describe('stage 3 sim checks', () => {
     expect(row.placement).toBe('plain');
     expect(combineGainCase(d3, recipe, 'flow128', { seeds: 1, steps: 6 }).placement).toBe('fit');
   }, 60_000);
+
+  test('combineGainAll leaves out tame recipes', () => {
+    const tame = d3.recipes.filter(r => r.kind === 'tame').map(r => r.result);
+    expect(tame.length).toBeGreaterThan(0);
+    expect(combineGainAll(d3, { seeds: 1, steps: 1, scenarios: ['flow128'], results: tame })).toEqual([]);
+  });
 
   test('parseCombinePlacement accepts fit and plain only', () => {
     expect(parseCombinePlacement('fit')).toBe('fit');

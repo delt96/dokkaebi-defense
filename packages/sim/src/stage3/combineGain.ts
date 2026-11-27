@@ -147,6 +147,8 @@ export function combineGainAll(
   const scenarios = opts.scenarios ?? (Object.keys(PROBE_SCENARIOS) as ProbeScenario[]);
   const rows: CombineGainRow[] = [];
   for (const recipe of data.recipes) {
+    // A tame recipe needs an evolved recruit, which the probe board never has.
+    if (recipe.kind === 'tame') continue;
     if (opts.results && !opts.results.includes(recipe.result)) continue;
     for (const scenario of scenarios) {
       rows.push(combineGainCase(data, recipe, scenario, { seeds: opts.seeds, steps: opts.steps, placement: opts.placement, upgrades: opts.upgrades }));
