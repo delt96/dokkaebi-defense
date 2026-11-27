@@ -1,0 +1,74 @@
+{
+  "units": [
+    {
+      "id": "v7g5p",
+      "name": "임시5물",
+      "grade": 5,
+      "damageType": "physical"
+    },
+    {
+      "id": "v7g5m",
+      "name": "임시5마",
+      "grade": 5,
+      "damageType": "magical"
+    },
+    {
+      "id": "v7g6p",
+      "name": "임시6물",
+      "grade": 6,
+      "damageType": "physical"
+    },
+    {
+      "id": "v7g6m",
+      "name": "임시6마",
+      "grade": 6,
+      "damageType": "magical"
+    }
+  ],
+  "recipes": [
+    {
+      "result": "v7g5p",
+      "materials": [
+        "byeoru",
+        "dwiju"
+      ],
+      "cost": {
+        "buckwheat": 1
+      }
+    },
+    {
+      "result": "v7g5m",
+      "materials": [
+        "jumadeung",
+        "dwiju"
+      ],
+      "cost": {
+        "buckwheat": 1
+      }
+    },
+    {
+      "result": "v7g6p",
+      "materials": [
+        "v7g5p",
+        "tewak",
+        "jangdok"
+      ],
+      "cost": {
+        "buckwheat": 1,
+        "coins": 60
+      }
+    },
+    {
+      "result": "v7g6m",
+      "materials": [
+        "v7g5m",
+        "gireumteul",
+        "gireumbyeong"
+      ],
+      "cost": {
+        "buckwheat": 1,
+        "coins": 60
+      }
+    }
+  ]
+}
