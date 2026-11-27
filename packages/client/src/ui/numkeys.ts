@@ -104,5 +104,5 @@ export function numKeyAskHtml(action: NumKeyAction, map: NumKeyMap, name: string
   return `<div class="key-ask" role="dialog" aria-label="숫자키 걸기">`
     + `<p class="key-ask-q"><b>${esc(name)}</b>${esc(withJosa(name, '을/를').slice(name.length))} 몇 번 키에 걸까요?</p>`
     + `<div class="key-ask-nums">${cells}</div>`
-    + '<div class="key-ask-foot"><span>숫자키나 칸 누르기 · Esc 취소</span><button type="button" data-action="keyAskClear" data-arg="">키 빼기</button></div></div>';
+    + '<div class="key-ask-foot"><span>Esc 취소</span><button type="button" data-action="keyAskClear" data-arg="">키 빼기</button></div></div>';
 }

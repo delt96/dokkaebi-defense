@@ -211,7 +211,7 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .numkeys { display: flex; flex-direction: column; gap: 2px; padding: 3px 0; border-top: 1px dashed var(--panel-edge); }
 .numkey-row { display: flex; align-items: center; gap: 4px; }
 .numkey-row b { flex: none; width: 9px; color: var(--accent); }
-.numkey-row select { flex: 1; min-width: 0; font-size: 11px; }
+.numkey-row select { flex: 1; min-width: 0; background: var(--panel); color: var(--ink); border: 1px solid var(--panel-edge); font: inherit; font-size: 11px; }
 .numkeys-hint { margin: 2px 0 0; color: var(--ink-dim); font-size: 10px; line-height: 13px; }
 .numkeys-foot { display: flex; justify-content: flex-end; }
 .res { display: flex; justify-content: space-between; }
@@ -586,7 +586,7 @@ button.sv-send:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .gamble-name { align-self: flex-start; min-height: 13px; font-size: 10px; line-height: 13px; white-space: nowrap; }
 .gamble-buy { width: 100%; min-height: 24px; padding: 0 2px; color: var(--accent); background: #3b2b23; border-color: #8e6a40; font-size: 12px; font-weight: bold; white-space: nowrap; }
 .gamble-buy { position: relative; }
-.gamble-buy .num-key { position: absolute; top: -1px; right: -1px; padding: 0 2px; font-size: 8px; line-height: 9px; font-weight: bold; color: var(--accent); background: #0d0a14; border: 1px solid var(--accent); border-radius: 0 2px 0 2px; pointer-events: none; }
+.gamble-buy .num-key { position: absolute; top: -6px; right: -4px; padding: 0 2px; font-size: 8px; line-height: 9px; font-weight: bold; color: var(--accent); background: #0d0a14; border: 1px solid var(--accent); border-radius: 0 2px 0 2px; pointer-events: none; }
 .gamble-buy:disabled { opacity: 1; color: #ddd0e4; background: #30283b; border-color: #51445c; pointer-events: none; }
 .gamble-history { padding: 2px 3px; border: 1px solid #82663f; background: #21182c; }
 .gamble-history-toggle { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 24px; padding: 0 4px;
