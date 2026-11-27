@@ -395,7 +395,8 @@ export function huntRows(econ: EconMine, state: GameState): HuntRow[] {
       case 'cooldown': {
         const left = readyIn = secondsOf(data, h.readyTick - state.tick);
         const wait = left < 60 ? `${left}초` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
-        short = `${wait} 뒤`; label = `${short} 다시 소환`; break;
+        // the box's line under the button already says 재소환 대기, and 'N 뒤' pushed the button out of the 92px line
+        short = wait; label = `${wait} 뒤 다시 소환`; break;
       }
       // the narrow box shows the price in red; the J list and the tooltip say how much is missing
       case 'noCoins': short = `${h.fee}냥`; label = `엽전 ${h.fee - state.coins}냥 부족`; break;
@@ -438,7 +439,7 @@ const waitLeft = (seconds: number) => `재소환 대기 ${seconds < 60 ? `${seco
 
 export function questBoxHtml(box: QuestBoxModel): string {
   const h = box.hunt;
-  const hunt = h ? `<div class="hunt-line"><span class="hunt-name">${esc(h.name)}</span><i class="hunt-lv" title="${h.level}단계">${h.level}</i><b>${esc(h.muk)}</b>${huntButton(h, h.short)}</div>`
+  const hunt = h ? `<div class="hunt-line"><span class="hunt-name" title="${esc(h.name)}">${esc(h.name)}</span><i class="hunt-lv" title="${h.level}단계">${h.level}</i><b>${esc(h.muk)}</b>${huntButton(h, h.short)}</div>`
     + (h.readyIn > 0 && !h.out ? `<div class="hunt-wait">${waitLeft(h.readyIn)}</div>` : '') : '';
   const more = box.more > 0 ? `<button class="quest-more" data-action="openQuests" data-arg="hunts">+${box.more}개 더 · J에서</button>` : '';
   const next = h ? '' : box.next ?? (box.count ? '' : '남은 퀘스트 없음');

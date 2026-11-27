@@ -898,12 +898,13 @@ body.online #modal .dex-browser .modal-head { position: static; padding: 0; }
 .quest-more:hover:not([disabled]) { color: var(--accent); }
 /* the online panel is 292px high: the notices give way rather than push the box and D out of the panel */
 body.online #right .notices { min-height: 0; overflow: auto; }
-.hunt-line { display: flex; align-items: center; gap: 2px; min-height: 18px; padding: 0 1px; line-height: 12px; white-space: nowrap; }
-.hunt-name { flex-shrink: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* 92px: a 4-letter name, the level, 묵N and a 3-letter button (30냥, 59초) only just fit; past that the name gives way, not the button */
+.hunt-line { display: flex; align-items: center; gap: 1px; min-height: 18px; padding: 0; line-height: 12px; white-space: nowrap; }
+.hunt-name { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .hunt-lv { font-style: normal; min-width: 10px; padding: 0 1px; border: 1px solid var(--panel-edge); text-align: center; color: var(--ink-dim); line-height: 11px; }
 .hunt-line b { margin-left: auto; color: var(--accent); }
 .hunt-wait { line-height: 12px; text-align: right; padding-right: 1px; color: #d5c9df; }
-.quest-box .hunt-go { min-height: 18px; padding: 0 4px; line-height: 16px; }
+.quest-box .hunt-go { flex: none; min-height: 18px; padding: 0 2px; line-height: 16px; }
 .hunt-go[disabled] { color: var(--ink-dim); opacity: 0.85; }
 .quest-box .hunt-go.poor[disabled] { color: var(--danger); }
 .hunt-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
