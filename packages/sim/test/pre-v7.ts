@@ -12,6 +12,7 @@ export function preV7Sources(recipes: DataSources['stage3']['recipes'] = v6Recip
   const byeongpung = src.stage3.units.find(u => u.id === 'cheonnyeonbyeongpung')!;
   byeongpung.range = 2.5;
   byeongpung.interval = 0.9;
+  byeongpung.factor = 0.89;
   return src;
 }
 

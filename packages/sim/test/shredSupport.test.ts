@@ -59,18 +59,27 @@ describe('shred support', () => {
 });
 
 describe('bots with shred support', () => {
+  const SEEDS = [1, 2, 3];
   const heldShare = (shred: boolean, round: number): number => {
     const c = STANDARD_CONFIGS.find(x => x.name === 'switch-full-q2')!;
-    const d = configData(d3, c, 1);
-    const m = createMatch(d, 1, SEATS, { noElimination: true, noGate: true });
-    const policy = { quests: true, tame: true, jige: true, hunts: true, shred };
-    const driver = new EconDriver(m, SEATS.map(s => makeBot(c.bot, laneSeed(1, s), policy)), c.gamble);
-    while (m.tick < roundStartTick(d, round)) stepMatch(m, driver.inputs());
-    return SEATS.filter(s => !lacksShred(m.lanes[s]!, mainType(m.lanes[s]!, null))).length / SEATS.length;
+    let held = 0;
+    for (const seed of SEEDS) {
+      const d = configData(d3, c, seed);
+      const m = createMatch(d, seed, SEATS, { noElimination: true, noGate: true });
+      const policy = { quests: true, tame: true, jige: true, hunts: true, shred };
+      const driver = new EconDriver(m, SEATS.map(s => makeBot(c.bot, laneSeed(seed, s), policy)), c.gamble);
+      while (m.tick < roundStartTick(d, round)) stepMatch(m, driver.inputs());
+      held += SEATS.filter(s => !lacksShred(m.lanes[s]!, mainType(m.lanes[s]!, null))).length;
+    }
+    return held / (SEATS.length * SEEDS.length);
   };
 
-  test('keep a grade 5 shredder of their main type on most boards, which they do not without it', () => {
-    expect(heldShare(true, 51)).toBeGreaterThanOrEqual(0.5);
-    expect(heldShare(false, 51)).toBeLessThan(0.5);
-  }, 240_000);
+  test('keep a grade 5-6 shredder of their main type on most boards, clearly more often than without it', () => {
+    const on = heldShare(true, 51);
+    const off = heldShare(false, 51);
+    expect(on).toBeGreaterThanOrEqual(0.5);
+    // without support boards still get shred by chance (often a tamed grade 6): 0.28-0.61 over three seeds.
+    // The policy adds 0.50 (v6) and 0.56 (v7) at seeds 1-3; no three consecutive seeds in 1-8 add less than 0.27.
+    expect(on - off).toBeGreaterThanOrEqual(0.25);
+  }, 600_000);
 });
