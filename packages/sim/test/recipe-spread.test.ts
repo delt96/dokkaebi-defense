@@ -181,12 +181,15 @@ describe('v7 rules', () => {
   });
   test('unlock keeps skill sources', () => {
     expect(lockedMaterials(d3, 'jejuyeonggam', rules).has('buk')).toBe(true);
+    const sangmo = lockedMaterials(d3, 'cheonnyeonsangmo', rules);
+    expect([sangmo.has('gat'), sangmo.has('manggeon')]).toEqual([true, true]);
     expect(lockedMaterials(d3, 'didilbangga', rules).size).toBe(0);
   });
   test('pairSwap legality: never empties one copy of a doubled grade 1', () => {
     const v6 = loadGameData('stage3');
     const swaps = searchSpread(v6, editable, { seed: 1, iterations: 20_000, rules, balance: { weight: 1, max: 1.1, min: 0.9 } });
     expect(swapProblems(v6, editable, swaps, rules)).toEqual([]);
+    expect(swaps.some(s => unitDef(v6, s.from).grade === 1)).toBe(true);
     for (const id of ['dunggumi', 'hongdukkae', 'jipsingol']) expect(swaps.some(s => s.result === id && unitDef(v6, s.from).grade === 1)).toBe(false);
     const g1 = v6.units.filter(u => u.grade === 1).map(u => recipeDemand(applySwaps(v6, swaps), u.id));
     expect(g1).toEqual(Array(8).fill(7));
