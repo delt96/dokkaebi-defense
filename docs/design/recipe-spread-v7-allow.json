@@ -1,0 +1,245 @@
+{
+ "bujipge": {
+  "hwaro": [
+   "sseurebatgi",
+   "gamasot",
+   "sut"
+  ],
+  "bujigaengi": [
+   "bitjaru"
+  ]
+ },
+ "che": {
+  "bitjaru": [
+   "bujigaengi"
+  ],
+  "dunggumi": [
+   "sseurebatgi",
+   "meongseok"
+  ]
+ },
+ "mogitbul": {
+  "bujigaengi": [
+   "bitjaru"
+  ]
+ },
+ "jipsingol": {
+  "dunggumi": [
+   "meongseok"
+  ]
+ },
+ "dwiju": {
+  "dunggumi": [
+   "meongseok"
+  ]
+ },
+ "meok": {
+  "hwaetbul": [
+   "cheongsachorong",
+   "sut",
+   "gamasot"
+  ],
+  "mogitbul": [
+   "bujipge"
+  ]
+ },
+ "geumulbaneul": {
+  "mumyeong": [
+   "cheongsachorong"
+  ]
+ },
+ "indu": {
+  "dadeumitdol": [
+   "hanji",
+   "mumyeong",
+   "cheongsachorong"
+  ],
+  "bujipge": [
+   "pulmu"
+  ],
+  "sut": [
+   "gamasot"
+  ]
+ },
+ "soemangchi": {
+  "hwaro": [
+   "gamasot"
+  ],
+  "bujipge": [
+   "pulmu"
+  ]
+ },
+ "maetdol": {
+  "meongseok": [
+   "dunggumi"
+  ],
+  "hamjibak": [
+   "che"
+  ]
+ },
+ "kkeul": {
+  "ja": [
+   "meok",
+   "tteongme"
+  ]
+ },
+ "top": {
+  "jige": [
+   "ja"
+  ]
+ },
+ "banjitgori": {
+  "gawi": [
+   "indu"
+  ],
+  "golmu": [
+   "indu",
+   "indupan",
+   "sokuri"
+  ]
+ },
+ "ssatba": {
+  "gawi": [
+   "indupan"
+  ]
+ },
+ "janggu": {
+  "gawi": [
+   "golmu",
+   "ja"
+  ]
+ },
+ "yeopjeonkkureomi": {
+  "jumadeung": [
+   "byeoru"
+  ]
+ },
+ "jipbae": {
+  "geumulbaneul": [
+   "mulle"
+  ]
+ },
+ "tteoksiru": {
+  "chaeban": [
+   "sokuri"
+  ]
+ },
+ "gireumteul": {
+  "maetdol": [
+   "yeonjabangga",
+   "yagyeon"
+  ],
+  "chaeban": [
+   "sokuri"
+  ]
+ },
+ "hahoetal": {
+  "ja": [
+   "indu"
+  ]
+ },
+ "buk": {
+  "ja": [
+   "indu"
+  ]
+ },
+ "bihyeongrang": {
+  "jumadeung": [
+   "meok"
+  ]
+ },
+ "duduri": {
+  "meok": [
+   "byeoru"
+  ]
+ },
+ "cheonnyeonjing": {
+  "janggu": [
+   "buk"
+  ]
+ },
+ "cheonnyeondolmulhwak": {
+  "yagyeon": [
+   "maetdol",
+   "yeonjabangga"
+  ]
+ },
+ "cheonnyeondoe": {
+  "yeotpan": [
+   "gireumteul",
+   "v7g5p",
+   "v7g5m"
+  ]
+ },
+ "cheonnyeontteokpan": {
+  "yeotpan": [
+   "v7g5p",
+   "v7g5m"
+  ],
+  "tteoksiru": [
+   "v7g5p",
+   "v7g5m"
+  ]
+ },
+ "cheonnyeontteoksal": {
+  "didilbangga": [
+   "che"
+  ]
+ },
+ "cheonnyeonyeonjeok": {
+  "tewak": [
+   "v7g5p"
+  ]
+ },
+ "cheonnyeonjokja": {
+  "banjitgori": [
+   "v7g5p"
+  ]
+ },
+ "cheonnyeonbyeongpung": {
+  "sil": [
+   "v7g5p"
+  ]
+ },
+ "cheonnyeoneohwa": {
+  "mogitbul": [
+   "jwibul",
+   "bujipge"
+  ]
+ },
+ "cheonnyeongombangdae": {
+  "mogitbul": [
+   "jwibul"
+  ]
+ },
+ "cheonnyeonmuseosot": {
+  "bagaji": [
+   "jangdok"
+  ]
+ },
+ "mulle": {
+  "sut": [
+   "gamasot"
+  ]
+ },
+ "jige": {
+  "jipsingol": [
+   "jangdok"
+  ]
+ },
+ "oedaridokkaebi": {
+  "samtaegi": [
+   "jipsingol"
+  ]
+ },
+ "cheonnyeonsangmo": {
+  "gawi": [
+   "daljip"
+  ]
+ },
+ "cheonnyeondatdol": {
+  "saekkijul": [
+   "samtaegi"
+  ]
+ }
+}
