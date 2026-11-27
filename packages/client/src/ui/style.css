@@ -701,6 +701,9 @@ body.online #storage { height: 244px; }
 .storage-info { display: grid; justify-items: start; gap: 4px; padding: 4px; border: 1px solid var(--panel-edge); position: relative; min-width: 0; }
 .storage-info .up-skill { margin: 0; }
 .storage-info [data-action="closeStorageInfo"] { position: absolute; right: 3px; top: 3px; min-height: 16px; }
+/* room for the × in the corner: 다듬이방망이 ×2 ran under it; ×N wraps to a second line instead */
+#left .storage-info .up-name { padding-right: 22px; }
+#left .storage-info .up-name b { min-width: 0; word-break: keep-all; }
 #bottom .storage-info { height: 100%; display: flex; align-items: center; gap: 8px; border: 0; padding: 0 8px; }
 #bottom .storage-info .up-skill { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #bottom .storage-info [data-action="closeStorageInfo"] { position: static; }
