@@ -50,6 +50,13 @@ html, body {
 #bottom { position: absolute; left: 0; top: 332px; width: 640px; height: 28px; }
 
 #lane canvas { image-rendering: pixelated; display: block; }
+/* hidden for its first 150ms, so art already in the cache does not flash a cover for one frame */
+.load-cover { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: var(--bg); opacity: 0; animation: load-cover-in 0s 150ms forwards; }
+@keyframes load-cover-in { to { opacity: 1; } }
+.load-cover b { font-size: 13px; color: var(--accent); }
+.load-cover-bar { width: 160px; height: 5px; background: #2a2236; border: 1px solid #3d3349; }
+.load-cover-bar > i { display: block; width: 0; height: 100%; background: var(--accent); }
+.load-cover small { font-size: 10px; color: var(--ink-dim); }
 
 #top, #left, #right, #bottom { background: var(--panel); border: 1px solid var(--panel-edge); font-size: 10px; }
 
@@ -325,7 +332,10 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .screen-actions > button { flex: 1; }
 .lobby .screen-title { grid-column: 1; text-align: left; margin: 0; }
 .lobby { display: grid; width: min(400px, 100% - 32px); grid-template-columns: 1fr auto; align-items: center; }
-.lobby > .lobby-rows, .lobby > .screen-actions, .lobby > .lobby-hint, .lobby > .entry-error, .lobby > .lobby-modes, .lobby > .lobby-link { grid-column: 1 / -1; }
+.lobby > .lobby-rows, .lobby > .screen-actions, .lobby > .lobby-hint, .lobby > .entry-error, .lobby > .lobby-modes, .lobby > .lobby-link, .lobby > .lobby-load { grid-column: 1 / -1; }
+.lobby-load { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #d5c9df; }
+.lobby-load-bar { height: 6px; background: #2a2236; border: 1px solid #3d3349; }
+.lobby-load-bar > i { display: block; height: 100%; background: var(--accent); }
 .screen-box.message { text-align: center; line-height: 1.6; }
 .screen-title { margin: 0 0 8px; text-align: center; color: var(--accent); font-size: 26px; }
 .screen-box button { font-size: 15px; min-height: 38px; }

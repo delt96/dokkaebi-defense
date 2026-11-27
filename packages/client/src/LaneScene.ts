@@ -196,6 +196,8 @@ export class LaneScene extends Phaser.Scene {
 
   /** Set by the page: toasts go to its notice slot over the lane instead of being drawn on the board. */
   onToast?: (text: string, color: number) => void;
+  /** Set by the page: the art load share, 1 once the board is drawn. */
+  onLoadProgress?: (share: number) => void;
   private noticeNarrow = false;
   /** Design ⑯: while a pillar window is open, toasts and birth bands keep to the board between the pillars. */
   setNoticeSpan(narrow: boolean): void {
@@ -212,6 +214,7 @@ export class LaneScene extends Phaser.Scene {
     const sprites = [...data.units, ...data.enemies].filter(def => SPRITE_IDS.has(def.id)).map(def => spriteFile(def.id));
     const small = data.enemies.filter(def => SMALL_IDS.has(def.id)).map(def => smallFile(def.id));
     this.load.addFile([...sprites, ...small, ...FX_FILES].map(file => new LaneArtFile(this.load, file)));
+    this.load.on('progress', (share: number) => this.onLoadProgress?.(Math.min(share, 0.99)));
   }
 
   private warned = new Set<string>();
@@ -226,6 +229,7 @@ export class LaneScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.onLoadProgress?.(1);
     this.cameras.main.setBackgroundColor('#0d0a14');
     this.board = this.add.graphics();
     this.effects = this.add.group();

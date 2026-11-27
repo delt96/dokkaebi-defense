@@ -1,6 +1,6 @@
 import { difficultyNote, difficultyPicker } from '../ui/difficulty';
 import type { Difficulty, LobbyMsg, MatchStage } from '@dorandi/logic';
-import { startFewText, startHintText, TEXT } from './text';
+import { artLoadText, startFewText, startHintText, TEXT } from './text';
 
 export const SEATS = 6;
 
@@ -8,9 +8,13 @@ export interface LobbyRow { seat: number; text: string; host: boolean; ready: bo
 export interface LobbyModel {
   rows: LobbyRow[]; canStart: boolean; isHost: boolean; myReady: boolean; hint: string;
   guests: number; readyGuests: number; difficulty?: Difficulty; stage: MatchStage;
+  /** Every file the page warmed has settled; 0 of 0 (nothing warmed) counts as done. */
+  artReady: boolean; artPct: number;
 }
 
-export function lobbyModel(msg: LobbyMsg): LobbyModel {
+export interface ArtProgress { done: number; total: number }
+
+export function lobbyModel(msg: LobbyMsg, art: ArtProgress = { done: 0, total: 0 }): LobbyModel {
   const rows: LobbyRow[] = [];
   for (let seat = 1; seat <= SEATS; seat++) {
     const s = msg.seats.find(x => x.seat === seat);
@@ -22,9 +26,12 @@ export function lobbyModel(msg: LobbyMsg): LobbyModel {
   const guestSeats = msg.seats.filter(s => s.seat !== msg.hostSeat);
   const guests = guestSeats.length;
   const readyGuests = guestSeats.filter(s => s.ready).length;
-  const canStart = isHost && readyGuests === guests;
+  const artReady = art.done >= art.total;
+  const artPct = art.total ? Math.floor((art.done / art.total) * 100) : 100;
+  const allReady = readyGuests === guests;
+  const canStart = isHost && allReady && artReady;
   const players = msg.seats.length;
-  const hint = !isHost ? '' : !canStart ? startHintText(readyGuests, guests) : players < SEATS ? startFewText(players) : '';
+  const hint = !isHost ? '' : !allReady ? startHintText(readyGuests, guests) : !artReady ? TEXT.artWaitStart : players < SEATS ? startFewText(players) : '';
   return {
     rows,
     canStart,
@@ -35,6 +42,8 @@ export function lobbyModel(msg: LobbyMsg): LobbyModel {
     readyGuests,
     difficulty: msg.stage === 'stage3' ? msg.difficulty ?? 'normal' : undefined,
     stage: msg.stage ?? 'stage2',
+    artReady,
+    artPct,
   };
 }
 
@@ -49,8 +58,8 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: 
 }
 
 /** `link` is the room address shown as a text box to copy by hand, once the clipboard has failed. */
-export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActions, notice?: string, link?: string): void {
-  const m = lobbyModel(msg);
+export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActions, notice?: string, link?: string, art?: ArtProgress): void {
+  const m = lobbyModel(msg, art);
   root.replaceChildren();
   const box = el('div', 'screen-box lobby');
   box.append(el('h1', 'screen-title', TEXT.lobbyTitle));
@@ -101,6 +110,15 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
     list.append(li);
   }
   box.append(list);
+  if (!m.artReady && art) {
+    const load = el('div', 'lobby-load', artLoadText(m.artPct, art.done, art.total));
+    const bar = el('div', 'lobby-load-bar');
+    const fill = el('i');
+    fill.style.width = `${m.artPct}%`;
+    bar.append(fill);
+    load.append(bar);
+    box.append(load);
+  }
 
   const controls = el('div', 'screen-actions');
   if (m.isHost) {
@@ -110,8 +128,11 @@ export function renderLobby(root: HTMLElement, msg: LobbyMsg, actions: LobbyActi
     start.addEventListener('click', () => actions.start());
     controls.append(start);
   } else {
-    const ready = el('button', m.myReady ? 'big secondary' : 'big', m.myReady ? TEXT.unreadyBtn : TEXT.readyBtn);
+    // a guest can only say ready with the art in, so a started match never waits on anyone's download
+    const loading = !m.myReady && !m.artReady;
+    const ready = el('button', m.myReady ? 'big secondary' : 'big', m.myReady ? TEXT.unreadyBtn : loading ? TEXT.artWaitReady : TEXT.readyBtn);
     ready.type = 'button';
+    ready.disabled = loading;
     ready.addEventListener('click', () => actions.ready(!m.myReady));
     controls.append(ready);
   }

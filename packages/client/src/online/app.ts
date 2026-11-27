@@ -1,3 +1,4 @@
+import { artProgress, onArtProgress } from '../art';
 import { gameAudio } from '../audio/engine';
 import { audioSettingsHtml, wireAudioSettings } from '../audio/settings-ui';
 import { NetClient, knownDataVersions, matchDataVersion, stageOfVersion, type NetEvent } from '../net/NetClient';
@@ -145,7 +146,7 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
           return false;
         }
       },
-    }, notice, handLink);
+    }, notice, handLink, artProgress());
     if (selection) {
       const field = root.querySelector<HTMLInputElement>('.lobby-link');
       field?.focus();
@@ -296,6 +297,9 @@ export function startOnline(opts: { roomId?: string; onSolo?(href: string): void
       showJoinError(code, name);
     }
   }
+
+  // the ready and start buttons wait for the art, so the room is redrawn as each file comes in
+  onArtProgress(() => { if (screen === 'lobby') showLobby(); });
 
   const stored = opts.roomId ? loadSession(opts.roomId) : null;
   const rematch = opts.roomId ? takeRematch(opts.roomId) : null;
