@@ -1,4 +1,7 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { createGame, loadGameData } from '@dorandi/logic';
 import { forceRound, withoutMarketLock } from '@dorandi/logic/testing';
@@ -76,6 +79,17 @@ describe('number keys buy', () => {
     frame();
     key('Digit4');
     expect(sent('gambleCoins')).toHaveLength(2);
+  });
+
+  test('a purchase the client already knows is blocked is refused without being sent', () => {
+    const { sent } = mountSolo(0);
+    $('#slot-say')!.textContent = '';
+    key('Digit4');
+    expect(sent('gambleCoins')).toHaveLength(0);
+    expect($('#slot-say')!.textContent).not.toBe('');
+    key('Digit7');
+    expect(sent('gambleUnit')).toHaveLength(0);
+    expect($('#slot-say')!.textContent).toContain('30라운드');
   });
 
   test('a refused key purchase says why on the board', () => {
@@ -182,6 +196,23 @@ describe('ctrl+click sets a number key', () => {
     expect($(COINS_10)!.querySelector('.num-key')!.textContent).toBe('9');
     key('Digit9');
     expect(sent('gambleCoins')).toHaveLength(1);
+  });
+
+  test('a digit still answers while Ctrl is held from the click', () => {
+    const { sent } = mountSolo();
+    key('KeyB');
+    ctrlDown($(COINS_10));
+    const ev = new KeyboardEvent('keydown', { code: 'Digit9', ctrlKey: true, bubbles: true, cancelable: true });
+    window.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(ask()).toBeNull();
+    expect(stored()![8]).toBe('gambleCoins:10');
+    expect(sent('gambleCoins')).toHaveLength(0);
+  });
+
+  test('a disabled 강화 button lets the pointer through to its row', () => {
+    const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../src/ui/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css).toMatch(/\.up-item button:disabled\s*\{[^}]*pointer-events:\s*none/);
   });
 
   test('pressing a number cell answers too', () => {

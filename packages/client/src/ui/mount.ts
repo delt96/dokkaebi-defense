@@ -240,7 +240,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let marketCell: HTMLElement | null = null;
 
   function gamble(cmd: GambleCommand): void {
-    if (!econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
+    const g = econ()?.market?.gamble;
+    if (!g || (reveal && reveal.phase !== 'result')) return;
+    // a number key reaches here with the market closed or its button locked, so a known refusal is said instead of rolling
+    const table = cmd.type === 'gambleUnit' ? g.units.tables[cmd.table] : undefined;
+    const why = cmd.type === 'gambleCoins' ? g.coins.stakes.find(s => s.price === cmd.stake)?.why : table?.why;
+    if (why) {
+      const text = why === 'gambleRound' && table ? `큰 보따리는 ${table.fromRound}라운드부터입니다` : rejectText(why);
+      if (text) refuse(text, { type: cmd.type, arg: cmd.type === 'gambleCoins' ? String(cmd.stake) : cmd.table });
+      return;
+    }
     playGamblePress(cmd.type);
     reveal = startReveal(performance.now());
     driver.queue(cmd);
@@ -984,16 +993,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       return;
     }
     if (isTypingTarget(ev)) return;
-    if (ev.repeat && spaceSummons(ev)) { ev.preventDefault(); return; }
-    if (driver.failed || ev.defaultPrevented || ev.isComposing || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
-    const target = ev.target as HTMLElement | null;
-    if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
-    // while the question is up the digits answer it instead of buying
-    if (keyAsk !== null) {
+    // while the question is up the digits answer it instead of buying, Ctrl still held from the click included
+    if (keyAsk !== null && !ev.isComposing) {
       const n = numKeyOfCode(ev.code);
       if (n !== null) { ev.preventDefault(); act('keyAskPick', String(n)); return; }
       if (ev.code === 'Escape') { act('keyAskClose', ''); return; }
     }
+    if (ev.repeat && spaceSummons(ev)) { ev.preventDefault(); return; }
+    if (driver.failed || ev.defaultPrevented || ev.isComposing || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+    const target = ev.target as HTMLElement | null;
+    if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
     if (sceneRunning && (ev.code === 'Enter' || ev.code === 'NumpadEnter')) {
       ev.preventDefault();
       skipScene();

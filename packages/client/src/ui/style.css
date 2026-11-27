@@ -331,6 +331,8 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .up-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; padding: 3px 4px; border: 1px solid var(--panel-edge); }
 .up-line { word-break: keep-all; }
 .up-line .upgrade-key { font-weight: bold; color: var(--accent); }
+/* some browsers send no pointer events from a disabled button; the row has to get the Ctrl+click */
+.up-item button:disabled { pointer-events: none; }
 .up-line b { font-size: 12px; }
 .up-effect { grid-column: 1; color: #c9bdd3; word-break: keep-all; }
 .up-item button { grid-column: 2; grid-row: 1 / span 2; min-height: 24px; font-size: 12px; font-weight: bold; white-space: nowrap; }
