@@ -8,6 +8,7 @@
     "sim": "tsx src/cli.ts",
     "econ": "tsx src/econ.ts",
     "golden": "tsx scripts/write-golden.ts",
-    "spread": "tsx scripts/recipe-spread.ts"
+    "spread": "tsx scripts/recipe-spread.ts",
+    "summon": "tsx scripts/summon-sim.ts"
   }
 }
