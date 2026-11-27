@@ -53,8 +53,24 @@ const legendMake = `<span class="next-legend"><i class="lg-make">${MAKE_SVG}</i>
 const groupTitle = (title: string, legend: string, target = false): string =>
   `<div class="next-group${target ? ' target' : ''}"><span class="next-title">${esc(title)}</span>${legend}</div>`;
 
+const peersOf = (list: NextList, hover: string | null): Set<string> =>
+  new Set(list.rows.find(r => r.result === hover)?.materials.flatMap(m => m.takenBy ?? []) ?? []);
+
+/**
+ * Sets the hover classes on rows already drawn. A hover redraw would swap the scrolled list for a new one, and the
+ * pointerover a wheel scroll fires as rows slide under the mouse would then drop the rest of that scroll.
+ */
+export function markHover(root: ParentNode, list: NextList, hover: string | null): void {
+  const peers = peersOf(list, hover);
+  for (const row of Array.from(root.querySelectorAll<HTMLElement>('.next-list .recipe-row[data-recipe]'))) {
+    const id = row.dataset.recipe!;
+    row.classList.toggle('hov', id === hover);
+    row.classList.toggle('peer', id !== hover && peers.has(id));
+  }
+}
+
 export function nextListHtml(state: GameState, list: NextList, opts: ListOpts): string {
-  const peers = new Set(list.rows.find(r => r.result === opts.hover)?.materials.flatMap(m => m.takenBy ?? []) ?? []);
+  const peers = peersOf(list, opts.hover);
   const row = (r: NextRow) => recipeRowHtml(state, r, {
     unitId: r.uses ? opts.unitId : null, chips: true, link: true, wPick: r.result === opts.wPick,
     hover: r.result === opts.hover ? 'hov' : peers.has(r.result) ? 'peer' : null,

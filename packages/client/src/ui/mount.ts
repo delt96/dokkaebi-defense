@@ -27,6 +27,7 @@ import {
 } from './gamble';
 import { el, esc, focusedIn, onAction, refocusIn, setHtml } from './dom';
 import { helperPopHtml } from './helper';
+import { markHover } from './next-list';
 import { edgeLevel, renderAlert, renderHud } from './hud';
 import {
   coinSpot, END_SCENE_SUB, EndScene, endSceneText, loopOwner, OneShots, refusalPos, refusalSpot, TopSlot, type EndKind, type RefusalSpot, type SlotItem, type SlotShown,
@@ -1159,7 +1160,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (view && opts.data) {
       renderTop(view, opts.data);
       const helper = helperOpen() ? helperPopHtml(s, list, {
-        unitId: selected === null ? null : s.slots[selected]?.id ?? null, scope, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne,
+        unitId: selected === null ? null : s.slots[selected]?.id ?? null, scope, wPick: wPick?.result ?? null, hover: null, showAllOne,
       }, helperFrame) : '';
       if (helperFrame === 'win') helperWin = helper;
       renderRows(view, opts.data, helperFrame === 'win' ? '' : helper, rowMarks(view, now));
@@ -1167,7 +1168,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else {
       renderHud(s, pause.pill, alertOpts);
       setHtml(el('left'), s.phase === 'ended' ? '' : infoHtml || soloPanelHtml(s, {
-        selected, list, idleList, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected), shop,
+        selected, list, idleList, wPick: wPick?.result ?? null, hover: null, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected), shop,
         itemOpen: itemMenuId !== null,
       }));
     }
@@ -1229,6 +1230,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const lockOpen = modal !== null || soloResult;
     const wins = currentWins();
     renderSides(s, wins, selected, helperWin);
+    // the lists are drawn without hover, so a hover change leaves their HTML (and scroll boxes) as they are
+    for (const id of ['left', 'win-left']) markHover(el(id), list, hoverRow);
     placeRefusal(now, false);
     placeCoinFloat(now);
     const cover = el('pause-cover');
