@@ -19,7 +19,7 @@ describe('help line and labels', () => {
     expect(document.getElementById('bottom')!.textContent).toBe('Z/X/C 조합(판에 짝 표시) · S 판매 · A 보관 · R 지게 · Tab 상세 · M 옮기기 · W 다음 조합 · Esc 해제');
     renderBottom(s, null, false, 'B 장터');
     expect(document.getElementById('bottom')!.textContent).toBe(
-      '조합할 재료가 아직 모자랍니다 · Space로 더 뽑으세요 (도깨비불 4개) · W 다음 조합 고르기 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤');
+      '조합할 재료가 아직 모자랍니다 · Space로 더 뽑으세요 (도깨비불 4개) · W 다음 조합 고르기 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · 1~9 바로 사기 · J 퀘스트 · P 멈춤');
   });
 
   test('online has no P in the help line', () => {

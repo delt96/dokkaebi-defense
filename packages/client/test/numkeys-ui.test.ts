@@ -107,3 +107,38 @@ describe('number keys buy', () => {
     expect(sent('upgrade')).toHaveLength(0);
   });
 });
+
+const keyText = (sel: string) => $(sel)?.querySelector('.num-key')?.textContent ?? null;
+
+describe('number key labels', () => {
+  test('the 강화 window shows each row its assigned key', () => {
+    mountSolo();
+    key('KeyE');
+    expect(Array.from(document.querySelectorAll('#win-right .up-item'), r => r.querySelector('.upgrade-key')?.textContent ?? null)).toEqual(['1', '2', '3']);
+  });
+
+  test('an unassigned upgrade has no key mark', () => {
+    localStorage.setItem('dorandi.numKeys', JSON.stringify(['upgrade:physical', 'upgrade:magical', null, null, null, null, null, null, 'upgrade:polish']));
+    mountSolo();
+    key('KeyE');
+    expect(Array.from(document.querySelectorAll('#win-right .up-item'), r => r.querySelector('.upgrade-key')?.textContent ?? null)).toEqual(['1', '2', '9']);
+  });
+
+  test('market buttons show their key; an unassigned product shows none', () => {
+    localStorage.setItem('dorandi.numKeys', JSON.stringify(['upgrade:physical', 'upgrade:magical', 'upgrade:polish', 'gambleCoins:10', 'gambleCoins:100', 'gambleUnit:small', 'gambleUnit:big', null, null]));
+    mountSolo();
+    key('KeyB');
+    expect(keyText('[data-action="gambleCoins"][data-arg="10"]')).toBe('4');
+    expect(keyText('[data-action="gambleCoins"][data-arg="100"]')).toBe('5');
+    expect(keyText('[data-action="gambleUnit"][data-arg="small"]')).toBe('6');
+    expect(keyText('[data-action="gambleUnit"][data-arg="big"]')).toBe('7');
+    expect(keyText('[data-action="gambleUnit"][data-arg="coin"]')).toBeNull();
+    expect($('[data-action="gambleCoins"][data-arg="10"] .num-key')!.getAttribute('aria-hidden')).toBe('true');
+    expect($('#win-right .econ-panel [title]')).toBeNull();
+  });
+
+  test('the help line names the number keys', () => {
+    mountSolo();
+    expect($('#bottom')!.textContent).toContain('B 장터 · 1~9 바로 사기');
+  });
+});

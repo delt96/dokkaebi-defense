@@ -10,6 +10,7 @@ export const DEFAULT_NUM_KEYS: NumKeyMap = [
 ];
 export const NUM_KEY_CHOICES: readonly NumKeyAction[] = DEFAULT_NUM_KEYS.filter((a): a is NumKeyAction => a !== null);
 
+export const NUM_KEY_HINT = '장터·강화 버튼을 Ctrl+클릭해도 바꿀 수 있습니다';
 const STORAGE_KEY = 'dorandi.numKeys';
 const SLOTS = 9;
 const ACTION_RE = /^(upgrade:(physical|magical|polish)|gambleCoins:[1-9]\d*|gambleUnit:(small|big|coin))$/;

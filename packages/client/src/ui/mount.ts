@@ -1416,7 +1416,7 @@ ${dex.mine.join()}`;
     shownMarket = sides.right === 'market' && e ? marketModel(e, s) : null;
     if ((sides.right === 'quests' && !e) || (sides.right === 'market' && !shownMarket)) sides = closeSide(sides, 'right');
     const held = heldCoins(reveal);
-    const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, held) }
+    const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, held, numKeys) }
       : sides.right === 'quests' && e ? {
         cls: 'quest-modal',
         html: questListHtml(questRows(e, s, online), questFocus, huntRows(e, s), { wins, bar: rightBarHtml(s, held, coinFx?.spot === 'win') }),
@@ -1437,7 +1437,7 @@ ${dex.mine.join()}`;
     const oldBody = rightBox.querySelector<HTMLElement>('.econ-body');
     const bodyTop = oldBody?.scrollTop ?? 0;
     setHtml(rightBox, shownMarket ? econPanelHtml(shownMarket, shownReveal, driver.readOnly, {
-      wins, bar: rightBarHtml(s, held, coinFx?.spot === 'win'), historyOpen, historyCount: gambleHistory.length, tab: marketTab,
+      wins, bar: rightBarHtml(s, held, coinFx?.spot === 'win'), historyOpen, historyCount: gambleHistory.length, tab: marketTab, keys: numKeys,
     }) : section('right', right));
     const panel = marketPanel();
     if (panel) {

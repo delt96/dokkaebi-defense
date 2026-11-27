@@ -8,6 +8,7 @@ import { withJosa } from './josa';
 import { blockedText, gambleHistoryToggleHtml, gambleHtml, gambleModel, type GambleJige, type GambleModel, type RevealDisplay } from './gamble';
 import { winHeadHtml } from './windows';
 import type { WinPlace } from '../layout';
+import type { NumKeyMap } from './numkeys';
 
 // Stage 3 economy on screen: the market panel (B), the T button under a target's health bar and the
 // quest tracker under it. Prices, odds and limits always come from the data and the server's economy view.
@@ -558,7 +559,7 @@ const button = (action: string, arg: string, label: string, disabled = false, cl
  */
 export function econPanelHtml(
   market: MarketModel | null, reveal: RevealDisplay | null, readOnly: boolean,
-  opts: { wins: WinPlace; bar: string; historyOpen: boolean; historyCount: number; tab?: MarketTab },
+  opts: { wins: WinPlace; bar: string; historyOpen: boolean; historyCount: number; tab?: MarketTab; keys?: NumKeyMap },
 ): string {
   const inside = opts.wins === 'inside';
   const items = opts.tab === 'items' && !!market?.shop;
@@ -572,7 +573,7 @@ export function econPanelHtml(
   const tabs = market?.shop ? `<div class="econ-tabs">${tabButton('market', '뽑기')}${tabButton('items', '아이템')}</div>` : '';
   const folded = inside && !opts.historyOpen;
   const body = items ? shopHtml(market!.shop!, readOnly) : market?.gamble ? `<p class="gamble-refill">라운드마다 충전</p>
-    <div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly)}</div>
+    <div class="gamble-products">${gambleHtml(market.gamble, reveal, readOnly, opts.keys)}</div>
     <div class="gamble-result"></div><section class="gamble-history" aria-label="최근 장터 결과">${folded ? gambleHistoryToggleHtml(opts.historyCount, false) : ''}</section>`
     : market ? `<div>보유 지게 ${market.jige.held}개</div>` : '';
   return `<section class="win market econ-panel" role="dialog" aria-labelledby="win-right-title">${head}${inside ? opts.bar : ''}${tabs}`

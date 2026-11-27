@@ -578,6 +578,8 @@ button.sv-send:focus-visible { outline: 2px solid var(--accent); outline-offset:
 .gamble-why { min-height: 13px; color: #ffbaaa; word-break: keep-all; }
 .gamble-name { align-self: flex-start; min-height: 13px; font-size: 10px; line-height: 13px; white-space: nowrap; }
 .gamble-buy { width: 100%; min-height: 24px; padding: 0 2px; color: var(--accent); background: #3b2b23; border-color: #8e6a40; font-size: 12px; font-weight: bold; white-space: nowrap; }
+.gamble-buy { position: relative; }
+.gamble-buy .num-key { position: absolute; top: -1px; right: -1px; padding: 0 2px; font-size: 8px; line-height: 9px; font-weight: bold; color: var(--accent); background: #0d0a14; border: 1px solid var(--accent); border-radius: 0 2px 0 2px; pointer-events: none; }
 .gamble-buy:disabled { opacity: 1; color: #ddd0e4; background: #30283b; border-color: #51445c; pointer-events: none; }
 .gamble-history { padding: 2px 3px; border: 1px solid #82663f; background: #21182c; }
 .gamble-history-toggle { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 24px; padding: 0 4px;

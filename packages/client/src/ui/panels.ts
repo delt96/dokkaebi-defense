@@ -12,6 +12,7 @@ import { roleText, type RoleTag } from './dex-roles';
 import { pinButton } from './target';
 import { rightBarHtml, winHeadHtml } from './windows';
 import { firstTip, type FirstTip, type TipKey } from './first-visit';
+import { keyOf, type NumKeyMap } from './numkeys';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `quests`: the 60-round quest box, laid at the
  * bottom above the dex button; the settings gear sits under both. */
@@ -119,7 +120,7 @@ export function helpLineHtml(hotkeys?: string, ctx: HelpContext = {}): string {
   const drop = new Set<TipKey>(ctx.tip?.drop ?? []);
   const keys = [
     ...(drop.has('W') ? [] : ['W 다음 조합 고르기']), ...(drop.has('Space') ? [] : ['Space 소환']), 'E 강화', 'D 도감', ctx.online ? 'Q 도우미' : 'Q 이 유닛/전체',
-    ...(drop.has('G') ? [] : [`${STORE_ALL_KEY} 1·2등급 보관`]), ...(hotkeys ? [hotkeys] : []), ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : []),
+    ...(drop.has('G') ? [] : [`${STORE_ALL_KEY} 1·2등급 보관`]), ...(hotkeys ? [hotkeys] : []), '1~9 바로 사기', ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : []),
   ];
   return helpHtml(keys, ctx.tip?.text);
 }
@@ -306,11 +307,14 @@ export function soloPanelHtml(state: GameState, opts: SoloPanelOpts): string {
     + `${jige ? `<div class="up-jige">${jige}</div>` : ''}${item}${soloActionsHtml(state, slot, unitId, card.sellPrice, opts.sellArmed === true)}</div>`;
 }
 
-export function upgradesHtml(state: GameState, wins: WinPlace, heldCoins: number): string {
-  const items = upgradeRows(state).map((r, i) => `<div class="up-item">`
-    + `<div class="up-line"><span class="upgrade-key">${i + 1}</span> ${esc(r.label)} <b>${r.level} / ${r.max}</b></div>`
+export function upgradesHtml(state: GameState, wins: WinPlace, heldCoins: number, keys: NumKeyMap): string {
+  const items = upgradeRows(state).map(r => {
+    const k = keyOf(keys, `upgrade:${r.id}`);
+    return '<div class="up-item">'
+    + `<div class="up-line">${k === null ? '' : `<span class="upgrade-key">${k}</span> `}${esc(r.label)} <b>${r.level} / ${r.max}</b></div>`
     + `<div class="up-effect">${esc(r.effectText)}</div>`
-    + `<button data-action="upgrade" data-arg="${r.id}"${r.affordable ? '' : ' disabled'}>${r.cost === null ? '최대' : `${r.cost}냥`}</button></div>`).join('');
+    + `<button data-action="upgrade" data-arg="${r.id}"${r.affordable ? '' : ' disabled'}>${r.cost === null ? '최대' : `${r.cost}냥`}</button></div>`;
+  }).join('');
   const wallet = wins === 'outside' ? `<span class="win-wallet">엽전 <b>${esc(state.coins - heldCoins)}</b></span>` : '';
   return winHeadHtml({ side: 'right', titleHtml: '강화 (E)', extraHtml: wallet, closeLabel: '강화 닫기 (E)' })
     + (wins === 'inside' ? rightBarHtml(state, heldCoins) : '')

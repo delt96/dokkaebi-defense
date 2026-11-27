@@ -2,6 +2,7 @@ import {
   coinOutcomes, gamblePool, gambleTier, type GameState, type GambleEvent, type GambleTable, type GambleView, type GameData, type RejectReason, type UnitDef,
 } from '@dorandi/logic';
 import { esc } from './dom';
+import { actionOf, DEFAULT_NUM_KEYS, keyOf, type NumKeyMap } from './numkeys';
 import { unitFaceHtml } from './storage';
 import { cellText } from './models';
 
@@ -179,13 +180,16 @@ export function gambleHistoryHtml(history: GambleHistoryEntry[], state: GameStat
   return `${head}<ul>${rows.join('') || '<li>이번 경기에서 아직 뽑지 않았어요</li>'}</ul>`;
 }
 
-export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null, readOnly = false): string {
+export function gambleHtml(model: GambleModel, reveal: RevealDisplay | null, readOnly = false, keys: NumKeyMap = DEFAULT_NUM_KEYS): string {
   const busy = !!reveal && reveal.phase !== 'result';
   const reason = (b: ButtonModel) => readOnly ? '관전 중에는 살 수 없어요' : b.blocked;
   const buy = (b: ButtonModel) => {
     const why = reason(b);
     const reasonId = `gamble-why-${esc(b.arg)}`;
-    return `<button type="button" class="gamble-buy" data-action="${b.action}" data-arg="${esc(b.arg)}" data-market-focus="buy-${esc(b.arg)}" aria-label="${esc(b.stake === undefined ? b.name + ' · ' + b.price : b.price)}"${why ? ` aria-describedby="${reasonId}"` : ''}${busy || why ? ' disabled' : ''}>${esc(b.price)}</button>${why ? `<span class="gamble-why" id="${reasonId}">${esc(why)}</span>` : '<span class="gamble-why" aria-hidden="true"></span>'}`;
+    const action = actionOf(b.action, b.arg);
+    const k = action ? keyOf(keys, action) : null;
+    const mark = k === null ? '' : `<span class="num-key" aria-hidden="true">${k}</span>`;
+    return `<button type="button" class="gamble-buy" data-action="${b.action}" data-arg="${esc(b.arg)}" data-market-focus="buy-${esc(b.arg)}" aria-label="${esc(b.stake === undefined ? b.name + ' · ' + b.price : b.price)}"${why ? ` aria-describedby="${reasonId}"` : ''}${busy || why ? ' disabled' : ''}>${esc(b.price)}${mark}</button>${why ? `<span class="gamble-why" id="${reasonId}">${esc(why)}</span>` : '<span class="gamble-why" aria-hidden="true"></span>'}`;
   };
   const heading = (group: GroupModel) => `<div class="gamble-line">
     <strong>${esc(group.name)}</strong><span>${esc(group.summary)}</span><span class="gamble-count">${esc(group.count)}</span>
