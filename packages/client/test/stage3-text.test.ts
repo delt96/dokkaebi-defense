@@ -66,7 +66,7 @@ describe('stage 3 skill text', () => {
     expect(combineNotes(d2, 'daljip')).toBeNull();
     expect(dexEntries(d2).every(e => e.notes.length === 0 && e.cost === null)).toBe(true);
     const s = createGame(d2, 1); placeUnitForTest(s, 'sotlid', 0);
-    expect(unitCard(s, 0)).toMatchObject({ skillText: '20% 스턴 0.5초', notes: [] });
+    expect(unitCard(s, 0)).toMatchObject({ skillText: '20% 스턴 0.5초' });
   });
 
   test('every unit has skill text without placeholders', () => {

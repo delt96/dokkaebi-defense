@@ -46,3 +46,18 @@ test('a failed request is forgotten so the match loader can try again', async ()
   await expect(loadArt(spriteFile('ki'))).resolves.toMatchObject({ atlas: null });
   expect(images).toHaveLength(2);
 });
+
+test('progress counts the warmed files as they settle, failed ones too; nothing warmed reads as done', async () => {
+  const { FX_FILES, SMALL_IDS, SPRITE_IDS, artProgress, onArtProgress, warmArt } = await import('../src/art');
+  expect(artProgress()).toEqual({ done: 0, total: 0 });
+  let calls = 0;
+  onArtProgress(() => { calls++; });
+  failNext = true;
+  warmArt();
+  failNext = false;
+  const total = SPRITE_IDS.size + SMALL_IDS.size + FX_FILES.length;
+  expect(artProgress()).toEqual({ done: 0, total });
+  await new Promise(r => setTimeout(r, 0));
+  expect(artProgress()).toEqual({ done: total, total });
+  expect(calls).toBe(total);
+});

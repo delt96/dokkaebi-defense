@@ -147,8 +147,11 @@ describe('solo left panel', () => {
 
   test('a hover redraw keeps the focus; +N개 더 hands it to the list it unfolded', () => {
     scopeBtn('all').focus();
+    const scroller = left().querySelector('.nc-list');
     left().querySelector('[data-recipe="baneul"]')!.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
     expect(left().querySelector('.hov[data-recipe="baneul"]')).not.toBeNull();
+    // a wheel scroll in flight lives on this element; swapping it for a new one drops the scroll
+    expect(left().querySelector('.nc-list')).toBe(scroller);
     expect(document.activeElement).toBe(scopeBtn('all'));
     const more = left().querySelector<HTMLButtonElement>('.next-more')!;
     more.focus();

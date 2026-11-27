@@ -380,18 +380,19 @@ describe('upgrade window keys', () => {
     expect(driver.paused).toBe(false);
   });
 
-  test('digits buy only while the window is open', () => {
+  test('digits buy with the window closed or open', () => {
     const s = createGame(data, 1); s.coins = 1000;
     const { press, queue, driver } = mountTestUi(s);
-    for (const key of ['Digit1', 'Digit2', 'Digit3', 'Digit4']) press(key);
-    expect(buys(queue)).toHaveLength(0);
-    press('KeyE');
-    press('Digit1'); press('Digit2'); press('Digit3'); press('Digit4');
-    expect(buys(queue).map(c => (c[0] as { id: string }).id)).toEqual(['physical', 'magical', 'polish']);
-    press('KeyE');
+    const ids = () => buys(queue).map(c => (c[0] as { id: string }).id);
+    press('Digit1'); press('Digit2'); press('Digit3'); press('Digit9');
+    expect(ids()).toEqual(['physical', 'magical', 'polish']);
     queue.mockClear();
-    press('Digit1');
-    expect(buys(queue)).toHaveLength(0);
+    press('KeyE');
+    press('Digit1'); press('Digit2'); press('Digit3'); press('Digit9');
+    expect(ids()).toEqual(['physical', 'magical', 'polish']);
+    queue.mockClear();
+    press('Numpad1');
+    expect(ids()).toEqual(['physical']);
     expect(driver.paused).toBe(false);
   });
 

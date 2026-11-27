@@ -78,7 +78,7 @@ describe('solo side windows', () => {
     expect(upgrades()).toBeNull();
     queue.mockClear();
     key('Digit1');
-    expect(sent('upgrade')).toHaveLength(0);
+    expect(queue).toHaveBeenCalledWith({ type: 'upgrade', id: 'physical' });
   });
 
   test('the window is laid out as three stacked items with the pillar bar', () => {

@@ -23,15 +23,15 @@ const text = (html: string) => { const box = document.createElement('div'); box.
 describe('help line', () => {
   test('solo with nothing selected: W picks the next combine, Q flips the scope', () => {
     expect(text(helpLineHtml('B 장터', { quests: true, pause: true }))).toBe(
-      'W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤');
+      'W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · 1~9 바로 사기 · J 퀘스트 · P 멈춤');
     expect(text(helpLineHtml(undefined, { pause: true }))).toBe(
-      'W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · P 멈춤');
+      'W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · 1~9 바로 사기 · P 멈춤');
   });
 
   test('an empty board still opens with how to summon', () => {
     const tip: FirstTip = { step: 'summon', text: 'Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개)', drop: ['W', 'Space', 'G'] };
     expect(text(helpLineHtml('B 장터', { quests: true, pause: true, tip }))).toBe(
-      'Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개) · E 강화 · D 도감 · Q 이 유닛/전체 · B 장터 · J 퀘스트 · P 멈춤');
+      'Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개) · E 강화 · D 도감 · Q 이 유닛/전체 · B 장터 · 1~9 바로 사기 · J 퀘스트 · P 멈춤');
   });
 
   test('solo with a unit selected', () => {
@@ -43,7 +43,7 @@ describe('help line', () => {
 
   test('online with nothing selected keeps Q 도우미 and has no P', () => {
     expect(text(helpLineHtml('B 장터', { online: true, quests: true }))).toBe(
-      'W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · B 장터 · J 퀘스트');
+      'W 다음 조합 고르기 · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · B 장터 · 1~9 바로 사기 · J 퀘스트');
   });
 
   test('moving a unit', () => {

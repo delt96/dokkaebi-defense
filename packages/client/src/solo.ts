@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { coverWhileLoading } from './ui/loading';
 import { createGame, isDifficulty, loadGameData } from '@dorandi/logic';
 import { bindBattleAudio } from './audio/battle';
 import { GameDriver } from './driver';
@@ -25,6 +26,7 @@ export function startSolo(): void {
   const resetAudio = bindBattleAudio(driver);
   const scene = new LaneScene(driver);
 
+  coverWhileLoading(scene, document.getElementById('lane')!);
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     audio: { noAudio: true },

@@ -53,19 +53,31 @@ describe('unit details window', () => {
     expect(css).toMatch(/\.ud-stats \{[^}]*grid-template-columns: 1fr 1fr;/);
   });
 
-  test('stats come from the card, then 능력 / 메모 / 조합 in that order', () => {
+  test('stats come from the card, then 능력 and 조합: stage 3 has no 메모 section either', () => {
     const unit = d3.units.find(u => unitNotes(d3, u).length > 0 && d3.recipes.some(r => r.materials.includes(u.id)))!;
     const { root, state } = details(d3, unit.id);
     const card = unitCard(state, 0)!;
-    expect(card.notes.length).toBeGreaterThan(0);
     const body = root.querySelector('.ud-body')!;
     expect(body.firstElementChild!.className).toBe('ud-stats');
     const stats = Array.from(body.querySelectorAll('.ud-stat')).map(s => [s.querySelector('dt')!.textContent, s.querySelector('dd')!.firstChild!.textContent]);
     expect(stats).toEqual([['공격력', String(card.attack)], ['공격 간격', `${card.interval}초`], ['사거리', `${card.range}칸`], ['판매가', `${card.sellPrice}냥`]]);
-    expect(headings(root)).toEqual(['능력', '메모', '조합']);
-    expect(root.querySelectorAll('.ud-sec')[1]!.querySelectorAll('.card-notes li').length).toBe(card.notes.length);
-    expect(root.querySelectorAll('.ud-sec')[2]!.querySelectorAll('.recipe-list [data-action="combine"], .recipe-list .combine-missing').length)
+    expect(headings(root)).toEqual(['능력', '조합']);
+    expect(root.textContent).not.toContain('강화를 받음');
+    expect(root.querySelectorAll('.ud-sec')[1]!.querySelectorAll('.recipe-list [data-action="combine"], .recipe-list .combine-missing').length)
       .toBe(combineOptions(state, 0).length);
+  });
+
+  test('the aura cap moves from the notes to the title of the 오라 tag, only for attack auras', () => {
+    const cap = '오라는 종류마다 한 번만, 합쳐서 공격 속도 +50%·공격력 +40%까지';
+    const attackAura = d3.units.find(u => u.skills.some(s => s.effects.some(e => e.kind === 'auraAttackPower' || e.kind === 'auraAttackSpeed')))!;
+    const { root } = details(d3, attackAura.id);
+    const tag = root.querySelector('.ud-sec .role-tag.role-aura')!;
+    expect(tag.getAttribute('title')).toBe(cap);
+    expect(root.querySelector('.ud-body')!.textContent).not.toContain(cap);
+
+    const vulnOnly = d3.units.find(u => u.skills.some(s => s.effects.some(e => e.kind === 'auraEnemyVuln'))
+      && !u.skills.some(s => s.effects.some(e => e.kind === 'auraAttackPower' || e.kind === 'auraAttackSpeed')));
+    if (vulnOnly) expect(details(d3, vulnOnly.id).root.querySelector('.ud-sec .role-tag.role-aura')!.hasAttribute('title')).toBe(false);
   });
 
   test('each effect of the skill text gets its own line', () => {

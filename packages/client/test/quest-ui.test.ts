@@ -130,12 +130,12 @@ describe('격파 rows', () => {
       s.econ!.hunts = { [first!.enemy]: { level: 2, enemyId: null, deadlineTick: 0, readyTick, last: 'won' } };
       const econ = econOf(s);
       const hunts = huntRows(econ, s);
-      expect(hunts[0]).toMatchObject({ short: `${time} 뒤`, label: `${time} 뒤 다시 소환`, ready: false, readyIn: seconds });
+      expect(hunts[0]).toMatchObject({ short: time, label: `${time} 뒤 다시 소환`, ready: false, readyIn: seconds });
       const host = document.createElement('div');
       host.innerHTML = questBoxHtml(questBoxModel(econ, s, false));
       expect(host.querySelector('.hunt-wait')!.textContent).toBe(`재소환 대기 ${wait}`);
       for (const [html, text] of [
-        [questBoxHtml(questBoxModel(econ, s, false)), `${time} 뒤`],
+        [questBoxHtml(questBoxModel(econ, s, false)), time],
         [questListHtml(questRows(econ, s, false), 'hunts', hunts, LIST), `${time} 뒤 다시 소환`],
       ] as const) {
         host.innerHTML = html;

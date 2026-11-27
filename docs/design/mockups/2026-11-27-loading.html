@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>그림 불러오기 목업</title>
+<style>
+  :root { --bg:#0d0a14; --panel:#17121f; --edge:#2a2236; --ink:#e8e0d0; --dim:#9a90a8; --accent:#ffe08a; --new:#e8a33d; --chg:#6fb7e0; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:24px 28px 80px; background:#140f17; color:#e8dfe9; font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  h2 { font-size:18px; margin:36px 0 4px; padding-top:14px; border-top:1px solid #33283b; }
+  p.sub { margin:2px 0 10px; color:#b8aabb; font-size:14px; line-height:1.55; max-width:1100px; }
+  .legend { display:flex; gap:18px; margin:10px 0; font-size:14px; align-items:center; }
+  .legend i { display:inline-block; width:34px; height:16px; vertical-align:middle; margin-right:6px; }
+  .legend .l-new { outline:2px dashed var(--new); } .legend .l-chg { outline:2px dashed var(--chg); }
+  .row { display:flex; flex-wrap:wrap; gap:28px; align-items:flex-start; }
+  .col { display:flex; flex-direction:column; gap:6px; }
+  .cap { font-size:13px; color:#a898ad; max-width:640px; line-height:1.5; }
+  .n { position:absolute; z-index:9; width:20px; height:20px; border-radius:50%; font:700 12px/20px sans-serif; text-align:center; color:#140f17; box-shadow:0 0 0 2px #140f17; }
+  .n.new { background:var(--new); } .n.chg { background:var(--chg); }
+  .mk { position:relative; } .mk.new { outline:2px dashed var(--new); outline-offset:2px; } .mk.chg { outline:2px dashed var(--chg); outline-offset:2px; }
+  ol.notes { font-size:14px; line-height:1.6; color:#d8cbd9; max-width:900px; padding-left:22px; }
+  ol.notes b { color:#ffd58a; }
+
+  .win { position:relative; overflow:hidden; display:flex; justify-content:center; color:var(--ink); background:radial-gradient(ellipse at 50% 40%, #211a2c, var(--bg) 72%); border:1px solid #3a3040; width:640px; min-height:420px; }
+  .lobby { width:400px; padding:16px 0; display:grid; grid-template-columns:1fr auto; gap:8px; font-size:15px; align-items:center; }
+  .lobby > .full { grid-column:1 / -1; }
+  .ttl { margin:0; color:var(--accent); font-size:24px; font-weight:bold; }
+  .tools { display:flex; gap:6px; }
+  button { font:inherit; font-size:14px; color:var(--ink); background:#2a2236; border:1px solid #4a3e5a; border-radius:2px; min-height:34px; padding:0 10px; }
+  button.big { width:100%; min-height:44px; font-size:16px; font-weight:bold; background:#3a2a1a; border-color:var(--accent); color:var(--accent); }
+  button[disabled] { opacity:.45; }
+  .modes { display:flex; gap:6px; align-items:center; font-size:13px; color:var(--dim); }
+  .modes span.on { color:var(--accent); border:1px solid var(--accent); padding:2px 6px; }
+  .modes span.off { border:1px solid #4a3e5a; padding:2px 6px; }
+  ul.rows { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+  ul.rows li { display:flex; align-items:center; gap:8px; min-height:30px; padding:0 10px; background:var(--panel); border:1px solid var(--edge); font-size:14px; }
+  ul.rows li.empty { color:var(--dim); }
+  ul.rows em { font-style:normal; font-size:12px; color:var(--accent); }
+  ul.rows .st { margin-left:auto; font-size:12px; color:var(--dim); }
+  ul.rows .st.on { color:#9fe0a8; }
+  .hint { font-size:13px; color:var(--dim); text-align:center; }
+  .load { display:flex; flex-direction:column; gap:4px; font-size:13px; color:#d5c9df; }
+  .load .bar { height:6px; background:#2a2236; border:1px solid #3d3349; }
+  .load .bar i { display:block; height:100%; width:63%; background:var(--accent); }
+
+  /* the battle screen, drawn at 1x: 640x360 */
+  .stage { position:relative; width:640px; height:360px; background:#000; font-size:10px; }
+  .p { position:absolute; background:var(--panel); border:1px solid var(--edge); color:var(--ink); }
+  .top { left:0; top:0; width:640px; height:24px; display:flex; align-items:center; gap:10px; padding:0 8px; }
+  .top b { color:var(--accent); }
+  .left { left:0; top:24px; width:128px; height:308px; padding:6px; color:var(--dim); line-height:1.5; }
+  .right { left:528px; top:24px; width:112px; height:308px; padding:6px; line-height:1.8; }
+  .bottom { left:0; top:332px; width:640px; height:28px; padding:6px 8px; color:var(--dim); }
+  .lane { position:absolute; left:128px; top:24px; width:400px; height:308px; background:#0d0a14; }
+  .cover { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; background:#0d0a14; }
+  .cover b { font-size:13px; color:var(--accent); }
+  .cover .bar { width:160px; height:5px; background:#2a2236; border:1px solid #3d3349; }
+  .cover .bar i { display:block; height:100%; width:63%; background:var(--accent); }
+  .cover small { color:var(--dim); font-size:10px; }
+</style></head>
+<body>
+<h1>처음 판을 열 때 그림 불러오기</h1>
+<p class="sub">처음 들어온 사람은 유닛·효과 그림(약 3.5MB)을 받는 동안 보드가 검게 비어 있었습니다. 혼자 하기는 그동안 준비 시간이 멈춰 있지만, 온라인은 서버에서 시간이 흘러 늦게 받는 사람만 손해를 봤습니다. 온라인은 대기실에서 미리 다 받게 하고(B), 판 화면에서는 아직 못 받았을 때만 보드를 덮어 진행률을 보여 줍니다.</p>
+<div class="legend"><span><i class="l-new"></i>새로 생김</span><span><i class="l-chg"></i>바뀜</span></div>
+
+<h2>1. 대기실 · 손님 (그림을 아직 받는 중)</h2>
+<div class="row">
+  <div class="win">
+    <div class="lobby">
+      <h1 class="ttl">대기실</h1>
+      <div class="tools"><button>링크 복사</button><button>나가기</button></div>
+      <div class="modes full">난이도 <span class="off">쉬움</span><span class="on">보통</span><span class="off">어려움</span><span class="off">지옥</span></div>
+      <ul class="rows full">
+        <li>1번 도깨비 <em>방장</em></li>
+        <li>2번 나그네 <em>나</em><span class="st">대기</span></li>
+        <li class="empty">빈자리</li><li class="empty">빈자리</li><li class="empty">빈자리</li><li class="empty">빈자리</li>
+      </ul>
+      <div class="load full mk new"><span class="n new" style="left:-28px;top:2px">1</span>그림 받는 중 63% (88/140)<div class="bar"><i></i></div></div>
+      <div class="full mk chg"><span class="n chg" style="left:-28px;top:12px">2</span><button class="big" disabled>그림 받는 중…</button></div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="cap"><b>다 받은 뒤</b>: ①은 사라지고 ②는 원래대로 <b>준비</b> 버튼이 됩니다.</div>
+  </div>
+</div>
+
+<h2>2. 대기실 · 방장 (그림을 아직 받는 중)</h2>
+<div class="row">
+  <div class="win">
+    <div class="lobby">
+      <h1 class="ttl">대기실</h1>
+      <div class="tools"><button>링크 복사</button><button>나가기</button></div>
+      <div class="modes full">난이도 <span class="off">쉬움</span><span class="on">보통</span><span class="off">어려움</span><span class="off">지옥</span></div>
+      <ul class="rows full">
+        <li>1번 도깨비 <em>방장</em> <em>나</em></li>
+        <li>2번 나그네<span class="st on">준비</span></li>
+        <li class="empty">빈자리</li><li class="empty">빈자리</li><li class="empty">빈자리</li><li class="empty">빈자리</li>
+      </ul>
+      <div class="load full mk new"><span class="n new" style="left:-28px;top:2px">1</span>그림 받는 중 63% (88/140)<div class="bar"><i></i></div></div>
+      <div class="full mk chg"><span class="n chg" style="left:-28px;top:12px">3</span><button class="big" disabled>시작</button></div>
+      <div class="hint full mk chg"><span class="n chg" style="left:-28px;top:-2px">4</span>그림을 다 받으면 시작할 수 있습니다</div>
+    </div>
+  </div>
+</div>
+
+<h2>3. 판 화면 · 그림을 아직 못 받았을 때 (혼자 하기, 또는 온라인에 바로 들어온 경우)</h2>
+<div class="row">
+  <div class="stage">
+    <div class="p top"><b>준비</b> 남은 15초 <span style="margin-left:auto">내 잡귀 0 / 60</span></div>
+    <div class="p left">다음 할 일<br>Space로 뽑으세요</div>
+    <div class="lane mk new"><span class="n new" style="left:6px;top:6px">5</span>
+      <div class="cover"><b>그림 불러오는 중 63%</b><div class="bar"><i></i></div><small>다 받으면 바로 시작합니다</small></div>
+    </div>
+    <div class="p right">도깨비불 4<br>엽전 0<br>메밀묵 1</div>
+    <div class="p bottom">Space 뚝딱 · E 강화 · D 도감</div>
+  </div>
+</div>
+
+<h2>설명</h2>
+<ol class="notes">
+  <li><b>새로 생김</b> · 진행률 줄. 첫 화면이 뜰 때 시작한 그림 받기가 얼마나 됐는지 보여 줍니다. 다 받으면 사라집니다. 받다가 실패한 파일도 끝난 것으로 셉니다(판에서 다시 받습니다).</li>
+  <li><b>바뀜</b> · 손님의 준비 버튼은 다 받을 때까지 눌리지 않고 "그림 받는 중…"이라고 씁니다. 그래서 준비한 사람은 모두 그림을 다 받은 사람입니다.</li>
+  <li><b>바뀜</b> · 방장의 시작 버튼은 지금처럼 손님이 모두 준비해야 눌리고, 방장 자신도 다 받아야 눌립니다.</li>
+  <li><b>바뀜</b> · 방장의 안내 줄은 손님이 모두 준비했는데 방장만 아직 받는 중일 때 이 문구를 씁니다.</li>
+  <li><b>새로 생김</b> · 보드를 덮는 진행률. 판 그림이 다 들어올 때까지 보드 자리만 덮고, 옆 패널은 그대로 보입니다. 혼자 하기는 이동안 준비 시간이 멈춰 있습니다. 온라인은 대기실에서 다 받았다면 거의 보이지 않고, 새로 고침이나 끊긴 뒤 다시 들어온 경우에만 잠깐 보입니다.</li>
+</ol>
+</body></html>

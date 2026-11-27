@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { coverWhileLoading } from '../ui/loading';
 import type { GameData } from '@dorandi/logic';
 import { bindBattleAudio } from '../audio/battle';
 import { LaneScene } from '../LaneScene';
@@ -20,6 +21,7 @@ export function startBattle(net: NetClient, data: GameData, goRematch: (roomId: 
   watchSupport(net);
   const scene = new LaneScene(driver, { height: LANE_CANVAS_ONLINE.height });
 
+  coverWhileLoading(scene, document.getElementById('lane')!);
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     audio: { noAudio: true },

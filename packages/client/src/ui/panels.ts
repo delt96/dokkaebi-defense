@@ -1,17 +1,18 @@
 import { STORAGE_MAX_GRADE, isTamedKind, jigeCandidates, unitDefFast, type GameState, type ShopView } from '@dorandi/logic';
 import { GRADE_COLOR, type WinPlace } from '../layout';
 import {
-  ATTACK_RANGE_HINT, REPLACE_ITEM_TEXT, attackRangeText, baseSpec, cardRangeText, combineNoteLines, combineOptions, itemShareText, nextCombines, rightModel,
+  ATTACK_RANGE_HINT, REPLACE_ITEM_TEXT, attackRangeText, auraCapText, baseSpec, cardRangeText, combineNoteLines, combineOptions, itemShareText, nextCombines, rightModel,
   summonOddsText, unitCard, upgradeInfoText, upgradeRows, type CombineOption, type NextList, type UnitCard,
 } from './models';
 import { el, esc, setHtml } from './dom';
 import { typeBadgeHtml } from './badge';
 import { STORE_ALL_KEY, STORE_KEY, unitFaceHtml } from './storage';
 import { nextListHtml, recipeRowHtml } from './next-list';
-import { roleText } from './dex-roles';
+import { roleText, type RoleTag } from './dex-roles';
 import { pinButton } from './target';
 import { rightBarHtml, winHeadHtml } from './windows';
 import { firstTip, type FirstTip, type TipKey } from './first-visit';
+import { keyOf, type NumKeyMap } from './numkeys';
 
 /** `market`: stage 3 shows a 장터 (B) button; true while the panel is open. `quests`: the 60-round quest box, laid at the
  * bottom above the dex button; the settings gear sits under both. */
@@ -87,13 +88,14 @@ export function unitDetailsHtml(state: GameState, selected: number, target: stri
   });
   const stats = `<dl class="ud-stats">${statHtml('공격력', String(card.attack), card.attackBonus)}${statHtml('공격 간격', `${card.interval}초`, card.speedBonus, '속도 ')}${statHtml('사거리', cardRangeText(state.data, card).replace('사거리 ', ''), 0, '', ATTACK_RANGE_HINT)}${statHtml('판매가', `${card.sellPrice}냥`)}</dl>
     ${card.item ? `<p class="ud-item">아이템 ${esc(card.item.name)}${itemShare(card, 'attack') || itemShare(card, 'speed')}</p>` : ''}`;
-  const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}">${roleText(t)}</span>`).join('')}</div>` : '';
+  const cap = auraCapText(state.data, unitDefFast(state.data, unit.defId));
+  const tagTitle = (t: RoleTag) => (t.role === 'aura' && cap ? ` title="${esc(cap)}"` : '');
+  const roles = card.roles.length ? `<div class="dex-roles">${card.roles.map(t => `<span class="role-tag role-${t.role}"${tagTitle(t)}>${roleText(t)}</span>`).join('')}</div>` : '';
   const lines = card.skillText ? card.skillText.split(' / ') : [];
   const skill = lines.length ? `<ul class="ud-lines">${lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="ud-empty">특수 능력 없음</p>';
   const body = [
     stats,
     sectionHtml('능력', roles + skill),
-    card.notes.length ? sectionHtml('메모', notesHtml(card.notes)) : '',
     sectionHtml('조합', `<div class="recipe-list">${options.join('') || '최종 조합입니다.'}</div>`),
   ].join('');
   return `<section class="win unit-details" role="dialog" aria-labelledby="win-left-title">${head}<div class="win-body ud-body">${body}</div></section>`;
@@ -118,7 +120,7 @@ export function helpLineHtml(hotkeys?: string, ctx: HelpContext = {}): string {
   const drop = new Set<TipKey>(ctx.tip?.drop ?? []);
   const keys = [
     ...(drop.has('W') ? [] : ['W 다음 조합 고르기']), ...(drop.has('Space') ? [] : ['Space 소환']), 'E 강화', 'D 도감', ctx.online ? 'Q 도우미' : 'Q 이 유닛/전체',
-    ...(drop.has('G') ? [] : [`${STORE_ALL_KEY} 1·2등급 보관`]), ...(hotkeys ? [hotkeys] : []), ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : []),
+    ...(drop.has('G') ? [] : [`${STORE_ALL_KEY} 1·2등급 보관`]), ...(hotkeys ? [hotkeys] : []), '1~9 바로 사기', ...(ctx.quests ? ['J 퀘스트'] : []), ...(ctx.pause ? ['P 멈춤'] : []),
   ];
   return helpHtml(keys, ctx.tip?.text);
 }
@@ -305,11 +307,14 @@ export function soloPanelHtml(state: GameState, opts: SoloPanelOpts): string {
     + `${jige ? `<div class="up-jige">${jige}</div>` : ''}${item}${soloActionsHtml(state, slot, unitId, card.sellPrice, opts.sellArmed === true)}</div>`;
 }
 
-export function upgradesHtml(state: GameState, wins: WinPlace, heldCoins: number): string {
-  const items = upgradeRows(state).map((r, i) => `<div class="up-item">`
-    + `<div class="up-line"><span class="upgrade-key">${i + 1}</span> ${esc(r.label)} <b>${r.level} / ${r.max}</b></div>`
+export function upgradesHtml(state: GameState, wins: WinPlace, heldCoins: number, keys: NumKeyMap): string {
+  const items = upgradeRows(state).map(r => {
+    const k = keyOf(keys, `upgrade:${r.id}`);
+    return '<div class="up-item">'
+    + `<div class="up-line">${k === null ? '' : `<span class="upgrade-key">${k}</span> `}${esc(r.label)} <b>${r.level} / ${r.max}</b></div>`
     + `<div class="up-effect">${esc(r.effectText)}</div>`
-    + `<button data-action="upgrade" data-arg="${r.id}"${r.affordable ? '' : ' disabled'}>${r.cost === null ? '최대' : `${r.cost}냥`}</button></div>`).join('');
+    + `<button data-action="upgrade" data-arg="${r.id}"${r.affordable ? '' : ' disabled'}>${r.cost === null ? '최대' : `${r.cost}냥`}</button></div>`;
+  }).join('');
   const wallet = wins === 'outside' ? `<span class="win-wallet">엽전 <b>${esc(state.coins - heldCoins)}</b></span>` : '';
   return winHeadHtml({ side: 'right', titleHtml: '강화 (E)', extraHtml: wallet, closeLabel: '강화 닫기 (E)' })
     + (wins === 'inside' ? rightBarHtml(state, heldCoins) : '')

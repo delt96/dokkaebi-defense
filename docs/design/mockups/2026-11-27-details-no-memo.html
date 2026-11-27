@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>상세 창 메모 칸 빼기 목업</title>
+<style>
+  :root { --panel:#17121f; --edge:#2a2236; --ink:#e8e0d0; --dim:#9a90a8; --accent:#ffe08a; --new:#e8a33d; --chg:#6fb7e0; --del:#e0607a; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:24px 28px 80px; background:#140f17; color:#e8dfe9; font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  p.sub { margin:2px 0 10px; color:#b8aabb; font-size:14px; line-height:1.55; max-width:1100px; }
+  .legend { display:flex; gap:18px; margin:10px 0 18px; font-size:14px; align-items:center; }
+  .legend i { display:inline-block; width:34px; height:16px; vertical-align:middle; margin-right:6px; }
+  .legend .l-new { outline:2px dashed var(--new); } .legend .l-chg { outline:2px dashed var(--chg); } .legend .l-del { outline:2px dashed var(--del); }
+  .row { display:flex; flex-wrap:wrap; gap:48px; align-items:flex-start; }
+  .col { display:flex; flex-direction:column; gap:8px; }
+  .col h2 { font-size:16px; margin:0; }
+  .cap { font-size:13px; color:#a898ad; max-width:420px; line-height:1.5; }
+  .n { position:absolute; z-index:9; width:20px; height:20px; border-radius:50%; font:700 12px/20px sans-serif; text-align:center; color:#140f17; box-shadow:0 0 0 2px #140f17; }
+  .n.new { background:var(--new); } .n.chg { background:var(--chg); } .n.del { background:var(--del); }
+  .mk { position:relative; } .mk.new { outline:2px dashed var(--new); outline-offset:1px; } .mk.chg { outline:2px dashed var(--chg); outline-offset:1px; } .mk.del { outline:2px dashed var(--del); outline-offset:1px; opacity:.55; }
+  ol.notes { font-size:14px; line-height:1.7; color:#d8cbd9; max-width:900px; padding-left:22px; margin-top:28px; }
+  ol.notes b { color:#ffd58a; }
+
+  /* the 상세 window inside the board (196x308), drawn at 2x */
+  .zoom { width:392px; height:616px; position:relative; }
+  .win { transform:scale(2); transform-origin:top left; position:absolute; left:0; top:0; width:196px; height:308px; display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--accent); font-size:10px; line-height:13px; color:var(--ink); }
+  .head { flex:none; display:flex; align-items:center; gap:5px; min-height:30px; padding:2px 3px 2px 6px; border-bottom:1px solid var(--edge); white-space:nowrap; }
+  .face { width:24px; height:24px; border:1px solid #6fa0e0; border-radius:3px; background:#3a2a1a; }
+  .head b { color:var(--accent); }
+  .grade { color:var(--dim); }
+  .badge { font-size:9px; padding:0 3px; border:1px solid #7f8fe0; color:#b8c4ff; border-radius:2px; }
+  .close { margin-left:auto; border:1px solid #4a3e5a; background:#2a2236; padding:3px 6px; border-radius:2px; }
+  .body { flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:6px; padding:6px; position:relative; }
+  .stats { display:grid; grid-template-columns:1fr 1fr; gap:3px; }
+  .stat { padding:2px 4px; border:1px solid var(--edge); border-radius:3px; background:#0d0a1466; }
+  .stat small { display:block; color:var(--dim); font-size:10px; }
+  .stat b { font-weight:bold; }
+  .sec h3 { margin:0 0 3px; padding-bottom:1px; border-bottom:1px solid var(--edge); color:var(--accent); font-size:10px; }
+  .tag { display:inline-block; font-size:10px; line-height:12px; padding:0 3px; border:1px solid #6fbf7a; color:#9fe0a8; border-radius:2px; margin-bottom:3px; }
+  ul { margin:0; padding-left:12px; line-height:1.45; }
+  ul.dim { color:#bfb5cc; }
+  .recipe { display:flex; flex-direction:column; gap:2px; }
+  .rrow { border:1px dashed #3d3349; border-radius:2px; padding:2px 3px; display:flex; flex-direction:column; gap:2px; }
+  .rtop { display:flex; align-items:center; gap:3px; }
+  .rtop i { width:14px; height:14px; border-radius:2px; background:#5a4020; display:inline-block; }
+  .chips { display:flex; gap:3px; }
+  .chips span { width:22px; height:22px; border:1px solid #4a3e5a; border-radius:2px; background:#211a2c; }
+  .spec { padding:2px 0 2px 6px; border-left:2px solid var(--edge); color:#cfc6da; }
+  .pin { align-self:flex-end; border:1px solid #4a3e5a; background:#2a2236; padding:3px 6px; border-radius:2px; margin-top:-26px; }
+  .scroll { position:absolute; right:1px; top:4px; width:3px; height:150px; background:#4a3f5c; border-radius:2px; }
+  .tip { position:absolute; left:6px; top:-30px; width:176px; z-index:5; padding:3px 5px; background:#0d0a14; border:1px solid var(--accent); color:var(--ink); font-size:10px; line-height:13px; }
+  .cut { position:absolute; left:0; right:0; bottom:0; height:2px; background:var(--del); }
+</style></head>
+<body>
+<h1>상세 창: 메모 칸 빼기</h1>
+<p class="sub">3단계 상위 유닛은 능력·메모 칸이 길어서 조합 칸이 창 아래 끝으로 밀리고, 3px 스크롤바는 잘 보이지 않는다. 메모 칸을 빼서 1·2단계와 같은 구성으로 맞춘다. 판 안쪽 창(196×308)을 2배로 그렸고, 예시는 3등급 풀무다. 조합 결과 쪽 수치는 자리만 잡은 값이다.</p>
+<div class="legend"><span><i class="l-del"></i>빠짐</span><span><i class="l-chg"></i>바뀜</span><span><i class="l-new"></i>새로 생김</span></div>
+
+<div class="row">
+  <div class="col">
+    <h2>지금</h2>
+    <div class="zoom"><div class="win">
+      <div class="head"><span class="face"></span><b>풀무</b><span class="grade">3등급</span><span class="badge">마딜</span><span class="close">닫기</span></div>
+      <div class="body">
+        <span class="scroll"></span>
+        <div class="stats">
+          <div class="stat"><small>공격력</small><b>54</b></div><div class="stat"><small>공격 간격</small><b>1초</b></div>
+          <div class="stat"><small>사거리</small><b>2.5칸</b></div><div class="stat"><small>판매가</small><b>20냥</b></div>
+        </div>
+        <div class="sec"><h3>능력</h3><span class="tag">오라</span>
+          <ul><li>오라: 주변 1.5칸 마딜 아군 공격력 +15%</li><li>기본 공격마다 추가 피해: 주변 3칸에 공격력 15%</li></ul></div>
+        <div class="sec mk del"><span class="n del" style="left:-14px;top:-8px">1</span><h3>메모</h3>
+          <ul class="dim"><li>마딜 강화를 받음</li><li>오라는 종류마다 한 번만, 합쳐서 공격 속도 +50%·공격력 +40%까지</li></ul></div>
+        <div class="sec"><h3>조합</h3>
+          <div class="recipe"><div class="rrow"><span class="rtop"><i></i>모루 <span class="badge">물딜</span></span><span class="chips"><span></span><span></span><span></span></span></div></div></div>
+        <span class="cut"></span>
+      </div>
+    </div></div>
+    <p class="cap">조합 칸 첫 줄이 창 아래 끝에 걸린다. 4등급 인두는 첫 줄이 아예 창 밖으로 나간다.</p>
+  </div>
+
+  <div class="col">
+    <h2>바꾼 뒤</h2>
+    <div class="zoom"><div class="win">
+      <div class="head"><span class="face"></span><b>풀무</b><span class="grade">3등급</span><span class="badge">마딜</span><span class="close">닫기</span></div>
+      <div class="body" style="overflow:visible">
+        <div class="stats">
+          <div class="stat"><small>공격력</small><b>54</b></div><div class="stat"><small>공격 간격</small><b>1초</b></div>
+          <div class="stat"><small>사거리</small><b>2.5칸</b></div><div class="stat"><small>판매가</small><b>20냥</b></div>
+        </div>
+        <div class="sec" style="position:relative"><h3>능력</h3>
+          <span class="tag mk new"><span class="n new" style="left:-16px;top:-6px">2</span>오라</span>
+          <div class="tip mk new">오라는 종류마다 한 번만, 합쳐서 공격 속도 +50%·공격력 +40%까지</div>
+          <ul><li>오라: 주변 1.5칸 마딜 아군 공격력 +15%</li><li>기본 공격마다 추가 피해: 주변 3칸에 공격력 15%</li></ul></div>
+        <div class="sec mk chg"><span class="n chg" style="left:-14px;top:-8px">3</span><h3>조합</h3>
+          <div class="recipe"><div class="rrow"><span class="rtop"><i></i>모루 <span class="badge">물딜</span></span><span class="chips"><span></span><span></span><span></span></span></div>
+            <span class="pin">목표로</span>
+            <div class="spec">공격력 54 → ··· · 간격 1초 → ···<br>사거리 2.5칸 → ···</div>
+            <ul class="dim"><li>결과 유닛의 능력 줄</li></ul></div></div>
+      </div>
+    </div></div>
+    <p class="cap">메모 칸 높이(33~76px)만큼 조합 칸이 올라온다. 판 안쪽 창 기준으로 가장 빠듯한 인두도 첫 줄 위로 66px가 남는다(온라인 50px).</p>
+  </div>
+</div>
+
+<ol class="notes">
+  <li><b>메모 칸을 뺀다.</b> "물딜/마딜 강화를 받음"은 제목 줄의 물딜/마딜 표시와 같은 내용이다. 도감의 메모는 그대로 둔다.</li>
+  <li><b>오라 상한 문장은 "오라" 표시의 툴팁으로 옮긴다.</b> 마우스를 올리면 보인다. 오라 유닛에만 붙는다.</li>
+  <li><b>조합 칸이 위로 올라온다.</b> 구성은 1·2단계 상세 창과 같아진다(능력치 → 능력 → 조합).</li>
+</ol>
+</body></html>

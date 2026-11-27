@@ -105,14 +105,14 @@ describe('the help line with the tip', () => {
   test('the tip comes first and the keys it names drop out', () => {
     const tip = firstTip(emptyGame(4), false);
     expect(text(helpLineHtml('B 장터', { quests: true, pause: true, tip }))).toBe(
-      'Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개) · E 강화 · D 도감 · Q 이 유닛/전체 · B 장터 · J 퀘스트 · P 멈춤');
+      'Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개) · E 강화 · D 도감 · Q 이 유닛/전체 · B 장터 · 1~9 바로 사기 · J 퀘스트 · P 멈춤');
     expect(text(helpLineHtml('B 장터', { quests: true, pause: true, tip: combine }))).toBe(
-      'W로 재료 유닛을 고르고 Z로 조합합니다 · 왼쪽 목록 맨 위부터 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · J 퀘스트 · P 멈춤');
+      'W로 재료 유닛을 고르고 Z로 조합합니다 · 왼쪽 목록 맨 위부터 · Space 소환 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · B 장터 · 1~9 바로 사기 · J 퀘스트 · P 멈춤');
     expect(text(helpLineHtml('B 장터', { online: true, quests: true, tip: combine }))).toBe(
-      'W로 재료 유닛을 고르고 Z로 조합합니다 · 왼쪽 목록 맨 위부터 · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · B 장터 · J 퀘스트');
+      'W로 재료 유닛을 고르고 Z로 조합합니다 · 왼쪽 목록 맨 위부터 · Space 소환 · E 강화 · D 도감 · Q 도우미 · G 1·2등급 보관 · B 장터 · 1~9 바로 사기 · J 퀘스트');
     const short: FirstTip = { step: 'short', text: '조합할 재료가 아직 모자랍니다 · Space로 더 뽑으세요 (도깨비불 2개)', drop: ['Space'] };
     expect(text(helpLineHtml(undefined, { pause: true, tip: short }))).toBe(
-      '조합할 재료가 아직 모자랍니다 · Space로 더 뽑으세요 (도깨비불 2개) · W 다음 조합 고르기 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · P 멈춤');
+      '조합할 재료가 아직 모자랍니다 · Space로 더 뽑으세요 (도깨비불 2개) · W 다음 조합 고르기 · E 강화 · D 도감 · Q 이 유닛/전체 · G 1·2등급 보관 · 1~9 바로 사기 · P 멈춤');
   });
 
   test('the tip is a bold gold lead, not a live region', () => {
@@ -173,6 +173,6 @@ describe('renderBottom', () => {
   test('online: the same tip leads the line with Q 도우미', () => {
     document.body.innerHTML = STAGE_HTML;
     renderBottom(emptyGame(4), null, true, 'B 장터');
-    expect(bottom().textContent).toBe('Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개) · E 강화 · D 도감 · Q 도우미 · B 장터 · J 퀘스트');
+    expect(bottom().textContent).toBe('Space나 뚝딱!으로 유닛을 뽑으세요 (도깨비불 4개) · E 강화 · D 도감 · Q 도우미 · B 장터 · 1~9 바로 사기 · J 퀘스트');
   });
 });

@@ -44,8 +44,26 @@ export function loadArt(file: ArtFile, background = false): Promise<Art> {
   return request;
 }
 
+const warm = { done: 0, total: 0 };
+const progressListeners = new Set<() => void>();
+
+/** How many of the files warmArt asked for have settled, failed ones included; 0 of 0 when nothing was warmed. */
+export function artProgress(): { done: number; total: number } {
+  return { ...warm };
+}
+
+export function onArtProgress(cb: () => void): () => void {
+  progressListeners.add(cb);
+  return () => { progressListeners.delete(cb); };
+}
+
 export function warmArt(): void {
-  for (const file of [...Array.from(SPRITE_IDS, spriteFile), ...Array.from(SMALL_IDS, smallFile), ...FX_FILES]) {
-    void loadArt(file, true).catch(() => { /* The match loader can retry failed requests. */ });
+  const files = [...Array.from(SPRITE_IDS, spriteFile), ...Array.from(SMALL_IDS, smallFile), ...FX_FILES];
+  warm.total += files.length;
+  for (const file of files) {
+    void loadArt(file, true).catch(() => { /* The match loader can retry failed requests. */ }).then(() => {
+      warm.done++;
+      for (const cb of progressListeners) cb();
+    });
   }
 }

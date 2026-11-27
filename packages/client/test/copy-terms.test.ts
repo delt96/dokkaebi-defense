@@ -9,6 +9,7 @@ import { settingsHtml } from '../src/ui/settings';
 import { firstTip } from '../src/ui/first-visit';
 import { jigeListHtml } from '../src/ui/econ';
 import { dexHtml } from '../src/ui/dex';
+import { DEFAULT_NUM_KEYS } from '../src/ui/numkeys';
 import { topModel } from '../src/online/models';
 import { renderTop } from '../src/online/panels';
 import { menuHtml, spiritCardHtml, spiritModel } from '../src/online/spirit';
@@ -142,7 +143,7 @@ describe('upgrades', () => {
     const info = upgradeInfoText(s);
     expect(info).toContain('저항 물리');
     expect(info).toContain('내 물딜 2기 · 마딜 1기');
-    expect(upgradesHtml(s, 'inside', 0)).toContain('내 물딜 2기 · 마딜 1기');
+    expect(upgradesHtml(s, 'inside', 0, DEFAULT_NUM_KEYS)).toContain('내 물딜 2기 · 마딜 1기');
     const early = createGame(d1, 1);
     expect(upgradeInfoText(early)).toBe('내 물딜 0기 · 마딜 0기');
   });

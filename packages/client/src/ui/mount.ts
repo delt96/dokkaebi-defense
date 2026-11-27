@@ -27,6 +27,7 @@ import {
 } from './gamble';
 import { el, esc, focusedIn, onAction, refocusIn, setHtml } from './dom';
 import { helperPopHtml } from './helper';
+import { markHover } from './next-list';
 import { edgeLevel, renderAlert, renderHud } from './hud';
 import {
   coinSpot, END_SCENE_SUB, EndScene, endSceneText, loopOwner, OneShots, refusalPos, refusalSpot, TopSlot, type EndKind, type RefusalSpot, type SlotItem, type SlotShown,
@@ -45,10 +46,11 @@ import { readTarget, targetHtml, writeTarget } from './target';
 import { closeSide, coveredIds, escStep, NO_SIDES, openSide, portraitGuide, rightBarHtml, sidesLocked, soloPause, toggleSide, type Side, type SideWin, type Sides } from './windows';
 import { soloMenuHtml } from './solo-menu';
 import { PORTRAIT_TITLE, portraitText } from './first-visit';
+import {
+  actionOf, assignNumKey, clearAction, DEFAULT_NUM_KEYS, numKeyAskHtml, numKeyName, numKeyOfCode, parseNumKeyAction, readNumKeys, splitAction, writeNumKeys,
+  type NumKeyAction, type NumKeyMap,
+} from './numkeys';
 
-const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
-  Digit1: 'physical', Digit2: 'magical', Digit3: 'polish',
-};
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
 const BANNER_MS = 1800;
@@ -99,7 +101,7 @@ export function econNoteText(event: GameEvent, data: GameData): string | null {
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void; onHome?: () => void }
 
 /** Settings window presses; the pressed choice keeps the focus after the redraw. */
-const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'setFx', 'setHelp']);
+const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'setFx', 'setHelp', 'numKeysFold', 'numKeysReset']);
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
@@ -180,6 +182,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let wasOver = false;
   // the hotkey line under the board (단축키 안내 줄 in the settings window)
   let helpLine = readHelpLine();
+  let numKeys: NumKeyMap = readNumKeys();
+  // the settings window's 숫자키 list; folded again when the page loads
+  let numKeysOpen = false;
+  // the Ctrl+click question: the market or 강화 item waiting for its key
+  let keyAsk: NumKeyAction | null = null;
   let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | 'restartAsk' | 'homeAsk' | null = null;
   let sides: Sides = NO_SIDES;
   // design ⑫: the end scene runs once, when this screen sees the game end; a screen mounted on an ended game (a rejoin) skips it
@@ -233,7 +240,16 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let marketCell: HTMLElement | null = null;
 
   function gamble(cmd: GambleCommand): void {
-    if (sides.right !== 'market' || !econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
+    const g = econ()?.market?.gamble;
+    if (!g || (reveal && reveal.phase !== 'result')) return;
+    // a number key reaches here with the market closed or its button locked, so a known refusal is said instead of rolling
+    const table = cmd.type === 'gambleUnit' ? g.units.tables[cmd.table] : undefined;
+    const why = cmd.type === 'gambleCoins' ? g.coins.stakes.find(s => s.price === cmd.stake)?.why : table?.why;
+    if (why) {
+      const text = why === 'gambleRound' && table ? `큰 보따리는 ${table.fromRound}라운드부터입니다` : rejectText(why);
+      if (text) refuse(text, { type: cmd.type, arg: cmd.type === 'gambleCoins' ? String(cmd.stake) : cmd.table });
+      return;
+    }
     playGamblePress(cmd.type);
     reveal = startReveal(performance.now());
     driver.queue(cmd);
@@ -687,6 +703,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         modal = null;
         break;
       case 'setHelp': helpLine = arg === 'on'; writeHelpLine(helpLine); break;
+      case 'numKeysFold': numKeysOpen = !numKeysOpen; break;
+      case 'numKeysReset': numKeys = DEFAULT_NUM_KEYS; writeNumKeys(numKeys); break;
+      case 'keyAskPick':
+        if (keyAsk) { numKeys = assignNumKey(numKeys, Number(arg), keyAsk); writeNumKeys(numKeys); }
+        keyAsk = null;
+        break;
+      case 'keyAskClear':
+        if (keyAsk) { numKeys = clearAction(numKeys, keyAsk); writeNumKeys(numKeys); }
+        keyAsk = null;
+        break;
+      case 'keyAskClose': keyAsk = null; break;
       case 'setFx': if ((arg === 'on') !== !!scene.reduceEffects) scene.setReduceEffects(arg === 'on'); break;
       case 'resume': userPaused = false; break;
       case 'portraitDismiss': guideDismissed = true; break;
@@ -765,6 +792,38 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay', 'pause-cover']) onAction(el(id), act);
   // a press that reaches a locked box anyway (inert is not honoured everywhere) still buys nothing
   for (const side of SIDES) onAction(el(`win-${side}`), (a, g) => { if (!locked()) act(a, g); });
+  /** The market or 강화 cell under a pointer and the item its button buys; a locked button takes no pointer, so the cell answers. */
+  function askedCell(target: EventTarget | null): { cell: HTMLElement; action: NumKeyAction } | null {
+    const cell = (target as HTMLElement | null)?.closest?.<HTMLElement>('.gamble-option, .up-item');
+    const button = cell?.querySelector<HTMLElement>('[data-action]');
+    const action = button ? actionOf(button.dataset.action ?? '', button.dataset.arg ?? '') : null;
+    return cell && action ? { cell, action } : null;
+  }
+  // capture: onAction buys on the plain pointerdown of the same press, so this has to run first and stop it
+  rightBox.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0 || !(ev.ctrlKey || ev.metaKey) || driver.readOnly || locked()) return;
+    const asked = askedCell(ev.target);
+    if (!asked) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    keyAsk = asked.action;
+    render();
+  }, true);
+  // a Mac turns Ctrl+click into the context menu as well
+  rightBox.addEventListener('contextmenu', ev => { if ((ev.ctrlKey || ev.metaKey) && askedCell(ev.target)) ev.preventDefault(); });
+  /** Draws the Ctrl+click question over its cell, or drops it once the cell is gone (window closed, tab changed, a lock). */
+  function placeKeyAsk(): void {
+    rightBox.querySelector('.key-ask')?.remove();
+    if (keyAsk === null) return;
+    const cell = locked() ? undefined : Array.from(rightBox.querySelectorAll<HTMLElement>('.gamble-option, .up-item')).find(c => askedCell(c)?.action === keyAsk);
+    if (!cell) { keyAsk = null; return; }
+    rightBox.insertAdjacentHTML('beforeend', numKeyAskHtml(keyAsk, numKeys, numKeyName(keyAsk, driver.state.data)));
+    const box = rightBox.querySelector<HTMLElement>('.key-ask')!;
+    const frame = rightBox.getBoundingClientRect();
+    const scale = (rightBox.offsetWidth ? frame.width / rightBox.offsetWidth : 1) || 1;
+    const at = cell.getBoundingClientRect();
+    box.style.top = `${Math.max(2, Math.round((at.top - frame.top) / scale) - box.offsetHeight - 2)}px`;
+  }
   onAction(guideBox, act);
   for (const type of ['resize', 'orientationchange']) window.addEventListener(type, () => render());
   // the storage column belongs to the own living lane; it takes presses while no locking window is open and no pillar covers it
@@ -896,6 +955,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       || !unit || unit.id !== list.source.unitId || unit.defId !== list.defId;
   }
   // the R list filters as one types; only the rows are redrawn so the box keeps its text, caret and IME state
+  el('modal').addEventListener('change', ev => {
+    const select = (ev.target as HTMLElement).closest?.<HTMLSelectElement>('select[data-numkey]');
+    if (!select) return;
+    const n = Number(select.dataset.numkey);
+    numKeys = assignNumKey(numKeys, n, parseNumKeyAction(select.value));
+    writeNumKeys(numKeys);
+    render();
+    el('modal').querySelector<HTMLSelectElement>(`select[data-numkey="${n}"]`)?.focus();
+  });
   el('win-left').addEventListener('input', ev => {
     const input = (ev.target as HTMLElement).closest<HTMLInputElement>('.jige-search input');
     if (!input || !jigeList) return;
@@ -925,6 +993,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       return;
     }
     if (isTypingTarget(ev)) return;
+    // while the question is up the digits answer it instead of buying, Ctrl still held from the click included
+    if (keyAsk !== null && !ev.isComposing) {
+      const n = numKeyOfCode(ev.code);
+      if (n !== null) { ev.preventDefault(); act('keyAskPick', String(n)); return; }
+      if (ev.code === 'Escape') { act('keyAskClose', ''); return; }
+    }
     if (ev.repeat && spaceSummons(ev)) { ev.preventDefault(); return; }
     if (driver.failed || ev.defaultPrevented || ev.isComposing || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
     const target = ev.target as HTMLElement | null;
@@ -953,7 +1027,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (online && modal === 'settings' && ev.code === 'KeyQ' && !ev.shiftKey && driver.state.phase !== 'ended') { act('toggleHelper', ''); return; }
     if (modal || sceneRunning || driver.state.phase === 'ended') return;
     // side-window keys do nothing under a lock (P pause too), so a paused board buys nothing
-    const buy = UPGRADE_KEYS[ev.code];
+    const num = numKeyOfCode(ev.code);
+    if (num !== null) {
+      const assigned = numKeys[num - 1];
+      if (assigned && !locked()) { const { action, arg } = splitAction(assigned); act(action, arg); }
+      return;
+    }
     const quests = ev.code === 'KeyJ' && !!driver.state.data.economy;
     const market = ev.code === 'KeyB' && !!driver.state.data.economy?.market;
     const jige = ev.code === 'KeyR' && !!driver.state.data.economy?.market;
@@ -968,7 +1047,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       else if (card?.unitId != null) act('unitDetails', '');
       return;
     }
-    if (ev.code === 'KeyE' || buy || quests || market || jige || helperKey) {
+    if (ev.code === 'KeyE' || quests || market || jige || helperKey) {
       if (locked()) return;
       // online Q opens and closes the helper, so Shift+Q flips its scope while it is open
       if (helperKey) {
@@ -988,7 +1067,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (market) { act('toggleMarket', ''); return; }
       // J opens the quest list from preparation on and closes it again; the clock never stops for it
       if (quests) { act(sides.right === 'quests' ? 'closeWin' : 'openQuests', sides.right === 'quests' ? 'right' : ''); return; }
-      if (sides.right === 'upgrades') { act('upgrade', buy!); return; }
     }
     // one Space rule while nothing locks the board: summon even on a focused button; buttons take Enter
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
@@ -1159,7 +1237,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (view && opts.data) {
       renderTop(view, opts.data);
       const helper = helperOpen() ? helperPopHtml(s, list, {
-        unitId: selected === null ? null : s.slots[selected]?.id ?? null, scope, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne,
+        unitId: selected === null ? null : s.slots[selected]?.id ?? null, scope, wPick: wPick?.result ?? null, hover: null, showAllOne,
       }, helperFrame) : '';
       if (helperFrame === 'win') helperWin = helper;
       renderRows(view, opts.data, helperFrame === 'win' ? '' : helper, rowMarks(view, now));
@@ -1167,7 +1245,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     } else {
       renderHud(s, pause.pill, alertOpts);
       setHtml(el('left'), s.phase === 'ended' ? '' : infoHtml || soloPanelHtml(s, {
-        selected, list, idleList, wPick: wPick?.result ?? null, hover: hoverRow, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected), shop,
+        selected, list, idleList, wPick: wPick?.result ?? null, hover: null, showAllOne, skillOpen, jige: held, sellArmed: sellArmed(s, selected), shop,
         itemOpen: itemMenuId !== null,
       }));
     }
@@ -1229,8 +1307,11 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     const lockOpen = modal !== null || soloResult;
     const wins = currentWins();
     renderSides(s, wins, selected, helperWin);
+    // the lists are drawn without hover, so a hover change leaves their HTML (and scroll boxes) as they are
+    for (const id of ['left', 'win-left']) markHover(el(id), list, hoverRow);
     placeRefusal(now, false);
     placeCoinFloat(now);
+    placeKeyAsk();
     const cover = el('pause-cover');
     const coverOn = !online && pause.cover;
     if (cover.hidden === coverOn) cover.hidden = !coverOn;
@@ -1267,12 +1348,18 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : !online && (modal === 'menu' || modal === 'restartAsk' || modal === 'homeAsk') ? soloMenuHtml(modal) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen() : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : !online && (modal === 'menu' || modal === 'restartAsk' || modal === 'homeAsk') ? soloMenuHtml(modal) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen() : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, numKeys: { map: numKeys, open: numKeysOpen, data: s.data }, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
     }
-    if (modal === 'settings' && !soloResult) wireAudioSettings(el('modal'));
+    if (modal === 'settings' && !soloResult) {
+      wireAudioSettings(el('modal'));
+      for (const select of Array.from(el('modal').querySelectorAll<HTMLSelectElement>('select[data-numkey]'))) {
+        const want = numKeys[Number(select.dataset.numkey) - 1] ?? '';
+        if (select.value !== want) select.value = want;
+      }
+    }
     if (shownModal === 'settings' && (modal !== 'settings' || soloResult)) gameAudio.previewTrack();
     shownModal = modal;
     dexListKey = dexShown ? listKey : '';
@@ -1410,7 +1497,7 @@ ${dex.mine.join()}`;
     shownMarket = sides.right === 'market' && e ? marketModel(e, s) : null;
     if ((sides.right === 'quests' && !e) || (sides.right === 'market' && !shownMarket)) sides = closeSide(sides, 'right');
     const held = heldCoins(reveal);
-    const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, held) }
+    const right = sides.right === 'upgrades' ? { cls: 'upgrades', html: upgradesHtml(s, wins, held, numKeys) }
       : sides.right === 'quests' && e ? {
         cls: 'quest-modal',
         html: questListHtml(questRows(e, s, online), questFocus, huntRows(e, s), { wins, bar: rightBarHtml(s, held, coinFx?.spot === 'win') }),
@@ -1431,7 +1518,7 @@ ${dex.mine.join()}`;
     const oldBody = rightBox.querySelector<HTMLElement>('.econ-body');
     const bodyTop = oldBody?.scrollTop ?? 0;
     setHtml(rightBox, shownMarket ? econPanelHtml(shownMarket, shownReveal, driver.readOnly, {
-      wins, bar: rightBarHtml(s, held, coinFx?.spot === 'win'), historyOpen, historyCount: gambleHistory.length, tab: marketTab,
+      wins, bar: rightBarHtml(s, held, coinFx?.spot === 'win'), historyOpen, historyCount: gambleHistory.length, tab: marketTab, keys: numKeys,
     }) : section('right', right));
     const panel = marketPanel();
     if (panel) {

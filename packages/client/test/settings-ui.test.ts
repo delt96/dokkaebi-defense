@@ -5,6 +5,7 @@ import { forceRound, placeUnitForTest } from '@dorandi/logic/testing';
 import { GameDriver } from '../src/driver';
 import { mountUi } from '../src/ui/mount';
 import { key, press, STAGE_HTML } from './fixtures/net';
+import { DEFAULT_NUM_KEYS, numKeysSettingsHtml } from '../src/ui/numkeys';
 
 class FakeScene {
   selectedId: number | null = null;
@@ -50,7 +51,7 @@ describe('solo settings window', () => {
   test('the gear opens a window with the helper, speed, reduce-effects and help-line rows; Esc closes it', () => {
     expect(modal().textContent).toBe('');
     press(gear());
-    expect(Array.from(modal().querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'speed', 'fx', 'help']);
+    expect(Array.from(modal().querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'speed', 'fx', 'help', 'numKeys']);
     expect(row('help')!.textContent).toContain('단축키 안내 줄');
     expect(choice('setHelp', 'on').getAttribute('aria-pressed')).toBe('true');
     expect(row('helper')!.textContent).toContain('고르지 않았을 때 전체 목록');
@@ -105,6 +106,62 @@ describe('solo settings window', () => {
     press(choice('setFx', 'off'));
     expect(scene.reduceEffects).toBe(false);
     expect(document.querySelector('#left [data-action="toggleFx"], #left .fx-toggle')).toBeNull();
+  });
+
+  const selects = () => Array.from(modal().querySelectorAll<HTMLSelectElement>('select[data-numkey]'));
+  const pick = (n: number, value: string) => {
+    const sel = modal().querySelector<HTMLSelectElement>(`select[data-numkey="${n}"]`)!;
+    sel.value = value;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+
+  test('the number-key row starts folded', () => {
+    press(gear());
+    expect(row('numKeys')!.textContent).toContain('숫자키');
+    expect(choice('numKeysFold', '').textContent).toBe('펼치기 ▾');
+    expect(selects()).toHaveLength(0);
+  });
+
+  test('unfolded it lists keys 1-9 with the default assignment, the hint and 처음대로', () => {
+    press(gear());
+    press(choice('numKeysFold', ''));
+    expect(choice('numKeysFold', '').textContent).toBe('접기 ▴');
+    expect(document.activeElement).toBe(choice('numKeysFold', ''));
+    expect(selects().map(s => s.value)).toEqual([
+      'upgrade:physical', 'upgrade:magical', 'upgrade:polish', 'gambleCoins:10', 'gambleCoins:100',
+      'gambleUnit:small', 'gambleUnit:big', 'gambleUnit:coin', '',
+    ]);
+    expect(Array.from(selects()[0]!.options, o => o.textContent)).toEqual([
+      '비움', '물딜 강화', '마딜 강화', '등급 손질', '돈 도박 10냥', '돈 도박 100냥', '보따리', '큰 보따리', '엽전 보따리',
+    ]);
+    expect(modal().textContent).toContain('장터·강화 버튼을 Ctrl+클릭해도 바꿀 수 있습니다');
+    expect(choice('numKeysReset', '').textContent).toBe('처음대로');
+  });
+
+  test('a changed key is saved, moves the item off its old key and buys after the window closes', () => {
+    const queue = vi.spyOn(driver, 'queue');
+    press(gear());
+    press(choice('numKeysFold', ''));
+    pick(9, 'gambleCoins:10');
+    expect(selects()[8]!.value).toBe('gambleCoins:10');
+    expect(selects()[3]!.value).toBe('');
+    expect(JSON.parse(localStorage.getItem('dorandi.numKeys')!)[8]).toBe('gambleCoins:10');
+    pick(9, '');
+    expect(JSON.parse(localStorage.getItem('dorandi.numKeys')!)[8]).toBeNull();
+    pick(1, 'upgrade:polish');
+    key('Escape');
+    key('Digit1');
+    expect(queue).toHaveBeenCalledWith({ type: 'upgrade', id: 'polish' });
+  });
+
+  test('처음대로 puts the default assignment back', () => {
+    press(gear());
+    press(choice('numKeysFold', ''));
+    pick(9, 'gambleCoins:10');
+    press(choice('numKeysReset', ''));
+    expect(selects()[3]!.value).toBe('gambleCoins:10');
+    expect(selects()[8]!.value).toBe('');
+    expect(JSON.parse(localStorage.getItem('dorandi.numKeys')!)[3]).toBe('gambleCoins:10');
   });
 });
 
@@ -179,4 +236,11 @@ describe('20-round solo', () => {
     press(choice('speed', '2'));
     expect(driver.speed).toBe(2);
   });
+});
+
+test('a stage without the market still offers every choice', () => {
+  const box = document.createElement('div');
+  box.innerHTML = numKeysSettingsHtml(DEFAULT_NUM_KEYS, true, loadGameData('stage2'));
+  expect(box.querySelectorAll('select[data-numkey]')).toHaveLength(9);
+  expect(box.querySelector('select[data-numkey="1"]')!.querySelectorAll('option')).toHaveLength(9);
 });

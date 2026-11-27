@@ -165,14 +165,19 @@ function supports(def: UnitDef): Effect[] {
 /** The upgrade a unit reads: its own damage type's, never its materials'. */
 export const upgradeLine = (def: UnitDef): string => `${typeName(def.damageType)} 강화를 받음`;
 
-/** Stage 3 notes under a unit: which upgrade it reads, and the aura caps. Empty for stage 1-2 data. */
+/** The aura cap sentence for a unit with an attack aura, null without one or without caps (stage 1-2). */
+export function auraCapText(data: GameData, def: UnitDef): string | null {
+  const caps = data.balance.auraCaps;
+  if (!caps || !def.skills.some(s => s.effects.some(e => e.kind === 'auraAttackSpeed' || e.kind === 'auraAttackPower'))) return null;
+  return `오라는 종류마다 한 번만, 합쳐서 공격 속도 +${pct(caps.attackSpeed)}·공격력 +${pct(caps.attackPower)}까지`;
+}
+
+/** Stage 3 notes under a dex entry: which upgrade it reads, and the aura caps. Empty for stage 1-2 data. */
 export function unitNotes(data: GameData, def: UnitDef): string[] {
   const out: string[] = [];
   if (data.balance.extendedCombat) out.push(upgradeLine(def));
-  const caps = data.balance.auraCaps;
-  if (caps && def.skills.some(s => s.effects.some(e => e.kind === 'auraAttackSpeed' || e.kind === 'auraAttackPower'))) {
-    out.push(`오라는 종류마다 한 번만, 합쳐서 공격 속도 +${pct(caps.attackSpeed)}·공격력 +${pct(caps.attackPower)}까지`);
-  }
+  const cap = auraCapText(data, def);
+  if (cap) out.push(cap);
   return out;
 }
 
@@ -747,7 +752,7 @@ export function upgradeRows(state: GameState): { id: UpgradeId; label: string; l
  * `attackBonus` / `speedBonus` are those bonuses as fractions (0.3 = +30%). `hidden`: a stage 3 unit tamed from a boss.
  */
 export interface UnitCard {
-  name: string; grade: number; hidden: boolean; typeText: '물딜' | '마딜'; skillText: string; notes: string[]; usedIn: string[]; roles: RoleTag[];
+  name: string; grade: number; hidden: boolean; typeText: '물딜' | '마딜'; skillText: string; usedIn: string[]; roles: RoleTag[];
   attack: number; attackBonus: number; interval: number; speedBonus: number; range: number; sellPrice: number;
   /**
    * The attached stage 3 item; `short` is the board's corner letter, `evolved` marks the evolve charm.
@@ -798,7 +803,7 @@ export function unitCard(state: GameState, slot: number): UnitCard | null {
     name: def.name, grade: def.grade, hidden: def.hidden === true, typeText: def.damageType === 'physical' ? '물딜' : '마딜',
     attack: Math.round(unitAttack(def, state.data.balance) * (1 + attackBonus)), attackBonus,
     interval: attackIntervalTicks(def.interval, fast) * state.data.balance.tickMs / 1000, speedBonus: fast,
-    range: unitRange(state, slot), skillText: unitSkillText(state.data, def), notes: unitNotes(state.data, def), usedIn, roles: unitRoles(def),
+    range: unitRange(state, slot), skillText: unitSkillText(state.data, def), usedIn, roles: unitRoles(def),
     sellPrice: state.data.balance.sellPrice[def.grade - 1] ?? 0,
   };
 }

@@ -45,7 +45,13 @@ export const TEXT = {
   disconnected: '연결이 끊겼습니다 · 다시 연결하는 중',
   versionMismatch: '게임이 업데이트되었습니다. 새로고침해 주세요',
   connectFail: '서버에 연결하지 못했습니다',
+  artWaitReady: '그림 받는 중…',
+  artWaitStart: '그림을 다 받으면 시작할 수 있습니다',
 } as const;
+
+export function artLoadText(pct: number, done: number, total: number): string {
+  return `그림 받는 중 ${pct}% (${done}/${total})`;
+}
 
 export const NO_ROOM_CODE = 522;
 
