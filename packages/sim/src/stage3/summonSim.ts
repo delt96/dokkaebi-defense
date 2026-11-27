@@ -5,7 +5,7 @@ export interface SummonReport {
   perUnit: { id: string; mean: number; p10: number; p90: number; failed: number }[];
   byFamily: { physical: number; magical: number };
   pickAt30: { id: string; share: number }[];
-  second: { mean: number; p10: number; p90: number };
+  second: { mean: number; p10: number; p90: number; runs: number; failed: number };
 }
 
 export function summonStream(data: GameData, seed: number, n: number): string[] {
@@ -109,7 +109,7 @@ export function summonReport(data: GameData, opts: { runs: number; length: numbe
     byFamily: { physical: familyMean('physical'), magical: familyMean('magical') },
     pickAt30: [...picks].map(([id, n]) => ({ id, share: n / opts.runs }))
       .sort((a, b) => b.share - a.share || order.indexOf(a.id) - order.indexOf(b.id)),
-    second: stats(second),
+    second: { ...stats(second), runs: second.length, failed: opts.runs - second.length },
   };
 }
 
@@ -124,6 +124,6 @@ export function summonMarkdown(r: SummonReport, data: GameData): string {
   lines.push('', `계열 평균: 물리 ${f(r.byFamily.physical)} / 마법 ${f(r.byFamily.magical)}`, '',
     '## 30번째 소환 시점에 고르는 6등급', '', '| 6등급 | 비율 |', '|---|---:|');
   for (const p of r.pickAt30) lines.push(`| ${name(p.id)} | ${(p.share * 100).toFixed(1)}% |`);
-  lines.push('', `## 두 번째 6등급까지 더 드는 소환 수`, '', `평균 ${f(r.second.mean)} (p10 ${f(r.second.p10)}, p90 ${f(r.second.p90)})`, '');
+  lines.push('', `## 두 번째 6등급까지 더 드는 소환 수`, '', `평균 ${f(r.second.mean)} (p10 ${f(r.second.p10)}, p90 ${f(r.second.p90)}), 잰 판 ${r.second.runs}, 못 잰 판 ${r.second.failed}`, '');
   return lines.join('\n');
 }

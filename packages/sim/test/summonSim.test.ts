@@ -21,3 +21,10 @@ test('the v6 baseline matches the design measurement', () => {
   const top = r.pickAt30[0]!;
   expect(top.id).toBe('bangmangidokkaebi'); expect(top.share).toBeGreaterThan(0.6); expect(top.share).toBeLessThan(0.8);
 }, 120_000);
+test('second counts unfinished runs instead of dropping them', () => {
+  const full = summonReport(d, { runs: 20, length: 400 });
+  expect(full.second.runs + full.second.failed).toBe(20);
+  const short = summonReport(d, { runs: 20, length: 40 });
+  expect(short.second.runs + short.second.failed).toBe(20);
+  expect(short.second.failed).toBeGreaterThan(0);
+});
