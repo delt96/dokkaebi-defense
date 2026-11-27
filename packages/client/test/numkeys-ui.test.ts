@@ -142,3 +142,103 @@ describe('number key labels', () => {
     expect($('#bottom')!.textContent).toContain('B 장터 · 1~9 바로 사기');
   });
 });
+
+const ctrlDown = (node: Element | null, init: MouseEventInit = { ctrlKey: true }) => {
+  if (!node) throw new Error('nothing to press');
+  return node.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerType: 'mouse', ...init }));
+};
+const ask = () => $('#win-right .key-ask');
+const stored = () => JSON.parse(localStorage.getItem('dorandi.numKeys') ?? 'null') as (string | null)[] | null;
+const COINS_10 = '#win-right [data-action="gambleCoins"][data-arg="10"]';
+
+describe('ctrl+click sets a number key', () => {
+  test('ctrl+click asks instead of buying', () => {
+    const { sent } = mountSolo();
+    key('KeyB');
+    ctrlDown($(COINS_10));
+    expect(sent('gambleCoins')).toHaveLength(0);
+    expect(ask()!.textContent).toContain('돈 도박 10냥을 몇 번 키에 걸까요?');
+    expect(ask()!.querySelector('[data-action="keyAskPick"][data-arg="4"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(ask()!.querySelector('[data-action="keyAskPick"][data-arg="5"]')!.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  test('⌘+click works the same', () => {
+    const { sent } = mountSolo();
+    key('KeyB');
+    ctrlDown($(COINS_10), { metaKey: true });
+    expect(sent('gambleCoins')).toHaveLength(0);
+    expect(ask()).not.toBeNull();
+  });
+
+  test('a digit answers the question and buys only afterwards', () => {
+    const { sent } = mountSolo();
+    key('KeyB');
+    ctrlDown($(COINS_10));
+    key('Digit9');
+    expect(sent('gambleCoins')).toHaveLength(0);
+    expect(ask()).toBeNull();
+    expect(stored()![8]).toBe('gambleCoins:10');
+    expect(stored()![3]).toBeNull();
+    expect($(COINS_10)!.querySelector('.num-key')!.textContent).toBe('9');
+    key('Digit9');
+    expect(sent('gambleCoins')).toHaveLength(1);
+  });
+
+  test('pressing a number cell answers too', () => {
+    const { sent } = mountSolo();
+    key('KeyB');
+    ctrlDown($(COINS_10));
+    press(ask()!.querySelector('[data-action="keyAskPick"][data-arg="2"]'));
+    expect(ask()).toBeNull();
+    expect(stored()![1]).toBe('gambleCoins:10');
+    expect(sent('gambleCoins')).toHaveLength(0);
+  });
+
+  test('a locked product can be assigned through its cell', () => {
+    mountSolo();
+    key('KeyB');
+    const locked = $('#win-right [data-action="gambleUnit"][data-arg="big"]')!;
+    expect(locked.hasAttribute('disabled')).toBe(true);
+    ctrlDown(locked.closest('.gamble-option'));
+    expect(ask()!.textContent).toContain('큰 보따리를 몇 번 키에 걸까요?');
+  });
+
+  test('강화 rows too', () => {
+    const { sent } = mountSolo();
+    key('KeyE');
+    ctrlDown(document.querySelectorAll('#win-right .up-item')[2]!.querySelector('button'));
+    expect(sent('upgrade')).toHaveLength(0);
+    expect(ask()!.textContent).toContain('등급 손질을 몇 번 키에 걸까요?');
+  });
+
+  test('키 빼기 clears the key; Esc closes only the question', () => {
+    mountSolo();
+    key('KeyB');
+    ctrlDown($(COINS_10));
+    press(ask()!.querySelector('[data-action="keyAskClear"]'));
+    expect(ask()).toBeNull();
+    expect(stored()![3]).toBeNull();
+    ctrlDown($(COINS_10));
+    key('Escape');
+    expect(ask()).toBeNull();
+    expect($('#win-right .econ-panel')).not.toBeNull();
+  });
+
+  test('closing the window drops the question', () => {
+    mountSolo();
+    key('KeyB');
+    ctrlDown($(COINS_10));
+    key('KeyB');
+    expect(ask()).toBeNull();
+    key('KeyB');
+    expect(ask()).toBeNull();
+  });
+
+  test('the context menu is held back only with ctrl', () => {
+    mountSolo();
+    key('KeyB');
+    const cell = $(COINS_10)!.closest('.gamble-option')!;
+    expect(cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, ctrlKey: true }))).toBe(false);
+    expect(cell.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))).toBe(true);
+  });
+});

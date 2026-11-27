@@ -1,5 +1,6 @@
 import type { GambleTable, GameData, UpgradeId } from '@dorandi/logic';
 import { esc } from './dom';
+import { withJosa } from './josa';
 
 export type NumKeyAction = `upgrade:${UpgradeId}` | `gambleCoins:${number}` | `gambleUnit:${GambleTable}`;
 /** Nine slots; slot 0 is key 1. */
@@ -93,4 +94,15 @@ export function numKeysSettingsHtml(map: NumKeyMap, open: boolean, data: GameDat
 export function parseNumKeyAction(value: string): NumKeyAction | null {
   const [action = '', arg = ''] = value.split(':');
   return actionOf(action, arg);
+}
+
+/** The Ctrl+click question over a market or 강화 button: which key gets `action`. */
+export function numKeyAskHtml(action: NumKeyAction, map: NumKeyMap, name: string): string {
+  const current = keyOf(map, action);
+  const cells = Array.from({ length: SLOTS }, (_, i) =>
+    `<button type="button" data-action="keyAskPick" data-arg="${i + 1}" aria-pressed="${current === i + 1}">${i + 1}</button>`).join('');
+  return `<div class="key-ask" role="dialog" aria-label="숫자키 걸기">`
+    + `<p class="key-ask-q"><b>${esc(name)}</b>${esc(withJosa(name, '을/를').slice(name.length))} 몇 번 키에 걸까요?</p>`
+    + `<div class="key-ask-nums">${cells}</div>`
+    + '<div class="key-ask-foot"><span>숫자키나 칸 누르기 · Esc 취소</span><button type="button" data-action="keyAskClear" data-arg="">키 빼기</button></div></div>';
 }

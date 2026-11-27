@@ -46,7 +46,10 @@ import { readTarget, targetHtml, writeTarget } from './target';
 import { closeSide, coveredIds, escStep, NO_SIDES, openSide, portraitGuide, rightBarHtml, sidesLocked, soloPause, toggleSide, type Side, type SideWin, type Sides } from './windows';
 import { soloMenuHtml } from './solo-menu';
 import { PORTRAIT_TITLE, portraitText } from './first-visit';
-import { assignNumKey, DEFAULT_NUM_KEYS, numKeyOfCode, parseNumKeyAction, readNumKeys, splitAction, writeNumKeys, type NumKeyMap } from './numkeys';
+import {
+  actionOf, assignNumKey, clearAction, DEFAULT_NUM_KEYS, numKeyAskHtml, numKeyName, numKeyOfCode, parseNumKeyAction, readNumKeys, splitAction, writeNumKeys,
+  type NumKeyAction, type NumKeyMap,
+} from './numkeys';
 
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
@@ -182,6 +185,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let numKeys: NumKeyMap = readNumKeys();
   // the settings window's 숫자키 list; folded again when the page loads
   let numKeysOpen = false;
+  // the Ctrl+click question: the market or 강화 item waiting for its key
+  let keyAsk: NumKeyAction | null = null;
   let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | 'restartAsk' | 'homeAsk' | null = null;
   let sides: Sides = NO_SIDES;
   // design ⑫: the end scene runs once, when this screen sees the game end; a screen mounted on an ended game (a rejoin) skips it
@@ -691,6 +696,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       case 'setHelp': helpLine = arg === 'on'; writeHelpLine(helpLine); break;
       case 'numKeysFold': numKeysOpen = !numKeysOpen; break;
       case 'numKeysReset': numKeys = DEFAULT_NUM_KEYS; writeNumKeys(numKeys); break;
+      case 'keyAskPick':
+        if (keyAsk) { numKeys = assignNumKey(numKeys, Number(arg), keyAsk); writeNumKeys(numKeys); }
+        keyAsk = null;
+        break;
+      case 'keyAskClear':
+        if (keyAsk) { numKeys = clearAction(numKeys, keyAsk); writeNumKeys(numKeys); }
+        keyAsk = null;
+        break;
+      case 'keyAskClose': keyAsk = null; break;
       case 'setFx': if ((arg === 'on') !== !!scene.reduceEffects) scene.setReduceEffects(arg === 'on'); break;
       case 'resume': userPaused = false; break;
       case 'portraitDismiss': guideDismissed = true; break;
@@ -769,6 +783,38 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   for (const id of ['top', 'left', 'right', 'bottom', 'modal', 'error', 'econ-top', 'econ-bottom', 'storage', 'tame-anchor', 'target-overlay', 'pause-cover']) onAction(el(id), act);
   // a press that reaches a locked box anyway (inert is not honoured everywhere) still buys nothing
   for (const side of SIDES) onAction(el(`win-${side}`), (a, g) => { if (!locked()) act(a, g); });
+  /** The market or 강화 cell under a pointer and the item its button buys; a locked button takes no pointer, so the cell answers. */
+  function askedCell(target: EventTarget | null): { cell: HTMLElement; action: NumKeyAction } | null {
+    const cell = (target as HTMLElement | null)?.closest?.<HTMLElement>('.gamble-option, .up-item');
+    const button = cell?.querySelector<HTMLElement>('[data-action]');
+    const action = button ? actionOf(button.dataset.action ?? '', button.dataset.arg ?? '') : null;
+    return cell && action ? { cell, action } : null;
+  }
+  // capture: onAction buys on the plain pointerdown of the same press, so this has to run first and stop it
+  rightBox.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0 || !(ev.ctrlKey || ev.metaKey) || driver.readOnly || locked()) return;
+    const asked = askedCell(ev.target);
+    if (!asked) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    keyAsk = asked.action;
+    render();
+  }, true);
+  // a Mac turns Ctrl+click into the context menu as well
+  rightBox.addEventListener('contextmenu', ev => { if ((ev.ctrlKey || ev.metaKey) && askedCell(ev.target)) ev.preventDefault(); });
+  /** Draws the Ctrl+click question over its cell, or drops it once the cell is gone (window closed, tab changed, a lock). */
+  function placeKeyAsk(): void {
+    rightBox.querySelector('.key-ask')?.remove();
+    if (keyAsk === null) return;
+    const cell = locked() ? undefined : Array.from(rightBox.querySelectorAll<HTMLElement>('.gamble-option, .up-item')).find(c => askedCell(c)?.action === keyAsk);
+    if (!cell) { keyAsk = null; return; }
+    rightBox.insertAdjacentHTML('beforeend', numKeyAskHtml(keyAsk, numKeys, numKeyName(keyAsk, driver.state.data)));
+    const box = rightBox.querySelector<HTMLElement>('.key-ask')!;
+    const frame = rightBox.getBoundingClientRect();
+    const scale = (rightBox.offsetWidth ? frame.width / rightBox.offsetWidth : 1) || 1;
+    const at = cell.getBoundingClientRect();
+    box.style.top = `${Math.max(2, Math.round((at.top - frame.top) / scale) - box.offsetHeight - 2)}px`;
+  }
   onAction(guideBox, act);
   for (const type of ['resize', 'orientationchange']) window.addEventListener(type, () => render());
   // the storage column belongs to the own living lane; it takes presses while no locking window is open and no pillar covers it
@@ -942,6 +988,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (driver.failed || ev.defaultPrevented || ev.isComposing || ev.repeat || ev.ctrlKey || ev.altKey || ev.metaKey) return;
     const target = ev.target as HTMLElement | null;
     if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return;
+    // while the question is up the digits answer it instead of buying
+    if (keyAsk !== null) {
+      const n = numKeyOfCode(ev.code);
+      if (n !== null) { ev.preventDefault(); act('keyAskPick', String(n)); return; }
+      if (ev.code === 'Escape') { act('keyAskClose', ''); return; }
+    }
     if (sceneRunning && (ev.code === 'Enter' || ev.code === 'NumpadEnter')) {
       ev.preventDefault();
       skipScene();
@@ -1250,6 +1302,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     for (const id of ['left', 'win-left']) markHover(el(id), list, hoverRow);
     placeRefusal(now, false);
     placeCoinFloat(now);
+    placeKeyAsk();
     const cover = el('pause-cover');
     const coverOn = !online && pause.cover;
     if (cover.hidden === coverOn) cover.hidden = !coverOn;
