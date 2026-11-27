@@ -1,74 +1,62 @@
 {
   "units": [
     {
-      "id": "v7g5p",
-      "name": "임시5물",
+      "id": "dasikpan",
+      "name": "다식판",
       "grade": 5,
-      "damageType": "physical"
+      "damageType": "physical",
+      "range": 2,
+      "interval": 1.15,
+      "factor": 1,
+      "skills": [
+        { "trigger": { "kind": "nth", "n": 3 }, "effects": [{ "kind": "crit", "mult": 2.2 }, { "kind": "pierce", "length": 2, "mult": 0.8 }] }
+      ]
     },
     {
-      "id": "v7g5m",
-      "name": "임시5마",
+      "id": "seongjudanji",
+      "name": "성주단지",
       "grade": 5,
-      "damageType": "magical"
+      "damageType": "magical",
+      "range": 2.5,
+      "interval": 1.1,
+      "factor": 0.85,
+      "skills": [
+        { "trigger": { "kind": "aura" }, "effects": [{ "kind": "auraEnemyVuln", "pct": 0.1, "damageType": "magical" }] },
+        { "trigger": { "kind": "nth", "n": 4 }, "effects": [{ "kind": "splash", "radius": 1.5, "mult": 0.7 }] }
+      ],
+      "onBasicHit": { "targetPct": 0, "splashPct": 0.05 }
     },
     {
-      "id": "v7g6p",
-      "name": "임시6물",
+      "id": "yeongdeunghalmang",
+      "name": "영등할망",
       "grade": 6,
-      "damageType": "physical"
+      "damageType": "physical",
+      "range": 2,
+      "interval": 1.05,
+      "factor": 0.97,
+      "skills": [
+        { "trigger": { "kind": "nth", "n": 2, "phase": 1 }, "effects": [{ "kind": "splash", "radius": 1.5, "mult": 0.85 }, { "kind": "knockback", "distance": 1, "radius": 1.5 }] },
+        { "trigger": { "kind": "nth", "n": 2 }, "effects": [{ "kind": "splash", "radius": 1.5, "mult": 0.5 }, { "kind": "slow", "pct": 0.35, "seconds": 2, "radius": 1.5 }] }
+      ]
     },
     {
-      "id": "v7g6m",
-      "name": "임시6마",
+      "id": "cheonnyeondeungjan",
+      "name": "천년 등잔",
       "grade": 6,
-      "damageType": "magical"
+      "damageType": "magical",
+      "range": 3,
+      "interval": 1.2,
+      "factor": 0.82,
+      "skills": [
+        { "trigger": { "kind": "periodic", "seconds": 6 }, "effects": [{ "kind": "allInRange", "mult": 1.4 }] },
+        { "trigger": { "kind": "always" }, "effects": [{ "kind": "dot", "mult": 0.25, "seconds": 2 }] }
+      ]
     }
   ],
   "recipes": [
-    {
-      "result": "v7g5p",
-      "materials": [
-        "byeoru",
-        "dwiju"
-      ],
-      "cost": {
-        "buckwheat": 1
-      }
-    },
-    {
-      "result": "v7g5m",
-      "materials": [
-        "jumadeung",
-        "dwiju"
-      ],
-      "cost": {
-        "buckwheat": 1
-      }
-    },
-    {
-      "result": "v7g6p",
-      "materials": [
-        "v7g5p",
-        "tewak",
-        "jangdok"
-      ],
-      "cost": {
-        "buckwheat": 1,
-        "coins": 60
-      }
-    },
-    {
-      "result": "v7g6m",
-      "materials": [
-        "v7g5m",
-        "gireumteul",
-        "gireumbyeong"
-      ],
-      "cost": {
-        "buckwheat": 1,
-        "coins": 60
-      }
-    }
+    { "result": "dasikpan", "materials": ["byeoru", "dwiju"], "cost": { "buckwheat": 1 } },
+    { "result": "seongjudanji", "materials": ["jumadeung", "dwiju"], "cost": { "buckwheat": 1 } },
+    { "result": "yeongdeunghalmang", "materials": ["dasikpan", "tewak", "jangdok"], "cost": { "buckwheat": 1, "coins": 60 } },
+    { "result": "cheonnyeondeungjan", "materials": ["seongjudanji", "gireumteul", "gireumbyeong"], "cost": { "buckwheat": 1, "coins": 60 } }
   ]
 }
