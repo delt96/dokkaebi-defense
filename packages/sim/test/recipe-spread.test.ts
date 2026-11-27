@@ -24,7 +24,7 @@ describe('demand and targets', () => {
     expect(normal(1).map(u => d.get(u.id))).toEqual(Array(8).fill(7));
   });
 
-  test('the v6 stage 3 data meets every target', () => {
+  test('the current stage 3 data meets every target', () => {
     expect(targetMisses(loadGameData('stage3'))).toEqual([]);
   });
 

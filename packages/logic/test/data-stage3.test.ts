@@ -1,25 +1,25 @@
 import { describe, expect, test } from 'vitest';
 import { buildGameData, dataSources, enemyDef, enemyHp, loadGameData, recipeDemand, unitDef } from '../src/index';
-import { readV6 } from './v6-table';
+import { readDraft } from './v6-table';
 
 const d3 = loadGameData('stage3');
-const v6 = readV6();
+const v7 = readDraft('content-draft-120-v7.md');
 const normal = (g: number) => d3.units.filter(u => u.grade === g && !u.hidden);
 const sorted = (xs: string[]) => [...xs].sort();
 
 describe('stage 3 data, grades 1-4', () => {
-  test('grades 1-4: 8/12/18/22 units with v6 physical splits 4/7/10/14', () => {
+  test('grades 1-4: 8/12/18/22 units with v7 physical splits 4/7/10/14', () => {
     expect([1, 2, 3, 4].map(g => normal(g).length)).toEqual([8, 12, 18, 22]);
     expect([1, 2, 3, 4].map(g => normal(g).filter(u => u.damageType === 'physical').length)).toEqual([4, 7, 10, 14]);
     expect(d3.recipes.filter(r => unitDef(d3, r.result).grade <= 4).length).toBe(52);
   });
 
-  test('every v6 row of grade <= 4 matches stats, name and recipe', () => {
-    for (const v of v6.units.filter(u => u.grade <= 4)) {
+  test('every v7 row of grade <= 4 matches stats, name and recipe', () => {
+    for (const v of v7.units.filter(u => u.grade <= 4)) {
       expect(unitDef(d3, v.id)).toMatchObject({ name: v.name, grade: v.grade, damageType: v.damageType, range: v.range, interval: v.interval, factor: v.factor });
       if (v.grade === 1 || v.hidden) continue;
       const recipe = d3.recipes.find(r => r.result === v.id);
-      const want = v6.recipes.find(r => r.result === v.id)!;
+      const want = v7.recipes.find(r => r.result === v.id)!;
       expect([v.id, sorted(recipe?.materials ?? [])]).toEqual([v.id, sorted(want.materials)]);
       expect(recipe!.cost).toBeUndefined();
     }
@@ -67,23 +67,23 @@ describe('stage 3 data, grades 1-4', () => {
 });
 
 describe('stage 3 data, grades 5-6 and hidden', () => {
-  test('full v6 counts: 116 normal + 5 recruits, 108 ordinary recipes, physical 65', () => {
-    expect([5, 6].map(g => normal(g).length)).toEqual([26, 30]);
-    expect(d3.units.filter(u => !u.hidden).length).toBe(116);
+  test('full v7 counts: 120 normal + 5 recruits, 112 ordinary recipes, physical 67', () => {
+    expect([5, 6].map(g => normal(g).length)).toEqual([28, 32]);
+    expect(d3.units.filter(u => !u.hidden).length).toBe(120);
     expect(d3.units.filter(u => u.hidden && u.grade === 4).map(u => u.id).sort()).toEqual(['bulgasari', 'eoduksini', 'gangcheori', 'jinegaksi', 'ssireumdokkaebi']);
-    expect(d3.units.filter(u => !u.hidden && u.damageType === 'physical').length).toBe(65);
-    expect([5, 6].map(g => normal(g).filter(u => u.damageType === 'physical').length)).toEqual([15, 15]);
-    expect(d3.recipes.filter(r => r.kind !== 'tame').length).toBe(108);
+    expect(d3.units.filter(u => !u.hidden && u.damageType === 'physical').length).toBe(67);
+    expect([5, 6].map(g => normal(g).filter(u => u.damageType === 'physical').length)).toEqual([16, 16]);
+    expect(d3.recipes.filter(r => r.kind !== 'tame').length).toBe(112);
   });
 
-  test('every v6 row matches stats, name, recipe and cost', () => {
-    expect(v6.units.length).toBe(126);
-    for (const v of v6.units) {
+  test('every v7 row matches stats, name, recipe and cost', () => {
+    expect(v7.units.length).toBe(130);
+    for (const v of v7.units) {
       expect(unitDef(d3, v.id)).toMatchObject({ name: v.name, grade: v.grade, damageType: v.damageType, range: v.range, interval: v.interval, factor: v.factor });
       expect([v.id, unitDef(d3, v.id).hidden === true]).toEqual([v.id, v.hidden]);
       const recipe = d3.recipes.find(r => r.result === v.id);
       if ((v.hidden && v.grade === 4) || v.grade === 1) { expect(recipe).toBeUndefined(); continue; }
-      const want = v6.recipes.find(r => r.result === v.id)!;
+      const want = v7.recipes.find(r => r.result === v.id)!;
       expect([v.id, sorted(recipe!.materials)]).toEqual([v.id, sorted(want.materials)]);
       const cost = v.grade === 5 ? { buckwheat: 1 } : v.grade === 6 ? { buckwheat: 1, coins: 60 } : undefined;
       expect([v.id, recipe!.cost]).toEqual([v.id, cost]);
@@ -91,22 +91,23 @@ describe('stage 3 data, grades 5-6 and hidden', () => {
     }
   });
 
-  test('demand table from v6 section 8', () => {
+  test('demand table from v7 section 8', () => {
     const T: Record<string, number> = { bitjaru: 7, jipsin: 7, sotlid: 7, dadeumi: 7, horong: 7, bujigaengi: 7, buchae: 7, ki: 7,
-      gamasot: 5, meongseok: 6, jeolgu: 6, hwaro: 6, cheongsachorong: 3, hwaetbul: 4, sseurebatgi: 4, dunggumi: 5, sut: 6, dadeumitdol: 5, mumyeong: 6, hanji: 6,
-      didilbangga: 2, jangdok: 1, pulmu: 1, jwibul: 1, samtaegi: 2, mogitbul: 3, saekkijul: 3, sutdarimi: 2, hamjibak: 3, hongdukkae: 2, baneul: 3,
-      gireumbyeong: 2, bujipge: 2, jaetmulsiru: 2, bagaji: 3, but: 3, jipsingol: 1, che: 1,
-      yeonjabangga: 2, moru: 4, onggigama: 4, daljip: 2, dwiju: 2, meok: 4, geumulbaneul: 4, indupan: 2, tteongme: 2, gawi: 4, indu: 4, byeoru: 2,
-      soemangchi: 4, chaeban: 4, mulle: 4, ja: 4, sokuri: 2, yagyeon: 2, golmu: 3, jumadeung: 3, maetdol: 2, jige: 3,
+      gamasot: 6, meongseok: 6, jeolgu: 6, hwaro: 4, cheongsachorong: 5, hwaetbul: 4, sseurebatgi: 5, dunggumi: 5, sut: 6, dadeumitdol: 4, mumyeong: 5, hanji: 6,
+      didilbangga: 2, jangdok: 3, pulmu: 1, jwibul: 1, samtaegi: 2, mogitbul: 2, saekkijul: 2, sutdarimi: 2, hamjibak: 3, hongdukkae: 2, baneul: 3,
+      gireumbyeong: 3, bujipge: 3, jaetmulsiru: 2, bagaji: 3, but: 3, jipsingol: 1, che: 1,
+      yeonjabangga: 2, moru: 4, onggigama: 4, daljip: 2, dwiju: 4, meok: 4, geumulbaneul: 4, indupan: 2, tteongme: 2, gawi: 4, indu: 4, byeoru: 3,
+      soemangchi: 4, chaeban: 4, mulle: 4, ja: 4, sokuri: 3, yagyeon: 2, golmu: 2, jumadeung: 4, maetdol: 2, jige: 3,
       // the exclusive recipes add one use each to top, banjitgori, ssatba, jejuheobeok and jojokdeung
       top: 3, kkeul: 3, banjitgori: 3, dongwe: 2, gat: 2, manggeon: 2, eomang: 2, geumulchu: 2, beoseon: 2, ssatba: 3, jejuheobeok: 3, jipbae: 3,
-      janggu: 2, kkwaenggwari: 2, buk: 2, hahoetal: 2, yeopjeonkkureomi: 3, dokki: 3, jojokdeung: 3, tewak: 2, maksabal: 3, yaktanggi: 2,
-      tteoksiru: 3, yeotpan: 3, gireumteul: 2, sil: 3 };
+      janggu: 2, kkwaenggwari: 2, buk: 2, hahoetal: 2, yeopjeonkkureomi: 3, dokki: 3, jojokdeung: 3, tewak: 3, maksabal: 3, yaktanggi: 2,
+      tteoksiru: 2, yeotpan: 2, gireumteul: 3, sil: 2, dasikpan: 3, seongjudanji: 2 };
     for (const [id, n] of Object.entries(T)) expect([id, recipeDemand(d3, id)]).toEqual([id, n]);
   });
 
-  test('onBasicHit covers exactly the 31 units of the v6 change table', () => {
-    expect(d3.units.filter(u => u.onBasicHit).length).toBe(31);
+  test('onBasicHit covers exactly the 32 units of the v7 change table', () => {
+    expect(d3.units.filter(u => u.onBasicHit).length).toBe(32);
+    expect(unitDef(d3, 'seongjudanji').onBasicHit).toEqual({ targetPct: 0, splashPct: 0.05 });
     expect(unitDef(d3, 'jipbae').onBasicHit).toEqual({ targetPct: 0.15, splashPct: 0.2 });
   });
 
@@ -189,11 +190,11 @@ describe('exclusive recipes of the recruits', () => {
     ['geumeumdeungjigi', '그믐등지기', 'magical', 'eoduksini', 'jojokdeung'],
   ];
 
-  test('names, families and exact pairs; 116 normal + 5 recruits + 5 upper hidden, 108 + 5 recipes', () => {
-    expect(d3.units.filter(u => !u.hidden).length).toBe(116);
+  test('names, families and exact pairs; 120 normal + 5 recruits + 5 upper hidden, 112 + 5 recipes', () => {
+    expect(d3.units.filter(u => !u.hidden).length).toBe(120);
     expect(d3.units.filter(u => u.hidden && u.grade === 4).length).toBe(5);
     expect(d3.units.filter(u => u.hidden && u.grade === 6).map(u => u.id).sort()).toEqual(TABLE.map(t => t[0]).sort());
-    expect(d3.recipes.filter(r => r.kind !== 'tame').length).toBe(108);
+    expect(d3.recipes.filter(r => r.kind !== 'tame').length).toBe(112);
     expect(d3.recipes.filter(r => r.kind === 'tame').length).toBe(5);
     for (const [id, name, type, recruit, partner] of TABLE) {
       expect(unitDef(d3, id)).toMatchObject({ name, grade: 6, hidden: true, damageType: type });
@@ -204,7 +205,7 @@ describe('exclusive recipes of the recruits', () => {
     }
   });
 
-  test('each partner is used in one more recipe than the v6 table and at most 7', () => {
+  test('each partner is used in one more recipe than the v7 table and at most 7', () => {
     const before: Record<string, number> = { banjitgori: 2, jejuheobeok: 2, top: 2, ssatba: 2, jojokdeung: 2 };
     for (const [p, n] of Object.entries(before)) expect([p, recipeDemand(d3, p)]).toEqual([p, n + 1]);
   });

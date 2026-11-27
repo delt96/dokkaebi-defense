@@ -6,11 +6,12 @@ export interface V5Recipe { result: string; materials: string[]; buckwheat: numb
 
 const cells = (line: string): string[] => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
 
-let cache: { units: V5Unit[]; recipes: V5Recipe[] } | null = null;
+const cache = new Map<string, { units: V5Unit[]; recipes: V5Recipe[] }>();
 
-export function readV6(): { units: V5Unit[]; recipes: V5Recipe[] } {
-  if (cache) return cache;
-  const text = readFileSync(new URL('../../../docs/design/content-draft-116-v6.md', import.meta.url), 'utf8');
+export function readDraft(file: string): { units: V5Unit[]; recipes: V5Recipe[] } {
+  const hit = cache.get(file);
+  if (hit) return hit;
+  const text = readFileSync(new URL(`../../../docs/design/${file}`, import.meta.url), 'utf8');
   const lines = text.split(/\r?\n/);
   const rows: { cols: string[]; grade: number; hidden: boolean }[] = [];
   let grade = 0;
@@ -60,6 +61,7 @@ export function readV6(): { units: V5Unit[]; recipes: V5Recipe[] } {
     }
     recipes.push(r);
   }
-  cache = { units, recipes };
-  return cache;
+  const out = { units, recipes };
+  cache.set(file, out);
+  return out;
 }

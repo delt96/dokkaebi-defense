@@ -17,6 +17,7 @@
   "oedaridokkaebi": { "targetPct": 0, "splashPct": 0.05 },
   "bitdondokkaebi": { "targetPct": 0, "splashPct": 0.05 },
   "cheonnyeonjocheongdanji": { "targetPct": 0, "splashPct": 0.05 },
+  "seongjudanji": { "targetPct": 0, "splashPct": 0.05 },
   "tewak": { "targetPct": 0, "splashPct": 0.15 },
   "gat": { "targetPct": 0, "splashPct": 0.1 },
   "cheonnyeontteoksal": { "targetPct": 0, "splashPct": 0.1 },
