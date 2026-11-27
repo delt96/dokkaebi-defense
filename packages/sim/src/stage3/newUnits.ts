@@ -97,6 +97,58 @@ export function v7Goals(data: GameData, newIds: string[]): V7Goals {
   };
 }
 
+export interface RecipeCandidate<M extends string[]> { materials: M; share: number; top: number; misses: string[] }
+
+const PROBE = '__probe';
+const materialKey = (ms: string[]) => [...ms].sort().join('+');
+
+/** Shallow copy with one extra unit: enough for leafCounts and targetMisses, which only read units and recipes. */
+function probe(data: GameData, grade: number, materials: string[]): GameData {
+  const unit: UnitDef = { id: PROBE, name: PROBE, grade, damageType: 'physical', range: 0, interval: 0, factor: 0, skills: [] };
+  return { ...data, units: [...data.units, unit], recipes: [...data.recipes, { result: PROBE, materials }] };
+}
+
+function candidates<M extends string[]>(data: GameData, grade: number, sets: M[], opts: { minShare: number; maxTop: number }): RecipeCandidate<M>[] {
+  const taken = new Set(data.recipes.map(r => materialKey(r.materials)));
+  const before = new Set(targetMisses(data));
+  const out: RecipeCandidate<M>[] = [];
+  for (const materials of sets) {
+    if (taken.has(materialKey(materials))) continue;
+    const x = probe(data, grade, materials);
+    const share = leftoverShare(x, PROBE);
+    const top = topGrade1(x, PROBE).n;
+    if (share < opts.minShare || top > opts.maxTop) continue;
+    // The probe grade 5 itself is unused until a grade 6 takes it, so its own demand miss is left out.
+    const misses = targetMisses(x).filter(m => !before.has(m) && !m.startsWith(`${PROBE} `));
+    out.push({ materials, share, top, misses });
+  }
+  return out;
+}
+
+const normal = (data: GameData, grades: number[]) => data.units.filter(u => !u.hidden && grades.includes(u.grade)).map(u => u.id);
+
+export function grade5Candidates(data: GameData, opts: { minShare: number; maxTop: number }): RecipeCandidate<[string, string]>[] {
+  const fours = normal(data, [4]);
+  const sets: [string, string][] = [];
+  fours.forEach((a, i) => fours.slice(i + 1).forEach(b => sets.push([a, b])));
+  return candidates(data, 5, sets, opts);
+}
+
+/** Materials are [one of fives, another normal grade 5, a normal grade 3 or 4]; a pair of two fives is listed once. */
+export function grade6Candidates(data: GameData, fives: string[], opts: { minShare: number; maxTop: number }): RecipeCandidate<[string, string, string]>[] {
+  const grade5 = normal(data, [5]);
+  for (const f of fives) if (!grade5.includes(f)) throw new Error(`${f} is not a normal grade 5 unit in the data`);
+  const thirds = normal(data, [3, 4]);
+  const sets: [string, string, string][] = [];
+  fives.forEach((f, i) => {
+    for (const o of grade5) {
+      if (o === f || fives.slice(0, i + 1).includes(o)) continue;
+      for (const t of thirds) sets.push([f, o, t]);
+    }
+  });
+  return candidates(data, 6, sets, opts);
+}
+
 export function goal6(r: SummonReport): { topShare: number; over5pct: number; pass: boolean } {
   const topShare = Math.max(0, ...r.pickAt30.map(p => p.share));
   const over5pct = r.pickAt30.filter(p => p.share > 0.05).length;

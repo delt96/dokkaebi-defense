@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import { buildGameData, dataSources, loadGameData, unitDef, validateData } from '@dorandi/logic';
-import { assertKnownUnits, goal6, recipesFile, v7Goals, withNewUnits, type NewUnitOverlay } from '../src/stage3/newUnits';
+import {
+  assertKnownUnits, goal6, grade5Candidates, grade6Candidates, recipesFile, v7Goals, withNewUnits, type NewUnitOverlay,
+} from '../src/stage3/newUnits';
 import { applySwaps, grade1Balance } from '../src/stage3/spread';
 import type { SummonReport } from '../src/stage3/summonSim';
 
@@ -63,4 +65,49 @@ test('a recipes file with new recipes needs the overlay', () => {
   expect(() => assertKnownUnits(bare)).toThrow(/--new-units/);
   expect(() => assertKnownUnits(withNewUnits(bare, six))).not.toThrow();
   expect(() => assertKnownUnits(d)).not.toThrow();
+});
+
+test('grade5Candidates meet the share and top limits', () => {
+  const xs = grade5Candidates(d, { minShare: 0.6, maxTop: 4 });
+  expect(xs.length).toBeGreaterThan(0);
+  for (const x of xs) { expect(x.share).toBeGreaterThanOrEqual(0.6); expect(x.top).toBeLessThanOrEqual(4); }
+});
+test('skips a material set that already exists', () => {
+  const existing = new Set(d.recipes.map(r => [...r.materials].sort().join('+')));
+  for (const x of grade5Candidates(d, { minShare: 0, maxTop: 99 })) expect(existing.has([...x.materials].sort().join('+'))).toBe(false);
+});
+test('grade5Candidates pair two different normal grade 4 units', () => {
+  const units = new Map(d.units.map(u => [u.id, u]));
+  const xs = grade5Candidates(d, { minShare: 0, maxTop: 99 });
+  const g4 = d.units.filter(u => u.grade === 4 && !u.hidden).length;
+  const taken = d.recipes.filter(r => r.materials.length === 2 && r.materials.every(m => units.get(m)?.grade === 4 && !units.get(m)?.hidden)).length;
+  expect(xs.length).toBe((g4 * (g4 - 1)) / 2 - taken);
+  for (const x of xs) {
+    expect(x.materials[0]).not.toBe(x.materials[1]);
+    for (const m of x.materials) expect(units.get(m)).toMatchObject({ grade: 4 });
+  }
+});
+test('grade5Candidates reports the misses the pair adds, not the new unit itself', () => {
+  const chaeban = grade5Candidates(d, { minShare: 0, maxTop: 99 }).filter(x => x.materials.includes('chaeban'));
+  expect(chaeban.length).toBeGreaterThan(0);
+  for (const x of chaeban) expect(x.misses.some(m => m.startsWith('chaeban '))).toBe(true);
+  for (const x of grade5Candidates(d, { minShare: 0, maxTop: 99 })) expect(x.misses.join()).not.toMatch(/grade 5/);
+});
+test('grade6Candidates take a new grade 5 and a grade 3 or 4 third material', () => {
+  const five = grade5Candidates(d, { minShare: 0.6, maxTop: 4 })[0]!;
+  const x = withNewUnits(d, { units: [six.units[0]!], recipes: [{ result: 'v7g5p', materials: five.materials, cost: { buckwheat: 1 } }] });
+  const units = new Map(x.units.map(u => [u.id, u]));
+  const xs = grade6Candidates(x, ['v7g5p'], { minShare: 0.6, maxTop: 7 });
+  expect(xs.length).toBeGreaterThan(0);
+  const existing = new Set(x.recipes.map(r => [...r.materials].sort().join('+')));
+  for (const c of xs) {
+    expect(c.share).toBeGreaterThanOrEqual(0.6);
+    expect(c.top).toBeLessThanOrEqual(7);
+    expect(c.materials[0]).toBe('v7g5p');
+    expect(units.get(c.materials[1])!.grade).toBe(5);
+    expect(units.get(c.materials[1])!.hidden).toBeFalsy();
+    expect(c.materials[1]).not.toBe('v7g5p');
+    expect([3, 4]).toContain(units.get(c.materials[2])!.grade);
+    expect(existing.has([...c.materials].sort().join('+'))).toBe(false);
+  }
 });
