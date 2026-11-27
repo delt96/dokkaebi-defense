@@ -9,6 +9,7 @@ import {
 } from '../src/stage3/newUnits';
 import { applySwaps, grade1Balance } from '../src/stage3/spread';
 import type { SummonReport } from '../src/stage3/summonSim';
+import { V7_NEW_UNITS, v6Stage3 } from './pre-v7';
 
 const d = loadGameData('stage3');
 // a new grade 5 alone fails validateData (not used in any recipe), so the fixture carries a grade 6 that uses it
@@ -46,9 +47,13 @@ test('goals count the overlay grade 6 units', () => {
   expect(() => v7Goals(d, [d.units.find(u => u.hidden && u.grade === 6)!.id])).toThrow(/normal grade 5 or 6/);
 });
 test('v6 data fails g1 and g2', () => {
-  const g = v7Goals(d, []);
+  const g = v7Goals(v6Stage3(), []);
   expect([g.g1.pass, g.g2.pass, g.g4.pass]).toEqual([false, false, true]);
   expect(g.g2.over10.length).toBe(13);
+});
+test('the current stage 3 data meets goals 1-4 with the four v7 units', () => {
+  const g = v7Goals(loadGameData('stage3'), V7_NEW_UNITS);
+  expect([g.g1.pass, g.g2.pass, g.g3.every(x => x.pass), g.g4.pass]).toEqual([true, true, true, true]);
 });
 
 test('a written recipes file plus the overlay rebuilds the searched data', () => {

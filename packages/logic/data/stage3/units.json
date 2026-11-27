@@ -94,9 +94,9 @@
     "skills": [{"trigger": {"kind": "nth", "n": 3}, "effects": [{"kind": "crit", "mult": 2.4}, {"kind": "vuln", "pct": 0.3, "seconds": 12, "damageType": "physical", "radius": 1.5}]}] },
   { "id": "sil", "name": "실", "grade": 5, "damageType": "magical", "range": 3.0, "interval": 0.9, "factor": 0.82,
     "skills": [{"trigger": {"kind": "nth", "n": 3}, "effects": [{"kind": "extraAttack"}, {"kind": "splash", "radius": 1.1, "mult": 0.9}]}] },
-  { "id": "dasikpan", "name": "다식판", "grade": 5, "damageType": "physical", "range": 2.0, "interval": 1.15, "factor": 1.0,
+  { "id": "dasikpan", "name": "다식판", "grade": 5, "damageType": "physical", "range": 2.0, "interval": 1.15, "factor": 1.05,
     "skills": [{"trigger": {"kind": "nth", "n": 3}, "effects": [{"kind": "crit", "mult": 2.2}, {"kind": "pierce", "length": 2, "mult": 0.8}]}] },
-  { "id": "seongjudanji", "name": "성주단지", "grade": 5, "damageType": "magical", "range": 2.5, "interval": 1.1, "factor": 0.85,
+  { "id": "seongjudanji", "name": "성주단지", "grade": 5, "damageType": "magical", "range": 2.5, "interval": 1.1, "factor": 0.9,
     "skills": [{"trigger": {"kind": "aura"}, "effects": [{"kind": "auraEnemyVuln", "pct": 0.1, "damageType": "magical"}]}, {"trigger": {"kind": "nth", "n": 4}, "effects": [{"kind": "splash", "radius": 1.5, "mult": 0.7}]}] },
 
   { "id": "bihyeongrang", "name": "귀교 목수", "grade": 6, "damageType": "magical", "range": 3.0, "interval": 1.2, "factor": 0.82,

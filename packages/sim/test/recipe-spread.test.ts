@@ -1,17 +1,16 @@
 import { describe, expect, test } from 'vitest';
-import { buildGameData, dataSources, loadGameData, recipeDemand, recipeValue, unitDef } from '@dorandi/logic';
+import { buildGameData, loadGameData, recipeDemand, recipeValue, unitDef } from '@dorandi/logic';
 import {
   applySwaps, changedRecipes, editableRecipes, grade1Balance, grade1Totals, leafCounts, leftoverShare, lockedMaterials, searchSpread, spreadDemand, spreadLowerBound, swapProblems, targetMisses, topGrade1,
   type Swap,
 } from '../src/stage3/spread';
 import v5Recipes from './recipes-stage3-v5.json';
 import baseline from './spread-v6-baseline.json';
+import { preV7Sources, v6Stage3 } from './pre-v7';
 
 // The search is pinned on the skewed stage 3 recipes of content draft v5, before v6 evened them out.
-const v5Sources = dataSources();
-v5Sources.stage3.recipes = v5Recipes;
-const d3 = buildGameData('stage3', v5Sources);
-const editable = editableRecipes(dataSources());
+const d3 = buildGameData('stage3', preV7Sources(v5Recipes));
+const editable = editableRecipes(preV7Sources());
 const normal = (g: number) => d3.units.filter(u => u.grade === g && !u.hidden);
 const ALLOW: Record<string, Record<string, string[]>> = { bihyeongrang: { kkeul: ['hahoetal', 'eomang'] }, gildal: { kkeul: ['beoseon'] }, jejuyeonggam: { buk: ['ssatba'] } };
 
@@ -137,7 +136,7 @@ test('searchSpread with an allow list only makes listed swaps', () => {
 });
 
 describe('grade 1 totals', () => {
-  const d = loadGameData('stage3');
+  const d = v6Stage3();
   test('grade1Totals matches the spec table', () => {
     expect(Object.fromEntries(grade1Totals(d))).toEqual({
       bujigaengi: 189, dadeumi: 183, horong: 181, jipsin: 180, buchae: 118, sotlid: 111, ki: 93, bitjaru: 85 });
@@ -171,7 +170,7 @@ describe('v7 rules', () => {
     expect(swapProblems(d3, editable, [{ result: 'bihyeongrang', from: 'kkeul', to: 'sil' }], rules)).toEqual([]);
   });
   test('unlockGrade1: a single grade 1 swap breaks the 7 cap, a pair passes', () => {
-    const v6 = loadGameData('stage3');
+    const v6 = v6Stage3();
     const one = [{ result: 'sutdarimi', from: 'dadeumi', to: 'ki' }];
     expect(swapProblems(v6, editable, one, rules).join('\n')).toContain('ki is used in 8 recipes');
     expect(swapProblems(v6, editable, [...one, { result: 'samtaegi', from: 'ki', to: 'dadeumi' }], rules)).toEqual([]);
@@ -186,7 +185,7 @@ describe('v7 rules', () => {
     expect(lockedMaterials(d3, 'didilbangga', rules).size).toBe(0);
   });
   test('pairSwap legality: never empties one copy of a doubled grade 1', () => {
-    const v6 = loadGameData('stage3');
+    const v6 = v6Stage3();
     const swaps = searchSpread(v6, editable, { seed: 1, iterations: 20_000, rules, balance: { weight: 1, max: 1.1, min: 0.9 } });
     expect(swapProblems(v6, editable, swaps, rules)).toEqual([]);
     expect(swaps.some(s => unitDef(v6, s.from).grade === 1)).toBe(true);
@@ -195,7 +194,7 @@ describe('v7 rules', () => {
     expect(g1).toEqual(Array(8).fill(7));
   }, 120_000);
   test('balance and topCap penalties lower the skew', () => {
-    const v6 = loadGameData('stage3');
+    const v6 = v6Stage3();
     const swaps = searchSpread(v6, editable, { seed: 1, iterations: 50_000, rules,
       balance: { weight: 1, max: 1.1, min: 0.9 }, topCap: { weight: 1, cap: 10 } });
     const after = applySwaps(v6, swaps);

@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { loadGameData } from '@dorandi/logic';
 import { summonReport, summonsToBuild, summonStream } from '../src/stage3/summonSim';
+import { v6Stage3 } from './pre-v7';
 
 const d = loadGameData('stage3');
 test('pity picks the first least-summoned in unit order', () => {
@@ -14,7 +15,7 @@ test('summonsToBuild counts until every leaf is held', () => {
   expect(summonsToBuild(new Map([['ki', 2]]), ['ki'])).toBeNull();
 });
 test('the v6 baseline matches the design measurement', () => {
-  const r = summonReport(d, { runs: 400, length: 400 });
+  const r = summonReport(v6Stage3(), { runs: 400, length: 400 });
   const unit = (id: string) => r.perUnit.find(u => u.id === id)!;
   expect(unit('bangmangidokkaebi').mean).toBeGreaterThan(46); expect(unit('bangmangidokkaebi').mean).toBeLessThan(54);
   expect(unit('cheonnyeonjing').mean).toBeGreaterThan(106); expect(unit('cheonnyeonjing').mean).toBeLessThan(122);
