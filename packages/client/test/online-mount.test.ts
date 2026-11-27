@@ -100,7 +100,7 @@ describe('online mountUi', () => {
     expect(gear.nextElementSibling?.getAttribute('data-action')).toBe('openMenu');
     expect(document.querySelector('#right [data-action="openSettings"]')).toBeNull();
     press(gear);
-    expect(Array.from(modal.querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'fx', 'help']);
+    expect(Array.from(modal.querySelectorAll('.settings-row')).map(r => r.getAttribute('data-setting'))).toEqual(['helper', 'fx', 'help', 'numKeys']);
     expect(modal.querySelector('[data-action="speed"]')).toBeNull();
     press(gear);
     expect(modal.querySelector('.settings-row')).toBeNull();

@@ -207,6 +207,13 @@ button.mat-chip:hover:not([disabled]) .mat-face { outline: 1px solid var(--accen
 .settings-choices { display: flex; gap: 2px; }
 .settings-choices button { min-width: 26px; min-height: 20px; padding: 0 4px; color: var(--ink-dim); }
 .settings-choices button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: #3a2a1a; }
+.settings-choices button[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+.numkeys { display: flex; flex-direction: column; gap: 2px; padding: 3px 0; border-top: 1px dashed var(--panel-edge); }
+.numkey-row { display: flex; align-items: center; gap: 4px; }
+.numkey-row b { flex: none; width: 9px; color: var(--accent); }
+.numkey-row select { flex: 1; min-width: 0; font-size: 11px; }
+.numkeys-hint { margin: 2px 0 0; color: var(--ink-dim); font-size: 10px; line-height: 13px; }
+.numkeys-foot { display: flex; justify-content: flex-end; }
 .res { display: flex; justify-content: space-between; }
 .res span { color: var(--accent); }
 

@@ -46,7 +46,7 @@ import { readTarget, targetHtml, writeTarget } from './target';
 import { closeSide, coveredIds, escStep, NO_SIDES, openSide, portraitGuide, rightBarHtml, sidesLocked, soloPause, toggleSide, type Side, type SideWin, type Sides } from './windows';
 import { soloMenuHtml } from './solo-menu';
 import { PORTRAIT_TITLE, portraitText } from './first-visit';
-import { numKeyOfCode, readNumKeys, splitAction, type NumKeyMap } from './numkeys';
+import { assignNumKey, DEFAULT_NUM_KEYS, numKeyOfCode, parseNumKeyAction, readNumKeys, splitAction, writeNumKeys, type NumKeyMap } from './numkeys';
 
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
@@ -98,7 +98,7 @@ export function econNoteText(event: GameEvent, data: GameData): string | null {
 export interface UiHooks { onEvents?: (events: GameEvent[]) => void; onRender?: () => void; onRestart?: () => void; onHome?: () => void }
 
 /** Settings window presses; the pressed choice keeps the focus after the redraw. */
-const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'setFx', 'setHelp']);
+const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'setFx', 'setHelp', 'numKeysFold', 'numKeysReset']);
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
@@ -180,6 +180,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   // the hotkey line under the board (단축키 안내 줄 in the settings window)
   let helpLine = readHelpLine();
   let numKeys: NumKeyMap = readNumKeys();
+  // the settings window's 숫자키 list; folded again when the page loads
+  let numKeysOpen = false;
   let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | 'restartAsk' | 'homeAsk' | null = null;
   let sides: Sides = NO_SIDES;
   // design ⑫: the end scene runs once, when this screen sees the game end; a screen mounted on an ended game (a rejoin) skips it
@@ -687,6 +689,8 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         modal = null;
         break;
       case 'setHelp': helpLine = arg === 'on'; writeHelpLine(helpLine); break;
+      case 'numKeysFold': numKeysOpen = !numKeysOpen; break;
+      case 'numKeysReset': numKeys = DEFAULT_NUM_KEYS; writeNumKeys(numKeys); break;
       case 'setFx': if ((arg === 'on') !== !!scene.reduceEffects) scene.setReduceEffects(arg === 'on'); break;
       case 'resume': userPaused = false; break;
       case 'portraitDismiss': guideDismissed = true; break;
@@ -896,6 +900,15 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       || !unit || unit.id !== list.source.unitId || unit.defId !== list.defId;
   }
   // the R list filters as one types; only the rows are redrawn so the box keeps its text, caret and IME state
+  el('modal').addEventListener('change', ev => {
+    const select = (ev.target as HTMLElement).closest?.<HTMLSelectElement>('select[data-numkey]');
+    if (!select) return;
+    const n = Number(select.dataset.numkey);
+    numKeys = assignNumKey(numKeys, n, parseNumKeyAction(select.value));
+    writeNumKeys(numKeys);
+    render();
+    el('modal').querySelector<HTMLSelectElement>(`select[data-numkey="${n}"]`)?.focus();
+  });
   el('win-left').addEventListener('input', ev => {
     const input = (ev.target as HTMLElement).closest<HTMLInputElement>('.jige-search input');
     if (!input || !jigeList) return;
@@ -1273,12 +1286,18 @@ ${dex.query}
 ${dex.skill}
 ${dex.mine.join()}`;
     const keepTop = dexShown && dexListKey === listKey ? dexScroller()?.scrollTop ?? 0 : 0;
-    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : !online && (modal === 'menu' || modal === 'restartAsk' || modal === 'homeAsk') ? soloMenuHtml(modal) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen() : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : '');
+    setHtml(el('modal'), soloResult ? resultHtml(s, best?.id ?? null) : !online && (modal === 'menu' || modal === 'restartAsk' || modal === 'homeAsk') ? soloMenuHtml(modal) : modal === 'menu' || modal === 'forfeit' ? menuHtml(modal, !!view && spiritModel(view) !== null) : modal === 'settings' ? settingsHtml({ helper: online ? helperOpen() : idleList, solo: !online, reducedFx: !!scene.reduceEffects, help: helpLine, numKeys: { map: numKeys, open: numKeysOpen, data: s.data }, ...(driver.speed !== undefined ? { speed: driver.speed } : {}) }) : dexShown ? dexHtml(s.data,  dex.filter, dex.query, s.round, { back: dex.back, open: dex.open, board: boardUnits(s), unfold: dex.unfold, recent: dexRecent, adv: dex.adv, state: s, target: targetId }, { kind: dex.kind, role: dex.role, skill: dex.skill, mine: dex.mine }) : '');
     if (dexShown) {
       const box = dexScroller();
       if (box && box.scrollTop !== keepTop) box.scrollTop = keepTop;
     }
-    if (modal === 'settings' && !soloResult) wireAudioSettings(el('modal'));
+    if (modal === 'settings' && !soloResult) {
+      wireAudioSettings(el('modal'));
+      for (const select of Array.from(el('modal').querySelectorAll<HTMLSelectElement>('select[data-numkey]'))) {
+        const want = numKeys[Number(select.dataset.numkey) - 1] ?? '';
+        if (select.value !== want) select.value = want;
+      }
+    }
     if (shownModal === 'settings' && (modal !== 'settings' || soloResult)) gameAudio.previewTrack();
     shownModal = modal;
     dexListKey = dexShown ? listKey : '';

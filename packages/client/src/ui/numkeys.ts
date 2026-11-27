@@ -1,4 +1,5 @@
 import type { GambleTable, GameData, UpgradeId } from '@dorandi/logic';
+import { esc } from './dom';
 
 export type NumKeyAction = `upgrade:${UpgradeId}` | `gambleCoins:${number}` | `gambleUnit:${GambleTable}`;
 /** Nine slots; slot 0 is key 1. */
@@ -72,4 +73,24 @@ export function numKeyName(action: NumKeyAction, data: GameData): string {
   if (kind === 'upgrade') return data.upgrades.find(u => u.id === arg)?.label ?? arg;
   if (kind === 'gambleCoins') return `돈 도박 ${arg}냥`;
   return UNIT_NAMES[arg as GambleTable];
+}
+
+/** The 숫자키 row of the settings window; unfolded it lists keys 1-9 with a choice each. */
+export function numKeysSettingsHtml(map: NumKeyMap, open: boolean, data: GameData): string {
+  const head = `<div class="settings-row" data-setting="numKeys"><span>숫자키</span><div class="settings-choices">`
+    + `<button data-action="numKeysFold" data-arg="" aria-expanded="${open}">${open ? '접기 ▴' : '펼치기 ▾'}</button></div></div>`;
+  if (!open) return head;
+  const rows = map.map((current, i) => {
+    const options = [`<option value=""${current === null ? ' selected' : ''}>비움</option>`]
+      .concat(NUM_KEY_CHOICES.map(a => `<option value="${a}"${a === current ? ' selected' : ''}>${esc(numKeyName(a, data))}</option>`));
+    return `<label class="numkey-row"><b>${i + 1}</b><select data-numkey="${i + 1}" aria-label="숫자키 ${i + 1}">${options.join('')}</select></label>`;
+  }).join('');
+  return `${head}<div class="numkeys">${rows}<p class="numkeys-hint">${esc(NUM_KEY_HINT)}</p>`
+    + '<div class="numkeys-foot"><button data-action="numKeysReset" data-arg="">처음대로</button></div></div>';
+}
+
+/** A `<select data-numkey>` value back to its action; '' and anything unknown are 비움. */
+export function parseNumKeyAction(value: string): NumKeyAction | null {
+  const [action = '', arg = ''] = value.split(':');
+  return actionOf(action, arg);
 }
