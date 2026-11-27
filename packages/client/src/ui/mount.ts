@@ -46,10 +46,8 @@ import { readTarget, targetHtml, writeTarget } from './target';
 import { closeSide, coveredIds, escStep, NO_SIDES, openSide, portraitGuide, rightBarHtml, sidesLocked, soloPause, toggleSide, type Side, type SideWin, type Sides } from './windows';
 import { soloMenuHtml } from './solo-menu';
 import { PORTRAIT_TITLE, portraitText } from './first-visit';
+import { numKeyOfCode, readNumKeys, splitAction, type NumKeyMap } from './numkeys';
 
-const UPGRADE_KEYS: Partial<Record<string, UpgradeId>> = {
-  Digit1: 'physical', Digit2: 'magical', Digit3: 'polish',
-};
 const RENDER_MS = 100;
 const NOTICE_MS = 1500;
 const BANNER_MS = 1800;
@@ -181,6 +179,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let wasOver = false;
   // the hotkey line under the board (단축키 안내 줄 in the settings window)
   let helpLine = readHelpLine();
+  let numKeys: NumKeyMap = readNumKeys();
   let modal: 'dex' | 'menu' | 'forfeit' | 'settings' | 'restartAsk' | 'homeAsk' | null = null;
   let sides: Sides = NO_SIDES;
   // design ⑫: the end scene runs once, when this screen sees the game end; a screen mounted on an ended game (a rejoin) skips it
@@ -234,7 +233,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
   let marketCell: HTMLElement | null = null;
 
   function gamble(cmd: GambleCommand): void {
-    if (sides.right !== 'market' || !econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
+    if (!econ()?.market?.gamble || (reveal && reveal.phase !== 'result')) return;
     playGamblePress(cmd.type);
     reveal = startReveal(performance.now());
     driver.queue(cmd);
@@ -954,7 +953,12 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
     if (online && modal === 'settings' && ev.code === 'KeyQ' && !ev.shiftKey && driver.state.phase !== 'ended') { act('toggleHelper', ''); return; }
     if (modal || sceneRunning || driver.state.phase === 'ended') return;
     // side-window keys do nothing under a lock (P pause too), so a paused board buys nothing
-    const buy = UPGRADE_KEYS[ev.code];
+    const num = numKeyOfCode(ev.code);
+    if (num !== null) {
+      const assigned = numKeys[num - 1];
+      if (assigned && !locked()) { const { action, arg } = splitAction(assigned); act(action, arg); }
+      return;
+    }
     const quests = ev.code === 'KeyJ' && !!driver.state.data.economy;
     const market = ev.code === 'KeyB' && !!driver.state.data.economy?.market;
     const jige = ev.code === 'KeyR' && !!driver.state.data.economy?.market;
@@ -969,7 +973,7 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       else if (card?.unitId != null) act('unitDetails', '');
       return;
     }
-    if (ev.code === 'KeyE' || buy || quests || market || jige || helperKey) {
+    if (ev.code === 'KeyE' || quests || market || jige || helperKey) {
       if (locked()) return;
       // online Q opens and closes the helper, so Shift+Q flips its scope while it is open
       if (helperKey) {
@@ -989,7 +993,6 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
       if (market) { act('toggleMarket', ''); return; }
       // J opens the quest list from preparation on and closes it again; the clock never stops for it
       if (quests) { act(sides.right === 'quests' ? 'closeWin' : 'openQuests', sides.right === 'quests' ? 'right' : ''); return; }
-      if (sides.right === 'upgrades') { act('upgrade', buy!); return; }
     }
     // one Space rule while nothing locks the board: summon even on a focused button; buttons take Enter
     if (ev.code === 'Space') { ev.preventDefault(); act('summon', ''); }
