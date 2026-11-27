@@ -20,3 +20,21 @@ test('the same rows give no change and no easier flag', () => {
   expect(c.firstGrade6.before).toBe(21);
   expect(c.easier).toBe(false);
 });
+
+const rowsOf = (finished: number, total: number, boss60: number): ReturnType<typeof parseEconCsv> =>
+  parseEconCsv([
+    'seed,config,bot,seat,finished,teamOutcome,endRound,firstGrade6Round,boss20,boss40,boss60',
+    ...Array.from({ length: total }, (_, i) => `1,c,target,${i},${i < finished},clear,70,20,30,40,${boss60}`),
+  ].join('\n'));
+
+test('completion up by more than 10 points is flagged easier', () => {
+  expect(compareEcon(rowsOf(10, 20, 60), rowsOf(13, 20, 60)).easier).toBe(true);
+});
+
+test('a boss 60 kill time more than 15% shorter is flagged easier', () => {
+  expect(compareEcon(rowsOf(10, 20, 60), rowsOf(10, 20, 48)).easier).toBe(true);
+});
+
+test('a slower boss 60 and a small completion gain are not flagged', () => {
+  expect(compareEcon(rowsOf(10, 20, 60), rowsOf(11, 20, 72)).easier).toBe(false);
+});

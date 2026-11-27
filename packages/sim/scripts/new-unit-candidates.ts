@@ -1,3 +1,4 @@
+// One-off v6-era design tool: stage3 data now already holds the v7 units, so running it would stack temporary units on top of them.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadGameData, validateData, type GameData } from '@dorandi/logic';

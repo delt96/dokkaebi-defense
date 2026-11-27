@@ -109,6 +109,7 @@ describe('sprites', () => {
     const missing = d3.units.filter(u => !files.has(u.id)).map(u => u.id);
     expect(missing.filter(id => !NO_ART_YET.includes(id))).toEqual([]);
     for (const id of NO_ART_YET) expect(d3.units.some(u => u.id === id), id).toBe(true);
+    for (const id of NO_ART_YET) expect(files.has(id), id).toBe(false);
   });
   test('stage 3 pass bosses draw the art of the boss they repeat; anything else falls back', () => {
     for (const e of d3.enemies.filter(x => x.boss)) expect(spriteKey(e.id, files), e.id).not.toBeNull();

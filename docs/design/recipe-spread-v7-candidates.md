@@ -153,6 +153,8 @@ Task 10 비교 스크립트가 읽을 CSV는 아래 네 개다(저장소 루트 
 - `packages/sim/sim-out/v7-base-hard/econ-target-m1-q4-t1-j1-defeat.csv`
 - `packages/sim/sim-out/v7-base-hard/econ-switch-m1-q4-t1-j1-defeat.csv`
 
+지옥 기준값은 나중에 따로 쟀다. v6 데이터인 브랜치 시작 커밋 `6827ead`에서 `npm run sim -- --stage 3 --check grade6 --defeat on --difficulty hell --seeds 20 --out sim-out/v7-base-hell`을 돌렸고, 같은 이름의 CSV 두 개가 `packages/sim/sim-out/v7-base-hell/`에 있다. 아래 기준값 표에는 넣지 않았고 "측정" 절의 지옥 표에서만 쓴다.
+
 한 설정에 6인 판 20개, 자리 120개다. 완주율은 70라운드까지 남은 자리의 비율이다. 탈락 라운드는 완주하지 못한 자리의 `endRound`를 10라운드씩 묶었다. 보스 처치 시간과 6등급 첫 완성 라운드는 값이 있는 자리만 모아 중앙값을 냈고, 괄호 안이 그 자리 수다.
 
 | 난이도 | 봇 | 완주 | 탈락 라운드 (자리 수) | 20R 보스(초) | 40R 보스(초) | 60R 보스(초) | 6등급 첫 완성 | 팀 결과 (판) |
@@ -638,7 +640,7 @@ A는 재료를 그대로 둔 판, B는 조합한 뒤의 남은 적 수다. 아�
 - 손잡이 하나로 통과한 것은 확률 0.25 → 0.48뿐이었다(0.47까지는 clump015 +2). 이 경우 화력이 73% → 114%로 크게 올라 "조금"에 맞지 않아 고르지 않았다.
 - 조정 뒤 천년 병풍 4칸: flow176 15.6 / 11.5 (−2), flow128 13.8 / 5.9 (−4), flow088 15.1 / 7.5 (−4), clump015 15.0 / 2.5 (0). clump015는 최악 차이 0으로 겨우 통과한다.
 - 천년 병풍을 재료로 쓰는 조합은 없다(6등급이고, 길들이기 조합은 일반 5등급만 쓴다). 같은 측정에서 새 유닛 4종과 천년 떡판도 모두 그대로 통과했다.
-- 측정 명령(packages/sim에서): `npm run sim -w @dorandi/sim -- --stage 3 --check combine --seeds 10 --recipes ../../docs/design/recipe-spread-v7-recipes-c10.json --new-units ../../docs/design/recipe-spread-v7-new-units.json --set units.119.range=3,units.119.interval=0.8 --results cheonnyeonbyeongpung,dasikpan,seongjudanji,yeongdeunghalmang,cheonnyeondeungjan,cheonnyeontteokpan`. `units.119`는 stage3 데이터에서 천년 병풍의 자리다. 이 값은 Task 9에서 `packages/logic/data/stage3/units.json`에 넣는다.
+- 측정 명령(packages/sim에서): `npm run sim -w @dorandi/sim -- --stage 3 --check combine --seeds 10 --recipes ../../docs/design/recipe-spread-v7-recipes-c10.json --new-units ../../docs/design/recipe-spread-v7-new-units.json --set units.119.range=3,units.119.interval=0.8 --results cheonnyeonbyeongpung,dasikpan,seongjudanji,yeongdeunghalmang,cheonnyeondeungjan,cheonnyeontteokpan`. `units.119`는 stage3 데이터에서 천년 병풍의 자리다. 이 값은 Task 9에서 `packages/logic/data/stage3/units.json`에 넣는다. 이 명령은 Task 8 때 v6 데이터와 덧씌우는 파일로 쟀던 것이다. 그 뒤 5등급 유닛 두 개가 앞에 들어가 `units.119`가 다른 유닛을 가리키므로, 지금 데이터에서는 같은 결과가 나오지 않는다.
 
 **천년 병풍 두 번째 조정 (Task 9): 계수 0.89 → 0.92.** 다식판 계수를 1.1로 올리자, 재료를 둔 판(A)이 나아져 병풍이 다시 실패했다(flow128 13.6 / 9.7 (+2), clump015 16.5 / 5.0 (+6)).
 - 손잡이 하나씩 10시드로 쟀다. 계수는 0.91까지 그대로 실패하고 0.92부터 통과한다(0.92~1.1이 모두 같은 결과). 잡귀를 한 방에 잡는 경계를 넘는 값으로 보인다. 간격 0.65·0.75, 확률 0.3~0.4, 강타 배율 4는 어느 한 시나리오에서 실패했다. 간격 0.7, 사거리 3.5, 범위 배율 2, 확률 0.48도 통과했지만, 바꾸는 폭이 가장 작은 계수 0.92를 골랐다.
@@ -700,7 +702,7 @@ v7 데이터(커밋 `c5634dc`)를 기준값(v6)과 같은 방법으로 쟀다. �
 
 ### 전체 판 봇
 
-실행 명령은 기준값과 같고 출력 폴더만 `sim-out/v7-after-normal`, `sim-out/v7-after-hard`다. 한 설정에 6인 판 20개, 자리 120개다. 비교는 저장소 루트에서 이렇게 돌렸다.
+실행 명령은 기준값과 같고 출력 폴더만 `sim-out/v7-after-normal`, `sim-out/v7-after-hard`다(지옥은 아래 따로). 한 설정에 6인 판 20개, 자리 120개다. 비교는 저장소 루트에서 이렇게 돌렸다.
 
 ```
 npx tsx packages/sim/scripts/v7-compare.ts --before packages/sim/sim-out/v7-base-normal --after packages/sim/sim-out/v7-after-normal
@@ -720,7 +722,7 @@ npx tsx packages/sim/scripts/v7-compare.ts --before packages/sim/sim-out/v7-base
 | 어려움 | switch | 전 | 16/120 (13.3%) | 11~20: 2, 31~40: 7, 41~50: 4, 51~60: 48, 61~70: 43 | 26.0 (118) | 42.1 (111) | 60.8 (59) | R17 (117) | 클리어 11, 관문 실패 5, 전멸 4 |
 | 어려움 | switch | 후 | 47/120 (39.2%) | 11~20: 4, 21~30: 1, 31~40: 1, 41~50: 1, 51~60: 38, 61~70: 28 | 27.8 (116) | 40.0 (114) | 58.1 (75) | R17.5 (116) | 클리어 18, 관문 실패 1, 전멸 1 |
 
-어려움 switch의 40R 보스 전 값은 기준값 표에 42.2로 적혀 있고 스크립트는 42.1로 찍는다(중앙값이 두 값의 평균이라 반올림이 갈린다). 어려움 switch 후의 첫 완성 R17.5도 중앙값이 두 값의 평균이라 .5가 붙었다.
+어려움 switch의 40R 보스 전 값은 기준값 표에 42.2로 적혀 있고 스크립트는 42.1로 찍는다(같은 값 42.15를 반올림하는 방식이 달라 42.1과 42.2로 갈린다. n = 111이라 중앙값이 두 값의 평균은 아니다). 어려움 switch 후의 첫 완성 R17.5도 중앙값이 두 값의 평균이라 .5가 붙었다.
 
 명령이 찍는 요약표(완주한 자리만 센 6등급 칸)는 이렇다.
 
@@ -732,6 +734,23 @@ npx tsx packages/sim/scripts/v7-compare.ts --before packages/sim/sim-out/v7-base
 | 어려움 | switch | 0 / 0 / 1 / 13 / 29 / 4 | 89% | R17 / R23 | 합격 |
 
 기준값에서 미달이었던 보통·어려움 target(3~4기 58%, 60%)이 모두 합격으로 바뀌었다. 다만 어려움 target은 완주자 22명 기준이다.
+
+### 지옥 난이도
+
+같은 설정에서 난이도만 지옥으로 바꿔 쟀다. 전은 커밋 `6827ead`(v6 데이터), 후는 이 브랜치이고, 명령은 `npm run sim -- --stage 3 --check grade6 --defeat on --difficulty hell --seeds 20`에 출력 폴더만 `sim-out/v7-base-hell`, `sim-out/v7-after-hell`로 달리했다. 비교는 이렇게 돌렸다.
+
+```
+npx tsx packages/sim/scripts/v7-compare.ts --before packages/sim/sim-out/v7-base-hell --after packages/sim/sim-out/v7-after-hell
+```
+
+| 난이도 | 봇 | 전후 | 완주 | 탈락 라운드 (자리 수) | 20R 보스(초) | 40R 보스(초) | 60R 보스(초) | 6등급 첫 완성 | 팀 결과 (판) |
+|---|---|---|---|---|---:|---:|---:|---:|---|
+| 지옥 | target | 전 | 0/120 (0.0%) | 1~10: 2, 11~20: 45, 21~30: 8, 31~40: 30, 41~50: 8, 51~60: 27 | 56.5 (73) | 53.3 (35) | 없음 (0) | R29 (48) | 관문 실패 17, 전멸 3 |
+| 지옥 | target | 후 | 1/120 (0.8%) | 1~10: 1, 11~20: 17, 21~30: 12, 31~40: 51, 41~50: 9, 51~60: 28, 61~70: 1 | 48.8 (102) | 57.0 (39) | 47.9 (2) | R28 (59) | 클리어 1, 관문 실패 15, 전멸 4 |
+| 지옥 | switch | 전 | 0/120 (0.0%) | 1~10: 1, 11~20: 11, 21~30: 2, 31~40: 21, 41~50: 21, 51~60: 62, 61~70: 2 | 43.9 (108) | 53.6 (85) | 67.3 (2) | R24 (99) | 관문 실패 18, 전멸 2 |
+| 지옥 | switch | 후 | 3/120 (2.5%) | 11~20: 7, 21~30: 7, 31~40: 26, 41~50: 16, 51~60: 42, 61~70: 19 | 42.5 (113) | 53.4 (80) | 63.0 (22) | R24 (95) | 클리어 2, 관문 실패 10, 전멸 8 |
+
+표가 보여 주는 것은 이렇다. 지옥은 전에는 한 자리도 완주하지 못했고(0/240), 후에는 target 1자리, switch 3자리가 완주해 완주율이 0.8%와 2.5%로 오른다. 변화는 +0.8%p와 +2.5%p로 "크게 쉬워짐" 기준(10%p)에 한참 못 미친다. 탈락은 뒤로 밀린다. switch는 1~50라운드 탈락이 56자리 그대로이고 51~60라운드 탈락이 62자리에서 42자리로 줄었으며 61~70라운드 탈락이 2자리에서 19자리로 늘었다(60R 보스 시간은 이 때문에 값이 있는 자리가 2에서 22로 늘어 전과 같은 집단이 아니다). target은 11~20라운드 탈락이 45에서 17로 줄고 31~40라운드가 30에서 51로 늘어, 일찍 죽던 자리가 한 구간 뒤에서 죽는다. 51라운드 이후 탈락은 target 27 → 29로 거의 그대로다. 20R 보스는 target이 56.5 → 48.8초로 줄었고 switch는 43.9 → 42.5초로 거의 같다. 60R 보스 시간의 변화(target 값이 있는 자리 0 → 2, switch -6.4%)는 자리 수가 작아 비교하지 않는다. 팀 단위로는 switch의 전멸이 2판에서 8판으로 늘었다.
 
 ### 크게 쉬워짐 판정
 

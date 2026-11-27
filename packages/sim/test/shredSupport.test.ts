@@ -60,10 +60,12 @@ describe('shred support', () => {
 
 describe('bots with shred support', () => {
   const SEEDS = [1, 2, 3];
-  const heldShare = (shred: boolean, round: number): number => {
+  const heldShare = async (shred: boolean, round: number): Promise<number> => {
     const c = STANDARD_CONFIGS.find(x => x.name === 'switch-full-q2')!;
     let held = 0;
     for (const seed of SEEDS) {
+      // vitest's worker RPC times out after 60 s of blocked event loop; yield between the long synchronous matches
+      await new Promise(resolve => setImmediate(resolve));
       const d = configData(d3, c, seed);
       const m = createMatch(d, seed, SEATS, { noElimination: true, noGate: true });
       const policy = { quests: true, tame: true, jige: true, hunts: true, shred };
@@ -74,12 +76,12 @@ describe('bots with shred support', () => {
     return held / (SEATS.length * SEEDS.length);
   };
 
-  test('keep a grade 5-6 shredder of their main type on most boards, clearly more often than without it', () => {
-    const on = heldShare(true, 51);
-    const off = heldShare(false, 51);
+  test('keep a grade 5-6 shredder of their main type on most boards, clearly more often than without it', async () => {
+    const on = await heldShare(true, 51);
+    const off = await heldShare(false, 51);
     expect(on).toBeGreaterThanOrEqual(0.5);
     // without support boards still get shred by chance (often a tamed grade 6): 0.28-0.61 over three seeds.
-    // The policy adds 0.50 (v6) and 0.56 (v7) at seeds 1-3; no three consecutive seeds in 1-8 add less than 0.27.
+    // 0.25 margin: the lowest difference over any three consecutive seeds in 1-8 was about 0.27, and no support gives about 0.
     expect(on - off).toBeGreaterThanOrEqual(0.25);
   }, 600_000);
 });
