@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dataSources, loadGameData, type GameData, type RecipeDef } from '@dorandi/logic';
 import { combineGainAll } from '../src/stage3/combineGain';
-import { goal6, recipesFile, v7Goals, withNewUnits, type NewUnitOverlay, type V7Goals } from '../src/stage3/newUnits';
+import { assertKnownUnits, goal6, recipesFile, v7Goals, withNewUnits, type NewUnitOverlay, type V7Goals } from '../src/stage3/newUnits';
 import {
   applySwaps, changedRecipes, editableRecipes, grade1Totals, leafCounts, searchSpread, spreadDemand, spreadLowerBound, swapProblems,
   targetMisses, type SpreadSearchOptions, type SpreadRules, type Swap,
@@ -25,6 +25,7 @@ const overlayFile = arg('new-units', '');
 const overlay: NewUnitOverlay = overlayFile ? JSON.parse(readFileSync(overlayFile, 'utf8')) : { units: [], recipes: [] };
 const newIds = overlay.units.map(u => u.id);
 const data = withNewUnits(loadGameData('stage3'), overlay);
+assertKnownUnits(data);
 const editable = new Set([...editableRecipes(dataSources()), ...overlay.recipes.map(r => r.result)]);
 const name = (id: string) => data.units.find(u => u.id === id)!.name;
 const ban = arg('ban', '').split(',').filter(Boolean).map(s => { const [result, material] = s.split(':'); return { result: result!, material: material! }; });

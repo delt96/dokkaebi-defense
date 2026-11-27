@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildGameData, dataSources, loadGameData, type GameData } from '@dorandi/logic';
-import { goal6, withNewUnits, type NewUnitOverlay } from '../src/stage3/newUnits';
+import { assertKnownUnits, goal6, withNewUnits, type NewUnitOverlay } from '../src/stage3/newUnits';
 import { summonMarkdown, summonReport } from '../src/stage3/summonSim';
 
 function arg(name: string, fallback: string): string {
@@ -20,6 +20,7 @@ if (recipesFile) {
 }
 const overlayFile = arg('new-units', '');
 if (overlayFile) data = withNewUnits(data, JSON.parse(readFileSync(overlayFile, 'utf8')) as NewUnitOverlay);
+assertKnownUnits(data);
 
 const report = summonReport(data, { runs: Number(arg('runs', '400')), length: Number(arg('length', '400')) });
 const out = arg('out', 'sim-out/summon');

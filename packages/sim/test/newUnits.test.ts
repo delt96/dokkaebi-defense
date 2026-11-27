@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { buildGameData, dataSources, loadGameData, unitDef, validateData } from '@dorandi/logic';
-import { goal6, recipesFile, v7Goals, withNewUnits, type NewUnitOverlay } from '../src/stage3/newUnits';
+import { assertKnownUnits, goal6, recipesFile, v7Goals, withNewUnits, type NewUnitOverlay } from '../src/stage3/newUnits';
 import { applySwaps, grade1Balance } from '../src/stage3/spread';
 import type { SummonReport } from '../src/stage3/summonSim';
 
@@ -21,6 +21,9 @@ test('goals count the overlay grade 6 units', () => {
   const g = v7Goals(withNewUnits(d, six), ['v7g5p', 'v7g6p']);
   expect(g.g3.map(x => x.id)).toEqual(['v7g5p', 'v7g6p']);
   expect(g.g1.maxRatio).not.toBeCloseTo(grade1Balance(d).maxRatio, 5);
+  expect(g.g2.over10).toContain('v7g6p');
+  expect(() => v7Goals(d, ['v7g6p'])).toThrow(/v7g6p/);
+  expect(() => v7Goals(d, [d.units.find(u => u.hidden && u.grade === 6)!.id])).toThrow(/normal grade 5 or 6/);
 });
 test('v6 data fails g1 and g2', () => {
   const g = v7Goals(d, []);
@@ -51,4 +54,13 @@ test('goal6 passes only below 40% on top with five picks over 5%', () => {
   expect(goal6(report([0.4, 0.2, 0.15, 0.1, 0.1, 0.05]))).toEqual({ topShare: 0.4, over5pct: 5, pass: true });
   expect(goal6(report([0.41, 0.2, 0.15, 0.1, 0.09, 0.05])).pass).toBe(false);
   expect(goal6(report([0.3, 0.3, 0.2, 0.1, 0.05, 0.05])).pass).toBe(false);
+});
+
+test('a recipes file with new recipes needs the overlay', () => {
+  const src = dataSources();
+  src.stage3.recipes = JSON.parse(JSON.stringify(recipesFile(withNewUnits(d, six), six)));
+  const bare = buildGameData('stage3', src);
+  expect(() => assertKnownUnits(bare)).toThrow(/--new-units/);
+  expect(() => assertKnownUnits(withNewUnits(bare, six))).not.toThrow();
+  expect(() => assertKnownUnits(d)).not.toThrow();
 });

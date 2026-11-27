@@ -63,9 +63,25 @@ export interface V7Goals {
   g4: { misses: string[]; pass: boolean };
 }
 
+/**
+ * buildGameData accepts recipes for units it does not know, so a recipes file with the new recipes but no overlay
+ * would quietly measure without the new units.
+ */
+export function assertKnownUnits(data: GameData): void {
+  const known = new Set(data.units.map(u => u.id));
+  const unknown = [...new Set(data.recipes.flatMap(r => [r.result, ...r.materials]).filter(id => !known.has(id)))];
+  if (unknown.length) throw new Error(`recipes use unknown units ${unknown.join(', ')}: pass --new-units with the overlay that defines them`);
+}
+
 export function v7Goals(data: GameData, newIds: string[]): V7Goals {
   const b = grade1Balance(data);
   const grade6 = data.units.filter(u => u.grade === 6 && !u.hidden).map(u => ({ id: u.id, top: topGrade1(data, u.id).n }));
+  for (const id of newIds) {
+    const u = data.units.find(x => x.id === id);
+    if (!u) throw new Error(`new unit ${id} is not in the data: apply the overlay first`);
+    if (u.hidden || (u.grade !== 5 && u.grade !== 6)) throw new Error(`new unit ${id} must be a normal grade 5 or 6 unit`);
+    if (u.grade === 6 && !grade6.some(g => g.id === id)) throw new Error(`new unit ${id} is not counted among the normal grade 6 units`);
+  }
   const over10 = grade6.filter(u => u.top > 10).map(u => u.id);
   const misses = targetMisses(data);
   return {
