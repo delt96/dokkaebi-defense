@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { buildGameData, dataSources, loadGameData, recipeValue, unitDef } from '@dorandi/logic';
+import { buildGameData, dataSources, loadGameData, recipeDemand, recipeValue, unitDef } from '@dorandi/logic';
 import {
   applySwaps, changedRecipes, editableRecipes, grade1Balance, grade1Totals, leafCounts, leftoverShare, lockedMaterials, searchSpread, spreadDemand, spreadLowerBound, swapProblems, targetMisses, topGrade1,
   type Swap,
 } from '../src/stage3/spread';
 import v5Recipes from './recipes-stage3-v5.json';
+import baseline from './spread-v6-baseline.json';
 
 // The search is pinned on the skewed stage 3 recipes of content draft v5, before v6 evened them out.
 const v5Sources = dataSources();
@@ -12,6 +13,7 @@ v5Sources.stage3.recipes = v5Recipes;
 const d3 = buildGameData('stage3', v5Sources);
 const editable = editableRecipes(dataSources());
 const normal = (g: number) => d3.units.filter(u => u.grade === g && !u.hidden);
+const ALLOW: Record<string, Record<string, string[]>> = { bihyeongrang: { kkeul: ['hahoetal', 'eomang'] }, gildal: { kkeul: ['beoseon'] }, jejuyeonggam: { buk: ['ssatba'] } };
 
 describe('demand and targets', () => {
   test('spreadDemand matches the spec current table', () => {
@@ -127,10 +129,9 @@ test('searchSpread meets every target', () => {
 }, 120_000);
 
 test('searchSpread with an allow list only makes listed swaps', () => {
-  const allow = { bihyeongrang: { kkeul: ['hahoetal', 'eomang'] }, gildal: { kkeul: ['beoseon'] }, jejuyeonggam: { buk: ['ssatba'] } };
-  const swaps = searchSpread(d3, editable, { seed: 1, allow });
+  const swaps = searchSpread(d3, editable, { seed: 1, allow: ALLOW });
   expect(swaps.length).toBeGreaterThan(0);
-  for (const s of swaps) expect((allow as Record<string, Record<string, string[]>>)[s.result]?.[s.from]).toContain(s.to);
+  for (const s of swaps) expect(ALLOW[s.result]?.[s.from]).toContain(s.to);
   expect(swaps.some(s => s.result === 'jejuyeonggam')).toBe(false);
   expect(swapProblems(d3, editable, swaps)).toEqual([]);
 });
@@ -155,4 +156,47 @@ describe('grade 1 totals', () => {
   test('leftoverShare of samtaegi is 1', () => {
     expect(leftoverShare(d, 'samtaegi')).toBe(1);
   });
+});
+
+describe('v7 rules', () => {
+  const rules = { crossFamily: true, unlockGrade1: true };
+  test('options off reproduce the v6 search', () => {
+    expect(searchSpread(d3, editable, { seed: 1, ban: [{ result: 'bihyeongrang', material: 'hahoetal' }], keep: new Set(['bihyeongrang']) }))
+      .toEqual(baseline.banKeep);
+    // the allow-list run of the existing test, same inputs
+    expect(searchSpread(d3, editable, { seed: 1, allow: ALLOW })).toEqual(baseline.allow);
+  }, 240_000);
+  test('crossFamily accepts a family change only when on', () => {
+    expect(swapProblems(d3, editable, [{ result: 'bihyeongrang', from: 'kkeul', to: 'sil' }])).not.toEqual([]);
+    expect(swapProblems(d3, editable, [{ result: 'bihyeongrang', from: 'kkeul', to: 'sil' }], rules)).toEqual([]);
+  });
+  test('unlockGrade1: a single grade 1 swap breaks the 7 cap, a pair passes', () => {
+    const v6 = loadGameData('stage3');
+    const one = [{ result: 'sutdarimi', from: 'dadeumi', to: 'ki' }];
+    expect(swapProblems(v6, editable, one, rules).join('\n')).toContain('ki is used in 8 recipes');
+    expect(swapProblems(v6, editable, [...one, { result: 'samtaegi', from: 'ki', to: 'dadeumi' }], rules)).toEqual([]);
+    // 모깃불↔삼태기 pair would give samtaegi the jaetmulsiru material set
+    expect(swapProblems(v6, editable, [{ result: 'mogitbul', from: 'bujigaengi', to: 'ki' }, { result: 'samtaegi', from: 'ki', to: 'bujigaengi' }], rules).join('\n'))
+      .toContain('same materials');
+  });
+  test('unlock keeps skill sources', () => {
+    expect(lockedMaterials(d3, 'jejuyeonggam', rules).has('buk')).toBe(true);
+    expect(lockedMaterials(d3, 'didilbangga', rules).size).toBe(0);
+  });
+  test('pairSwap legality: never empties one copy of a doubled grade 1', () => {
+    const v6 = loadGameData('stage3');
+    const swaps = searchSpread(v6, editable, { seed: 1, iterations: 20_000, rules, balance: { weight: 1, max: 1.1, min: 0.9 } });
+    expect(swapProblems(v6, editable, swaps, rules)).toEqual([]);
+    for (const id of ['dunggumi', 'hongdukkae', 'jipsingol']) expect(swaps.some(s => s.result === id && unitDef(v6, s.from).grade === 1)).toBe(false);
+    const g1 = v6.units.filter(u => u.grade === 1).map(u => recipeDemand(applySwaps(v6, swaps), u.id));
+    expect(g1).toEqual(Array(8).fill(7));
+  }, 120_000);
+  test('balance and topCap penalties lower the skew', () => {
+    const v6 = loadGameData('stage3');
+    const swaps = searchSpread(v6, editable, { seed: 1, iterations: 50_000, rules,
+      balance: { weight: 1, max: 1.1, min: 0.9 }, topCap: { weight: 1, cap: 10 } });
+    const after = applySwaps(v6, swaps);
+    expect(grade1Balance(after).maxRatio).toBeLessThan(grade1Balance(v6).maxRatio);
+    expect(targetMisses(after)).toEqual([]);
+  }, 120_000);
 });

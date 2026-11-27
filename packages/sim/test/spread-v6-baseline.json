@@ -1,0 +1,156 @@
+{
+  "banKeep": [
+    {
+      "result": "che",
+      "from": "jeolgu",
+      "to": "gamasot"
+    },
+    {
+      "result": "geumulbaneul",
+      "from": "saekkijul",
+      "to": "samtaegi"
+    },
+    {
+      "result": "geumulbaneul",
+      "from": "mumyeong",
+      "to": "cheongsachorong"
+    },
+    {
+      "result": "geumulbaneul",
+      "from": "meongseok",
+      "to": "sseurebatgi"
+    },
+    {
+      "result": "kkeul",
+      "from": "ja",
+      "to": "jumadeung"
+    },
+    {
+      "result": "geumulchu",
+      "from": "onggigama",
+      "to": "indu"
+    },
+    {
+      "result": "geumulchu",
+      "from": "geumulbaneul",
+      "to": "yagyeon"
+    },
+    {
+      "result": "janggu",
+      "from": "gawi",
+      "to": "yeonjabangga"
+    },
+    {
+      "result": "janggu",
+      "from": "ja",
+      "to": "daljip"
+    },
+    {
+      "result": "maksabal",
+      "from": "onggigama",
+      "to": "byeoru"
+    },
+    {
+      "result": "gamtudokkaebi",
+      "from": "sil",
+      "to": "manggeon"
+    },
+    {
+      "result": "gamtudokkaebi",
+      "from": "baneul",
+      "to": "jaetmulsiru"
+    },
+    {
+      "result": "cheonnyeondatdol",
+      "from": "geumulchu",
+      "to": "dokki"
+    },
+    {
+      "result": "cheonnyeondatdol",
+      "from": "kkeul",
+      "to": "hahoetal"
+    },
+    {
+      "result": "cheonnyeondatdol",
+      "from": "saekkijul",
+      "to": "gireumbyeong"
+    },
+    {
+      "result": "cheonnyeonmunbitjang",
+      "from": "top",
+      "to": "ssatba"
+    },
+    {
+      "result": "cheonnyeonmunbitjang",
+      "from": "kkeul",
+      "to": "beoseon"
+    },
+    {
+      "result": "cheonnyeontteoksal",
+      "from": "tteoksiru",
+      "to": "tewak"
+    },
+    {
+      "result": "cheonnyeontteoksal",
+      "from": "kkeul",
+      "to": "eomang"
+    },
+    {
+      "result": "cheonnyeontteoksal",
+      "from": "hamjibak",
+      "to": "didilbangga"
+    },
+    {
+      "result": "cheonnyeondolmulhwak",
+      "from": "maksabal",
+      "to": "gireumteul"
+    },
+    {
+      "result": "cheonnyeondolmulhwak",
+      "from": "kkeul",
+      "to": "buk"
+    },
+    {
+      "result": "cheonnyeondolmulhwak",
+      "from": "soemangchi",
+      "to": "tteongme"
+    },
+    {
+      "result": "cheonnyeonno",
+      "from": "dokki",
+      "to": "geumulchu"
+    },
+    {
+      "result": "cheonnyeonno",
+      "from": "ja",
+      "to": "jumadeung"
+    },
+    {
+      "result": "cheonnyeonjokja",
+      "from": "but",
+      "to": "sutdarimi"
+    },
+    {
+      "result": "cheonnyeondot",
+      "from": "sil",
+      "to": "gat"
+    },
+    {
+      "result": "cheonnyeondot",
+      "from": "baneul",
+      "to": "sutdarimi"
+    }
+  ],
+  "allow": [
+    {
+      "result": "bihyeongrang",
+      "from": "kkeul",
+      "to": "hahoetal"
+    },
+    {
+      "result": "gildal",
+      "from": "kkeul",
+      "to": "beoseon"
+    }
+  ]
+}

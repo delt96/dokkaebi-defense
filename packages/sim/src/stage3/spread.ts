@@ -67,10 +67,12 @@ export function editableRecipes(src: DataSources): Set<string> {
   return new Set((src.stage3.recipes as { result: string; kind?: string }[]).filter(r => r.kind === undefined).map(r => r.result));
 }
 
-export function lockedMaterials(data: GameData, result: string): Set<string> {
+export interface SpreadRules { crossFamily?: boolean; unlockGrade1?: boolean }
+
+export function lockedMaterials(data: GameData, result: string, rules?: SpreadRules): Set<string> {
   const units = unitMap(data);
   const recipe = ordinary(data).find(r => r.result === result);
-  const locked = new Set((recipe?.materials ?? []).filter(m => units.get(m)?.grade === 1));
+  const locked = new Set(rules?.unlockGrade1 ? [] : (recipe?.materials ?? []).filter(m => units.get(m)?.grade === 1));
   for (const skill of units.get(result)?.skills ?? []) {
     for (const e of skill.effects) if ('source' in e && e.source) locked.add(e.source);
   }
@@ -87,7 +89,7 @@ export function applySwaps(data: GameData, swaps: Swap[]): GameData {
   return copy;
 }
 
-export function swapProblems(data: GameData, editable: Set<string>, swaps: Swap[]): string[] {
+export function swapProblems(data: GameData, editable: Set<string>, swaps: Swap[], rules?: SpreadRules): string[] {
   const units = unitMap(data);
   const out: string[] = [];
   const current = new Map(ordinary(data).map(r => [r.result, [...r.materials]]));
@@ -98,9 +100,11 @@ export function swapProblems(data: GameData, editable: Set<string>, swaps: Swap[
     if (!mats || !editable.has(s.result)) { out.push(`recipe ${s.result} is not editable`); continue; }
     const i = mats.indexOf(s.from);
     if (i < 0 || !from) { out.push(`recipe ${s.result} has no ${s.from}`); continue; }
-    if (lockedMaterials(data, s.result).has(s.from)) out.push(`recipe ${s.result} must keep ${s.from}`);
+    if (lockedMaterials(data, s.result, rules).has(s.from)) out.push(`recipe ${s.result} must keep ${s.from}`);
     if (!to || to.hidden) { out.push(`${s.to} is not a normal unit`); continue; }
-    if (to.grade !== from.grade || to.damageType !== from.damageType) out.push(`${s.from} -> ${s.to} changes grade or family`);
+    if (rules?.crossFamily) {
+      if (to.grade !== from.grade) out.push(`${s.from} -> ${s.to} changes grade`);
+    } else if (to.grade !== from.grade || to.damageType !== from.damageType) out.push(`${s.from} -> ${s.to} changes grade or family`);
     if (mats.includes(s.to)) out.push(`recipe ${s.result} would hold ${s.to} twice`);
     mats[i] = s.to;
   }
@@ -171,9 +175,85 @@ export interface SpreadSearchOptions {
   keep?: Set<string>;
   /** When given, only these swaps are tried: result -> material -> replacements. */
   allow?: Record<string, Record<string, string[]>>;
+  rules?: SpreadRules;
+  /** max and min are ratios to the mean grade 1 total. */
+  balance?: { weight: number; max: number; min: number };
+  topCap?: { weight: number; cap: number; perUnit?: Record<string, number> };
+  leftover?: { weight: number; units: string[]; min: number };
 }
 
 interface Slot { recipe: number; pos: number; options: string[] }
+
+function grade1Tracker(data: GameData, recipes: { result: string }[], mats: string[][], opts: SpreadSearchOptions) {
+  const units = unitMap(data);
+  const g1 = grade1Units(data).map(u => u.id);
+  const n = g1.length;
+  const g1Index = new Map(g1.map((id, i) => [id, i]));
+  const recipeOf = new Map(recipes.map((r, i) => [r.result, i]));
+  const order = recipes.map((_, i) => i).sort((a, b) => units.get(recipes[a]!.result)!.grade - units.get(recipes[b]!.result)!.grade);
+  const rank = new Array<number>(recipes.length);
+  order.forEach((i, k) => { rank[i] = k; });
+  const vec = new Float64Array(recipes.length * n);
+  const leftover = g1.map(id => (LEFTOVER_GRADE1 as readonly string[]).includes(id));
+
+  // A material always has a lower grade than its result, so a pass in grade order sees finished material vectors.
+  const refresh = (from: number) => {
+    for (let k = from; k < order.length; k++) {
+      const i = order[k]!;
+      vec.fill(0, i * n, i * n + n);
+      for (const m of mats[i]!) {
+        const g = g1Index.get(m);
+        if (g !== undefined) { vec[i * n + g]!++; continue; }
+        const j = recipeOf.get(m);
+        if (j !== undefined) for (let x = 0; x < n; x++) vec[i * n + x]! += vec[j * n + x]!;
+      }
+    }
+  };
+  const recipeIndex = (id: string) => {
+    const i = recipeOf.get(id);
+    if (i === undefined) throw new Error(`unit ${id} has no recipe`);
+    return i;
+  };
+  const top = (i: number) => { let t = 0; for (let x = 0; x < n; x++) t = Math.max(t, vec[i * n + x]!); return t; };
+
+  const grade6 = data.units.filter(u => u.grade === 6 && !u.hidden).map(u => u.id);
+  const capped = opts.topCap ? [...new Set([...grade6, ...Object.keys(opts.topCap.perUnit ?? {})])]
+    .map(id => ({ i: recipeIndex(id), cap: opts.topCap!.perUnit?.[id] ?? opts.topCap!.cap })) : [];
+  const sums = grade6.map(recipeIndex);
+  const shares = (opts.leftover?.units ?? []).map(recipeIndex);
+  const totals = new Float64Array(n);
+
+  const penalty = (): number => {
+    let p = 0;
+    if (opts.balance) {
+      const b = opts.balance;
+      totals.fill(0);
+      for (const i of sums) for (let x = 0; x < n; x++) totals[x]! += vec[i * n + x]!;
+      const mean = totals.reduce((a, v) => a + v, 0) / n;
+      let miss = 0;
+      for (const t of totals) miss += Math.max(0, t - b.max * mean) + Math.max(0, b.min * mean - t);
+      p += miss * b.weight;
+    }
+    if (opts.topCap) {
+      let over = 0;
+      for (const c of capped) over += Math.max(0, top(c.i) - c.cap);
+      p += over * opts.topCap.weight;
+    }
+    if (opts.leftover) {
+      const l = opts.leftover;
+      for (const i of shares) {
+        let total = 0;
+        let left = 0;
+        for (let x = 0; x < n; x++) { total += vec[i * n + x]!; if (leftover[x]) left += vec[i * n + x]!; }
+        p += Math.max(0, l.min - (total === 0 ? 0 : left / total)) * 10 * l.weight;
+      }
+    }
+    return p;
+  };
+
+  refresh(0);
+  return { penalty, refresh: (touched: number[]) => refresh(Math.min(...touched.map(i => rank[i]!))) };
+}
 
 export function searchSpread(data: GameData, editable: Set<string>, opts: SpreadSearchOptions): Swap[] {
   const rng: RngState = createRng(opts.seed);
@@ -184,24 +264,27 @@ export function searchSpread(data: GameData, editable: Set<string>, opts: Spread
   const tame = tameDemand(data);
   const graded = targetUnits(data);
   const banned = new Set((opts.ban ?? []).map(b => `${b.result}|${b.material}`));
+  const rules = opts.rules ?? {};
 
+  const poolKey = (u: { grade: number; damageType: string }) => rules.crossFamily ? `${u.grade}` : `${u.grade}:${u.damageType}`;
   const pool = new Map<string, string[]>();
-  for (const u of data.units) if (!u.hidden) pool.set(`${u.grade}:${u.damageType}`, [...(pool.get(`${u.grade}:${u.damageType}`) ?? []), u.id]);
+  for (const u of data.units) if (!u.hidden) pool.set(poolKey(u), [...(pool.get(poolKey(u)) ?? []), u.id]);
   const slots: Slot[] = [];
+  const pairSlots: Slot[] = [];
   recipes.forEach((r, i) => {
     if (!editable.has(r.result) || opts.keep?.has(r.result)) return;
-    const locked = lockedMaterials(data, r.result);
+    const locked = lockedMaterials(data, r.result, rules);
     r.materials.forEach((m, pos) => {
       if (locked.has(m)) return;
       const u = units.get(m)!;
       const allowed = opts.allow ? opts.allow[r.result]?.[m] : undefined;
       if (opts.allow && !allowed) return;
-      const options = pool.get(`${u.grade}:${u.damageType}`)!
+      const options = pool.get(poolKey(u))!
         .filter(o => o === m || (!banned.has(`${r.result}|${o}`) && (!allowed || allowed.includes(o))));
-      if (options.length > 1) slots.push({ recipe: i, pos, options });
+      if (options.length > 1) (u.grade === 1 ? pairSlots : slots).push({ recipe: i, pos, options });
     });
   });
-  if (!slots.length) return [];
+  if (!slots.length && !pairSlots.length) return [];
   const slotsOf = (id: string) => slots.filter(s => mats[s.recipe]![s.pos] === id);
 
   const demand = new Map<string, number>();
@@ -212,18 +295,44 @@ export function searchSpread(data: GameData, editable: Set<string>, opts: Spread
   const differs = (i: number) => mats[i]!.some((m, j) => m !== orig[i]![j]);
   let changed = 0;
 
+  const tracker = opts.balance || opts.topCap || opts.leftover ? grade1Tracker(data, recipes, mats, opts) : null;
   const penalty = () => misses(graded, id => demand.get(id) ?? 0, tame).reduce((s, m) => s + m.size, 0);
-  const cost = (pen: number) => pen * 10 + changed;
+  const extraPenalty = () => tracker?.penalty() ?? 0;
+  const cost = (pen: number, extra: number) => pen * 10 + extra + changed;
 
   // A slot may take a material the recipe already had only by reverting to it, so the diff never chains swaps.
+  const revertOnly = (s: Slot, to: string) => orig[s.recipe]!.includes(to) && orig[s.recipe]![s.pos] !== to;
   const legal = (s: Slot, to: string): boolean => {
     const m = mats[s.recipe]!;
     if (to === m[s.pos]) return false;
     if (m.includes(to)) return false;
-    if (orig[s.recipe]!.includes(to) && orig[s.recipe]![s.pos] !== to) return false;
+    if (revertOnly(s, to)) return false;
     const next = [...m];
     next[s.pos] = to;
     return !keys.get(keyOf(next));
+  };
+  // Grade 1 units already sit at the validateData cap of 7 recipes, so grade 1 slots only trade materials in pairs.
+  const pairLegal = (x: Slot, y: Slot): boolean => {
+    if (x.recipe === y.recipe) return false;
+    const mx = mats[x.recipe]!;
+    const my = mats[y.recipe]!;
+    const a = mx[x.pos]!;
+    const b = my[y.pos]!;
+    if (a === b || !x.options.includes(b) || !y.options.includes(a)) return false;
+    if (mx.includes(b) || my.includes(a)) return false;
+    if (mx.indexOf(a) !== mx.lastIndexOf(a) || my.indexOf(b) !== my.lastIndexOf(b)) return false;
+    if (revertOnly(x, b) || revertOnly(y, a)) return false;
+    const nx = [...mx];
+    nx[x.pos] = b;
+    const ny = [...my];
+    ny[y.pos] = a;
+    const kx = keyOf(nx);
+    const ky = keyOf(ny);
+    if (kx === ky) return false;
+    const oldX = keyOf(mx);
+    const oldY = keyOf(my);
+    const taken = (k: string) => (keys.get(k) ?? 0) - Number(k === oldX) - Number(k === oldY) > 0;
+    return !taken(kx) && !taken(ky);
   };
   const set = (s: Slot, to: string) => {
     const m = mats[s.recipe]!;
@@ -254,29 +363,48 @@ export function searchSpread(data: GameData, editable: Set<string>, opts: Spread
         if (legal(s, orig[s.recipe]![s.pos]!)) return [s, orig[s.recipe]![s.pos]!];
       }
     }
+    if (!slots.length) return null;
     const s = slots[nextInt(rng, slots.length)]!;
     const to = s.options[nextInt(rng, s.options.length)]!;
     return legal(s, to) ? [s, to] : null;
   };
+  const proposePair = (): [Slot, string][] | null => {
+    const x = pairSlots[nextInt(rng, pairSlots.length)]!;
+    const ys = pairSlots.filter(y => pairLegal(x, y));
+    if (!ys.length) return null;
+    const y = ys[nextInt(rng, ys.length)]!;
+    return [[x, mats[y.recipe]![y.pos]!], [y, mats[x.recipe]![x.pos]!]];
+  };
+  const pairShare = pairSlots.length / (pairSlots.length + slots.length);
 
   const iterations = opts.iterations ?? 200_000;
   let pen = penalty();
-  let best: { pen: number; changed: number; mats: string[][] } = { pen, changed, mats: mats.map(m => [...m]) };
+  let extra = extraPenalty();
+  let best: { pen: number; score: number; mats: string[][] } = { pen, score: extra + changed, mats: mats.map(m => [...m]) };
   for (let it = 0; it < iterations; it++) {
     const temp = 2 * Math.pow(0.01, it / iterations);
-    const move = propose();
-    if (!move) continue;
-    const [s, to] = move;
-    const was = mats[s.recipe]![s.pos]!;
-    const oldCost = cost(pen);
-    set(s, to);
+    let moves: [Slot, string][] | null;
+    if (pairSlots.length && nextFloat(rng) < pairShare) moves = proposePair();
+    else {
+      const move = propose();
+      moves = move && [move];
+    }
+    if (!moves) continue;
+    const was = moves.map(([s]) => mats[s.recipe]![s.pos]!);
+    const touched = moves.map(([s]) => s.recipe);
+    const oldCost = cost(pen, extra);
+    for (const [s, to] of moves) set(s, to);
+    tracker?.refresh(touched);
     const nextPen = penalty();
-    const delta = cost(nextPen) - oldCost;
+    const nextExtra = extraPenalty();
+    const delta = cost(nextPen, nextExtra) - oldCost;
     if (delta <= 0 || nextFloat(rng) < Math.exp(-delta / temp)) {
       pen = nextPen;
-      if (pen < best.pen || (pen === best.pen && changed < best.changed)) best = { pen, changed, mats: mats.map(m => [...m]) };
+      extra = nextExtra;
+      if (pen < best.pen || (pen === best.pen && extra + changed < best.score)) best = { pen, score: extra + changed, mats: mats.map(m => [...m]) };
     } else {
-      set(s, was);
+      moves.forEach(([s], k) => set(s, was[k]!));
+      tracker?.refresh(touched);
     }
   }
 
