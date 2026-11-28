@@ -44,7 +44,10 @@ export function readPlayLog(lines: string[]): { id: string; summary: unknown; re
   return out;
 }
 
-export interface SoloSummary { outcome: string | null; reason: string | null; round: number; minutes: number; board: string[]; storage: string[] }
+export interface SoloSummary {
+  outcome: string | null; reason: string | null; round: number; minutes: number; board: string[]; storage: string[];
+  bossKillEnemies?: number; helperCombines?: number;
+}
 export interface SoloLogBody {
   stage: 'stage1' | 'stage3'; seed: number; difficulty?: Difficulty; dataVersion: string;
   log: SoloLogEntry[]; summary: SoloSummary;
@@ -58,10 +61,14 @@ const count = (v: unknown): v is number => Number.isSafeInteger(v) && (v as numb
 /** Copies only the known fields: the summary is written to the host log as is, so nothing else a client sends may reach it. */
 function soloSummary(v: unknown): SoloSummary | null {
   if (!isObject(v)) return null;
-  const { outcome, reason, round, minutes, board, storage } = v;
+  const { outcome, reason, round, minutes, board, storage, bossKillEnemies, helperCombines } = v;
   if (!(outcome === null || shortText(outcome, 16)) || !(reason === null || shortText(reason, 16))) return null;
   if (!count(round) || !count(minutes) || !idList(board) || !idList(storage)) return null;
-  return { outcome, reason, round, minutes, board, storage };
+  if ((bossKillEnemies !== undefined && !count(bossKillEnemies)) || (helperCombines !== undefined && !count(helperCombines))) return null;
+  return {
+    outcome, reason, round, minutes, board, storage,
+    ...(bossKillEnemies === undefined ? {} : { bossKillEnemies }), ...(helperCombines === undefined ? {} : { helperCombines }),
+  };
 }
 
 export function parseSoloLog(body: string): SoloLogBody | null {

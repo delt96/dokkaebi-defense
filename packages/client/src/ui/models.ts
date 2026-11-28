@@ -446,7 +446,8 @@ export function hudModel(state: GameState, pill = false): HudModel {
   const { level, instant } = limitLevel(state.data, n, state.round);
   const resist = resistText(state.data, state.round);
   const boss = state.enemies.find(e => e.boss && e.hp > 0);
-  const bossTitle = boss ? `보스 체력 ${boss.hp} / ${boss.maxHp}` : null;
+  const cleanup = !boss && state.cleanupFrom !== undefined ? '보스 처치 · 남은 잡귀 정리' : null;
+  const bossTitle = boss ? `보스 체력 ${boss.hp} / ${boss.maxHp}` : cleanup;
   const tail = limitTail(level, n, b.limit);
   return {
     roundText: (state.phase === 'prep' ? '준비' : `${state.round} / ${b.rounds} 라운드`) + difficultySuffix(state.data, state.difficulty),
@@ -867,6 +868,8 @@ export function dexEntries(data: GameData): DexEntry[] {
 export function resultModel(state: GameState, bestUnitId: string | null): {
   title: '클리어' | '탈락'; reasonText: string; roundReached: number; series: number[];
   lastEnemies: number; maxEnemies: number; bestUnit: { name: string; grade: number } | null; helperText: string;
+  /** Normal enemies when the final boss fell, for a game that had the cleanup; null otherwise. */
+  bossKillEnemies: number | null;
 } {
   const r = state.result;
   const reasonText = r?.reason === 'limit' ? '고개가 뚫렸습니다' : r?.reason === 'boss' ? '고개 보스를 놓쳤습니다' : '';
@@ -880,7 +883,8 @@ export function resultModel(state: GameState, bestUnitId: string | null): {
     lastEnemies: series[series.length - 1] ?? 0,
     maxEnemies: Math.max(0, ...state.stats.map(s => s.maxEnemies)),
     bestUnit: best ? { name: best.name, grade: best.grade } : null,
-    helperText: `도우미 ${state.helperOpens}회`,
+    helperText: `도우미로 조합 ${state.helperCombines ?? 0}회`,
+    bossKillEnemies: state.cleanupFrom ?? null,
   };
 }
 

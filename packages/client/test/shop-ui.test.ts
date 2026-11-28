@@ -481,6 +481,18 @@ describe('storage paths prefer the bare copy', () => {
     const btn = box.querySelector<HTMLElement>(`.storage-combine[data-arg="${recipe.result}"]`)!;
     eatsTag(btn, '날', '날쌘 부적');
   });
+  test('a storage combine is queued without the recipe-list mark', () => {
+    document.body.innerHTML = STAGE_HTML;
+    const recipe = d3.recipes.find(r => new Set(r.materials).size === r.materials.length && unitDefFast(d3, r.materials[0]!).grade <= 2)!;
+    const s = openGame();
+    const [first, ...rest] = recipe.materials;
+    rest.forEach((m, i) => placeUnitForTest(s, m, i));
+    storeForTest(s, first!);
+    const box = document.createElement('div');
+    box.innerHTML = storageInfoHtml(s, storageInfoModel(s, first!)!);
+    const btn = box.querySelector<HTMLElement>(`.storage-combine[data-arg="${recipe.result}"]`)!;
+    expect(btn.getAttribute('data-action')).toBe('storageCombine');
+  });
   test('R on a storage stack opens on the copy pickStored names', () => {
     document.body.innerHTML = STAGE_HTML;
     const s = openGame();

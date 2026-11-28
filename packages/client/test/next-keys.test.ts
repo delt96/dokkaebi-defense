@@ -121,9 +121,9 @@ describe('W, Shift+W and Z/X/C off the next list', () => {
     scene.select(0);
     for (const code of ['KeyZ', 'KeyX', 'KeyC']) key(code);
     expect(combines()).toEqual([
-      { type: 'combine', result: 'didilbangga', slot: 0 },
-      { type: 'combine', result: 'meongseok', slot: 0 },
-      { type: 'combine', result: 'baneul', slot: 0 },
+      { type: 'combine', result: 'didilbangga', slot: 0, via: 'list' },
+      { type: 'combine', result: 'meongseok', slot: 0, via: 'list' },
+      { type: 'combine', result: 'baneul', slot: 0, via: 'list' },
     ]);
   });
 
@@ -133,8 +133,8 @@ describe('W, Shift+W and Z/X/C off the next list', () => {
     key('KeyZ');
     key('KeyX');
     expect(combines()).toEqual([
-      { type: 'combine', result: 'didilbangga', slot: 0 },
-      { type: 'combine', result: 'baneul', slot: 0 },
+      { type: 'combine', result: 'didilbangga', slot: 0, via: 'list' },
+      { type: 'combine', result: 'baneul', slot: 0, via: 'list' },
     ]);
   });
 

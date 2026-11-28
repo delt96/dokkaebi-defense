@@ -70,8 +70,9 @@ test('result model', () => {
   const s = createGame(data, 1); forceRound(s, 10);
   for (let i = 0; i < 1501; i++) step(s, []);
   s.helperOpens = 3;
+  s.helperCombines = 4;
   const m = resultModel(s, 'gamasot');
-  expect(m).toMatchObject({ title: '탈락', reasonText: '고개 보스를 놓쳤습니다', roundReached: 10, bestUnit: { name: '가마솥', grade: 2 }, helperText: '도우미 3회' });
+  expect(m).toMatchObject({ title: '탈락', reasonText: '고개 보스를 놓쳤습니다', roundReached: 10, bestUnit: { name: '가마솥', grade: 2 }, helperText: '도우미로 조합 4회', bossKillEnemies: null });
   expect(m.series.length).toBe(s.stats.length);
 });
 
@@ -131,11 +132,11 @@ test('the card and physical keys combine at the selected slot while the whole li
   expect(card.innerHTML).toContain('class="mat-chip lack" title="호롱 없음"');
   expect(card.innerHTML).toContain(`data-action="sell" data-arg="${chosen.id}"`);
   click('left', `gamasot@${chosen.id}`);
-  expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3 });
+  expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', slot: 3, via: 'list' });
   press('Escape');
   expect(panels.get('left')!.innerHTML).toContain('data-arg="gamasot"');
   click('left', 'gamasot');
-  expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot' });
+  expect(queue).toHaveBeenLastCalledWith({ type: 'combine', result: 'gamasot', via: 'list' });
 
   driver.reset(s);
   select(3);
@@ -146,7 +147,7 @@ test('the card and physical keys combine at the selected slot while the whole li
   press('KeyX');
   expect(queue).not.toHaveBeenCalled();
   press('KeyZ');
-  expect(queue).toHaveBeenCalledExactlyOnceWith({ type: 'combine', result: 'gamasot', slot: 3 });
+  expect(queue).toHaveBeenCalledExactlyOnceWith({ type: 'combine', result: 'gamasot', slot: 3, via: 'list' });
   driver.update(s.data.balance.tickMs);
   vi.advanceTimersByTime(100);
   scene.onFrame();

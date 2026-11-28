@@ -3,7 +3,10 @@ import { serverUrl } from './net/room';
 
 export interface SoloLogBody {
   stage: 'stage1' | 'stage3'; seed: number; difficulty?: Difficulty; dataVersion: string; log: SoloLogEntry[];
-  summary: { outcome: string | null; reason: string | null; round: number; minutes: number; board: string[]; storage: string[] };
+  summary: {
+    outcome: string | null; reason: string | null; round: number; minutes: number; board: string[]; storage: string[];
+    bossKillEnemies?: number; helperCombines: number;
+  };
 }
 
 export function soloLogBody(state: GameState, seed: number, difficulty: Difficulty | undefined, stage: 'stage1' | 'stage3', log: SoloLogEntry[]): SoloLogBody {
@@ -16,6 +19,8 @@ export function soloLogBody(state: GameState, seed: number, difficulty: Difficul
       outcome: state.result?.outcome ?? null, reason: state.result?.reason ?? null, round: state.round,
       minutes: Math.round(state.tick * state.data.balance.tickMs / 60_000),
       board: ids(state.slots), storage: ids(state.storage),
+      ...(state.cleanupFrom === undefined ? {} : { bossKillEnemies: state.cleanupFrom }),
+      helperCombines: state.helperCombines ?? 0,
     },
   };
 }

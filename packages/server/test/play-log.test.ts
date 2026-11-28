@@ -81,6 +81,17 @@ describe('replayable play records', () => {
     }
   });
 
+  test('parseSoloLog keeps the cleanup and list-combine counts and refuses bad ones', () => {
+    const summary = { outcome: 'clear', reason: null, round: 70, minutes: 44, board: ['meok'], storage: [], bossKillEnemies: 24, helperCombines: 37 };
+    const ok = { stage: 'stage3', seed: 5, difficulty: 'hard', dataVersion: '0a1b2c3d', log: [], summary };
+    expect(parseSoloLog(JSON.stringify(ok))?.summary).toEqual(summary);
+    const { bossKillEnemies: _, ...noCleanup } = summary;
+    expect(parseSoloLog(JSON.stringify({ ...ok, summary: noCleanup }))?.summary).toEqual(noCleanup);
+    for (const bad of [{ bossKillEnemies: -1 }, { helperCombines: 'many' }, { helperCombines: 1.5 }]) {
+      expect(parseSoloLog(JSON.stringify({ ...ok, summary: { ...summary, ...bad } }))).toBeNull();
+    }
+  });
+
   test('POST /api/solo-log logs a good body (204), rejects a broken one (400) and an oversized one (413)', async () => {
     const log = vi.fn();
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {});

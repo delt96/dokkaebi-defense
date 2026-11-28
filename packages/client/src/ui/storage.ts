@@ -39,7 +39,7 @@ export function storageInfoHtml(state: GameState, info: NonNullable<ReturnType<t
     <div class="up-name">${unitFaceHtml(info.defId, info.name, info.grade)}<b>${esc(info.name)} ×${info.count}</b></div>
     <div class="up-sub">${info.grade}등급 · ${typeBadgeHtml(state.data, info.defId, true)}</div>
     <p class="up-skill" title="${esc(info.skill)}">${esc(info.skill)}</p>
-    ${info.combines.map(o => `<button class="storage-combine" data-action="combine" data-arg="${esc(o.result)}" title="${esc(`${o.name} 조합${o.cost ? ` · ${o.cost}` : ''}${o.eatsItem ? ` · ${EATS_ITEM_TEXT}` : ''}`)}">${esc(o.name)} 조합${o.eaten?.length ? ` ${eatsTagHtml(o.eaten)}` : ''}</button>`).join('')}
+    ${info.combines.map(o => `<button class="storage-combine" data-action="storageCombine" data-arg="${esc(o.result)}" title="${esc(`${o.name} 조합${o.cost ? ` · ${o.cost}` : ''}${o.eatsItem ? ` · ${EATS_ITEM_TEXT}` : ''}`)}">${esc(o.name)} 조합${o.eaten?.length ? ` ${eatsTagHtml(o.eaten)}` : ''}</button>`).join('')}
     <button data-action="sellStored" data-arg="${esc(info.defId)}">1개 판매 +${info.sellPrice}냥</button>
     <button data-action="closeStorageInfo" aria-label="보관 정보 닫기">×</button>
   </div>`;

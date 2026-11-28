@@ -517,14 +517,17 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         break;
       case 'convert': driver.queue({ type: 'convertToken' }); break;
       case 'combine': {
+        // the recipe list (rows and Z/X/C) is the solo 도우미; its combines are counted for the result screen
+        const via = online ? {} : { via: 'list' as const };
         const [result = '', target] = arg.split('@');
-        if (target === undefined) driver.queue({ type: 'combine', result });
+        if (target === undefined) driver.queue({ type: 'combine', result, ...via });
         else {
           const slot = selectedSlot(driver.state, Number(target));
-          if (slot !== null) driver.queue({ type: 'combine', result, slot });
+          if (slot !== null) driver.queue({ type: 'combine', result, slot, ...via });
         }
         break;
       }
+      case 'storageCombine': driver.queue({ type: 'combine', result: arg }); break;
       case 'sell': {
         const slot = selectedSlot(driver.state, Number(arg));
         if (slot === null) break;
@@ -897,6 +900,9 @@ export function mountUi(driver: Driver, scene: LaneScene, hooks: UiHooks = {}, o
         const v = online && opts.data ? opts.view?.() ?? null : null;
         const deadline = !!v && event.round === gateDeadlineRound(v, opts.data!);
         topSlot.push({ kind: 'banner', text: [reward, title].filter(Boolean).join('\n'), ms: BANNER_MS, ...(deadline ? { tail: DEADLINE_TAIL } : {}) }, performance.now());
+      }
+      if (event.type === 'cleanupStart') {
+        topSlot.push({ kind: 'banner', text: '보스를 잡았습니다\n남은 시간 동안 잡귀를 정리하세요', ms: BANNER_MS }, performance.now());
       }
     }
     if (revealEpoch !== driver.laneEpoch) {

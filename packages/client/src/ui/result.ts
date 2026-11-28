@@ -50,7 +50,7 @@ export function resultHtml(state: GameState, bestUnitId: string | null): string 
     <p>${m.roundReached}라운드까지 버텼습니다.</p>
     <p>라운드별 내 잡귀 (빨간 점선: 한도 ${state.data.balance.limit})</p>
     ${plot ? plot + graphScale(m.series.length) : ''}
-    <p>마지막 ${m.lastEnemies}마리 · 가장 많았을 때 ${m.maxEnemies}마리</p>
+    <p>마지막 ${m.lastEnemies}마리${m.bossKillEnemies === null ? '' : ` (보스 잡을 때 ${m.bossKillEnemies}마리)`} · 가장 많았을 때 ${m.maxEnemies}마리</p>
     <p>최고 유닛: ${best} · ${esc(m.helperText)}</p>
     <div class="screen-actions"><button class="big secondary" data-action="capture">판 사진 저장</button><button class="big" data-action="restart">다시 하기</button><button class="big secondary" data-action="home">처음 화면으로</button></div>
   </div>`;

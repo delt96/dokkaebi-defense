@@ -73,7 +73,8 @@ function refusalButtons(command: { type: string; arg?: string }): { button?: str
       // the row pressed, or the keyed row Z/X/C named; a redraw that took it away or shut it leaves the slot
       if (command.arg === undefined) return {};
       const row = (box: string) => `${box} [data-action="combine"][data-arg="${command.arg}"]:not(:disabled)`;
-      return { button: row('#stage'), win: { side: 'left', selector: row('#win-left') } };
+      const stored = `#stage [data-action="storageCombine"][data-arg="${command.arg}"]:not(:disabled)`;
+      return { button: `${row('#stage')}, ${stored}`, win: { side: 'left', selector: row('#win-left') } };
     }
     case 'buyItem': return command.arg === undefined ? {} : { win: { side: 'right', selector: `#win-right [data-action="buyItem"][data-arg="${command.arg}"]` } };
     // the list closes on the press, so the refusal lands on the button that opened it (solo 붙이기 ▾, online 아이템 ▾)

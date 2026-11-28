@@ -65,7 +65,7 @@ test('a stored stack lists the combines it can make now, and the button combines
   step(state, [{ type: 'storeAll' }]);
   const info = storageInfoModel(state, 'jipsin')!;
   expect(info.combines.map(o => o.result)).toContain('dunggumi');
-  expect(storageInfoHtml(state, info)).toContain('data-action="combine" data-arg="dunggumi"');
+  expect(storageInfoHtml(state, info)).toContain('data-action="storageCombine" data-arg="dunggumi"');
   step(state, [{ type: 'combine', result: 'dunggumi' }]);
   expect(state.storage ?? []).toHaveLength(0);
   expect(state.slots.some(u => u?.defId === 'dunggumi')).toBe(true);
