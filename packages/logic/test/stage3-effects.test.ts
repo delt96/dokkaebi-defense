@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createGame, loadGameData, speedBonus, step, type GameData, type StepResult } from '../src/index';
+import { createGame, loadGameData, speedBonus, step, TICKS_PER_SECOND, type GameData, type StepResult } from '../src/index';
 import { auraAttackPower, vulnOf } from '../src/effects';
 import { forceRound, makeData, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
 
@@ -93,11 +93,29 @@ describe('stage 3 effect extensions', () => {
     const e = spawnEnemyForTest(s, 'japgwi', 3, 1e7); step(s, []);
     expect(Object.keys(e.vulns)).toEqual(['gireumteul']);
     placeUnitForTest(s, 'gireumteul', 3); for (let i = 0; i < 30; i++) step(s, []);
-    expect(Object.keys(e.vulns)).toEqual(['gireumteul']); expect(vulnOf(s, e, 'physical')).toBeCloseTo(0.19);
+    expect(Object.keys(e.vulns)).toEqual(['gireumteul']); expect(vulnOf(s, e, 'physical')).toBeCloseTo(0.3);
 
     const b = createGame(d3, 1); placeUnitForTest(b, 'buk', 2); placeUnitForTest(b, 'jejuyeonggam', 1);
     const be = spawnEnemyForTest(b, 'japgwi', 3);
     expect([vulnOf(b, be, 'physical'), vulnOf(b, be, 'magical')]).toEqual([0.15, 0]);
+  });
+
+  test('a weaker, shorter hit on the same vuln key keeps the stronger pct and the longer time', () => {
+    const s = quiet3(firstEvery(['gireumteul'])); placeUnitForTest(s, 'gireumteul', 2);
+    const e = spawnEnemyForTest(s, 'japgwi', 3, 1e7); step(s, []);
+    expect(e.vulns.gireumteul).toMatchObject({ pct: 0.3, stacks: 1 });
+    expect(e.vulns.gireumteul!.ticks).toBeGreaterThan(11 * TICKS_PER_SECOND);
+    s.slots[2] = null; placeUnitForTest(s, 'cheonnyeonmaetbangseok', 3);
+    for (let i = 0; i < 30; i++) step(s, []);
+    expect(e.vulns.gireumteul!.pct).toBe(0.3);
+    expect(e.vulns.gireumteul!.ticks).toBeGreaterThan(3 * TICKS_PER_SECOND);
+  });
+
+  test('stacking vuln on a shared key still stacks to its cap at its own pct', () => {
+    const s = quiet3(); placeUnitForTest(s, 'cheonnyeonjing', 2);
+    const e = spawnEnemyForTest(s, 'japgwi', 3, 1e8);
+    for (let i = 0; i < 400; i++) step(s, []);
+    expect(e.vulns.moru).toMatchObject({ pct: 0.04, stacks: 5 });
   });
 
   test('periodic all-in-range applies its statuses to every target', () => {

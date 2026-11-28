@@ -143,7 +143,7 @@ function applyStatus(state: GameState, slot: number, source: string, target: Ene
       const key = eff.source ?? source;
       const cur = target.vulns[key];
       if (cur && eff.maxStacks) { cur.stacks = Math.min(cur.stacks + 1, eff.maxStacks); cur.ticks = ticks; }
-      else if (cur) { cur.ticks = ticks; }
+      else if (cur) { cur.pct = Math.max(cur.pct, eff.pct); cur.ticks = Math.max(cur.ticks, ticks); }
       else target.vulns[key] = { pct: eff.pct, damageType: eff.damageType, ticks, stacks: 1 };
       const def = unitDefFast(state.data, source);
       if (def.skills.some(s => s.effects.some(x => x.kind === 'onVulnKillExplode'))) {
