@@ -4,7 +4,7 @@ import { dist } from './lane';
 import { registerPhase } from './registry';
 import { laneOf } from './lane';
 import { enemyDefFast, finishGame, TICKS_PER_SECOND } from './flow';
-import { currentStats, isEvent, isShared, statsForRound } from './stats';
+import { countNormalEnemies, currentStats, isEvent, isShared, statsForRound } from './stats';
 import { roundStartTick } from './match/schedule';
 import { econBossKill, econEventDamage, econEventKill } from './econ/hooks';
 import { unitDefFast } from './units';
@@ -169,7 +169,12 @@ export function resolveKills(state: GameState, events: GameEvent[], opts: { fina
         const start = e.round === state.round ? state.roundStartTick : roundStartTick(state.data, e.round);
         st.bossKillSeconds = (state.tick - start) / TICKS_PER_SECOND;
       }
-      if (finalClear && state.round >= b.rounds) finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
+      if (finalClear && state.round >= b.rounds) {
+        if (b.finalCleanup) {
+          state.cleanupFrom = countNormalEnemies(state);
+          events.push({ type: 'cleanupStart', enemies: state.cleanupFrom });
+        } else finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
+      }
       if (state.econ) econBossKill(state, e.round, events);
     } else {
       state.coins += b.coins.perKill;

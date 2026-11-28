@@ -28,7 +28,7 @@ export function huntCoins(def: HuntTargetDef, level: number): number {
 export function huntCheck(state: GameState, enemy: string): RejectReason | null {
   const def = huntDef(state, enemy);
   if (!def || !state.econ) return 'noTarget';
-  if (state.phase !== 'round' || state.round < def.fromRound) return 'huntClosed';
+  if (state.phase !== 'round' || state.round < def.fromRound || state.cleanupFrom !== undefined) return 'huntClosed';
   const seat = huntSeat(state, enemy);
   if (seat.enemyId !== null) return 'huntOut';
   if (state.tick < seat.readyTick) return 'cooldown';

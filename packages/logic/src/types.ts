@@ -75,6 +75,8 @@ export interface BalanceDef {
   bossCcFactor: number; vulnCap: number; auraRadius: number; pulseSeconds: number;
   onBasicHitRadius?: number; auraCaps?: { attackSpeed: number; attackPower: number };
   periodicReady?: boolean; extendedCombat?: boolean; bossControl?: BossControlDef;
+  /** Solo: the final boss's death starts a cleanup that ends at the round's time or an empty lane, instead of ending the game. */
+  finalCleanup?: boolean;
   /** Stage 3: weakening adds to what resistance leaves (1 - resist + vuln) instead of multiplying it. */
   vulnCutsResist?: boolean;
   /** Stage 3: resistance that grows with the round; see resistAt. */
@@ -246,6 +248,8 @@ export interface GameState {
   enemies: Enemy[]; fires: GroundFire[];
   upgrades: Record<UpgradeId, number>;
   overLimitTicks: number; helperOpens: number;
+  /** Normal enemies alive when the final boss fell; set only once a `finalCleanup` lane starts its cleanup. */
+  cleanupFrom?: number;
   stats: RoundStats[];
   rng: { summon: RngState; combat: RngState };
   nextId: number;
@@ -288,6 +292,7 @@ export type GameEvent =
   | { type: 'damage'; enemyId: number; amount: number; source: string; effect?: HitEffect }
   | { type: 'kill'; enemyId: number } | { type: 'speedChange'; enemyId: number; d: number; speed: number }
   | { type: 'ended'; result: GameResult }
+  | { type: 'cleanupStart'; enemies: number }
   | { type: 'jigeSwap'; source: JigeSource; unitId: number; defId: string }
   | { type: 'questReward'; quest: GeneralQuestId; coins: number; buckwheat: number; tokens: number }
   | { type: 'tame'; enemyId: number; defId: string; unitId: number; slot: number }

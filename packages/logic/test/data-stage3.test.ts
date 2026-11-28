@@ -144,6 +144,7 @@ describe('stage 3 balance stands on its own', () => {
       vulnCutsResist: true,
       resistByRound: { fromRound: 20, toRound: 70, top: 0.55, cap: 0.8 },
       zoneSlow: { pctFactor: 1 },
+      finalCleanup: true,
     });
     expect(d3.coop).toEqual({
       yeoksin: [

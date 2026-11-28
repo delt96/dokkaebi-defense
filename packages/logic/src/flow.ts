@@ -131,4 +131,5 @@ export function trackLimit(state: GameState): boolean {
 export function checkEnd(state: GameState, events: GameEvent[]): void {
   if (state.phase !== 'round') return;
   if (trackLimit(state)) finishGame(state, { outcome: 'defeat', reason: 'limit', round: state.round }, events);
+  else if (state.cleanupFrom !== undefined && countNormalEnemies(state) === 0) finishGame(state, { outcome: 'clear', reason: null, round: state.round }, events);
 }
