@@ -140,7 +140,7 @@
   { "id": "cheonnyeonmuseosot", "name": "천년 무쇠솥", "grade": 6, "damageType": "physical", "range": 2.0, "interval": 1.4, "factor": 1.09,
     "skills": [{"trigger": {"kind": "charge", "seconds": 4}, "effects": [{"kind": "crit", "mult": 2.1}, {"kind": "splash", "radius": 2, "mult": 1.1}, {"kind": "stun", "seconds": 0.75, "radius": 2}]}, {"trigger": {"kind": "always"}, "effects": [{"kind": "vuln", "pct": 0.17, "seconds": 4, "damageType": "magical", "source": "yaktanggi"}]}] },
   { "id": "cheonnyeonjing", "name": "천년 징", "grade": 6, "damageType": "magical", "range": 3.5, "interval": 1.2, "factor": 0.82,
-    "skills": [{"trigger": {"kind": "periodic", "seconds": 7}, "effects": [{"kind": "allInRange", "mult": 3.05}, {"kind": "stun", "seconds": 0.75, "radius": 1.25}]}, {"trigger": {"kind": "always"}, "effects": [{"kind": "vuln", "pct": 0.04, "seconds": 4, "damageType": "physical", "maxStacks": 5, "source": "moru"}]}] },
+    "skills": [{"trigger": {"kind": "periodic", "seconds": 7}, "effects": [{"kind": "allInRange", "mult": 3.05}, {"kind": "stun", "seconds": 0.75}]}, {"trigger": {"kind": "always"}, "effects": [{"kind": "vuln", "pct": 0.04, "seconds": 4, "damageType": "physical", "maxStacks": 5, "source": "moru"}]}] },
   { "id": "cheonnyeoneohwa", "name": "천년 관솔횃대", "grade": 6, "damageType": "magical", "range": 3.0, "interval": 1.35, "factor": 0.82,
     "skills": [{"trigger": {"kind": "periodic", "seconds": 5}, "effects": [{"kind": "dot", "mult": 1.9, "seconds": 2, "radius": 2}]}] },
   { "id": "cheonnyeongombangdae", "name": "천년 곰방대", "grade": 6, "damageType": "magical", "range": 3.0, "interval": 0.75, "factor": 0.82,

@@ -212,13 +212,13 @@ describe('exclusive recipes of the recruits', () => {
 });
 
 describe('area stun and shred', () => {
-  const STUN_AREA = ['bujipge', 'soemangchi', 'top', 'dongwe', 'ssatba', 'buk', 'gamtudokkaebi', 'oedaridokkaebi', 'gildal', 'cheonnyeonjing', 'ssireumdokkaebi', 'satbadolgaejangsa'];
+  const STUN_AREA = ['bujipge', 'soemangchi', 'top', 'dongwe', 'ssatba', 'buk', 'gamtudokkaebi', 'oedaridokkaebi', 'gildal', 'ssireumdokkaebi', 'satbadolgaejangsa'];
   const VULN_AREA: Record<string, [number, number]> = { sutdarimi: [0.12, 3], bujipge: [0.1, 2], yagyeon: [0.15, 3] };
   const EVERY_HIT = ['duduri', 'gaetgilbuldokkaebi', 'cheonnyeonmaetbangseok', 'cheonnyeonmuseosot', 'cheonnyeonjing', 'cheonnyeonyogang', 'cheonnyeonsangmo', 'bulgasari'];
   const effects = (id: string) => unitDef(d3, id).skills.flatMap(s => s.effects.map(e => ({ trigger: s.trigger.kind, e })));
   const areaOf = (e: object) => ('radius' in e ? e.radius : undefined) ?? ('area' in e ? e.area : undefined);
 
-  test('the twelve single stuns reach 1.25 around the hit', () => {
+  test('the eleven single stuns reach 1.25 around the hit', () => {
     for (const id of STUN_AREA) {
       const stuns = effects(id).filter(x => x.e.kind === 'stun');
       expect([id, stuns.length > 0, stuns.every(x => areaOf(x.e) === 1.25)]).toEqual([id, true, true]);
@@ -243,7 +243,16 @@ describe('area stun and shred', () => {
     const own = new Set(dataSources().stage3.units.map(u => u.id));
     for (const u of d3.units) for (const s of u.skills) for (const e of s.effects) {
       if (e.kind !== 'stun') continue;
-      expect([u.id, areaOf(e) !== undefined]).toEqual([u.id, own.has(u.id)]);
+      const everyoneInRange = s.effects.some(x => x.kind === 'allInRange');
+      expect([u.id, everyoneInRange || areaOf(e) !== undefined]).toEqual([u.id, own.has(u.id)]);
+    }
+  });
+
+  // runPeriodics lands an allInRange skill's statuses on everyone it damaged and never reads radius/area.
+  test('statuses on an all-in-range skill carry no radius or area', () => {
+    for (const u of d3.units) for (const s of u.skills) {
+      if (!s.effects.some(x => x.kind === 'allInRange')) continue;
+      for (const e of s.effects) if (e.kind !== 'allInRange') expect([u.id, e.kind, areaOf(e)]).toEqual([u.id, e.kind, undefined]);
     }
   });
 });
