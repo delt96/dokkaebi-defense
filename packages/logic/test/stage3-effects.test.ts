@@ -118,6 +118,13 @@ describe('stage 3 effect extensions', () => {
     expect(e.vulns.moru).toMatchObject({ pct: 0.04, stacks: 5 });
   });
 
+  test('area stun reaches 1.25 around the hit', () => {
+    const s = quiet3(firstEvery(['soemangchi'])); placeUnitForTest(s, 'soemangchi', 2);
+    spawnEnemyForTest(s, 'japgwi', 3, 1e6); const near = spawnEnemyForTest(s, 'japgwi', 4, 1e6); const far = spawnEnemyForTest(s, 'japgwi', 5, 1e6);
+    step(s, []);
+    expect([near.stunTicks > 0, far.stunTicks]).toEqual([true, 0]);
+  });
+
   test('periodic all-in-range applies its statuses to every target', () => {
     const s = quiet3(); placeUnitForTest(s, 'meok', 2);
     const a = spawnEnemyForTest(s, 'japgwi', 3, 1e6); const b = spawnEnemyForTest(s, 'japgwi', 3.5, 1e6);
