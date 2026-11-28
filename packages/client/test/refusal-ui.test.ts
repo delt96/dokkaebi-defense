@@ -172,6 +172,31 @@ test('P pause: cover, pill, Space says 멈춤 중입니다 · P로 계속, 계�
   expect($('#top .pill')).toBeNull();
 });
 
+test('P pause: a storage combine press is refused out loud, not dropped', () => {
+  const { driver, frame } = mountSolo();
+  const queue = vi.spyOn(driver, 'queue');
+  key('KeyP');
+  frame();
+  const btn = document.createElement('button');
+  btn.dataset.action = 'storageCombine';
+  btn.dataset.arg = 'gamasot';
+  $('#left')!.append(btn);
+  press(btn);
+  expect($('.refusal')?.textContent ?? $('#round-banner')!.textContent).toBe('멈춤 중입니다 · P로 계속');
+  expect(queue).not.toHaveBeenCalled();
+});
+
+test('a storage combine press is queued without the recipe-list mark', () => {
+  const { driver } = mountSolo();
+  const queue = vi.spyOn(driver, 'queue');
+  const btn = document.createElement('button');
+  btn.dataset.action = 'storageCombine';
+  btn.dataset.arg = 'gamasot';
+  $('#left')!.append(btn);
+  press(btn);
+  expect(queue).toHaveBeenCalledExactlyOnceWith({ type: 'combine', result: 'gamasot' });
+});
+
 test('the dex pause draws no cover and no pill', () => {
   const { driver, frame } = mountSolo();
   key('KeyD');

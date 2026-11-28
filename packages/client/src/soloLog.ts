@@ -19,7 +19,7 @@ export function soloLogBody(state: GameState, seed: number, difficulty: Difficul
       outcome: state.result?.outcome ?? null, reason: state.result?.reason ?? null, round: state.round,
       minutes: Math.round(state.tick * state.data.balance.tickMs / 60_000),
       board: ids(state.slots), storage: ids(state.storage),
-      ...(state.cleanupFrom === undefined ? {} : { bossKillEnemies: state.cleanupFrom }),
+      ...(state.cleanupFrom ? { bossKillEnemies: state.cleanupFrom } : {}),
       helperCombines: state.helperCombines ?? 0,
     },
   };

@@ -105,7 +105,7 @@ const SETTING_ACTIONS: ReadonlySet<string> = new Set(['setHelper', 'speed', 'set
 
 /** Board and resource commands; blocked while the driver is read-only (spirit, or another lane on screen). */
 const GAME_ACTIONS: ReadonlySet<string> = new Set([
-  'summon', 'convert', 'combine', 'sell', 'upgrade', 'gambleCoins', 'gambleUnit', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
+  'summon', 'convert', 'combine', 'storageCombine', 'sell', 'upgrade', 'gambleCoins', 'gambleUnit', 'hunt', 'tame', 'jigeOpen', 'jigeSwap',
   'store', 'storeAll', 'retrieve', 'sellStored', 'sellStack', 'buyItem', 'attachItem',
 ]);
 const PRESS_MS = 120;
@@ -114,7 +114,7 @@ const REFUSAL_MOTION_MS = 280;
 const REFUSAL_OUT_MS = 80;
 const PAUSED_TEXT = '멈춤 중입니다 · P로 계속';
 /** The command a pressed action sends, so a refusal while paused finds the same button a refused command would. */
-const COMMAND_OF: Partial<Record<string, string>> = { summon: 'summon', convert: 'convertToken', sell: 'sell', upgrade: 'upgrade' };
+const COMMAND_OF: Partial<Record<string, string>> = { summon: 'summon', convert: 'convertToken', sell: 'sell', upgrade: 'upgrade', storageCombine: 'combine' };
 const SIDES: readonly Side[] = ['left', 'right'];
 /** The panel button that opens each side window; a window closed from inside gives the focus back to it. */
 const OPENERS: Partial<Record<SideWin, string>> = {

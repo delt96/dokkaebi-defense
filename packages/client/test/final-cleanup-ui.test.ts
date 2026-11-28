@@ -47,6 +47,18 @@ describe('cleanup after the final boss on screen', () => {
     expect(text).toContain('도우미로 조합 0회');
   });
 
+  test('the cleanup label leaves the top bar once the game has ended', () => {
+    const s = cleared({ cleanupFrom: 5, last: 0 });
+    s.enemies = [];
+    expect([hudModel(s).bossText, hudModel(s).bossTitle]).toEqual([null, null]);
+  });
+
+  test('a lane already empty when the boss fell had no cleanup: no bracket, no bossKillEnemies', () => {
+    const s = cleared({ cleanupFrom: 0, last: 0 });
+    expect(textOf(resultHtml(s, null))).toContain('마지막 0마리 · 가장 많았을 때');
+    expect('bossKillEnemies' in soloLogBody(s, 1, 'hard', 'stage3', []).summary).toBe(false);
+  });
+
   test('the solo play log summary carries both counts', () => {
     const body = soloLogBody(cleared({ cleanupFrom: 24, helperCombines: 37, last: 3 }), 1, 'hard', 'stage3', []);
     expect(body.summary).toMatchObject({ bossKillEnemies: 24, helperCombines: 37 });

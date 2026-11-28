@@ -446,7 +446,7 @@ export function hudModel(state: GameState, pill = false): HudModel {
   const { level, instant } = limitLevel(state.data, n, state.round);
   const resist = resistText(state.data, state.round);
   const boss = state.enemies.find(e => e.boss && e.hp > 0);
-  const cleanup = !boss && state.cleanupFrom !== undefined ? '보스 처치 · 남은 잡귀 정리' : null;
+  const cleanup = !boss && state.cleanupFrom !== undefined && state.phase !== 'ended' ? '보스 처치 · 남은 잡귀 정리' : null;
   const bossTitle = boss ? `보스 체력 ${boss.hp} / ${boss.maxHp}` : cleanup;
   const tail = limitTail(level, n, b.limit);
   return {
@@ -884,7 +884,7 @@ export function resultModel(state: GameState, bestUnitId: string | null): {
     maxEnemies: Math.max(0, ...state.stats.map(s => s.maxEnemies)),
     bestUnit: best ? { name: best.name, grade: best.grade } : null,
     helperText: `도우미로 조합 ${state.helperCombines ?? 0}회`,
-    bossKillEnemies: state.cleanupFrom ?? null,
+    bossKillEnemies: state.cleanupFrom ? state.cleanupFrom : null,
   };
 }
 
