@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createGame, huntCheck, loadGameData, step, type GameEvent, type GameState } from '../src/index';
-import { forceRound, spawnEnemyForTest } from '../src/testing';
+import { forceRound, placeUnitForTest, spawnEnemyForTest } from '../src/testing';
 
 const d3 = loadGameData('stage3');
 const d1 = loadGameData('stage1');
@@ -69,5 +69,29 @@ describe('cleanup after the final boss', () => {
     expect(s.phase).toBe('ended');
     expect(s.result?.outcome).toBe('clear');
     expect('cleanupFrom' in s).toBe(false);
+  });
+});
+
+describe('helper combines', () => {
+  const ready = () => {
+    const s = createGame(d1, 1);
+    placeUnitForTest(s, 'sotlid', 4); placeUnitForTest(s, 'bujigaengi', 2);
+    return s;
+  };
+
+  test('a list combine that goes through counts once', () => {
+    const s = ready();
+    expect(step(s, [{ type: 'combine', result: 'gamasot', via: 'list' }]).rejected).toEqual([]);
+    expect(s.helperCombines).toBe(1);
+  });
+
+  test('a refused list combine or a plain combine does not count', () => {
+    const s = createGame(d1, 1);
+    expect(step(s, [{ type: 'combine', result: 'gamasot', via: 'list' }]).rejected[0]?.reason).toBe('missingMaterials');
+    expect('helperCombines' in s).toBe(false);
+    const t = ready();
+    step(t, [{ type: 'combine', result: 'gamasot' }]);
+    expect(t.slots.some(u => u?.defId === 'gamasot')).toBe(true);
+    expect('helperCombines' in t).toBe(false);
   });
 });

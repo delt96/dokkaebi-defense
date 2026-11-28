@@ -250,6 +250,8 @@ export interface GameState {
   overLimitTicks: number; helperOpens: number;
   /** Normal enemies alive when the final boss fell; set only once a `finalCleanup` lane starts its cleanup. */
   cleanupFrom?: number;
+  /** Combines that went through from the recipe list (`via: 'list'`); absent until the first one. */
+  helperCombines?: number;
   stats: RoundStats[];
   rng: { summon: RngState; combat: RngState };
   nextId: number;
@@ -257,7 +259,7 @@ export interface GameState {
   econ?: EconState;
 }
 export type Command =
-  | { type: 'summon' } | { type: 'combine'; result: string; slot?: number; unitId?: number } | { type: 'sell'; slot: number; unitId?: number }
+  | { type: 'summon' } | { type: 'combine'; result: string; slot?: number; unitId?: number; via?: 'list' } | { type: 'sell'; slot: number; unitId?: number }
   | { type: 'move'; from: number; to: number; unitId?: number; toUnitId?: number | null } | { type: 'convertToken' }
   | { type: 'upgrade'; id: UpgradeId } | { type: 'helperOpened' }
   | { type: 'jigeSwap'; source: JigeSource; result: string }

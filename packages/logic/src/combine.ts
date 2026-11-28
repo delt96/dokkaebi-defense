@@ -237,5 +237,6 @@ registerCommand('combine', (state, cmd, events) => {
   if (state.econ) unit.cost = cost;
   events.push({ type: 'combine', replacedUnitId, unitId: unit.id, defId: unit.defId, slot: resultSlot });
   if (state.econ) onCollectionCombine(state, unit.defId, events);
+  if (cmd.via === 'list') state.helperCombines = (state.helperCombines ?? 0) + 1;
   return null;
 });
