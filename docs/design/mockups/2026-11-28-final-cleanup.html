@@ -1,0 +1,89 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>마지막 보스 뒤 정리 시간 목업</title><style>body{background:#140f17;color:#e8dfe9;font-family:sans-serif;padding:24px}</style></head><body>
+<h2>마지막 보스를 잡은 뒤 정리 시간: 이 배치로 진행하려 합니다</h2>
+<p class="subtitle">와이어프레임입니다(실제 화면 640×360을 2배로 그림). <b style="color:#e8a33d">주황 점선 = 새로 생기거나 바뀌는 요소</b>, 회색 = 지금 있는 화면.</p>
+
+<style>
+  .stage { position: relative; width: 1280px; max-width: 100%; aspect-ratio: 16/9; background: #1d1620; border-radius: 6px; overflow: hidden; color: #cdbfd0; }
+  .stage * { box-sizing: border-box; }
+  .top { position: absolute; left: 0; top: 0; right: 0; height: 6.67%; background: #2a2030; font-size: 14px; padding: 0 12px; display: flex; align-items: center; gap: 18px; }
+  .top .sec { color: #fff; font-weight: 700; }
+  .top .cnt { color: #9fe28a; }
+  .top .new { outline: 2px dashed #e8a33d; outline-offset: 2px; color: #ffe08a; padding: 0 6px; border-radius: 3px; }
+  .left { position: absolute; left: 0; top: 6.67%; width: 20%; bottom: 0; background: #241b29; padding: 8px; font-size: 13px; color: #8f7f94; }
+  .center { position: absolute; left: 20%; top: 6.67%; width: 62.5%; bottom: 12.2%; background: #1a2318; }
+  .path { position: absolute; left: 6%; top: 10%; right: 6%; bottom: 8%; border: 18px solid #2c3a28; border-radius: 6px; }
+  .grid { position: absolute; left: 22%; top: 30%; width: 48%; height: 46%; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(4, 1fr); gap: 2px; }
+  .grid div { background: #24301f; border-radius: 2px; }
+  .mob { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #b85a5a; }
+  .right { position: absolute; right: 0; top: 6.67%; width: 17.5%; bottom: 12.2%; background: #241b29; padding: 8px; font-size: 12px; color: #8f7f94; }
+  .bottom { position: absolute; left: 20%; right: 0; bottom: 0; height: 12.2%; background: #2a2030; font-size: 12px; padding: 8px; color: #8f7f94; }
+  .toast { position: absolute; left: 50%; transform: translateX(-50%); top: 9%; font-size: 15px; color: #ffe08a; background: rgba(40,26,10,.9); padding: 8px 16px; border-radius: 4px; outline: 2px dashed #e8a33d; outline-offset: 3px; }
+  .num { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: #e8a33d; color: #1d1620; font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; z-index: 5; box-shadow: 0 0 0 2px #1d1620; }
+  .modal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 520px; background: #2a2030; border-radius: 8px; padding: 18px 22px; font-size: 14px; line-height: 1.6; box-shadow: 0 8px 30px rgba(0,0,0,.6); }
+  .modal .big { font-size: 30px; font-weight: 700; color: #ffe08a; }
+  .modal .why { color: #8f7f94; margin-left: 10px; }
+  .modal .graph { height: 70px; border-bottom: 1px solid #4a3d52; position: relative; margin: 6px 0 4px; }
+  .modal .graph .lim { position: absolute; left: 0; right: 0; top: 10px; border-top: 1px dashed #ff3b2f; }
+  .modal .graph svg { position: absolute; inset: 0; }
+  .modal .chg { outline: 2px dashed #e8a33d; outline-offset: 2px; border-radius: 3px; padding: 0 4px; }
+  .modal .ib { display:inline-flex; width:22px; height:22px; border-radius:50%; background:#e8a33d; color:#1d1620; font-weight:700; font-size:12px; align-items:center; justify-content:center; margin-right:6px; vertical-align:middle; }
+  .modal .ib.old { background:#6b6470; color:#fff; }
+  .modal .btns { display: flex; gap: 8px; margin-top: 10px; }
+  .modal .btns span { background: #3a2d42; padding: 6px 12px; border-radius: 4px; font-size: 13px; }
+  .notes { margin-top: 14px; display: grid; grid-template-columns: 34px 1fr; gap: 8px 6px; max-width: 1280px; font-size: 14px; line-height: 1.55; }
+  .notes .n { width: 26px; height: 26px; border-radius: 50%; background: #e8a33d; color: #1d1620; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .notes .old { background: #6b6470; color: #fff; }
+  h3.cap { margin: 22px 0 8px; }
+</style>
+
+<h3 class="cap">A. 혼자 하기 · 마지막 라운드(지옥 70R) 보스를 잡은 직후</h3>
+<div class="stage">
+  <div class="top"><span>70 / 70 라운드 · 지옥</span><span class="sec">48초</span><span class="cnt">내 잡귀 17 / 60</span><span class="new">보스 처치 · 남은 잡귀 정리</span></div>
+  <div class="num" style="left:612px;top:4px">1</div>
+  <div class="left">고개 현황 / 정보</div>
+  <div class="center">
+    <div class="path"></div>
+    <div class="grid"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div></div>
+    <div class="mob" style="left:12%;top:14%"></div><div class="mob" style="left:15%;top:14%"></div><div class="mob" style="left:18%;top:15%"></div>
+    <div class="mob" style="left:86%;top:40%"></div><div class="mob" style="left:86%;top:46%"></div>
+    <div class="mob" style="left:60%;top:84%"></div>
+  </div>
+  <div class="toast">보스를 잡았습니다 · 남은 시간 동안 잡귀를 정리하세요</div>
+  <div class="num" style="left:430px;top:58px">2</div>
+  <div class="right">상점 · 보따리</div>
+  <div class="bottom">유닛 정보 · 조합</div>
+</div>
+
+<h3 class="cap">B. 혼자 하기 · 결과 화면 (정리 시간이 끝난 뒤)</h3>
+<div class="stage">
+  <div class="top"><span>70 / 70 라운드 · 지옥</span><span class="sec">0초</span><span class="cnt">내 잡귀 3 / 60</span></div>
+  <div class="left"></div><div class="center"></div><div class="right"></div><div class="bottom"></div>
+  <div class="modal">
+    <div><span class="big">클리어</span><span class="why">지옥</span></div>
+    <div>70라운드까지 버텼습니다.</div>
+    <div style="color:#8f7f94">라운드별 내 잡귀 (빨간 점선: 한도 60)</div>
+    <div><span class="ib old">5</span></div><div class="graph"><div class="lim"></div>
+      <svg viewBox="0 0 476 70" preserveAspectRatio="none"><polyline points="0,62 40,50 80,40 120,55 160,30 200,44 240,36 280,50 320,28 360,34 400,22 440,40 476,66" fill="none" stroke="#ffe08a" stroke-width="1.5"/></svg>
+    </div>
+    <div><span class="ib">3</span><span class="chg">마지막 3마리 (보스 잡을 때 24마리)</span> · 가장 많았을 때 58마리</div>
+    <div><span class="ib">4</span>최고 유닛: 백발바늘각시 (6등급) · <span class="chg">도우미로 조합 37회</span></div>
+    <div class="btns"><span>판 사진 저장</span><span>다시 하기</span><span>처음 화면으로</span></div>
+  </div>
+</div>
+
+<div class="notes">
+  <div class="n">1</div><div><b>위쪽 막대</b>: 보스가 죽으면 "보스 체력" 자리에 <b>"보스 처치 · 남은 잡귀 정리"</b>가 나옵니다. 남은 시간(초)은 그대로 줄어듭니다. 마지막 라운드에서만 나옵니다.</div>
+  <div class="n">2</div><div><b>한 번 뜨는 안내</b>: 보스를 잡은 순간 가운데 위에 "보스를 잡았습니다 · 남은 시간 동안 잡귀를 정리하세요"가 2~3초 떴다 사라집니다.</div>
+  <div class="n">3</div><div><b>마지막 잡귀 수</b>: 정리 시간이 끝난 때의 수입니다. 괄호 안에 <b>보스를 잡을 때의 수</b>를 함께 적어 얼마나 정리했는지 보이게 합니다. 정리 시간이 없던 판(탈락)은 괄호 없이 지금처럼 씁니다.</div>
+  <div class="n">4</div><div><b>도우미로 조합 N회</b>: 조합 도우미 목록에서 눌러서 한 조합 수입니다(실제로 조합된 것만). 지금의 "도우미 N회"(전체 목록을 연 횟수)를 바꿉니다.</div>
+  <div class="n old">5</div><div><b>그래프</b>: 지금과 같습니다. 마지막 점이 정리 시간이 끝난 때의 수로 찍힙니다.</div>
+</div>
+
+<h3 class="cap">흐름</h3>
+<ul style="max-width:1280px;line-height:1.7">
+  <li>마지막 라운드 보스를 잡으면 판을 끝내지 않습니다. <b>보스 라운드 남은 시간이 0이 되거나, 내 잡귀가 0마리가 되면</b> 그때 클리어로 끝납니다.</li>
+  <li>정리 시간에는 새 잡귀가 나오지 않습니다. 격파 소환은 막습니다. 수가 늘 일이 없어 이 시간에 지지 않습니다.</li>
+  <li>소환·조합·상점 등 다른 조작은 그대로 할 수 있습니다.</li>
+  <li>3단계 혼자 하기에만 적용합니다. 1·2단계와 온라인은 지금처럼 보스를 잡으면 끝납니다.</li>
+</ul>
+</body></html>
